@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>サプライチェーンシミュレーション (拡張版)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background-color: #f8f9fa; color: #212529; }
+        .navbar { background-color: #343a40; color: white; padding: 10px 20px; font-size: 1.2em; }
+        .container { display: flex; padding: 20px; gap: 20px; height: calc(100vh - 100px); }
+        .editor-pane, .results-pane { flex: 1; background-color: #ffffff; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        .pane-header { padding: 15px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; }
+        .pane-header h2 { margin: 0; font-size: 1.3em; color: #495057; }
+        #simulation-editor { flex-grow: 1; border: none; padding: 15px; font-family: "SF Mono", "Fira Code", "Courier New", monospace; font-size: 14px; line-height: 1.6; resize: none; outline: none; }
+        #results-output { flex-grow: 1; border: none; padding: 15px; font-family: "SF Mono", "Fira Code", "Courier New", monospace; font-size: 14px; line-height: 1.6; background-color: #f1f3f5; white-space: pre-wrap; overflow-y: auto; }
+        .run-button { background-color: #007bff; color: white; border: none; border-radius: 5px; padding: 10px 20px; font-size: 1em; cursor: pointer; transition: background-color 0.2s ease; }
+        .run-button:hover { background-color: #0056b3; }
+        .error-message { color: #dc3545; font-weight: bold; margin-top: 10px; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #dee2e6; padding: 8px; text-align: left; font-size: 0.9em; }
+        th { background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+    <div class="navbar">サプライチェーンシミュレーション (BOM対応版)</div>
+
+    <div class="container">
+        <div class="editor-pane">
+            <div class="pane-header">
+                <h2>シミュレーション定義 (JSON)</h2>
+                <button class="run-button" onclick="runSimulation()">シミュレーション実行</button>
+            </div>
+            <textarea id="simulation-editor"></textarea>
+        </div>
+
+        <div class="results-pane">
+            <div class="pane-header">
+                <h2>実行結果</h2>
+            </div>
+            <div id="results-output"></div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('simulation-editor');
+        const resultsOutput = document.getElementById('results-output');
+
+        // サンプルJSONをエディタに設定
+        const sampleInput = {
+            "planning_horizon": 100,
+            "products": [
+                {
+                    "name": "完成品A",
+                    "assembly_bom": [
+                        { "item_name": "材料X", "quantity_per": 2 },
+                        { "item_name": "材料Y", "quantity_per": 5 }
+                    ]
+                }
+            ],
+            "nodes": [
+                { "name": "店舗1", "node_type": "store", "initial_stock": { "完成品A": 30 }, "lead_time": 3, "reorder_point": {"完成品A": 20}, "order_up_to_level": {"完成品A": 50}, "moq": {"完成品A": 5} },
+                { "name": "中央倉庫", "node_type": "warehouse", "initial_stock": { "完成品A": 100, "材料X": 0 }, "lead_time": 7, "reorder_point": {"完成品A": 50}, "order_up_to_level": {"完成品A": 200}, "moq": {"完成品A": 10} },
+                { "name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": { "完成品A": 100, "材料X": 500, "材料Y": 800 }, "lead_time": 14, "production_capacity": 20, "reorder_point": {"完成品A": 50, "材料X": 200, "材料Y": 400}, "order_up_to_level": {"完成品A": 100, "材料X": 500, "材料Y": 800}, "moq": {"完成品A": 10, "材料X": 50, "材料Y": 100} },
+                { "name": "サプライヤーX", "node_type": "material", "initial_stock": { "材料X": 10000 }, "lead_time": 30, "reorder_point": {"材料X": 500}, "order_up_to_level": {"材料X": 1000}, "moq": {"材料X": 100} },
+                { "name": "サプライヤーY", "node_type": "material", "initial_stock": { "材料Y": 10000 }, "lead_time": 20, "reorder_point": {"材料Y": 500}, "order_up_to_level": {"材料Y": 1000}, "moq": {"材料Y": 100} }
+            ],
+            "network": {
+                "店舗1": "中央倉庫",
+                "中央倉庫": "組立工場",
+                "組立工場": ["サプライヤーX", "サプライヤーY"] 
+            },
+            "customer_demand": [
+                { "store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2 }
+            ]
+        };
+
+        editor.value = JSON.stringify(sampleInput, null, 4);
+
+        async function runSimulation() {
+            resultsOutput.innerHTML = 'シミュレーションを実行中...'; // innerHTMLに変更
+            resultsOutput.classList.remove('error-message');
+
+            let requestBody;
+            try {
+                requestBody = JSON.parse(editor.value);
+            } catch (e) {
+                resultsOutput.textContent = `JSONの形式が正しくありません: ${e.message}`;
+                resultsOutput.classList.add('error-message');
+                return;
+            }
+
+            try {
+                const response = await fetch('/simulation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    let errorText = `HTTPエラー: ${response.status}`;
+                    if (data.detail) {
+                        errorText += `\n${JSON.stringify(data.detail, null, 4)}`;
+                    }
+                    throw new Error(errorText);
+                }
+
+                displayResultsTable(data.results); // 新しい関数を呼び出す
+
+            } catch (error) {
+                resultsOutput.textContent = `エラーが発生しました: ${error.message}`;
+                resultsOutput.classList.add('error-message');
+            }
+        }
+
+        function displayResultsTable(results) {
+            let tableHtml = '<table><thead><tr><th>Day</th><th>Node</th><th>Item</th><th>Start Stock</th><th>Incoming</th><th>Demand</th><th>Sales</th><th>Consumption</th><th>Produced</th><th>Shortage</th><th>End Stock</th><th>Ordered Quantity</th></tr></thead><tbody>';
+
+            results.forEach(dayResult => {
+                const day = dayResult.day;
+                for (const nodeName in dayResult.nodes) {
+                    const nodeData = dayResult.nodes[nodeName];
+                    for (const itemName in nodeData) {
+                        const itemData = nodeData[itemName];
+                        tableHtml += `<tr>
+                            <td>${day}</td>
+                            <td>${nodeName}</td>
+                            <td>${itemName}</td>
+                            <td>${itemData.start_stock !== undefined ? itemData.start_stock.toFixed(0) : '-'}</td>
+                            <td>${itemData.incoming !== undefined ? itemData.incoming.toFixed(0) : '-'}</td>
+                            <td>${itemData.demand !== undefined ? itemData.demand.toFixed(0) : '-'}</td>
+                            <td>${itemData.sales !== undefined ? itemData.sales.toFixed(0) : '-'}</td>
+                            <td>${itemData.consumption !== undefined ? itemData.consumption.toFixed(0) : '-'}</td>
+                            <td>${itemData.produced !== undefined ? itemData.produced.toFixed(0) : '-'}</td>
+                            <td>${itemData.shortage !== undefined ? itemData.shortage.toFixed(0) : '-'}</td>
+                            <td>${itemData.end_stock !== undefined ? itemData.end_stock.toFixed(0) : '-'}</td>
+                            <td>${itemData.ordered_quantity !== undefined ? itemData.ordered_quantity.toFixed(0) : '-'}</td>
+                        </tr>`;
+                    }
+                }
+            });
+
+            tableHtml += '</tbody></table>';
+            resultsOutput.innerHTML = tableHtml;
+        }
+    </script>
+</body>
+</html>
