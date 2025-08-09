@@ -12,36 +12,54 @@
 *   **収支機能**: 各ノードの保管費用、フローコスト（材料原価、生産、輸送）を固定費・変動費に分けて計算し、日別の収支表を表示します。
 *   **UI改善**: タブ切り替えUI、実行結果のノード・品目フィルタ機能、数値のカンマ区切り整数表示。
 
-## セットアップ方法
+## セットアップと起動
 
-1.  **Pythonのインストール**: Python 3.9以上がインストールされていることを確認してください。
-2.  **プロジェクトディレクトリへの移動**: ターミナルでプロジェクトのルートディレクトリに移動します。
+1.  **Pythonの確認**: Python 3.9以上がインストールされていることを確認してください。
+2.  **プロジェクトルートへ移動**:
     ```bash
-    cd /home/miumigy/gemini/scsim
+    cd /home/miumigy/genai/scpln
     ```
-3.  **仮想環境の作成とアクティブ化**: 依存関係を分離するために仮想環境を使用することを推奨します。
+3.  **起動スクリプトでサーバ起動（推奨）**:
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate
+    bash scripts/serve.sh                 # 通常起動
+    RELOAD=1 bash scripts/serve.sh        # コード変更を自動再起動
+    # 以降は http://localhost:8000 へアクセス
     ```
-4.  **依存関係のインストール**: 必要なライブラリをインストールします。
+    - 初回実行時は `.venv` を自動作成し、`requirements.txt` を元に依存関係をインストールします。
+4.  **サーバ停止**:
     ```bash
-    pip install fastapi uvicorn pydantic scipy
+    bash scripts/stop.sh
+    ```
+5.  **手動でのセットアップ/起動（参考）**:
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    uvicorn main:app --host 0.0.0.0 --port 8000 --loop asyncio
     ```
 
 ## シミュレーションの実行 (Web UI)
 
-1.  **仮想環境のアクティブ化**: まだアクティブ化していない場合は、仮想環境をアクティブ化します。
-    ```bash
-    source venv/bin/activate
-    ```
-2.  **Uvicornサーバーの起動**: FastAPIアプリケーションを起動します。
-    ```bash
-    uvicorn main:app --host 0.0.0.0 --port 8000
-    ```
-    サーバーはバックグラウンドで実行されます。
-3.  **ブラウザでのアクセス**: ウェブブラウザで `http://localhost:8000` にアクセスします。
-4.  **シミュレーションの実行**: JSONエディタに表示されているサンプル入力を使用するか、独自のシミュレーション定義を貼り付けて「シミュレーション実行」ボタンをクリックします。結果が表形式で表示されます。
+1.  **ブラウザでアクセス**: `http://localhost:8000` を開きます。
+2.  **シミュレーション実行**: JSONエディタのサンプル入力を使うか独自定義を貼り付け、「シミュレーション実行」をクリックします。
+3.  **APIドキュメント**
+    - OpenAPI UI: `http://localhost:8000/docs`
+    - ReDoc: `http://localhost:8000/redoc`
+
+## 運用コマンド
+
+- 起動: `bash scripts/serve.sh`（`RELOAD=1` で自動再起動）
+- 停止: `bash scripts/stop.sh`
+- ステータス表示: `bash scripts/status.sh`（PID/ポート/ヘルス/直近ログ）
+- ヘルスチェックのみ: `bash scripts/health.sh`
+
+## ヘルスチェック
+
+- エンドポイント: `GET /healthz`
+- 確認例:
+  ```bash
+  curl -fsS http://localhost:8000/healthz && echo ok
+  ```
 
 ## シミュレーション入力 (JSON構造)
 
@@ -61,23 +79,44 @@
         }
     ],
     "nodes": [
-        { "name": "店舗1", "node_type": "store", "initial_stock": { "完成品A": 30 }, "lead_time": 3, "service_level": 0.95, "storage_cost_fixed": 100, "storage_cost_variable": {"完成品A": 0.5} },
-        { "name": "中央倉庫", "node_type": "warehouse", "initial_stock": { "完成品A": 100 }, "lead_time": 7, "service_level": 0.90, "storage_cost_fixed": 500, "storage_cost_variable": {"完成品A": 0.2} },
-        { "name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": { "完成品A": 50, "材料X": 500, "材料Y": 800 }, "lead_time": 14, "production_capacity": 50, "production_cost_fixed": 10000, "production_cost_variable": 50, "storage_cost_fixed": 1000, "storage_cost_variable": {"完成品A": 0.3, "材料X": 0.1, "材料Y": 0.1} },
-        { "name": "サプライヤーX", "node_type": "material", "initial_stock": { "材料X": 10000 }, "lead_time": 30, "material_cost": {"材料X": 100}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料X": 0.01} },
-        { "name": "サプライヤーY", "node_type": "material", "initial_stock": { "材料Y": 10000 }, "lead_time": 20, "material_cost": {"材料Y": 20}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料Y": 0.01} }
+        { "name": "店舗1", "node_type": "store", "initial_stock": { "完成品A": 30 }, "service_level": 0.95, "storage_cost_fixed": 100, "storage_cost_variable": {"完成品A": 0.5}, "backorder_enabled": true },
+        { "name": "中央倉庫", "node_type": "warehouse", "initial_stock": { "完成品A": 100 }, "service_level": 0.90, "storage_cost_fixed": 500, "storage_cost_variable": {"完成品A": 0.2}, "backorder_enabled": true },
+        { "name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": { "完成品A": 50, "材料X": 500, "材料Y": 800 }, "lead_time": 14, "production_capacity": 50, "production_cost_fixed": 10000, "production_cost_variable": 50, "storage_cost_fixed": 1000, "storage_cost_variable": {"完成品A": 0.3, "材料X": 0.1, "材料Y": 0.1}, "backorder_enabled": true },
+        { "name": "サプライヤーX", "node_type": "material", "initial_stock": { "材料X": 10000 }, "material_cost": {"材料X": 100}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料X": 0.01}, "backorder_enabled": true },
+        { "name": "サプライヤーY", "node_type": "material", "initial_stock": { "材料Y": 10000 }, "material_cost": {"材料Y": 20}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料Y": 0.01}, "backorder_enabled": true }
     ],
     "network": [
-        { "from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3 },
-        { "from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2 },
-        { "from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1 },
-        { "from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1 }
+        { "from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3 },
+        { "from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2, "lead_time": 7 },
+        { "from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 30 },
+        { "from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 20 }
     ],
     "customer_demand": [
         { "store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2 }
     ]
 }
 ```
+
+### バックオーダー設定（任意）
+
+- 各ノードで `backorder_enabled` を設定可能です。
+- 既定値: すべてのノードで `true`（必要に応じて `false` を指定してください）。
+- 動作: 出荷日に在庫不足が発生した場合、`true` のノードは不足分を翌日以降に繰り越して再出荷を試みます。`false` のノードは不足分をその日の `shortage` として確定し、繰り越しません。
+
+### リードタイムの設定
+
+- 輸送リードタイムは `network[].lead_time` に設定してください（注文から到着までの日数）。
+- 工場の生産リードタイムは工場ノードの `lead_time` を使用します。
+- 店舗・倉庫・資材ノードの `lead_time` は輸送には使用しません。
+
+## シミュレーション仕様（要点）
+
+- 需要の定義: すべてのノード・品目で `demand = sales + shortage` が成立します。
+- 需要の発生日: 上流ノードの需要は「注文日 + `network.lead_time`（リンクの輸送LT）」の出荷日に発生します。
+- バックオーダー:
+  - 各ノードは `backorder_enabled` が `true` の場合、出荷日に不足した数量を翌日以降に繰越して再出荷を試みます。
+  - 店舗は顧客バックオーダーを保持し、入荷後に可能な範囲で自動出荷して消化します。
+  - 実行結果表の「Backorder」は、未出荷の繰越分（上流の不足繰越＋店舗の顧客バックオーダー）の当日残高です。
 
 ## シミュレーション出力
 
@@ -93,8 +132,9 @@
 *   **Consumption**: 工場で消費された材料の数量
 *   **Produced**: 工場で生産された製品の数量
 *   **Shortage**: その日に発生した欠品数量
+*   **Backorder**: 未出荷の繰越残高（上流の不足繰越＋店舗の顧客バックオーダー）
 *   **End Stock**: その日の終了時点の在庫
-*   **Ordered Quantity**: その日に発注された数量
+*   **Ordered**: その日に発注された数量
 
 収支表は、以下の詳細なコスト分類で表示されます。
 
@@ -105,6 +145,11 @@
     *   Production (Fixed/Variable)
     *   Warehouse Transport (Fixed/Variable)
     *   Store Transport (Fixed/Variable)
+    
+  計上ルール（概要）:
+  - 輸送コストは「出荷日」に計上（固定費はリンクあたり1回/日、変動費は出荷数量比例）。
+  - 材料原価は「資材→工場」の実出荷数量 × サプライヤーの `material_cost[item]`。
+  - 生産費は当日の `produced` に応じて変動費、当日生産があれば固定費を計上。
 *   **Stock Costs**
     *   Material Storage (Fixed/Variable)
     *   Factory Storage (Fixed/Variable)

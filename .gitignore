@@ -1,3 +1,7 @@
 server.log
 package-lock.json
 venv/
+.venv/
+uvicorn.out
+uvicorn.pid
+simulation.log

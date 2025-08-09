@@ -37,6 +37,7 @@ class NetworkLink(BaseModel):
     to_node: str
     transportation_cost_fixed: float = Field(default=0, ge=0)
     transportation_cost_variable: float = Field(default=0, ge=0)
+    lead_time: int = Field(default=0, ge=0)
 
 # --- Node Models (Discriminated Union) ---
 
@@ -47,10 +48,13 @@ class BaseNode(BaseModel):
     # Min-Max parameters removed
     storage_cost_fixed: float = Field(default=0, ge=0)
     storage_cost_variable: Dict[str, float] = Field(default_factory=dict)
+    # Whether this node backorders unmet outbound demand (carry to future days)
+    backorder_enabled: bool = Field(default=True)
 
 class StoreNode(BaseNode):
     node_type: Literal["store"] = "store"
     service_level: float = Field(default=0.95, ge=0, le=1)
+    backorder_enabled: bool = Field(default=True)
 
 class WarehouseNode(BaseNode):
     node_type: Literal["warehouse"] = "warehouse"
@@ -100,6 +104,11 @@ class SupplyChainSimulator:
         self.in_transit_orders = defaultdict(list)  # {arrival_day: [(item, qty, dest, from)]}
         self.production_orders = defaultdict(list) # {completion_day: [(item, qty, factory)]}
         self.order_history = defaultdict(list)  # {day: [(item, qty, from_node, to_node)]}
+        # Pending outbound shipments scheduled by ship day. Each entry:
+        #   (item_name, qty, supplier_node_name, dest_node_name, is_backorder)
+        self.pending_shipments = defaultdict(list)  # {ship_day: [tuple]}
+        # Customer backorders at store level: {store_name: {item_name: qty}}
+        self.customer_backorders = defaultdict(lambda: defaultdict(float))
 
         self.cumulative_ordered = defaultdict(float)
         self.cumulative_received = defaultdict(float)
@@ -159,6 +168,38 @@ class SupplyChainSimulator:
             in_transit_at_start_of_day = deepcopy(self.in_transit_orders) # For logging
             logging.debug(f"Day {day}: in_transit_orders at start of day: {self.in_transit_orders}")
 
+            # 1-a. Process scheduled shipments that are due to ship today (arrive same day)
+            if day in self.pending_shipments:
+                for rec in self.pending_shipments.pop(day):
+                    if len(rec) == 4:
+                        item, qty, supplier_name, dest_name = rec
+                        is_backorder = False
+                    else:
+                        item, qty, supplier_name, dest_name, is_backorder = rec
+                    available = self.stock[supplier_name].get(item, 0)
+                    shipped = min(available, qty)
+                    # Supplier faces demand today
+                    daily_events[f'{supplier_name}_{item}']["demand"] += qty
+                    if shipped > 0:
+                        self.stock[supplier_name][item] -= shipped
+                        daily_events[f'{supplier_name}_{item}']["sales"] += shipped
+                        # Deliver to destination immediately (arrival after lead time elapsed)
+                        self.stock[dest_name][item] += shipped
+                        daily_events[f'{dest_name}_{item}']["incoming"] += shipped
+                        # Record transport event (for flow cost calculation)
+                        tkey = f'transport:{supplier_name}->{dest_name}:{item}'
+                        if tkey not in daily_events:
+                            daily_events[tkey] = {"qty": 0.0}
+                        daily_events[tkey]["qty"] += shipped
+                    if qty > shipped:
+                        shortage = qty - shipped
+                        daily_events[f'{supplier_name}_{item}']["shortage"] += shortage
+                        logging.debug(f"Day {day}: Supplier {supplier_name} shortage {shortage} of {item} for {dest_name}")
+                        # If supplier is configured to backorder, reschedule the remaining qty to the next day
+                        supplier_node = self.nodes_map[supplier_name]
+                        if getattr(supplier_node, 'backorder_enabled', True):
+                            self.pending_shipments[day + 1].append((item, shortage, supplier_name, dest_name, True))
+
             if day in self.in_transit_orders:
                 for item, qty, dest_node_name, src_node_name in self.in_transit_orders[day]:
                     logging.debug(f"Day {day}: Receiving incoming shipment: Item {item}, Qty {qty}, Dest {dest_node_name}")
@@ -170,6 +211,20 @@ class SupplyChainSimulator:
             for item, qty, factory_name in self.production_orders.pop(day, []):
                 self.stock[factory_name][item] += qty
                 daily_events[f'{factory_name}_{item}']["produced"] += qty
+
+            # 1-b. Fulfill customer backorders at stores immediately after receipts
+            for node in self.input.nodes:
+                if node.node_type == 'store':
+                    store = node.name
+                    for item_name, bo_qty in list(self.customer_backorders[store].items()):
+                        if bo_qty <= 0:
+                            continue
+                        available = self.stock[store].get(item_name, 0)
+                        shipped = min(available, bo_qty)
+                        if shipped > 0:
+                            self.stock[store][item_name] -= shipped
+                            self.customer_backorders[store][item_name] -= shipped
+                            daily_events[f'{store}_{item_name}']["sales"] += shipped
 
             # 2. Generate and fulfill customer demand
             logging.debug(f"--- Day {day}: Customer Demand ---")
@@ -189,38 +244,16 @@ class SupplyChainSimulator:
                     if demand_qty > shipped:
                         daily_events[f'{store_name}_{item_name}']["shortage"] += demand_qty - shipped
                         logging.debug(f"Day {day}: Shortage of {demand_qty - shipped} for {item_name} at {store_name}")
+                        # If store supports backorder, accumulate customer backorders
+                        node_obj = self.nodes_map.get(store_name)
+                        if getattr(node_obj, 'backorder_enabled', True):
+                            self.customer_backorders[store_name][item_name] += (demand_qty - shipped)
 
-            # 3. Process nodes upstream (Store -> Warehouse -> Factory)
-            logging.debug(f"--- Day {day}: Upstream Processing ---")
-
-            # Aggregate demand from downstream nodes (orders received by them today)
-            upstream_demand_signals = defaultdict(lambda: defaultdict(float))
-            for dest_node_name, orders in received_orders_today.items():
-                for item, qty, src_node_name in orders:
-                    # If the order was placed by a downstream node to this upstream node
-                    # and this upstream node is not a material node (material nodes don't fulfill orders this way)
-                    if self.nodes_map[src_node_name].node_type != 'material': # src_node_name is the supplier here
-                        upstream_demand_signals[src_node_name][item] += qty
-            logging.debug(f"Day {day}: Aggregated upstream_demand_signals: {upstream_demand_signals}")
+            # 3. Planning (Store -> Warehouse -> Factory)
+            logging.debug(f"--- Day {day}: Planning & Ordering ---")
 
             for node_name in self.node_order:
                 current_node = self.nodes_map[node_name]
-
-                # --- FULFILLMENT (for upstream nodes) ---
-                # Process demand from downstream nodes (orders placed by them)
-                if node_name in upstream_demand_signals:
-                    logging.debug(f"Day {day}: Fulfilling downstream demand for {node_name}")
-                    for item_name, demand_qty in upstream_demand_signals[node_name].items():
-                        logging.debug(f"Day {day}: Processing demand for {item_name} with qty {demand_qty} at {node_name}")
-                        available = self.stock[node_name].get(item_name, 0)
-                        shipped = min(available, demand_qty)
-                        if shipped > 0:
-                            self.stock[node_name][item_name] -= shipped
-                            daily_events[f'{node_name}_{item_name}']["sales"] += shipped # Record as sales from upstream node
-                            logging.debug(f"Day {day}: Shipped {shipped} of {item_name} from {node_name} to downstream")
-                        if demand_qty > shipped:
-                            daily_events[f'{node_name}_{item_name}']["shortage"] += demand_qty - shipped
-                            logging.debug(f"Day {day}: Shortage of {demand_qty - shipped} for {item_name} at {node_name}")
 
                 # Existing customer demand fulfillment (for store nodes)
                 if node_name in demand_signals:
@@ -250,7 +283,8 @@ class SupplyChainSimulator:
                     for item_name in items_to_manage:
                         parent_name = next((l.from_node for l in self.input.network if l.to_node == node_name), None)
                         if not parent_name: continue
-                        replenishment_lt = current_node.lead_time
+                        link_obj = self.network_map.get((parent_name, node_name))
+                        replenishment_lt = link_obj.lead_time if link_obj else 0
 
                         profile = self.warehouse_demand_profiles.get(node_name, {}).get(item_name) if isinstance(current_node, WarehouseNode) else next((d for d in self.input.customer_demand if d.store_name == node_name and d.product_name == item_name), None)
                         if not profile: continue
@@ -325,50 +359,93 @@ class SupplyChainSimulator:
 
 
     def _place_order(self, supplier_node_name: str, customer_node_name: str, item_name: str, quantity: float, current_day: int):
-        customer_node = self.nodes_map[customer_node_name]
-        arrival_day = current_day + customer_node.lead_time
-        logging.debug(f"DEBUG: Day {current_day}: Placing order for {item_name} qty {quantity} from {supplier_node_name} to {customer_node_name}. Customer lead time (used for arrival): {customer_node.lead_time}. Expected arrival day: {arrival_day}")
-        self.in_transit_orders[arrival_day].append((item_name, quantity, customer_node_name, supplier_node_name))
+        logging.debug(f"DEBUG: Day {current_day}: Placing order for {item_name} qty {quantity} from {supplier_node_name} to {customer_node_name}.")
+        # Record the order
         self.order_history[current_day].append((item_name, quantity, supplier_node_name, customer_node_name))
         self.cumulative_ordered[(customer_node_name, item_name)] += quantity
-        import traceback
-        logging.debug(f"DEBUG: Call stack for _place_order: {''.join(traceback.format_stack())}")
+        # Schedule shipment after the link lead time (order-to-arrival)
+        link_obj = self.network_map.get((supplier_node_name, customer_node_name))
+        link_lt = link_obj.lead_time if link_obj else 0
+        ship_day = current_day + link_lt
+        # Initial schedule is not a backorder
+        self.pending_shipments[ship_day].append((item_name, quantity, supplier_node_name, customer_node_name, False))
         
 
     def record_daily_snapshot(self, day, start_stock, end_stock, events):
         snapshot = {"day": day + 1, "nodes": {}}
         all_node_names = set(start_stock.keys()) | set(end_stock.keys())
 
-        # Calculate ordered quantities from order_history for the current day
+        # Calculate ordered quantities from order_history for the current day (by destination)
         daily_ordered_quantities = defaultdict(lambda: defaultdict(float))
-        for item, qty, _, dest in self.order_history.get(day, []):
+        for item, qty, _supplier, dest in self.order_history.get(day, []):
             if dest in self.nodes_map:
                 daily_ordered_quantities[dest][item] += qty
 
-        for name in sorted(list(all_node_names)):
+        # Collect items that appeared only in events (not necessarily in start/end stock)
+        event_items_by_node = defaultdict(set)
+        for key in events.keys():
+            try:
+                node_name, item_name = key.split('_', 1)
+            except ValueError:
+                continue
+            event_items_by_node[node_name].add(item_name)
+
+        # Compute backorder balances per node/item
+        # (1) Sum of future supplier backorder shipments (pending_shipments with is_backorder)
+        backorder_balance_map = defaultdict(lambda: defaultdict(float))
+        future_days = [d for d in self.pending_shipments.keys() if d >= day + 1]
+        for d in future_days:
+            for rec in self.pending_shipments.get(d, []):
+                if len(rec) == 5:
+                    item, qty, supplier, _dest, is_backorder = rec
+                    if is_backorder:
+                        backorder_balance_map[supplier][item] += qty
+                else:
+                    # Legacy tuple without flag -> not counted as backorder
+                    pass
+        # (2) Customer backorders outstanding at stores
+        for store_name, items in self.customer_backorders.items():
+            for item, qty in items.items():
+                if qty > 0:
+                    backorder_balance_map[store_name][item] += qty
+
+        # Iterate through nodes and items (including event-only items)
+        for name in sorted(list(all_node_names | set(event_items_by_node.keys()))):
             node_snapshot = {}
-            all_items = set(start_stock.get(name, {}).keys()) | set(end_stock.get(name, {}).keys())
-            
+            all_items = (
+                set(start_stock.get(name, {}).keys())
+                | set(end_stock.get(name, {}).keys())
+                | set(event_items_by_node.get(name, set()))
+            )
+
             for item in sorted(list(all_items)):
                 event_key = f'{name}_{item}'
                 item_snapshot = events.get(event_key, defaultdict(float))
-                
+
+                # Start/End stock
                 item_snapshot["start_stock"] = start_stock.get(name, {}).get(item, 0)
                 item_snapshot["end_stock"] = end_stock.get(name, {}).get(item, 0)
-                
-                # Add ordered_quantity from the accumulated daily_ordered_quantities
+
+                # Add ordered_quantity from accumulated daily_ordered_quantities (by destination)
                 item_snapshot["ordered_quantity"] = daily_ordered_quantities[name][item]
 
                 # Ensure all metrics are present, defaulting to 0
-                for metric in ['incoming', 'demand', 'sales', 'consumption', 'produced', 'shortage']: # removed 'ordered_quantity' as it's now calculated
+                for metric in ['incoming', 'demand', 'sales', 'consumption', 'produced', 'shortage', 'backorder_balance']:
                     if metric not in item_snapshot:
                         item_snapshot[metric] = 0
 
+                # Ensure identity: demand = sales + shortage
+                # This makes tables consistent for all nodes
+                item_snapshot["demand"] = item_snapshot.get("sales", 0) + item_snapshot.get("shortage", 0)
+
+                # Update backorder balance (end-of-day)
+                item_snapshot["backorder_balance"] = backorder_balance_map[name][item]
+
                 node_snapshot[item] = item_snapshot
 
-            if node_snapshot: # Only add node if it has item data
+            if node_snapshot:  # Only add node if it has item data
                 snapshot["nodes"][name] = node_snapshot
-        
+
         self.daily_results.append(snapshot)
 
     def calculate_daily_profit_loss(self, day, events):
@@ -401,49 +478,57 @@ class SupplyChainSimulator:
 
         # Flow Costs
         nodes_produced = set()
-        
-        # Track transportation costs by link type
+
+        # Track transportation costs by link type from transport events captured on ship day
         transport_costs_by_type = defaultdict(lambda: defaultdict(float))
-        links_with_fixed_cost_applied = set() # To ensure fixed cost is applied only once per link per day
+        links_with_fixed_cost_applied = set()
 
         for key, data in events.items():
-            node_name, item_name = key.split('_', 1)
-            node = self.nodes_map[node_name]
-            
-            if 'ordered_quantity' in data and 'ordered_from' in data:
-                supplier_name = data['ordered_from']
+            # Production variable costs at factories
+            if '_' in key:
+                node_name, item_name = key.split('_', 1)
+                node = self.nodes_map.get(node_name)
+                if node and 'produced' in data and isinstance(node, FactoryNode):
+                    pl["flow_costs"]["production_variable"] += node.production_cost_variable * data['produced']
+                    nodes_produced.add(node_name)
+
+            # Transport costs: keys like 'transport:supplier->dest:item'
+            if key.startswith('transport:'):
+                try:
+                    rest = key.split(':', 1)[1]
+                    route, shipped_item = rest.split(':', 1)
+                    supplier_name, dest_name = route.split('->', 1)
+                except Exception:
+                    continue
+                qty = data.get('qty', 0) or 0
                 supplier = self.nodes_map.get(supplier_name)
-                link_key = (supplier_name, node_name)
-                link = self.network_map.get(link_key)
-                qty = data['ordered_quantity']
+                dest = self.nodes_map.get(dest_name)
+                link = self.network_map.get((supplier_name, dest_name))
+                if not supplier or not dest or not link or qty <= 0:
+                    continue
 
-                if link:
-                    # Material Cost (only if supplier is a MaterialNode)
-                    if isinstance(supplier, MaterialNode):
-                        pl["material_cost"] += supplier.material_cost.get(item_name, 0) * qty
+                # Material cost applies when material supplier sends to factory (per item)
+                if isinstance(supplier, MaterialNode) and isinstance(dest, FactoryNode):
+                    pl["material_cost"] += supplier.material_cost.get(shipped_item, 0) * qty
 
-                    # Apply fixed transportation cost only once per link per day
-                    if link_key not in links_with_fixed_cost_applied:
-                        if isinstance(supplier, MaterialNode) and isinstance(node, FactoryNode):
-                            transport_costs_by_type["material_transport"]["fixed"] += link.transportation_cost_fixed
-                        elif isinstance(supplier, FactoryNode) and isinstance(node, WarehouseNode):
-                            transport_costs_by_type["warehouse_transport"]["fixed"] += link.transportation_cost_fixed
-                        elif isinstance(supplier, WarehouseNode) and isinstance(node, StoreNode):
-                            transport_costs_by_type["store_transport"]["fixed"] += link.transportation_cost_fixed
-                        links_with_fixed_cost_applied.add(link_key)
+                # Apply fixed transportation cost once per link per day
+                link_key = (supplier_name, dest_name)
+                if link_key not in links_with_fixed_cost_applied:
+                    if isinstance(supplier, MaterialNode) and isinstance(dest, FactoryNode):
+                        transport_costs_by_type["material_transport"]["fixed"] += link.transportation_cost_fixed
+                    elif isinstance(supplier, FactoryNode) and isinstance(dest, WarehouseNode):
+                        transport_costs_by_type["warehouse_transport"]["fixed"] += link.transportation_cost_fixed
+                    elif isinstance(supplier, WarehouseNode) and isinstance(dest, StoreNode):
+                        transport_costs_by_type["store_transport"]["fixed"] += link.transportation_cost_fixed
+                    links_with_fixed_cost_applied.add(link_key)
 
-                    # Accumulate variable transportation cost
-                    if isinstance(supplier, MaterialNode) and isinstance(node, FactoryNode):
-                        transport_costs_by_type["material_transport"]["variable"] += link.transportation_cost_variable * qty
-                    elif isinstance(supplier, FactoryNode) and isinstance(node, WarehouseNode):
-                        transport_costs_by_type["warehouse_transport"]["variable"] += link.transportation_cost_variable * qty
-                    elif isinstance(supplier, WarehouseNode) and isinstance(node, StoreNode):
-                        transport_costs_by_type["store_transport"]["variable"] += link.transportation_cost_variable * qty
-                    # Add other transport types as needed (e.g., Factory to Store, Warehouse to Factory)
-
-            if 'produced' in data and isinstance(node, FactoryNode):
-                pl["flow_costs"]["production_variable"] += node.production_cost_variable * data['produced']
-                nodes_produced.add(node_name)
+                # Variable transportation cost by shipped qty
+                if isinstance(supplier, MaterialNode) and isinstance(dest, FactoryNode):
+                    transport_costs_by_type["material_transport"]["variable"] += link.transportation_cost_variable * qty
+                elif isinstance(supplier, FactoryNode) and isinstance(dest, WarehouseNode):
+                    transport_costs_by_type["warehouse_transport"]["variable"] += link.transportation_cost_variable * qty
+                elif isinstance(supplier, WarehouseNode) and isinstance(dest, StoreNode):
+                    transport_costs_by_type["store_transport"]["variable"] += link.transportation_cost_variable * qty
         
         # Add fixed production costs
         for node_name in nodes_produced:
@@ -501,6 +586,10 @@ async def read_index():
             return f.read()
     except FileNotFoundError:
         return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     import json

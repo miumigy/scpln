@@ -29,17 +29,17 @@
                 }
             ],
             "nodes": [
-                { "name": "店舗1", "node_type": "store", "initial_stock": { "完成品A": 30 }, "lead_time": 3, "service_level": 0.95, "storage_cost_fixed": 100, "storage_cost_variable": {"完成品A": 0.5} },
-                { "name": "中央倉庫", "node_type": "warehouse", "initial_stock": { "完成品A": 100 }, "lead_time": 7, "service_level": 0.90, "storage_cost_fixed": 500, "storage_cost_variable": {"完成品A": 0.2} },
-                { "name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": { "完成品A": 50, "材料X": 500, "材料Y": 800 }, "lead_time": 14, "production_capacity": 50, "reorder_point": {"材料X": 200, "材料Y": 400}, "order_up_to_level": {"材料X": 500, "材料Y": 800}, "moq": {"材料X": 50, "材料Y": 100}, "production_cost_fixed": 10000, "production_cost_variable": 50, "storage_cost_fixed": 1000, "storage_cost_variable": {"完成品A": 0.3, "材料X": 0.1, "材料Y": 0.1} },
-                { "name": "サプライヤーX", "node_type": "material", "initial_stock": { "材料X": 10000 }, "lead_time": 30, "material_cost": {"材料X": 100}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料X": 0.01} },
-                { "name": "サプライヤーY", "node_type": "material", "initial_stock": { "材料Y": 10000 }, "lead_time": 20, "material_cost": {"材料Y": 20}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料Y": 0.01} }
+                { "name": "店舗1", "node_type": "store", "initial_stock": { "完成品A": 30 }, "lead_time": 3, "service_level": 0.95, "storage_cost_fixed": 100, "storage_cost_variable": {"完成品A": 0.5}, "backorder_enabled": true },
+                { "name": "中央倉庫", "node_type": "warehouse", "initial_stock": { "完成品A": 100 }, "lead_time": 7, "service_level": 0.90, "storage_cost_fixed": 500, "storage_cost_variable": {"完成品A": 0.2}, "backorder_enabled": true },
+                { "name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": { "完成品A": 50, "材料X": 500, "材料Y": 800 }, "lead_time": 14, "production_capacity": 50, "reorder_point": {"材料X": 200, "材料Y": 400}, "order_up_to_level": {"材料X": 500, "材料Y": 800}, "moq": {"材料X": 50, "材料Y": 100}, "production_cost_fixed": 10000, "production_cost_variable": 50, "storage_cost_fixed": 1000, "storage_cost_variable": {"完成品A": 0.3, "材料X": 0.1, "材料Y": 0.1}, "backorder_enabled": true },
+                { "name": "サプライヤーX", "node_type": "material", "initial_stock": { "材料X": 10000 }, "lead_time": 30, "material_cost": {"材料X": 100}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料X": 0.01}, "backorder_enabled": true },
+                { "name": "サプライヤーY", "node_type": "material", "initial_stock": { "材料Y": 10000 }, "lead_time": 20, "material_cost": {"材料Y": 20}, "storage_cost_fixed": 20, "storage_cost_variable": {"材料Y": 0.01}, "backorder_enabled": true }
             ],
             "network": [
-                { "from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3 },
-                { "from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2 },
-                { "from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1 },
-                { "from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1 }
+                { "from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3 },
+                { "from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2, "lead_time": 7 },
+                { "from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 30 },
+                { "from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 20 }
             ],
             "customer_demand": [
                 { "store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2 }
@@ -168,7 +168,7 @@
                 resultsOutput.innerHTML = '条件に一致する結果がありません。';
                 return;
             }
-            let tableHtml = '<table><thead><tr><th>Day</th><th>Node</th><th>Item</th><th>Start Stock</th><th>Incoming</th><th>Demand</th><th>Sales</th><th>Consumption</th><th>Produced</th><th>Shortage</th><th>End Stock</th><th>Ordered Quantity</th></tr></thead><tbody>';
+            let tableHtml = '<table><thead><tr><th>Day</th><th>Node</th><th>Item</th><th>Start Stock</th><th>Incoming</th><th>Demand</th><th>Sales</th><th>Consumption</th><th>Produced</th><th>Shortage</th><th>Backorder</th><th>End Stock</th><th>Ordered</th></tr></thead><tbody>';
 
             results.forEach(dayResult => {
                 const day = dayResult.day;
@@ -187,6 +187,7 @@
                             <td>${formatNumber(itemData.consumption)}</td>
                             <td>${formatNumber(itemData.produced)}</td>
                             <td>${formatNumber(itemData.shortage)}</td>
+                            <td>${formatNumber(itemData.backorder_balance)}</td>
                             <td>${formatNumber(itemData.end_stock)}</td>
                             <td>${formatNumber(itemData.ordered_quantity)}</td>
                         </tr>`;
