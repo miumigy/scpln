@@ -38,6 +38,14 @@ class NetworkLink(BaseModel):
     transportation_cost_fixed: float = Field(default=0, ge=0)
     transportation_cost_variable: float = Field(default=0, ge=0)
     lead_time: int = Field(default=0, ge=0)
+    # Capacity (per day) and over-capacity policy/costs for this link
+    capacity_per_day: float = Field(default=float('inf'), gt=0)
+    allow_over_capacity: bool = Field(default=True)
+    over_capacity_fixed_cost: float = Field(default=0, ge=0)
+    over_capacity_variable_cost: float = Field(default=0, ge=0)
+    # Optional per-item MOQ and order multiple for this link
+    moq: Dict[str, float] = Field(default_factory=dict)
+    order_multiple: Dict[str, float] = Field(default_factory=dict)
 
 # --- Node Models (Discriminated Union) ---
 
@@ -50,15 +58,26 @@ class BaseNode(BaseModel):
     storage_cost_variable: Dict[str, float] = Field(default_factory=dict)
     # Whether this node backorders unmet outbound demand (carry to future days)
     backorder_enabled: bool = Field(default=True)
+    # Storage capacity (total units across items) and over-capacity policy/costs
+    storage_capacity: float = Field(default=float('inf'), gt=0)
+    allow_storage_over_capacity: bool = Field(default=True)
+    storage_over_capacity_fixed_cost: float = Field(default=0, ge=0)
+    storage_over_capacity_variable_cost: float = Field(default=0, ge=0)
 
 class StoreNode(BaseNode):
     node_type: Literal["store"] = "store"
     service_level: float = Field(default=0.95, ge=0, le=1)
     backorder_enabled: bool = Field(default=True)
+    # Optional per-item MOQ and order multiple for replenishment from upstream
+    moq: Dict[str, float] = Field(default_factory=dict)
+    order_multiple: Dict[str, float] = Field(default_factory=dict)
 
 class WarehouseNode(BaseNode):
     node_type: Literal["warehouse"] = "warehouse"
     service_level: float = Field(default=0.95, ge=0, le=1)
+    # Optional per-item MOQ and order multiple for replenishment from upstream
+    moq: Dict[str, float] = Field(default_factory=dict)
+    order_multiple: Dict[str, float] = Field(default_factory=dict)
 
 class MaterialNode(BaseNode):
     node_type: Literal["material"] = "material"
@@ -71,10 +90,16 @@ class FactoryNode(BaseNode):
     production_capacity: float = Field(default=float('inf'), gt=0)
     production_cost_fixed: float = Field(default=0, ge=0)
     production_cost_variable: float = Field(default=0, ge=0)
+    # Production over-capacity policy/costs
+    allow_production_over_capacity: bool = Field(default=True)
+    production_over_capacity_fixed_cost: float = Field(default=0, ge=0)
+    production_over_capacity_variable_cost: float = Field(default=0, ge=0)
     # Fields for component replenishment policy
     reorder_point: Dict[str, float] = Field(default_factory=dict)
     order_up_to_level: Dict[str, float] = Field(default_factory=dict)
     moq: Dict[str, float] = Field(default_factory=dict)
+    # Optional per-item order multiple for components (e.g., case pack size)
+    order_multiple: Dict[str, float] = Field(default_factory=dict)
 
 AnyNode = Annotated[Union[StoreNode, WarehouseNode, MaterialNode, FactoryNode], Field(discriminator="node_type")]
 
@@ -170,19 +195,67 @@ class SupplyChainSimulator:
 
             # 1-a. Process scheduled shipments that are due to ship today (arrive same day)
             if day in self.pending_shipments:
+                shipped_so_far = defaultdict(float)  # per link per day
+                dest_incoming_today = defaultdict(float)  # per destination node per day (for storage capacity)
                 for rec in self.pending_shipments.pop(day):
                     if len(rec) == 4:
                         item, qty, supplier_name, dest_name = rec
                         is_backorder = False
                     else:
                         item, qty, supplier_name, dest_name, is_backorder = rec
+
+                    link_obj = self.network_map.get((supplier_name, dest_name))
+                    supplier_node = self.nodes_map[supplier_name]
+                    dest_node = self.nodes_map[dest_name]
                     available = self.stock[supplier_name].get(item, 0)
-                    shipped = min(available, qty)
+                    request_qty = min(available, qty)
+
+                    # Link capacity enforcement
+                    link_cap = getattr(link_obj, 'capacity_per_day', float('inf')) if link_obj else float('inf')
+                    link_allow_over = getattr(link_obj, 'allow_over_capacity', True) if link_obj else True
+                    remaining_link_cap = max(0.0, link_cap - shipped_so_far[(supplier_name, dest_name)])
+
+                    shipped_candidate = request_qty
+                    link_over_qty = 0.0
+                    if not link_allow_over:
+                        shipped_candidate = min(shipped_candidate, remaining_link_cap)
+                    else:
+                        if remaining_link_cap < shipped_candidate:
+                            link_over_qty = shipped_candidate - remaining_link_cap
+
+                    # Destination storage capacity enforcement
+                    storage_cap = getattr(dest_node, 'storage_capacity', float('inf'))
+                    storage_allow_over = getattr(dest_node, 'allow_storage_over_capacity', True)
+                    total_stock_now = sum(self.stock[dest_name].values())
+                    remaining_storage = max(0.0, storage_cap - (total_stock_now + dest_incoming_today[dest_name]))
+                    storage_over_add = 0.0
+                    if not storage_allow_over:
+                        shipped_candidate = min(shipped_candidate, remaining_storage)
+
+                    # Now ship the candidate amount
+                    shipped = max(0.0, min(request_qty, shipped_candidate))
+
                     # Supplier faces demand today
                     daily_events[f'{supplier_name}_{item}']["demand"] += qty
                     if shipped > 0:
                         self.stock[supplier_name][item] -= shipped
                         daily_events[f'{supplier_name}_{item}']["sales"] += shipped
+
+                        # Update shipped counters
+                        shipped_so_far[(supplier_name, dest_name)] += shipped
+                        dest_incoming_today[dest_name] += shipped
+
+                        # Storage over-capacity amount added by this receipt (if allowed)
+                        if storage_allow_over and storage_cap != float('inf'):
+                            before_over = max(0.0, (total_stock_now + dest_incoming_today[dest_name] - shipped) - storage_cap)
+                            after_over = max(0.0, (total_stock_now + dest_incoming_today[dest_name]) - storage_cap)
+                            storage_over_add = max(0.0, after_over - before_over)
+                            if storage_over_add > 0:
+                                skey = f'storage_overage:{dest_name}'
+                                if skey not in daily_events:
+                                    daily_events[skey] = {"qty": 0.0}
+                                daily_events[skey]["qty"] += storage_over_add
+
                         # Deliver to destination immediately (arrival after lead time elapsed)
                         self.stock[dest_name][item] += shipped
                         daily_events[f'{dest_name}_{item}']["incoming"] += shipped
@@ -191,12 +264,23 @@ class SupplyChainSimulator:
                         if tkey not in daily_events:
                             daily_events[tkey] = {"qty": 0.0}
                         daily_events[tkey]["qty"] += shipped
+
+                        # Record link over-capacity used (if allowed)
+                        if link_allow_over and link_cap != float('inf'):
+                            before_over_link = max(0.0, (shipped_so_far[(supplier_name, dest_name)] - shipped) - link_cap)
+                            after_over_link = max(0.0, shipped_so_far[(supplier_name, dest_name)] - link_cap)
+                            over_added = max(0.0, after_over_link - before_over_link)
+                            if over_added > 0:
+                                okey = f'transport_overage:{supplier_name}->{dest_name}'
+                                if okey not in daily_events:
+                                    daily_events[okey] = {"qty": 0.0}
+                                daily_events[okey]["qty"] += over_added
+
                     if qty > shipped:
                         shortage = qty - shipped
                         daily_events[f'{supplier_name}_{item}']["shortage"] += shortage
                         logging.debug(f"Day {day}: Supplier {supplier_name} shortage {shortage} of {item} for {dest_name}")
                         # If supplier is configured to backorder, reschedule the remaining qty to the next day
-                        supplier_node = self.nodes_map[supplier_name]
                         if getattr(supplier_node, 'backorder_enabled', True):
                             self.pending_shipments[day + 1].append((item, shortage, supplier_name, dest_name, True))
 
@@ -209,8 +293,32 @@ class SupplyChainSimulator:
                 del self.in_transit_orders[day]
             logging.debug(f"Day {day}: in_transit_orders after receiving: {self.in_transit_orders}")
             for item, qty, factory_name in self.production_orders.pop(day, []):
-                self.stock[factory_name][item] += qty
-                daily_events[f'{factory_name}_{item}']["produced"] += qty
+                # Enforce factory storage capacity when receiving finished goods
+                factory_node = self.nodes_map[factory_name]
+                storage_cap = getattr(factory_node, 'storage_capacity', float('inf'))
+                allow_over = getattr(factory_node, 'allow_storage_over_capacity', True)
+                total_stock_now = sum(self.stock[factory_name].values())
+                remaining_storage = max(0.0, storage_cap - total_stock_now)
+                to_store = qty
+                if not allow_over:
+                    to_store = min(qty, remaining_storage)
+                if to_store > 0:
+                    self.stock[factory_name][item] += to_store
+                    daily_events[f'{factory_name}_{item}']["produced"] += to_store
+                    # Record overage amount if any (allowed)
+                    if allow_over and storage_cap != float('inf'):
+                        over_after = max(0.0, (total_stock_now + to_store) - storage_cap)
+                        over_before = max(0.0, total_stock_now - storage_cap)
+                        over_add = max(0.0, over_after - over_before)
+                        if over_add > 0:
+                            skey = f'storage_overage:{factory_name}'
+                            if skey not in daily_events:
+                                daily_events[skey] = {"qty": 0.0}
+                            daily_events[skey]["qty"] += over_add
+                # If not all could be stored and over-capacity is not allowed, delay to next day
+                if to_store < qty and not allow_over:
+                    remaining = qty - to_store
+                    self.production_orders[day + 1].append((item, remaining, factory_name))
 
             # 1-b. Fulfill customer backorders at stores immediately after receipts
             for node in self.input.nodes:
@@ -292,17 +400,76 @@ class SupplyChainSimulator:
                         demand_std = profile['std_dev'] if isinstance(profile, dict) else profile.demand_std_dev
 
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
-                        inv_in_transit = sum(
-                            qty for orders in self.in_transit_orders.values()
-                            for item, qty, dest, _ in orders
-                            if dest == node_name and item == item_name
-                        )
-                        inv_pos = inv_on_hand + inv_in_transit
+                        # Include future pipeline shipments scheduled via pending_shipments and legacy in_transit_orders
+                        pipeline_incoming = 0.0
+                        for d, orders in self.pending_shipments.items():
+                            if d > day:
+                                for rec in orders:
+                                    if len(rec) == 4:
+                                        it, q, _src, dest = rec
+                                    else:
+                                        it, q, _src, dest, _is_bo = rec
+                                    if dest == node_name and it == item_name:
+                                        pipeline_incoming += q
+                        for d, orders in self.in_transit_orders.items():
+                            if d > day:
+                                for it, q, dest, _src in orders:
+                                    if dest == node_name and it == item_name:
+                                        pipeline_incoming += q
+                        # Future outbound commitments from this node (e.g., warehouse -> store)
+                        scheduled_outgoing = 0.0
+                        for d, orders in self.pending_shipments.items():
+                            if d > day:
+                                for rec in orders:
+                                    if len(rec) == 4:
+                                        it, q, supplier, _dest = rec
+                                        is_bo = False
+                                    else:
+                                        it, q, supplier, _dest, is_bo = rec
+                                    if supplier == node_name and it == item_name:
+                                        scheduled_outgoing += q
+                        inv_pos = inv_on_hand + pipeline_incoming
+                        # Subtract store customer backorders or warehouse scheduled outbound commitments
+                        if isinstance(current_node, StoreNode):
+                            inv_pos -= self.customer_backorders[node_name].get(item_name, 0.0)
+                        elif isinstance(current_node, WarehouseNode):
+                            inv_pos -= scheduled_outgoing
                         order_up_to = norm.ppf(current_node.service_level) * demand_std * math.sqrt(replenishment_lt) + demand_mean * (replenishment_lt + 1)
                         qty_to_order = max(0, math.ceil(order_up_to - inv_pos))
                         logging.debug(f"Day {day}: Node {node_name}, Item {item_name}: inv_pos={inv_pos}, order_up_to={order_up_to}, calculated qty_to_order={qty_to_order}")
 
                         if qty_to_order > 0:
+                            # Apply link-level and node-level MOQ and order multiple if provided
+                            node_moq = getattr(current_node, 'moq', {}).get(item_name, 0)
+                            node_mult = getattr(current_node, 'order_multiple', {}).get(item_name, 0)
+                            link_moq = getattr(link_obj, 'moq', {}).get(item_name, 0) if link_obj else 0
+                            link_mult = getattr(link_obj, 'order_multiple', {}).get(item_name, 0) if link_obj else 0
+
+                            # MOQ: enforce the larger (both constraints must be met)
+                            effective_moq = max(node_moq or 0, link_moq or 0)
+                            if 0 < qty_to_order < effective_moq:
+                                qty_to_order = effective_moq
+
+                            # Order multiple: enforce both. If both are positive integers, use LCM; else round sequentially.
+                            def _is_int(x: float) -> bool:
+                                return math.isclose(x, round(x))
+
+                            eff_mult = 0
+                            if (node_mult or 0) > 0 and (link_mult or 0) > 0:
+                                if _is_int(node_mult) and _is_int(link_mult):
+                                    a, b = int(round(node_mult)), int(round(link_mult))
+                                    eff_mult = abs(a * b) // math.gcd(a, b)
+                                else:
+                                    # Fallback: apply both sequentially
+                                    eff_mult = 0  # mark to use sequential rounding
+                            if eff_mult:
+                                qty_to_order = int(math.ceil(qty_to_order / eff_mult) * eff_mult)
+                            else:
+                                # Apply each multiple if present
+                                for m in [node_mult, link_mult]:
+                                    if m and m > 0:
+                                        qty_to_order = int(math.ceil(qty_to_order / m) * m)
+
                             logging.debug(f"Day {day}: Replenishment order of {qty_to_order} for {item_name} from {node_name} to {parent_name}. Placing order via _place_order.")
                             self._place_order(parent_name, node_name, item_name, qty_to_order, day)
                 
@@ -313,19 +480,39 @@ class SupplyChainSimulator:
                     for item_name in current_node.producible_products:
                         profile = self.factory_demand_profiles.get(node_name, {}).get(item_name)
                         if not profile: continue
-                        inv_pos = self.stock[node_name].get(item_name, 0) + sum(q for i,q,f in self.production_orders.get(day, []) if f==node_name and i==item_name)
+                        # Include future scheduled completions (pipeline production)
+                        pipeline_finished = 0.0
+                        for d, orders in self.production_orders.items():
+                            if d > day:
+                                for i, q, f in orders:
+                                    if f == node_name and i == item_name:
+                                        pipeline_finished += q
+                        inv_pos = self.stock[node_name].get(item_name, 0) + pipeline_finished
                         order_up_to = norm.ppf(current_node.service_level) * profile['std_dev'] * math.sqrt(current_node.lead_time) + profile['mean'] * (current_node.lead_time + 1)
                         production_needed = max(0, math.ceil(order_up_to - inv_pos))
-                        producible_qty = min(production_needed, current_node.production_capacity)
+                        # Target production quantity before material check
+                        target_prod = (
+                            production_needed if getattr(current_node, 'allow_production_over_capacity', True)
+                            else min(production_needed, current_node.production_capacity)
+                        )
+                        # Cap by available components
+                        if target_prod > 0:
+                            max_by_components = float('inf')
+                            for bom in self.products[item_name].assembly_bom:
+                                avail = self.stock[node_name].get(bom.item_name, 0)
+                                if bom.quantity_per > 0:
+                                    max_by_components = min(max_by_components, math.floor(avail / bom.quantity_per))
+                            producible_qty = max(0, min(int(target_prod), int(max_by_components if max_by_components != float('inf') else target_prod)))
+                        else:
+                            producible_qty = 0
+
                         if producible_qty > 0:
-                            components_ok = all(self.stock[node_name].get(bom.item_name, 0) >= bom.quantity_per * producible_qty for bom in self.products[item_name].assembly_bom)
-                            if components_ok:
-                                logging.debug(f"Day {day}: Production order of {producible_qty} for {item_name} at {node_name}")
-                                for bom in self.products[item_name].assembly_bom:
-                                    consumed = bom.quantity_per * producible_qty
-                                    self.stock[node_name][bom.item_name] -= consumed
-                                    daily_events[f'{node_name}_{bom.item_name}']["consumption"] += consumed
-                                self.production_orders[day + current_node.lead_time].append((item_name, producible_qty, node_name))
+                            logging.debug(f"Day {day}: Production order of {producible_qty} for {item_name} at {node_name}")
+                            for bom in self.products[item_name].assembly_bom:
+                                consumed = bom.quantity_per * producible_qty
+                                self.stock[node_name][bom.item_name] -= consumed
+                                daily_events[f'{node_name}_{bom.item_name}']["consumption"] += consumed
+                            self.production_orders[day + current_node.lead_time].append((item_name, producible_qty, node_name))
                     
                     # Order components
                     logging.debug(f"Day {day}: Component ordering for {node_name}")
@@ -333,17 +520,32 @@ class SupplyChainSimulator:
                         reorder_point = current_node.reorder_point.get(item_name)
                         if reorder_point is None: continue
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
-                        inv_in_transit = sum(
-                            qty for orders in self.in_transit_orders.values()
-                            for item, qty, dest, _ in orders
-                            if dest == node_name and item == item_name
-                        )
-                        inv_pos = inv_on_hand + inv_in_transit
+                        # Include pipeline component shipments (pending_shipments + legacy in_transit_orders)
+                        pipeline_incoming = 0.0
+                        for d, orders in self.pending_shipments.items():
+                            if d > day:
+                                for rec in orders:
+                                    if len(rec) == 4:
+                                        it, q, _src, dest = rec
+                                    else:
+                                        it, q, _src, dest, _is_bo = rec
+                                    if dest == node_name and it == item_name:
+                                        pipeline_incoming += q
+                        for d, orders in self.in_transit_orders.items():
+                            if d > day:
+                                for it, q, dest, _src in orders:
+                                    if dest == node_name and it == item_name:
+                                        pipeline_incoming += q
+                        inv_pos = inv_on_hand + pipeline_incoming
                         if inv_pos <= reorder_point:
                             order_up_to = current_node.order_up_to_level.get(item_name, inv_pos)
                             qty_to_order = max(0, order_up_to - inv_pos)
                             moq = current_node.moq.get(item_name, 0)
-                            if 0 < qty_to_order < moq: qty_to_order = moq
+                            if 0 < qty_to_order < moq:
+                                qty_to_order = moq
+                            mult = current_node.order_multiple.get(item_name, 0)
+                            if mult and mult > 0:
+                                qty_to_order = int(math.ceil(qty_to_order / mult) * mult)
                             if qty_to_order > 0:
                                 parent_name = next((l.from_node for l in self.input.network if l.to_node == node_name and self.nodes_map[l.from_node].node_type == 'material' and item_name in self.nodes_map[l.from_node].material_cost), None)
                                 if parent_name:
@@ -384,6 +586,9 @@ class SupplyChainSimulator:
         # Collect items that appeared only in events (not necessarily in start/end stock)
         event_items_by_node = defaultdict(set)
         for key in events.keys():
+            # Skip special aggregated event keys (contain ':')
+            if ':' in key:
+                continue
             try:
                 node_name, item_name = key.split('_', 1)
             except ValueError:
@@ -478,6 +683,7 @@ class SupplyChainSimulator:
 
         # Flow Costs
         nodes_produced = set()
+        produced_by_factory = defaultdict(float)
 
         # Track transportation costs by link type from transport events captured on ship day
         transport_costs_by_type = defaultdict(lambda: defaultdict(float))
@@ -489,7 +695,9 @@ class SupplyChainSimulator:
                 node_name, item_name = key.split('_', 1)
                 node = self.nodes_map.get(node_name)
                 if node and 'produced' in data and isinstance(node, FactoryNode):
-                    pl["flow_costs"]["production_variable"] += node.production_cost_variable * data['produced']
+                    qty_prod = data['produced']
+                    pl["flow_costs"]["production_variable"] += node.production_cost_variable * qty_prod
+                    produced_by_factory[node_name] += qty_prod
                     nodes_produced.add(node_name)
 
             # Transport costs: keys like 'transport:supplier->dest:item'
@@ -534,12 +742,66 @@ class SupplyChainSimulator:
         for node_name in nodes_produced:
             pl["flow_costs"]["production_fixed"] += self.nodes_map[node_name].production_cost_fixed
 
+        # Production over-capacity costs (assessed on completion day)
+        for node_name, qty_prod in produced_by_factory.items():
+            node = self.nodes_map.get(node_name)
+            if not isinstance(node, FactoryNode):
+                continue
+            prod_cap = getattr(node, 'production_capacity', float('inf'))
+            allow_over = getattr(node, 'allow_production_over_capacity', True)
+            if prod_cap == float('inf') or not allow_over:
+                continue
+            over_qty = max(0.0, qty_prod - prod_cap)
+            if over_qty > 0:
+                pl["flow_costs"]["production_variable"] += node.production_over_capacity_variable_cost * over_qty
+                if node.production_over_capacity_fixed_cost > 0:
+                    pl["flow_costs"]["production_fixed"] += node.production_over_capacity_fixed_cost
+
         # Consolidate transportation costs
         for transport_type, costs in transport_costs_by_type.items():
             pl["flow_costs"][f"{transport_type}_fixed"] = costs["fixed"]
             pl["flow_costs"][f"{transport_type}_variable"] = costs["variable"]
 
+        # Transport over-capacity costs (from events produced on ship day)
+        overage_fixed_applied = set()
+        for key, data in events.items():
+            if key.startswith('transport_overage:'):
+                try:
+                    route = key.split(':', 1)[1]
+                    supplier_name, dest_name = route.split('->', 1)
+                except Exception:
+                    continue
+                link = self.network_map.get((supplier_name, dest_name))
+                if not link:
+                    continue
+                over_qty = data.get('qty', 0) or 0
+                if over_qty <= 0:
+                    continue
+                supplier = self.nodes_map.get(supplier_name)
+                dest = self.nodes_map.get(dest_name)
+                if isinstance(supplier, MaterialNode) and isinstance(dest, FactoryNode):
+                    ttype = "material_transport"
+                elif isinstance(supplier, FactoryNode) and isinstance(dest, WarehouseNode):
+                    ttype = "warehouse_transport"
+                elif isinstance(supplier, WarehouseNode) and isinstance(dest, StoreNode):
+                    ttype = "store_transport"
+                else:
+                    ttype = None
+                if ttype:
+                    pl["flow_costs"][f"{ttype}_variable"] += link.over_capacity_variable_cost * over_qty
+                    lkey = (supplier_name, dest_name)
+                    if lkey not in overage_fixed_applied and link.over_capacity_fixed_cost > 0:
+                        pl["flow_costs"][f"{ttype}_fixed"] += link.over_capacity_fixed_cost
+                        overage_fixed_applied.add(lkey)
+
         # Stock Costs
+        # Collect storage overage quantities recorded during receipts/production
+        storage_overage_qty_by_node = defaultdict(float)
+        for key, data in events.items():
+            if key.startswith('storage_overage:'):
+                node_name = key.split(':', 1)[1]
+                storage_overage_qty_by_node[node_name] += data.get('qty', 0) or 0
+
         for node in self.nodes_map.values():
             cost_cat_map = {
                 "material": "material_storage",
@@ -552,6 +814,11 @@ class SupplyChainSimulator:
                 pl["stock_costs"][f"{cat}_fixed"] += node.storage_cost_fixed
                 for item, stock in self.stock[node.name].items():
                     pl["stock_costs"][f"{cat}_variable"] += stock * node.storage_cost_variable.get(item, 0)
+                # Add storage over-capacity costs (if any)
+                over_qty = storage_overage_qty_by_node.get(node.name, 0)
+                if over_qty > 0:
+                    pl["stock_costs"][f"{cat}_variable"] += node.storage_over_capacity_variable_cost * over_qty
+                    pl["stock_costs"][f"{cat}_fixed"] += node.storage_over_capacity_fixed_cost
 
         # Final Calculation
         total_flow = sum(pl["flow_costs"].values())
