@@ -5,3 +5,5 @@ venv/
 uvicorn.out
 uvicorn.pid
 simulation.log
+__pycache__/
+*.pyc
