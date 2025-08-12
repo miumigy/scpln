@@ -1242,13 +1242,9 @@ if __name__ == "__main__":
     )
     print("--- Script started ---")
 
-    # Load the sample input from the JS file to ensure consistency
-    with open("static/js/main.js") as f:
-        js_content = f.read()
-        # A bit of a hack to find the JSON blob inside the script tag
-        json_str = js_content.split("const sampleInput = ")[1].split(";")[0]
-
-    sim_input_dict = json.loads(json_str)
+    # Load the sample input from external JSON file to ensure consistency
+    with open("static/default_input.json", encoding="utf-8") as f:
+        sim_input_dict = json.load(f)
     sim_input = SimulationInput(**sim_input_dict)
 
     simulator = SupplyChainSimulator(sim_input)
