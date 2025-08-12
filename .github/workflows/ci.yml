@@ -48,14 +48,14 @@ jobs:
       - name: Sanity import main.py
         run: |
           python - <<'PY'
-import traceback
-try:
-    import main
-    print('Imported main.py successfully')
-except Exception:
-    traceback.print_exc()
-    raise
-PY
+          import traceback
+          try:
+              import main
+              print('Imported main.py successfully')
+          except Exception:
+              traceback.print_exc()
+              raise
+          PY
 
       - name: Run tests and produce JUnit XML
         run: |
@@ -71,18 +71,18 @@ PY
           python -m unittest discover -s tests -p "test_*.py" -v || true
           echo "Inline discovery run..."
           python - <<'PY'
-import unittest, traceback
-loader = unittest.defaultTestLoader
-try:
-    suite = loader.discover('tests', pattern='test_*.py')
-    print('Discovered cases:', suite.countTestCases())
-    runner = unittest.TextTestRunner(verbosity=2)
-    res = runner.run(suite)
-    print('Success:', res.wasSuccessful())
-except Exception as e:
-    traceback.print_exc()
-    raise
-PY
+          import unittest, traceback
+          loader = unittest.defaultTestLoader
+          try:
+              suite = loader.discover('tests', pattern='test_*.py')
+              print('Discovered cases:', suite.countTestCases())
+              runner = unittest.TextTestRunner(verbosity=2)
+              res = runner.run(suite)
+              print('Success:', res.wasSuccessful())
+          except Exception as e:
+              traceback.print_exc()
+              raise
+          PY
           set -e
 
       - name: Publish Unit Test Results
