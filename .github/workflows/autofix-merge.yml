@@ -1,0 +1,66 @@
+name: Autofix Auto-Merge
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  merge:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge passing autofix PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let prs = [];
+            if (context.eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+              const headSha = run.head_sha;
+              const assoc = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: headSha });
+              prs = assoc.data || [];
+            } else {
+              const open = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
+              prs = open.data || [];
+            }
+
+            for (const pr of prs) {
+              const prNumber = pr.number;
+              const labels = (pr.labels || []).map(l => l.name);
+              const sameRepo = pr.head && pr.head.repo && pr.head.repo.full_name === `${owner}/${repo}`;
+              const hasLabel = labels.includes('autofix') || labels.includes('bot') || labels.includes('dependencies') || labels.includes('auto-pr');
+              const isDependabot = pr.user && (pr.user.login === 'dependabot[bot]' || pr.user.type === 'Bot');
+              const isDraft = pr.draft;
+              if (!sameRepo) continue;
+              if (!hasLabel && !isDependabot) continue;
+              if (isDraft) continue;
+
+              // Ensure checks are successful for the PR head SHA
+              const refSha = pr.head.sha;
+              const checks = await github.rest.checks.listForRef({ owner, repo, ref: refSha });
+              const allChecks = checks.data.check_runs || [];
+              const allSuccess = allChecks.every(c => ['success','skipped','neutral'].includes(c.conclusion));
+              if (!allSuccess) {
+                core.info(`PR #${prNumber} checks not all successful; skipping`);
+                continue;
+              }
+
+              try {
+                await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' });
+                core.info(`Merged PR #${prNumber}`);
+              } catch (e) {
+                core.warning(`Failed to merge PR #${prNumber}: ${e.message}`);
+              }
+            }
+
