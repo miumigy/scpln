@@ -7,3 +7,4 @@ uvicorn.pid
 simulation.log
 __pycache__/
 *.pyc
+test-results/
