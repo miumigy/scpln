@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - bot
+    commit-message:
+      prefix: "deps"
+    ignore:
+      - dependency-name: "scipy"
+        versions: ["<1.8"]
+
