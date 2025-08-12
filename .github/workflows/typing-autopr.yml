@@ -40,6 +40,7 @@ jobs:
       - name: Create PR with stubs
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.BOT_TOKEN || github.token }}
           commit-message: "chore(typing): add generated stubs to typings/ and mypy.ini"
           title: "Add typing stubs (auto-generated)"
           body: |
@@ -55,4 +56,3 @@ jobs:
             typings/**
             mypy.ini
           delete-branch: true
-

@@ -78,6 +78,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.BOT_TOKEN || github.token }}
           commit-message: "chore(autofix): apply ruff --fix and black"
           title: "Autofix: ruff/black formatting and lint fixes"
           body: |
@@ -111,4 +112,3 @@ jobs:
       - name: No changes summary
         if: steps.changes.outputs.changed != 'true'
         run: echo "No autofix changes detected."
-
