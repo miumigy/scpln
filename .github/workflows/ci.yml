@@ -45,6 +45,18 @@ jobs:
         run: |
           pip install unittest-xml-reporting
 
+      - name: Sanity import main.py
+        run: |
+          python - <<'PY'
+import traceback
+try:
+    import main
+    print('Imported main.py successfully')
+except Exception:
+    traceback.print_exc()
+    raise
+PY
+
       - name: Run tests and produce JUnit XML
         run: |
           python scripts/run_tests_xml.py
