@@ -1,0 +1,62 @@
+name: Auto PR on Push
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR to main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = process.env.GITHUB_REF_NAME;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Check if an open PR already exists for this branch
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            if (prs.data.length > 0) {
+              const pr = prs.data[0];
+              core.info(`PR already exists: #${pr.number} ${pr.html_url}`);
+              // Optionally update title/body from latest commit
+              return;
+            }
+
+            // Use latest commit message as title if available
+            const commits = await github.rest.repos.listCommits({ owner, repo, sha: branch, per_page: 1 });
+            const latest = commits.data[0];
+            const title = latest?.commit?.message?.split('\n')[0] || `Auto PR: ${branch}`;
+            const body = `This PR was automatically created from branch \`${branch}\` on push.`;
+
+            const created = await github.rest.pulls.create({ owner, repo, head: branch, base: 'main', title, body });
+            core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+
+      - name: Add label (optional)
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const branch = process.env.GITHUB_REF_NAME;
+              const owner = context.repo.owner;
+              const repo = context.repo.repo;
+              const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+              if (prs.data.length === 0) return;
+              const pr = prs.data[0];
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: ['auto-pr'] });
+            } catch (e) {
+              core.warning(`Labeling skipped: ${e.message}`);
+            }
+
