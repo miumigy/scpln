@@ -11,6 +11,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,3 +41,18 @@ jobs:
       - name: Run tests (unittest)
         run: |
           python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Comment PR with result
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conclusion = "${{ job.status }}";
+            const number = context.payload.pull_request.number;
+            const summary = conclusion === 'success' ? '✅ CI passed' : `❌ CI ${conclusion}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: `${summary} (workflow: CI)`
+            });

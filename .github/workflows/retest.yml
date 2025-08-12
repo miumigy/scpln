@@ -1,0 +1,58 @@
+name: Retest
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  retest:
+    if: >-
+      ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/retest') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run latest CI for PR head SHA
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+            });
+            const headSha = pr.data.head.sha;
+
+            // Find latest workflow run for CI on this SHA
+            const runs = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+              event: 'pull_request',
+            });
+            const target = runs.data.workflow_runs
+              .filter(r => r.name === 'CI' && r.head_sha === headSha)
+              .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+            if (!target) {
+              core.setFailed('No CI workflow run found for this PR head SHA.');
+              return;
+            }
+
+            await github.rest.actions.reRunWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: target.id,
+            });
+
+            // Acknowledge
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `🔁 Re-ran workflow CI (run_id: ${target.id}) for SHA ${headSha.substring(0,7)}`,
+            });
+
