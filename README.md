@@ -239,6 +239,76 @@ python backup_script.py
 ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
 ```
 
+## API 仕様（概要）
+
+- エンドポイント一覧
+  - `POST /simulation`: シミュレーション実行（本文は下記の入力スキーマ）。
+  - `GET /healthz`: ヘルスチェック（`{"status":"ok"}` を返します）。
+  - `GET /`: フロントエンド（`index.html`）を返します。
+
+- `POST /simulation`
+  - ヘッダ: `Content-Type: application/json`
+  - リクエスト本文: 「入力スキーマ（SimulationInput）」参照
+  - 成功時（200）レスポンス: `{"message": str, "results": DayResult[], "profit_loss": PLDay[]}`
+  - 失敗時: 422（バリデーション）、500（予期せぬエラー）など
+
+## 入出力スキーマ定義
+
+- 入力: `SimulationInput`
+  - `planning_horizon`（int>0）: 計画日数
+  - `products`（Product[]）
+    - Product: `name`（str）, `sales_price`（>=0）, `assembly_bom`（BomItem[]）
+    - BomItem: `item_name`（str）, `quantity_per`（>0）
+  - `nodes`（AnyNode[]: 識別子 `node_type` によるUnion）
+    - 共通（BaseNode）: `name`（str）, `initial_stock`（{item: qty}）,
+      `lead_time`（>=0）, `storage_cost_fixed`（>=0）, `storage_cost_variable`（{item: >=0}）, 
+      `backorder_enabled`（bool, 既定 true）, `storage_capacity`（>0 | 省略=∞）, 
+      `allow_storage_over_capacity`（bool, 既定 true）, 
+      `storage_over_capacity_fixed_cost`（>=0）, `storage_over_capacity_variable_cost`（>=0）
+    - StoreNode（`node_type: "store"`）: `service_level`（0..1）, `moq`（{item: >=0}）, `order_multiple`（{item: >=0}）
+    - WarehouseNode（`node_type: "warehouse"`）: `service_level`（0..1）, `moq`, `order_multiple`
+    - FactoryNode（`node_type: "factory"`）:
+      `producible_products`（str[]）, `service_level`（0..1）, `production_capacity`（>0 | 省略=∞）, 
+      `production_cost_fixed`（>=0）, `production_cost_variable`（>=0）, 
+      `allow_production_over_capacity`（bool, 既定 true）, 
+      `production_over_capacity_fixed_cost`（>=0）, `production_over_capacity_variable_cost`（>=0）, 
+      `reorder_point`（{item: >=0}）, `order_up_to_level`（{item: >=0}）, 
+      `moq`（{item: >=0}）, `order_multiple`（{item: >=0}）
+    - MaterialNode（`node_type: "material"`）: `material_cost`（{item: >=0}）
+  - `network`（NetworkLink[]）
+    - NetworkLink: `from_node`（str）, `to_node`（str）, 
+      `transportation_cost_fixed`（>=0）, `transportation_cost_variable`（>=0）, 
+      `lead_time`（>=0）, `capacity_per_day`（>0 | 省略=∞）, `allow_over_capacity`（bool, 既定 true）, 
+      `over_capacity_fixed_cost`（>=0）, `over_capacity_variable_cost`（>=0）, 
+      `moq`（{item: >=0}）, `order_multiple`（{item: >=0}）
+  - `customer_demand`（CustomerDemand[]）
+    - CustomerDemand: `store_name`（str）, `product_name`（str）, 
+      `demand_mean`（>=0）, `demand_std_dev`（>=0）
+
+- 出力: 200 OK（`POST /simulation`）
+  - ルート: `message`（str）, `results`（DayResult[]）, `profit_loss`（PLDay[]）
+  - DayResult: `day`（int, 1始まり）, `nodes`（{node_name: {item_name: Metrics}}）
+    - Metrics（数値は原則 >=0）:
+      - `start_stock`, `incoming`, `demand`, `sales`, `consumption`, `produced`, `shortage`, `backorder_balance`, `end_stock`, `ordered_quantity`
+  - PLDay: `day`（int）, `revenue`（>=0）, `material_cost`（>=0）, 
+    `flow_costs`（オブジェクト）, `stock_costs`（オブジェクト）, `total_cost`（>=0）, `profit_loss`（実数）
+    - `flow_costs` キー: 
+      `material_transport_fixed`, `material_transport_variable`,
+      `production_fixed`, `production_variable`,
+      `warehouse_transport_fixed`, `warehouse_transport_variable`,
+      `store_transport_fixed`, `store_transport_variable`
+    - `stock_costs` キー:
+      `material_storage_fixed`, `material_storage_variable`,
+      `factory_storage_fixed`, `factory_storage_variable`,
+      `warehouse_storage_fixed`, `warehouse_storage_variable`,
+      `store_storage_fixed`, `store_storage_variable`
+
+備考
+- PSI恒等: すべてのノード・品目で `demand = sales + shortage`。
+- 在庫フロー: `end = start + incoming + produced − sales − consumption`。
+- 累積整合: 「発注合計 = 受入合計 + 期末の未着（翌日以降の出荷予定）」が成立。
+- MOQ/発注倍数: ノードとリンクの双方を適用（倍数が整数のときLCM、その他は切上げ）。
+
 ## 今後の拡張案
 
 *   **需要予測の高度化**: 現在のランダムな需要パターンに加え、季節性やトレンドなどのより複雑な需要パターンを導入する。
