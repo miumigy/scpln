@@ -66,20 +66,43 @@ class TestSimulationConsistency(unittest.TestCase):
                                     msg=f"Day {day['day']} {node}-{item}: stock flow mismatch: lhs={lhs}, end={end_stock}")
 
     def test_cumulative_order_balance(self):
-        # Ordered == Received + InTransit (end)
-        in_transit_at_end = {}
-        for arrival_day, orders in self.sim.in_transit_orders.items():
-            for item, qty, dest, _src in orders:
-                key = (dest, item)
-                in_transit_at_end[key] = in_transit_at_end.get(key, 0) + qty
+        # For each (dest,item): total ordered == total incoming (shipments) + pending shipments scheduled after horizon
+        # Note: production receipts are not part of 'incoming' for shipments; we only count transport arrivals.
+        total_incoming = {}
+        for day in self.results:
+            for node, items in day["nodes"].items():
+                for item, metrics in items.items():
+                    inc = metrics.get("incoming", 0) or 0
+                    if inc:
+                        key = (node, item)
+                        total_incoming[key] = total_incoming.get(key, 0) + inc
 
-        all_keys = set(self.sim.cumulative_ordered.keys()) | set(self.sim.cumulative_received.keys()) | set(in_transit_at_end.keys())
-        for key in all_keys:
-            ordered = self.sim.cumulative_ordered.get(key, 0)
-            received = self.sim.cumulative_received.get(key, 0)
-            in_transit = in_transit_at_end.get(key, 0)
-            self.assertTrue(math.isclose(ordered, received + in_transit, rel_tol=1e-9, abs_tol=1e-9),
-                            msg=f"Cumulative balance failed for {key}: ordered={ordered}, received={received}, in_transit={in_transit}")
+        pending_future = {}
+        # pending_shipments structure: day -> list of tuples (item, qty, supplier, dest, is_backorder?)
+        for d, records in self.sim.pending_shipments.items():
+            # all remaining entries are future relative to the last simulated day
+            for rec in records:
+                if len(rec) == 4:
+                    it, q, _src, dest = rec
+                else:
+                    it, q, _src, dest, _ = rec
+                key = (dest, it)
+                pending_future[key] = pending_future.get(key, 0) + q
+
+        # Sum ordered by destination
+        ordered_by_dest = {}
+        for day, orders in self.sim.order_history.items():
+            for it, q, _src, dest in orders:
+                key = (dest, it)
+                ordered_by_dest[key] = ordered_by_dest.get(key, 0) + q
+
+        keys = set(ordered_by_dest.keys()) | set(total_incoming.keys()) | set(pending_future.keys())
+        for key in keys:
+            ordered = ordered_by_dest.get(key, 0)
+            incoming = total_incoming.get(key, 0)
+            future = pending_future.get(key, 0)
+            self.assertTrue(math.isclose(ordered, incoming + future, rel_tol=1e-9, abs_tol=1e-9),
+                            msg=f"Cumulative balance failed for {key}: ordered={ordered}, incoming={incoming}, pending={future}")
 
     def test_moq_and_multiples_applied(self):
         # Verify each placed order respects node/link MOQ and integer multiples when integers are specified
