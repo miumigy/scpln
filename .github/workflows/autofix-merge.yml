@@ -38,7 +38,7 @@ jobs:
               const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               const labels = pr.data.labels.map(l => l.name);
               const sameRepo = pr.data.head.repo.full_name === `${owner}/${repo}`;
-              const hasLabel = labels.includes('autofix') || labels.includes('bot') || labels.includes('dependencies');
+              const hasLabel = labels.includes('autofix') || labels.includes('bot') || labels.includes('dependencies') || labels.includes('auto-pr');
               const isDependabot = pr.data.user && (pr.data.user.login === 'dependabot[bot]' || pr.data.user.type === 'Bot');
               const isDraft = pr.data.draft;
               const mergeableState = pr.data.mergeable_state; // may be 'clean' after refresh
