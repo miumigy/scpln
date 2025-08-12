@@ -295,3 +295,11 @@ UIのデフォルトサンプル（`static/js/main.js` 内の `sampleInput`）�
 - 累積整合: `合計発注 = 合計受入 + 期末輸送中`
 - 発注制約: ノード/リンクの `MOQ` と（整数の）`order_multiple` 満足
 - BO誘発下の安定性: リードタイム内の連日発注が単調非増加（雪だるま抑制）
+
+### CI（GitHub Actions）
+
+- 本リポジトリには GitHub Actions のワークフロー（`.github/workflows/ci.yml`）を用意しています。
+- `main` への push と PR で以下を自動実行します。
+  - Python 3.12 セットアップ
+  - `pip install -r requirements.txt`
+  - `bash scripts/test.sh` によるユニットテスト
