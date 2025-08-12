@@ -2,7 +2,7 @@ import unittest
 import math
 import random
 
-from main import SimulationInput, SupplyChainSimulator, StoreNode, WarehouseNode, FactoryNode
+from main import SimulationInput, SupplyChainSimulator
 
 
 def build_sample_input():
@@ -27,26 +27,141 @@ def build_sample_input():
             },
         ],
         "nodes": [
-            {"name": "店舗1", "node_type": "store", "initial_stock": {"完成品A": 30, "完成品B": 10}, "service_level": 0.95, "moq": {"完成品A": 10, "完成品B": 10}, "order_multiple": {"完成品A": 5, "完成品B": 5}, "backorder_enabled": True},
-            {"name": "店舗2", "node_type": "store", "initial_stock": {"完成品A": 20, "完成品B": 5}, "service_level": 0.95, "moq": {"完成品A": 10, "完成品B": 10}, "order_multiple": {"完成品A": 5, "完成品B": 5}, "backorder_enabled": True},
-            {"name": "中央倉庫", "node_type": "warehouse", "initial_stock": {"完成品A": 100, "完成品B": 50}, "service_level": 0.90, "moq": {"完成品A": 30, "完成品B": 30}, "order_multiple": {"完成品A": 10, "完成品B": 10}, "backorder_enabled": True},
-            {"name": "組立工場", "node_type": "factory", "producible_products": ["完成品A", "完成品B"], "initial_stock": {"完成品A": 50, "完成品B": 20, "材料X": 500, "材料Y": 800, "材料Z": 600}, "lead_time": 14, "production_capacity": 50, "reorder_point": {"材料X": 200, "材料Y": 400, "材料Z": 300}, "order_up_to_level": {"材料X": 500, "材料Y": 800, "材料Z": 600}, "moq": {"材料X": 50, "材料Y": 100, "材料Z": 100}, "order_multiple": {"材料X": 25, "材料Y": 50, "材料Z": 50}, "backorder_enabled": True},
-            {"name": "サプライヤーX", "node_type": "material", "initial_stock": {"材料X": 10000}, "material_cost": {"材料X": 100}, "backorder_enabled": True},
-            {"name": "サプライヤーY", "node_type": "material", "initial_stock": {"材料Y": 10000}, "material_cost": {"材料Y": 20}, "backorder_enabled": True},
-            {"name": "サプライヤーZ", "node_type": "material", "initial_stock": {"材料Z": 10000}, "material_cost": {"材料Z": 30}, "backorder_enabled": True},
+            {
+                "name": "店舗1",
+                "node_type": "store",
+                "initial_stock": {"完成品A": 30, "完成品B": 10},
+                "service_level": 0.95,
+                "moq": {"完成品A": 10, "完成品B": 10},
+                "order_multiple": {"完成品A": 5, "完成品B": 5},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "店舗2",
+                "node_type": "store",
+                "initial_stock": {"完成品A": 20, "完成品B": 5},
+                "service_level": 0.95,
+                "moq": {"完成品A": 10, "完成品B": 10},
+                "order_multiple": {"完成品A": 5, "完成品B": 5},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "中央倉庫",
+                "node_type": "warehouse",
+                "initial_stock": {"完成品A": 100, "完成品B": 50},
+                "service_level": 0.90,
+                "moq": {"完成品A": 30, "完成品B": 30},
+                "order_multiple": {"完成品A": 10, "完成品B": 10},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "組立工場",
+                "node_type": "factory",
+                "producible_products": ["完成品A", "完成品B"],
+                "initial_stock": {
+                    "完成品A": 50,
+                    "完成品B": 20,
+                    "材料X": 500,
+                    "材料Y": 800,
+                    "材料Z": 600,
+                },
+                "lead_time": 14,
+                "production_capacity": 50,
+                "reorder_point": {"材料X": 200, "材料Y": 400, "材料Z": 300},
+                "order_up_to_level": {"材料X": 500, "材料Y": 800, "材料Z": 600},
+                "moq": {"材料X": 50, "材料Y": 100, "材料Z": 100},
+                "order_multiple": {"材料X": 25, "材料Y": 50, "材料Z": 50},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "サプライヤーX",
+                "node_type": "material",
+                "initial_stock": {"材料X": 10000},
+                "material_cost": {"材料X": 100},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "サプライヤーY",
+                "node_type": "material",
+                "initial_stock": {"材料Y": 10000},
+                "material_cost": {"材料Y": 20},
+                "backorder_enabled": True,
+            },
+            {
+                "name": "サプライヤーZ",
+                "node_type": "material",
+                "initial_stock": {"材料Z": 10000},
+                "material_cost": {"材料Z": 30},
+                "backorder_enabled": True,
+            },
         ],
         "network": [
-            {"from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3, "moq": {"完成品A": 20, "完成品B": 20}, "order_multiple": {"完成品A": 10, "完成品B": 10}},
-            {"from_node": "中央倉庫", "to_node": "店舗2", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3, "moq": {"完成品A": 20, "完成品B": 20}, "order_multiple": {"完成品A": 10, "完成品B": 10}},
-            {"from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2, "lead_time": 7},
-            {"from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 30},
-            {"from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 20},
-            {"from_node": "サプライヤーZ", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 25},
+            {
+                "from_node": "中央倉庫",
+                "to_node": "店舗1",
+                "transportation_cost_fixed": 200,
+                "transportation_cost_variable": 3,
+                "lead_time": 3,
+                "moq": {"完成品A": 20, "完成品B": 20},
+                "order_multiple": {"完成品A": 10, "完成品B": 10},
+            },
+            {
+                "from_node": "中央倉庫",
+                "to_node": "店舗2",
+                "transportation_cost_fixed": 200,
+                "transportation_cost_variable": 3,
+                "lead_time": 3,
+                "moq": {"完成品A": 20, "完成品B": 20},
+                "order_multiple": {"完成品A": 10, "完成品B": 10},
+            },
+            {
+                "from_node": "組立工場",
+                "to_node": "中央倉庫",
+                "transportation_cost_fixed": 500,
+                "transportation_cost_variable": 2,
+                "lead_time": 7,
+            },
+            {
+                "from_node": "サプライヤーX",
+                "to_node": "組立工場",
+                "transportation_cost_fixed": 1000,
+                "transportation_cost_variable": 1,
+                "lead_time": 30,
+            },
+            {
+                "from_node": "サプライヤーY",
+                "to_node": "組立工場",
+                "transportation_cost_fixed": 1000,
+                "transportation_cost_variable": 1,
+                "lead_time": 20,
+            },
+            {
+                "from_node": "サプライヤーZ",
+                "to_node": "組立工場",
+                "transportation_cost_fixed": 1000,
+                "transportation_cost_variable": 1,
+                "lead_time": 25,
+            },
         ],
         "customer_demand": [
-            {"store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2},
-            {"store_name": "店舗1", "product_name": "完成品B", "demand_mean": 8,  "demand_std_dev": 1.5},
-            {"store_name": "店舗2", "product_name": "完成品B", "demand_mean": 6,  "demand_std_dev": 1.0},
+            {
+                "store_name": "店舗1",
+                "product_name": "完成品A",
+                "demand_mean": 15,
+                "demand_std_dev": 2,
+            },
+            {
+                "store_name": "店舗1",
+                "product_name": "完成品B",
+                "demand_mean": 8,
+                "demand_std_dev": 1.5,
+            },
+            {
+                "store_name": "店舗2",
+                "product_name": "完成品B",
+                "demand_mean": 6,
+                "demand_std_dev": 1.0,
+            },
         ],
     }
 
@@ -67,7 +182,12 @@ class TestSimulationConsistency(unittest.TestCase):
                     demand = metrics.get("demand", 0)
                     sales = metrics.get("sales", 0)
                     shortage = metrics.get("shortage", 0)
-                    self.assertAlmostEqual(demand, sales + shortage, places=6, msg=f"Day {day['day']} {node}-{item}: PSI identity failed")
+                    self.assertAlmostEqual(
+                        demand,
+                        sales + shortage,
+                        places=6,
+                        msg=f"Day {day['day']} {node}-{item}: PSI identity failed",
+                    )
 
                     start_stock = metrics.get("start_stock", 0)
                     end_stock = metrics.get("end_stock", 0)
@@ -76,8 +196,10 @@ class TestSimulationConsistency(unittest.TestCase):
                     consumption = metrics.get("consumption", 0)
 
                     lhs = start_stock + incoming + produced - sales - consumption
-                    self.assertTrue(math.isclose(lhs, end_stock, rel_tol=1e-7, abs_tol=1e-7),
-                                    msg=f"Day {day['day']} {node}-{item}: stock flow mismatch: lhs={lhs}, end={end_stock}")
+                    self.assertTrue(
+                        math.isclose(lhs, end_stock, rel_tol=1e-7, abs_tol=1e-7),
+                        msg=f"Day {day['day']} {node}-{item}: stock flow mismatch: lhs={lhs}, end={end_stock}",
+                    )
 
     def test_cumulative_order_balance(self):
         # For each (dest,item): total ordered == total incoming (shipments) + pending shipments scheduled after horizon
@@ -110,13 +232,19 @@ class TestSimulationConsistency(unittest.TestCase):
                 key = (dest, it)
                 ordered_by_dest[key] = ordered_by_dest.get(key, 0) + q
 
-        keys = set(ordered_by_dest.keys()) | set(total_incoming.keys()) | set(pending_future.keys())
+        keys = (
+            set(ordered_by_dest.keys())
+            | set(total_incoming.keys())
+            | set(pending_future.keys())
+        )
         for key in keys:
             ordered = ordered_by_dest.get(key, 0)
             incoming = total_incoming.get(key, 0)
             future = pending_future.get(key, 0)
-            self.assertTrue(math.isclose(ordered, incoming + future, rel_tol=1e-9, abs_tol=1e-9),
-                            msg=f"Cumulative balance failed for {key}: ordered={ordered}, incoming={incoming}, pending={future}")
+            self.assertTrue(
+                math.isclose(ordered, incoming + future, rel_tol=1e-9, abs_tol=1e-9),
+                msg=f"Cumulative balance failed for {key}: ordered={ordered}, incoming={incoming}, pending={future}",
+            )
 
     def test_moq_and_multiples_applied(self):
         # Verify each placed order respects node/link MOQ and integer multiples when integers are specified
@@ -132,17 +260,28 @@ class TestSimulationConsistency(unittest.TestCase):
                     continue
 
                 # MOQ
-                node_moq = getattr(dest_node, 'moq', {}).get(item, 0)
-                link_moq = getattr(link, 'moq', {}).get(item, 0)
+                node_moq = getattr(dest_node, "moq", {}).get(item, 0)
+                link_moq = getattr(link, "moq", {}).get(item, 0)
                 eff_moq = max(node_moq or 0, link_moq or 0)
                 if eff_moq > 0:
-                    self.assertGreaterEqual(qty, eff_moq, msg=f"Day {day} {supplier}->{dest} {item}: qty {qty} < MOQ {eff_moq}")
+                    self.assertGreaterEqual(
+                        qty,
+                        eff_moq,
+                        msg=f"Day {day} {supplier}->{dest} {item}: qty {qty} < MOQ {eff_moq}",
+                    )
 
                 # Order multiples (only enforce integer multiples explicitly)
-                for mult in (getattr(dest_node, 'order_multiple', {}).get(item, 0), getattr(link, 'order_multiple', {}).get(item, 0)):
+                for mult in (
+                    getattr(dest_node, "order_multiple", {}).get(item, 0),
+                    getattr(link, "order_multiple", {}).get(item, 0),
+                ):
                     if mult and abs(mult - round(mult)) < 1e-9 and round(mult) > 0:
                         m = int(round(mult))
-                        self.assertEqual(qty % m, 0, msg=f"Day {day} {supplier}->{dest} {item}: qty {qty} not multiple of {m}")
+                        self.assertEqual(
+                            qty % m,
+                            0,
+                            msg=f"Day {day} {supplier}->{dest} {item}: qty {qty} not multiple of {m}",
+                        )
 
     def test_backorder_pipeline_prevents_order_balloon(self):
         # Deterministic scenario: zero stddev, SL=0 to remove z-term, LT=3
@@ -183,17 +322,31 @@ class TestSimulationConsistency(unittest.TestCase):
 
         # Expectations: first order is between mean*(LT+1) and mean*(LT+1)+backlog (backlog ~ mean on day0),
         # subsequent orders <= mean
-        self.assertGreaterEqual(len(store_orders_by_day), 1, msg="No store orders recorded")
+        self.assertGreaterEqual(
+            len(store_orders_by_day), 1, msg="No store orders recorded"
+        )
         first = store_orders_by_day[0]
         mean = 10
         lt = 3
         expected_lower = mean * (lt + 1)
         expected_upper = expected_lower + mean
-        self.assertGreaterEqual(first, expected_lower - 1e-9, msg=f"First order too small: {first} < {expected_lower}")
-        self.assertLessEqual(first, expected_upper + 1e-9, msg=f"First order too large: {first} > {expected_upper}")
+        self.assertGreaterEqual(
+            first,
+            expected_lower - 1e-9,
+            msg=f"First order too small: {first} < {expected_lower}",
+        )
+        self.assertLessEqual(
+            first,
+            expected_upper + 1e-9,
+            msg=f"First order too large: {first} > {expected_upper}",
+        )
 
         for q in store_orders_by_day[1:5]:
-            self.assertLessEqual(q, mean + 1e-9, msg=f"Top-up order too large: {q} > {mean}; orders={store_orders_by_day}")
+            self.assertLessEqual(
+                q,
+                mean + 1e-9,
+                msg=f"Top-up order too large: {q} > {mean}; orders={store_orders_by_day}",
+            )
 
 
 if __name__ == "__main__":
