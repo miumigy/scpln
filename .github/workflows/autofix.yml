@@ -57,6 +57,11 @@ jobs:
           path: test-results/**/*.xml
           if-no-files-found: ignore
 
+      - name: Clean baseline test-results from workspace
+        if: always()
+        run: |
+          rm -rf test-results || true
+
       - name: Autofix with Ruff and Black
         run: |
           set -e
@@ -108,6 +113,11 @@ jobs:
             test-results/**/*.xml
             .autofix_test_exit
           if-no-files-found: warn
+
+      - name: Clean post-fix test-results from workspace
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          rm -rf test-results || true
 
       - name: No changes summary
         if: steps.changes.outputs.changed != 'true'
