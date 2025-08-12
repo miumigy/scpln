@@ -5,8 +5,8 @@ import os
 # Generate timestamp
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-# Define source and destination paths
-project_root = "/home/miumigy/gemini/scsim"
+# Resolve project root as this script's parent directory
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "."))
 backup_dir = os.path.join(project_root, "backup")
 
 main_py_src = os.path.join(project_root, "main.py")
@@ -18,8 +18,11 @@ index_html_dst = os.path.join(backup_dir, f"index_{timestamp}.html")
 # Create backup directory if it doesn't exist
 os.makedirs(backup_dir, exist_ok=True)
 
-# Copy files
-shutil.copy2(main_py_src, main_py_dst)
-shutil.copy2(index_html_src, index_html_dst)
+# Copy files if they exist
+copied = []
+for src, dst in [(main_py_src, main_py_dst), (index_html_src, index_html_dst)]:
+    if os.path.exists(src):
+        shutil.copy2(src, dst)
+        copied.append(os.path.basename(dst))
 
-print(f"Backup created: main_{timestamp}.py and index_{timestamp}.html")
+print(f"Backup created: {', '.join(copied)}")

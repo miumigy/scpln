@@ -18,7 +18,7 @@ jobs:
       - name: Re-run latest CI for PR head SHA
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          github-token: ${{ secrets.BOT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
