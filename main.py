@@ -2,7 +2,13 @@ import logging
 import random
 from collections import defaultdict
 import math
-from scipy.stats import norm
+# Normal quantile function with fallback to Python stdlib if SciPy unavailable
+try:
+    from scipy.stats import norm as _scipy_norm  # type: ignore
+    norm_ppf = _scipy_norm.ppf
+except Exception:  # pragma: no cover
+    from statistics import NormalDist
+    norm_ppf = NormalDist().inv_cdf
 from typing import List, Dict, Any, Literal, Annotated, Union
 from pydantic import BaseModel, Field
 from copy import deepcopy # Added for deepcopy
@@ -434,7 +440,7 @@ class SupplyChainSimulator:
                             inv_pos -= self.customer_backorders[node_name].get(item_name, 0.0)
                         elif isinstance(current_node, WarehouseNode):
                             inv_pos -= scheduled_outgoing
-                        order_up_to = norm.ppf(current_node.service_level) * demand_std * math.sqrt(replenishment_lt) + demand_mean * (replenishment_lt + 1)
+                        order_up_to = norm_ppf(current_node.service_level) * demand_std * math.sqrt(replenishment_lt) + demand_mean * (replenishment_lt + 1)
                         qty_to_order = max(0, math.ceil(order_up_to - inv_pos))
                         logging.debug(f"Day {day}: Node {node_name}, Item {item_name}: inv_pos={inv_pos}, order_up_to={order_up_to}, calculated qty_to_order={qty_to_order}")
 
@@ -488,7 +494,7 @@ class SupplyChainSimulator:
                                     if f == node_name and i == item_name:
                                         pipeline_finished += q
                         inv_pos = self.stock[node_name].get(item_name, 0) + pipeline_finished
-                        order_up_to = norm.ppf(current_node.service_level) * profile['std_dev'] * math.sqrt(current_node.lead_time) + profile['mean'] * (current_node.lead_time + 1)
+                        order_up_to = norm_ppf(current_node.service_level) * profile['std_dev'] * math.sqrt(current_node.lead_time) + profile['mean'] * (current_node.lead_time + 1)
                         production_needed = max(0, math.ceil(order_up_to - inv_pos))
                         # Target production quantity before material check
                         target_prod = (
