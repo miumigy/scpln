@@ -299,7 +299,7 @@ UIのデフォルトサンプル（`static/js/main.js` 内の `sampleInput`）�
 ### CI（GitHub Actions）
 
 - 本リポジトリには GitHub Actions のワークフロー（`.github/workflows/ci.yml`）を用意しています。
-- `main` への push と PR で以下を自動実行します。
+- すべてのブランチへの push / PR で以下を自動実行します。
   - Python 3.12 セットアップ
   - `pip install -r requirements.txt`
-  - `bash scripts/test.sh` によるユニットテスト
+  - `python -m unittest discover` によるユニットテスト
