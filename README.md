@@ -20,7 +20,7 @@
 1.  **Pythonの確認**: Python 3.9以上がインストールされていることを確認してください。
 2.  **プロジェクトルートへ移動**:
     ```bash
-    cd /home/miumigy/genai/scpln
+    cd <このリポジトリのルート>
     ```
 3.  **起動スクリプトでサーバ起動（推奨）**:
     ```bash
@@ -45,9 +45,11 @@
 
 1.  **ブラウザでアクセス**: `http://localhost:8000` を開きます。
 2.  **シミュレーション実行**: JSONエディタのサンプル入力を使うか独自定義を貼り付け、「シミュレーション実行」をクリックします。
+    - デフォルトのサンプル入力は `static/default_input.json` から自動読込されます（`static/js/main.js` 内にベタ書きはありません）。
 3.  **APIドキュメント**
     - OpenAPI UI: `http://localhost:8000/docs`
     - ReDoc: `http://localhost:8000/redoc`
+    - 健康監視: `GET /healthz`
 
 ## 運用コマンド
 
@@ -122,7 +124,7 @@
 { "store_name": "店舗2", "product_name": "完成品A", "demand_mean": 10, "demand_std_dev": 2 }
 ```
 
-UIのデフォルトサンプル（`static/js/main.js` 内の `sampleInput`）も店舗2を含む構成に更新済みです。
+UIのデフォルトサンプルは `static/default_input.json` にあり、複数店舗（例: 店舗2）を含む構成になっています。
 
 ## 発注ロジック（在庫ポジションの定義）
 
@@ -213,9 +215,14 @@ UIのデフォルトサンプル（`static/js/main.js` 内の `sampleInput`）�
 *   **Total Cost**
 *   **Profit/Loss**
 
-## バックアップ情報
+## バックアップ（任意・手動）
 
-シミュレーションの重要な変更は、プロジェクトルートの `backup/` ディレクトリにタイムスタンプ付きで保存されます。これにより、以前の状態にいつでも戻すことができます。
+`backup_script.py` を実行すると、`main.py` と `index.html` を `backup/` ディレクトリにタイムスタンプ付きで保存します（自動ではありません）。
+
+```bash
+python backup_script.py
+ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
+```
 
 ## 今後の拡張案
 
