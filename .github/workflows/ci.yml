@@ -16,6 +16,7 @@ jobs:
       actions: write
       pull-requests: write
       issues: write
+      checks: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,9 +39,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests (unittest)
+      - name: Install test reporter (xml)
         run: |
-          python -m unittest discover -s tests -p "test_*.py" -v
+          pip install unittest-xml-reporting
+
+      - name: Run tests and produce JUnit XML
+        run: |
+          python scripts/run_tests_xml.py
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            test-results/**/*.xml
+          comment_mode: always
+          check_name: Unit Test Results
 
       - name: Comment PR with result
         if: ${{ github.event_name == 'pull_request' }}
