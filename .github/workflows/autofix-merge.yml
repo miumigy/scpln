@@ -5,6 +5,7 @@ on:
     workflows: ["CI"]
     types:
       - completed
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   merge:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Merge passing autofix PRs
@@ -23,35 +24,37 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const run = context.payload.workflow_run;
-            const headSha = run.head_sha;
+            let prs = [];
+            if (context.eventName === 'workflow_run') {
+              const run = context.payload.workflow_run;
+              const headSha = run.head_sha;
+              const assoc = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: headSha });
+              prs = assoc.data || [];
+            } else {
+              const open = await github.rest.pulls.list({ owner, repo, state: 'open', per_page: 100 });
+              prs = open.data || [];
+            }
 
-            // Find PRs for this SHA
-            const prsResp = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:pr is:open ${headSha}`,
-              per_page: 10,
-            });
-            const prs = prsResp.data.items || [];
-
-            for (const prItem of prs) {
-              const prNumber = prItem.number;
-              const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              const labels = pr.data.labels.map(l => l.name);
-              const sameRepo = pr.data.head.repo.full_name === `${owner}/${repo}`;
+            for (const pr of prs) {
+              const prNumber = pr.number;
+              const labels = (pr.labels || []).map(l => l.name);
+              const sameRepo = pr.head && pr.head.repo && pr.head.repo.full_name === `${owner}/${repo}`;
               const hasLabel = labels.includes('autofix') || labels.includes('bot') || labels.includes('dependencies') || labels.includes('auto-pr');
-              const isDependabot = pr.data.user && (pr.data.user.login === 'dependabot[bot]' || pr.data.user.type === 'Bot');
-              const isDraft = pr.data.draft;
-              const mergeableState = pr.data.mergeable_state; // may be 'clean' after refresh
-
+              const isDependabot = pr.user && (pr.user.login === 'dependabot[bot]' || pr.user.type === 'Bot');
+              const isDraft = pr.draft;
               if (!sameRepo) continue;
               if (!hasLabel && !isDependabot) continue;
               if (isDraft) continue;
 
-              // Ensure checks are successful
-              const checks = await github.rest.checks.listForRef({ owner, repo, ref: pr.data.head.sha });
+              // Ensure checks are successful for the PR head SHA
+              const refSha = pr.head.sha;
+              const checks = await github.rest.checks.listForRef({ owner, repo, ref: refSha });
               const allChecks = checks.data.check_runs || [];
               const allSuccess = allChecks.every(c => ['success','skipped','neutral'].includes(c.conclusion));
-              if (!allSuccess) continue;
+              if (!allSuccess) {
+                core.info(`PR #${prNumber} checks not all successful; skipping`);
+                continue;
+              }
 
               try {
                 await github.rest.pulls.merge({ owner, repo, pull_number: prNumber, merge_method: 'squash' });
