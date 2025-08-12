@@ -1,0 +1,55 @@
+name: PR Info via Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+  actions: read
+
+jobs:
+  pr-info:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/prinfo') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch PR details and report
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = context.payload.issue.number;
+            const prResp = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const pr = prResp.data;
+            const sha = pr.head.sha;
+            const labels = (pr.labels || []).map(l => l.name);
+            const draft = !!pr.draft;
+            const sameRepo = pr.head.repo && pr.head.repo.full_name === `${owner}/${repo}`;
+            // Mergeable status can be null initially; try refresh
+            let mergeable = pr.mergeable;
+            try {
+              const refreshed = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              mergeable = refreshed.data.mergeable;
+            } catch(e) {}
+            // Checks
+            const checks = await github.rest.checks.listForRef({ owner, repo, ref: sha });
+            const runs = checks.data.check_runs || [];
+            const allSuccess = runs.length > 0 && runs.every(c => ['success','skipped','neutral'].includes(c.conclusion));
+            const failing = runs.filter(c => !['success','skipped','neutral'].includes(c.conclusion)).map(c => `${c.name}: ${c.conclusion}`);
+            // Compose report
+            const body = [
+              `PR #${prNumber} status:`,
+              `- Title: ${pr.title}`,
+              `- Draft: ${draft}`,
+              `- Labels: ${labels.join(', ') || '(none)'}`,
+              `- Head: ${sha.substring(0,7)} (${sameRepo ? 'same-repo' : 'fork'})`,
+              `- Checks success: ${allSuccess} ${failing.length ? `(failing: ${failing.join('; ')})` : ''}`,
+              `- Mergeable: ${mergeable}`,
+              `- Review required: ${pr.requested_reviewers?.length ? 'yes' : 'no'}`,
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+

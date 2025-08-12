@@ -1,0 +1,58 @@
+name: Typing Stubs Auto PR
+
+on:
+  schedule:
+    - cron: '0 3 * * 0' # weekly Sunday 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  stubgen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install mypy
+        run: |
+          python -m pip install --upgrade pip
+          pip install mypy
+
+      - name: Generate stubs for project modules
+        run: |
+          rm -rf typings || true
+          mkdir -p typings
+          # Generate stubs for main application module(s)
+          python -m mypy.stubgen -m main -o typings -q || true
+          # Clean metadata files
+          find typings -type f -name "*.pyi" -print
+
+      - name: Create PR with stubs
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.BOT_TOKEN || github.token }}
+          commit-message: "chore(typing): add generated stubs to typings/ and mypy.ini"
+          title: "Add typing stubs (auto-generated)"
+          body: |
+            This PR adds auto-generated `.pyi` stubs under `typings/` using `stubgen`.
+
+            - Helps mypy understand project APIs without touching runtime code.
+            - Safe first step toward enabling blocking mypy checks.
+            - You can iterate on these stubs or gradually add annotations in source.
+          branch: typing-stubs/${{ github.run_id }}
+          base: main
+          labels: typing, bot
+          add-paths: |
+            typings/**
+            mypy.ini
+          delete-branch: true

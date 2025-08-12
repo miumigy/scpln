@@ -16,23 +16,37 @@ def build_sample_input():
                     {"item_name": "材料X", "quantity_per": 2},
                     {"item_name": "材料Y", "quantity_per": 5},
                 ],
-            }
+            },
+            {
+                "name": "完成品B",
+                "sales_price": 1800,
+                "assembly_bom": [
+                    {"item_name": "材料Y", "quantity_per": 3},
+                    {"item_name": "材料Z", "quantity_per": 4},
+                ],
+            },
         ],
         "nodes": [
-            {"name": "店舗1", "node_type": "store", "initial_stock": {"完成品A": 30}, "service_level": 0.95, "moq": {"完成品A": 10}, "order_multiple": {"完成品A": 5}, "backorder_enabled": True},
-            {"name": "中央倉庫", "node_type": "warehouse", "initial_stock": {"完成品A": 100}, "service_level": 0.90, "moq": {"完成品A": 30}, "order_multiple": {"完成品A": 10}, "backorder_enabled": True},
-            {"name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": {"完成品A": 50, "材料X": 500, "材料Y": 800}, "lead_time": 14, "production_capacity": 50, "reorder_point": {"材料X": 200, "材料Y": 400}, "order_up_to_level": {"材料X": 500, "材料Y": 800}, "moq": {"材料X": 50, "材料Y": 100}, "order_multiple": {"材料X": 25, "材料Y": 50}, "backorder_enabled": True},
+            {"name": "店舗1", "node_type": "store", "initial_stock": {"完成品A": 30, "完成品B": 10}, "service_level": 0.95, "moq": {"完成品A": 10, "完成品B": 10}, "order_multiple": {"完成品A": 5, "完成品B": 5}, "backorder_enabled": True},
+            {"name": "店舗2", "node_type": "store", "initial_stock": {"完成品A": 20, "完成品B": 5}, "service_level": 0.95, "moq": {"完成品A": 10, "完成品B": 10}, "order_multiple": {"完成品A": 5, "完成品B": 5}, "backorder_enabled": True},
+            {"name": "中央倉庫", "node_type": "warehouse", "initial_stock": {"完成品A": 100, "完成品B": 50}, "service_level": 0.90, "moq": {"完成品A": 30, "完成品B": 30}, "order_multiple": {"完成品A": 10, "完成品B": 10}, "backorder_enabled": True},
+            {"name": "組立工場", "node_type": "factory", "producible_products": ["完成品A", "完成品B"], "initial_stock": {"完成品A": 50, "完成品B": 20, "材料X": 500, "材料Y": 800, "材料Z": 600}, "lead_time": 14, "production_capacity": 50, "reorder_point": {"材料X": 200, "材料Y": 400, "材料Z": 300}, "order_up_to_level": {"材料X": 500, "材料Y": 800, "材料Z": 600}, "moq": {"材料X": 50, "材料Y": 100, "材料Z": 100}, "order_multiple": {"材料X": 25, "材料Y": 50, "材料Z": 50}, "backorder_enabled": True},
             {"name": "サプライヤーX", "node_type": "material", "initial_stock": {"材料X": 10000}, "material_cost": {"材料X": 100}, "backorder_enabled": True},
             {"name": "サプライヤーY", "node_type": "material", "initial_stock": {"材料Y": 10000}, "material_cost": {"材料Y": 20}, "backorder_enabled": True},
+            {"name": "サプライヤーZ", "node_type": "material", "initial_stock": {"材料Z": 10000}, "material_cost": {"材料Z": 30}, "backorder_enabled": True},
         ],
         "network": [
-            {"from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3, "moq": {"完成品A": 20}, "order_multiple": {"完成品A": 10}},
+            {"from_node": "中央倉庫", "to_node": "店舗1", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3, "moq": {"完成品A": 20, "完成品B": 20}, "order_multiple": {"完成品A": 10, "完成品B": 10}},
+            {"from_node": "中央倉庫", "to_node": "店舗2", "transportation_cost_fixed": 200, "transportation_cost_variable": 3, "lead_time": 3, "moq": {"完成品A": 20, "完成品B": 20}, "order_multiple": {"完成品A": 10, "完成品B": 10}},
             {"from_node": "組立工場", "to_node": "中央倉庫", "transportation_cost_fixed": 500, "transportation_cost_variable": 2, "lead_time": 7},
             {"from_node": "サプライヤーX", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 30},
             {"from_node": "サプライヤーY", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 20},
+            {"from_node": "サプライヤーZ", "to_node": "組立工場", "transportation_cost_fixed": 1000, "transportation_cost_variable": 1, "lead_time": 25},
         ],
         "customer_demand": [
             {"store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2},
+            {"store_name": "店舗1", "product_name": "完成品B", "demand_mean": 8,  "demand_std_dev": 1.5},
+            {"store_name": "店舗2", "product_name": "完成品B", "demand_mean": 6,  "demand_std_dev": 1.0},
         ],
     }
 

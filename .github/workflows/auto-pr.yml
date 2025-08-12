@@ -1,0 +1,126 @@
+name: Auto PR on Push
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR to main with summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            const branch = process.env.GITHUB_REF_NAME;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Check if an open PR already exists for this branch
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+
+            // Build summary from compare
+            const compare = await github.rest.repos.compareCommits({ owner, repo, base: 'main', head: branch });
+            const files = compare.data.files || [];
+            const commitsAll = compare.data.commits || [];
+            const filesList = files.slice(0, 20).map(f => `- ${f.filename} (+${f.additions} / -${f.deletions})`).join('\n');
+            const extra = files.length > 20 ? `\n...and ${files.length - 20} more files` : '';
+            const additions = files.reduce((a,f)=>a+f.additions,0);
+            const deletions = files.reduce((a,f)=>a+f.deletions,0);
+            const titleDefault = commitsAll[commitsAll.length-1]?.commit?.message?.split('\n')[0] || `Auto PR: ${branch}`;
+            const body = [
+              `This PR was automatically created from branch \`${branch}\` on push.`,
+              '',
+              'Summary:',
+              `- Commits: ${commitsAll.length}`,
+              `- Files changed: ${files.length}`,
+              `- Additions/Deletions: +${additions} / -${deletions}`,
+              '',
+              'Files:',
+              filesList || '- (no changes)',
+              extra,
+              '',
+              'Checklist:',
+              '- [ ] Tests pass in CI',
+              '- [ ] Changes reviewed',
+            ].join('\n');
+
+            if (prs.data.length > 0) {
+              const pr = prs.data[0];
+              core.info(`PR already exists: #${pr.number} ${pr.html_url}`);
+              await github.rest.pulls.update({ owner, repo, pull_number: pr.number, title: titleDefault, body });
+            } else {
+              const created = await github.rest.pulls.create({ owner, repo, head: branch, base: 'main', title: titleDefault, body });
+              core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+            }
+
+      - name: Add label (optional)
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            try {
+              const branch = process.env.GITHUB_REF_NAME;
+              const owner = context.repo.owner;
+              const repo = context.repo.repo;
+              const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+              if (prs.data.length === 0) return;
+              const pr = prs.data[0];
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: ['auto-pr'] });
+            } catch (e) {
+              core.warning(`Labeling skipped: ${e.message}`);
+            }
+
+      - name: Request reviewers from CODEOWNERS or defaults (optional)
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DEFAULT_REVIEWERS: ${{ vars.DEFAULT_REVIEWERS }}
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = process.env.GITHUB_REF_NAME;
+            const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
+            if (prs.data.length === 0) return;
+            const pr = prs.data[0];
+
+            // Try to read CODEOWNERS
+            let codeowners = '';
+            for (const p of ['.github/CODEOWNERS', 'CODEOWNERS']) {
+              try { codeowners = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, p), 'utf8'); break; } catch(e) {}
+            }
+            let owners = [];
+            if (codeowners) {
+              const lines = codeowners.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+              for (const line of lines) {
+                const parts = line.split(/\s+/);
+                if (!parts.length) continue;
+                const patt = parts.shift();
+                if (patt === '*') owners.push(...parts.map(s => s.replace(/^@/, '')));
+              }
+            }
+            const defaults = (process.env.DEFAULT_REVIEWERS || '').split(',').map(s => s.trim()).filter(Boolean);
+            owners.push(...defaults);
+            owners = Array.from(new Set(owners));
+            if (!owners.length) { core.info('No reviewers determined'); return; }
+            try {
+              await github.rest.pulls.requestReviewers({ owner, repo, pull_number: pr.number, reviewers: owners.slice(0,10) });
+              core.info(`Requested reviewers: ${owners.join(', ')}`);
+            } catch (e) {
+              core.warning(`Request reviewers skipped: ${e.message}`);
+            }

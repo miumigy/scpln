@@ -1,0 +1,44 @@
+name: Auto-Merge on PR Events
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  try-merge:
+    if: >-
+      ${{ contains(github.event.pull_request.labels.*.name, 'autofix') ||
+          contains(github.event.pull_request.labels.*.name, 'dependencies') ||
+          contains(github.event.pull_request.labels.*.name, 'bot') ||
+          contains(github.event.pull_request.labels.*.name, 'auto-pr') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attempt merge if checks successful
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.BOT_TOKEN || github.token }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            if (pr.draft) { core.info('PR is draft; skip'); return; }
+            if (pr.head.repo.full_name !== `${owner}/${repo}`) { core.info('Fork PR; skip'); return; }
+            const sha = pr.head.sha;
+            const checks = await github.rest.checks.listForRef({ owner, repo, ref: sha });
+            const allChecks = checks.data.check_runs || [];
+            const allSuccess = allChecks.length > 0 && allChecks.every(c => ['success','skipped','neutral'].includes(c.conclusion));
+            if (!allSuccess) {
+              core.info(`Checks not successful for PR #${pr.number}; skip`);
+              return;
+            }
+            try {
+              await github.rest.pulls.merge({ owner, repo, pull_number: pr.number, merge_method: 'squash' });
+              core.info(`Merged PR #${pr.number}`);
+            } catch (e) {
+              core.warning(`Failed to merge PR #${pr.number}: ${e.message}`);
+            }
+

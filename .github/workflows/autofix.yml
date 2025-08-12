@@ -1,0 +1,114 @@
+name: Auto Fix and Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' # every 6 hours
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+      
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}-dev
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies and dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install unittest-xml-reporting
+          pip install ruff black
+
+      - name: Run tests (baseline)
+        id: baseline
+        run: |
+          set +e
+          python scripts/run_tests_xml.py
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+          set -e
+        continue-on-error: true
+
+      - name: Store baseline results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-test-results
+          path: test-results/**/*.xml
+          if-no-files-found: ignore
+
+      - name: Autofix with Ruff and Black
+        run: |
+          set -e
+          # Ruff: lint fixes (imports, unused vars, etc.)
+          ruff check --fix . || true
+          # Formatting
+          black . || true
+
+      - name: Detect changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request with fixes
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.BOT_TOKEN || github.token }}
+          commit-message: "chore(autofix): apply ruff --fix and black"
+          title: "Autofix: ruff/black formatting and lint fixes"
+          body: |
+            This PR was created automatically by the `Auto Fix and Test` workflow.
+
+            - Runs tests, then applies `ruff --fix` and `black`.
+            - Any changes are proposed here for CI verification.
+          branch: autofix/${{ github.run_id }}
+          base: main
+          labels: autofix, bot
+          delete-branch: true
+
+      - name: Run tests after autofix (for info)
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          set +e
+          python scripts/run_tests_xml.py
+          echo $? > .autofix_test_exit
+          set -e
+
+      - name: Upload post-fix results
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-fix-test-results
+          path: |
+            test-results/**/*.xml
+            .autofix_test_exit
+          if-no-files-found: warn
+
+      - name: No changes summary
+        if: steps.changes.outputs.changed != 'true'
+        run: echo "No autofix changes detected."
