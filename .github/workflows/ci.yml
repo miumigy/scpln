@@ -47,6 +47,30 @@ jobs:
         run: |
           python scripts/run_tests_xml.py
 
+      - name: Debug on failure (verbose discovery)
+        if: failure()
+        run: |
+          set +e
+          python -V
+          pip freeze | sed -n '1,200p'
+          echo "Running unittest discover (verbose) for debugging..."
+          python -m unittest discover -s tests -p "test_*.py" -v || true
+          echo "Inline discovery run..."
+          python - <<'PY'
+import unittest, traceback
+loader = unittest.defaultTestLoader
+try:
+    suite = loader.discover('tests', pattern='test_*.py')
+    print('Discovered cases:', suite.countTestCases())
+    runner = unittest.TextTestRunner(verbosity=2)
+    res = runner.run(suite)
+    print('Success:', res.wasSuccessful())
+except Exception as e:
+    traceback.print_exc()
+    raise
+PY
+          set -e
+
       - name: Publish Unit Test Results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
