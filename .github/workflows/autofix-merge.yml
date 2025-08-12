@@ -63,3 +63,4 @@ jobs:
                 core.warning(`Failed to merge PR #${prNumber}: ${e.message}`);
               }
             }
+
