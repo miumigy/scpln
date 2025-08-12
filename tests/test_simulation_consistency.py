@@ -107,7 +107,48 @@ class TestSimulationConsistency(unittest.TestCase):
                         m = int(round(mult))
                         self.assertEqual(qty % m, 0, msg=f"Day {day} {supplier}->{dest} {item}: qty {qty} not multiple of {m}")
 
+    def test_backorder_pipeline_prevents_order_balloon(self):
+        # Deterministic scenario: zero stddev, SL=0 to remove z-term, LT=3
+        # Expect day0 places a large order equal to mean*(LT+1),
+        # subsequent days top-up by mean (not repeat the large order) -> non-increasing sequence
+        sim_input = build_sample_input()
+        sim_input["planning_horizon"] = 6
+        # Override params for determinism and no rounding constraints
+        for n in sim_input["nodes"]:
+            if n["node_type"] in ("store", "warehouse"):
+                n["service_level"] = 0.0
+                n.pop("moq", None)
+                n.pop("order_multiple", None)
+            if n["node_type"] == "store":
+                n["initial_stock"] = {"完成品A": 0}
+            if n["node_type"] == "warehouse":
+                n["initial_stock"] = {"完成品A": 0}
+        for link in sim_input["network"]:
+            if link["to_node"] == "店舗1":
+                link["lead_time"] = 3
+                link.pop("moq", None)
+                link.pop("order_multiple", None)
+        sim_input["customer_demand"][0]["demand_mean"] = 10
+        sim_input["customer_demand"][0]["demand_std_dev"] = 0
+
+        sim = SupplyChainSimulator(SimulationInput(**sim_input))
+        sim.run()
+
+        # Collect store orders by day
+        store_orders_by_day = []
+        for day in sorted(sim.order_history.keys()):
+            day_qty = 0
+            for item, qty, supplier, dest in sim.order_history[day]:
+                if dest == "店舗1" and supplier == "中央倉庫" and item == "完成品A":
+                    day_qty += qty
+            if day_qty > 0:
+                store_orders_by_day.append(day_qty)
+
+        # We expect a non-increasing order pattern during first few days (avoid ballooning)
+        for i in range(1, min(len(store_orders_by_day), 4)):
+            self.assertLessEqual(store_orders_by_day[i], store_orders_by_day[i-1],
+                                 msg=f"Orders ballooned: {store_orders_by_day}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
