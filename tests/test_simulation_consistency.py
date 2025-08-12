@@ -167,15 +167,19 @@ class TestSimulationConsistency(unittest.TestCase):
             if day_qty > 0:
                 store_orders_by_day.append(day_qty)
 
-        # Expectations: first order ~= mean*(LT+1), subsequent orders <= mean
+        # Expectations: first order is between mean*(LT+1) and mean*(LT+1)+backlog (backlog ~ mean on day0),
+        # subsequent orders <= mean
         self.assertGreaterEqual(len(store_orders_by_day), 1, msg="No store orders recorded")
         first = store_orders_by_day[0]
-        expected_first = 10 * (3 + 1)  # mean=10, LT=3
-        self.assertTrue(math.isclose(first, expected_first, rel_tol=1e-9, abs_tol=1e-9),
-                        msg=f"First order mismatch: got {first}, expected {expected_first}")
+        mean = 10
+        lt = 3
+        expected_lower = mean * (lt + 1)
+        expected_upper = expected_lower + mean
+        self.assertGreaterEqual(first, expected_lower - 1e-9, msg=f"First order too small: {first} < {expected_lower}")
+        self.assertLessEqual(first, expected_upper + 1e-9, msg=f"First order too large: {first} > {expected_upper}")
 
         for q in store_orders_by_day[1:5]:
-            self.assertLessEqual(q, 10 + 1e-9, msg=f"Top-up order too large: {q} > 10; orders={store_orders_by_day}")
+            self.assertLessEqual(q, mean + 1e-9, msg=f"Top-up order too large: {q} > {mean}; orders={store_orders_by_day}")
 
 
 if __name__ == "__main__":
