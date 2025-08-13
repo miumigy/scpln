@@ -304,31 +304,6 @@ graph TD;
   E --> L[simulation.log];
 ```
 
-### 時系列フロー（シーケンス）
-
-```mermaid
-sequenceDiagram
-  actor User as Browser
-  participant API as FastAPI
-  participant Sim as SupplyChainSimulator
-  participant Nodes as Nodes
-
-  User->>API: POST /simulation
-  API->>Sim: instantiate and run
-  loop day 1..planning_horizon
-    Sim->>Sim: Receive shipments and production
-    Sim->>Nodes: Customer demand at stores
-    Sim->>Nodes: Propagate upstream demand
-    Sim->>Nodes: Ship and backorder
-    Sim->>Nodes: Plan production
-    Sim->>Nodes: Order components
-    Sim->>Nodes: Replenish stores and warehouses
-    Sim->>Sim: Snapshot and Profit Loss
-  end
-  Sim-->>API: results[], profit_loss[]
-  API-->>User: 200 OK (JSON)
-```
-
 ### クラス図（主要要素）
 
 ```mermaid
@@ -428,6 +403,31 @@ classDiagram
     +_place_order(supplier,customer,item,qty,day) void
   }
   SupplyChainSimulator --> SimulationInput
+```
+
+### 時系列フロー（シーケンス）
+
+```mermaid
+sequenceDiagram
+  actor User as Browser
+  participant API as FastAPI
+  participant Sim as SupplyChainSimulator
+  participant Nodes as Nodes
+
+  User->>API: POST /simulation
+  API->>Sim: instantiate and run
+  loop day 1..planning_horizon
+    Sim->>Sim: Receive shipments and production
+    Sim->>Nodes: Customer demand at stores
+    Sim->>Nodes: Propagate upstream demand
+    Sim->>Nodes: Ship and backorder
+    Sim->>Nodes: Plan production
+    Sim->>Nodes: Order components
+    Sim->>Nodes: Replenish stores and warehouses
+    Sim->>Sim: Snapshot and Profit Loss
+  end
+  Sim-->>API: results[], profit_loss[]
+  API-->>User: 200 OK (JSON)
 ```
 
 ## 入出力スキーマ定義
