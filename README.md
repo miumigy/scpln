@@ -60,6 +60,17 @@
 - ステータス表示: `bash scripts/status.sh`（PID/ポート/ヘルス/直近ログ）
 - ヘルスチェックのみ: `bash scripts/health.sh`
 
+### 環境変数（ログ/再現性）
+
+- `SIM_LOG_LEVEL`: ログレベルを指定（`DEBUG`/`INFO`/`WARNING`/`ERROR`、既定 `INFO`）。
+- `SIM_LOG_TO_FILE`: `1` で `simulation.log` にも出力（既定は標準出力のみ）。
+- 入力フィールド `random_seed`: 需要乱数の再現性を担保（指定時のみ固定）。
+
+例:
+```bash
+SIM_LOG_LEVEL=DEBUG SIM_LOG_TO_FILE=1 bash scripts/serve.sh
+```
+
 ## ヘルスチェック
 
 - エンドポイント: `GET /healthz`
@@ -574,6 +585,31 @@ sequenceDiagram
   - Python 3.12 セットアップ
   - `pip install -r requirements.txt`
   - `python -m unittest discover` によるユニットテスト
+
+### 最小スモーク（CLIでの即時確認）
+
+Webサーバを起動せず、最小構成で3日分のシミュレーションが実行できることを確認します。
+
+```bash
+# 仮想環境を利用
+PYTHONPATH=. .venv/bin/python - <<'PY'
+from main import SimulationInput, SupplyChainSimulator
+sim=SupplyChainSimulator(SimulationInput(**{
+  "planning_horizon":3,
+  "products":[{"name":"A","sales_price":100,"assembly_bom":[]}],
+  "nodes":[
+    {"name":"S","node_type":"store","initial_stock":{"A":0},"service_level":0.0,"backorder_enabled":True},
+    {"name":"W","node_type":"warehouse","initial_stock":{"A":0},"service_level":0.0,"backorder_enabled":True},
+    {"name":"F","node_type":"factory","producible_products":["A"],"initial_stock":{"A":0},"lead_time":1,"production_capacity":100,"service_level":0.0,"backorder_enabled":True}
+  ],
+  "network":[{"from_node":"W","to_node":"S","lead_time":1},{"from_node":"F","to_node":"W","lead_time":1}],
+  "customer_demand":[{"store_name":"S","product_name":"A","demand_mean":5,"demand_std_dev":0}],
+  "random_seed":0
+}))
+sim.run()
+print("smoke-ok")
+PY
+```
 
 ## 今後の拡張案
 
