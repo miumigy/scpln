@@ -59,6 +59,86 @@
             }
         }
 
+        function computeClientSummary(results, profitLoss, inputJson) {
+            try {
+                const nodeTypeMap = {};
+                (inputJson.nodes || []).forEach(n => { nodeTypeMap[n.name] = n.node_type; });
+
+                const types = ["store","warehouse","factory","material"];
+                const totals = {};
+                types.forEach(t => totals[t] = { demand:0, sales:0, shortage:0, end:0 });
+                const topShort = {};
+                const boTotals = [];
+
+                results.forEach(day => {
+                    let bo = 0;
+                    const nodes = day.nodes || {};
+                    Object.keys(nodes).forEach(nodeName => {
+                        const ntype = nodeTypeMap[nodeName];
+                        const bucket = totals[ntype];
+                        const items = nodes[nodeName] || {};
+                        Object.keys(items).forEach(item => {
+                            const m = items[item] || {};
+                            const d = +m.demand || 0, s = +m.sales || 0, sh = +m.shortage || 0, end = +m.end_stock || 0;
+                            if (bucket) {
+                                bucket.demand += d; bucket.sales += s; bucket.shortage += sh; bucket.end += end;
+                            }
+                            if (ntype === 'store') {
+                                topShort[item] = (topShort[item]||0) + sh;
+                                bo += (+m.backorder_balance || 0);
+                            }
+                        });
+                    });
+                    boTotals.push(bo);
+                });
+
+                const days = Math.max(1, results.length || 0);
+                const avgOnHandByType = {};
+                types.forEach(t => { avgOnHandByType[t] = (totals[t].end || 0) / days; });
+                const storeDemand = totals.store.demand;
+                const storeSales = totals.store.sales;
+                const fillRate = storeDemand > 0 ? (storeSales / storeDemand) : 1.0;
+
+                let revenueTotal = 0, materialTotal = 0, flowTotal = 0, stockTotal = 0;
+                (profitLoss || []).forEach(pl => {
+                    revenueTotal += (+pl.revenue || 0);
+                    materialTotal += (+pl.material_cost || 0);
+                    const fc = pl.flow_costs || {}; const sc = pl.stock_costs || {};
+                    Object.values(fc).forEach(v => { flowTotal += (+v || 0); });
+                    Object.values(sc).forEach(v => { stockTotal += (+v || 0); });
+                });
+                const costTotal = materialTotal + flowTotal + stockTotal;
+                const profitTotal = revenueTotal - costTotal;
+
+                const topShortageItems = Object.entries(topShort)
+                    .sort((a,b) => b[1]-a[1]).slice(0,5)
+                    .map(([item, shortage]) => ({ item, shortage }));
+
+                const boPeak = boTotals.length ? Math.max(...boTotals) : 0;
+                const boPeakDay = boTotals.length ? (boTotals.indexOf(boPeak) + 1) : 0;
+
+                return {
+                    planning_days: days,
+                    fill_rate: fillRate,
+                    store_demand_total: storeDemand,
+                    store_sales_total: storeSales,
+                    customer_shortage_total: totals.store.shortage,
+                    network_shortage_total: totals.warehouse.shortage + totals.factory.shortage + totals.material.shortage,
+                    avg_on_hand_by_type: avgOnHandByType,
+                    backorder_peak: boPeak,
+                    backorder_peak_day: boPeakDay,
+                    revenue_total: revenueTotal,
+                    cost_total: costTotal,
+                    profit_total: profitTotal,
+                    profit_per_day_avg: days ? (profitTotal / days) : 0,
+                    top_shortage_items: topShortageItems,
+                };
+            } catch (e) {
+                console.warn('Client summary fallback failed:', e);
+                return null;
+            }
+        }
+
         async function runSimulation() {
             resultsOutput.innerHTML = 'シミュレーションを実行中...';
             profitLossOutput.innerHTML = '';
@@ -91,7 +171,7 @@
 
                 fullResultsData = data.results;
                 fullProfitLoss = data.profit_loss || [];
-                fullSummary = data.summary || null;
+                fullSummary = data.summary || computeClientSummary(fullResultsData, fullProfitLoss, requestBody) || null;
                 populateFilters(fullResultsData);
                 applyFilters(); // This will call displayResultsTable
                 displayProfitLossTable(fullProfitLoss);
