@@ -40,6 +40,9 @@ class BaseNode(BaseModel):
     lost_sales: bool = Field(default=False)
     # レビュー間隔（日）。R=0で従来互換。
     review_period_days: int = Field(default=0, ge=0)
+    # ペナルティコスト
+    stockout_cost_per_unit: float = Field(default=0, ge=0)
+    backorder_cost_per_unit_per_day: float = Field(default=0, ge=0)
     storage_capacity: float = Field(default=float("inf"), gt=0)
     allow_storage_over_capacity: bool = Field(default=True)
     storage_over_capacity_fixed_cost: float = Field(default=0, ge=0)
