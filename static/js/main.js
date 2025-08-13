@@ -9,11 +9,18 @@
         const profitLossOutput = document.getElementById('profit-loss-output');
         const nodeFilter = document.getElementById('node-filter');
         const itemFilter = document.getElementById('item-filter');
+        const dayFrom = document.getElementById('day-from');
+        const dayTo = document.getElementById('day-to');
+        const downloadResultsCsvBtn = document.getElementById('download-results-csv');
+        const downloadPlCsvBtn = document.getElementById('download-pl-csv');
+        const summaryOutput = document.getElementById('summary-output');
         const runButton = document.querySelector('.run-button');
         const tabButtons = document.querySelectorAll('.tab-button');
 
         // This variable will hold the complete simulation results
         let fullResultsData = [];
+        let fullProfitLoss = [];
+        let fullSummary = null;
 
         // Load default JSON from external file and initialize editor
         fetch('/static/default_input.json')
@@ -83,9 +90,12 @@
                 }
 
                 fullResultsData = data.results;
+                fullProfitLoss = data.profit_loss || [];
+                fullSummary = data.summary || null;
                 populateFilters(fullResultsData);
                 applyFilters(); // This will call displayResultsTable
-                displayProfitLossTable(data.profit_loss);
+                displayProfitLossTable(fullProfitLoss);
+                displaySummary(fullSummary);
 
             } catch (error) {
                 resultsOutput.innerHTML = `<div class="error-message">エラーが発生しました: ${error.message}</div>`;
@@ -113,14 +123,22 @@
             Array.from(itemSet).sort().forEach(item => {
                 itemFilter.innerHTML += `<option value="${item}">${item}</option>`;
             });
+
+            // Initialize day range
+            const maxDay = results.length > 0 ? Math.max(...results.map(d => d.day)) : 1;
+            dayFrom.min = 1; dayFrom.max = maxDay; dayFrom.value = 1;
+            dayTo.min = 1; dayTo.max = maxDay; dayTo.value = maxDay;
         }
 
         function applyFilters() {
             const selectedNode = nodeFilter.value;
             const selectedItem = itemFilter.value;
+            const from = Math.max(1, parseInt(dayFrom.value || '1', 10));
+            const to = Math.max(from, parseInt(dayTo.value || String(from), 10));
 
             const filteredData = fullResultsData.map(day => {
                 const newDay = { ...day, nodes: {} };
+                if (!(day.day >= from && day.day <= to)) return { ...newDay, nodes: {} };
                 for (const nodeName in day.nodes) {
                     if (selectedNode === 'all' || selectedNode === nodeName) {
                         const newNodeData = {};
@@ -248,6 +266,129 @@
             profitLossOutput.innerHTML = tableHtml;
         }
 
+        function toCsv(rows, headers) {
+            const esc = (v) => {
+                if (v === undefined || v === null) return '';
+                const s = String(v);
+                return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            };
+            const lines = [];
+            lines.push(headers.map(esc).join(','));
+            rows.forEach(r => lines.push(headers.map(h => esc(r[h])).join(',')));
+            return lines.join('\n');
+        }
+
+        function downloadBlob(filename, content, type='text/csv') {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+        }
+
+        function exportResultsCsv() {
+            const from = Math.max(1, parseInt(dayFrom.value || '1', 10));
+            const to = Math.max(from, parseInt(dayTo.value || String(from), 10));
+            const rows = [];
+            fullResultsData.forEach(day => {
+                if (!(day.day >= from && day.day <= to)) return;
+                for (const node in day.nodes) {
+                    for (const item in day.nodes[node]) {
+                        const m = day.nodes[node][item];
+                        rows.push({
+                            Day: day.day,
+                            Node: node,
+                            Item: item,
+                            StartStock: m.start_stock || 0,
+                            Incoming: m.incoming || 0,
+                            Demand: m.demand || 0,
+                            Sales: m.sales || 0,
+                            Consumption: m.consumption || 0,
+                            Produced: m.produced || 0,
+                            Shortage: m.shortage || 0,
+                            Backorder: m.backorder_balance || 0,
+                            EndStock: m.end_stock || 0,
+                            Ordered: m.ordered_quantity || 0,
+                        });
+                    }
+                }
+            });
+            const headers = [
+                'Day','Node','Item','StartStock','Incoming','Demand','Sales','Consumption','Produced','Shortage','Backorder','EndStock','Ordered'
+            ];
+            const csv = toCsv(rows, headers);
+            downloadBlob('results.csv', csv);
+        }
+
+        function exportPlCsv() {
+            const rows = [];
+            fullProfitLoss.forEach(pl => {
+                rows.push({
+                    Day: pl.day,
+                    Revenue: pl.revenue,
+                    MaterialCost: pl.material_cost,
+                    Flow_Material_Fixed: pl.flow_costs.material_transport_fixed,
+                    Flow_Material_Variable: pl.flow_costs.material_transport_variable,
+                    Flow_Production_Fixed: pl.flow_costs.production_fixed,
+                    Flow_Production_Variable: pl.flow_costs.production_variable,
+                    Flow_Warehouse_Fixed: pl.flow_costs.warehouse_transport_fixed,
+                    Flow_Warehouse_Variable: pl.flow_costs.warehouse_transport_variable,
+                    Flow_Store_Fixed: pl.flow_costs.store_transport_fixed,
+                    Flow_Store_Variable: pl.flow_costs.store_transport_variable,
+                    Stock_Material_Fixed: pl.stock_costs.material_storage_fixed,
+                    Stock_Material_Variable: pl.stock_costs.material_storage_variable,
+                    Stock_Factory_Fixed: pl.stock_costs.factory_storage_fixed,
+                    Stock_Factory_Variable: pl.stock_costs.factory_storage_variable,
+                    Stock_Warehouse_Fixed: pl.stock_costs.warehouse_storage_fixed,
+                    Stock_Warehouse_Variable: pl.stock_costs.warehouse_storage_variable,
+                    Stock_Store_Fixed: pl.stock_costs.store_storage_fixed,
+                    Stock_Store_Variable: pl.stock_costs.store_storage_variable,
+                    TotalCost: pl.total_cost,
+                    ProfitLoss: pl.profit_loss,
+                });
+            });
+            const headers = Object.keys(rows[0] || { Day: '' });
+            const csv = toCsv(rows, headers);
+            downloadBlob('profit_loss.csv', csv);
+        }
+
+        function displaySummary(summary) {
+            if (!summary) { summaryOutput.innerHTML = 'サマリがありません。'; return; }
+            const s = summary;
+            let html = '';
+            html += '<table><tbody>';
+            html += `<tr><th>計画日数</th><td>${s.planning_days}</td><th>フィルレート</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
+            html += `<tr><th>需要(店舗)</th><td>${formatNumber(s.store_demand_total)}</td><th>販売(店舗)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
+            html += `<tr><th>顧客欠品合計</th><td>${formatNumber(s.customer_shortage_total)}</td><th>ネットワーク欠品合計</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
+            html += `<tr><th>BOピーク</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th>総収益</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
+            html += `<tr><th>総コスト</th><td>${formatNumber(s.cost_total)}</td><th>総利益</th><td>${formatNumber(s.profit_total)}</td></tr>`;
+            html += `<tr><th>平均日次利益</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
+            html += '</tbody></table>';
+
+            // 平均在庫
+            if (s.avg_on_hand_by_type) {
+                html += '<h3>平均在庫（ノード種別）</h3>';
+                html += '<table><thead><tr><th>Type</th><th>Avg On Hand</th></tr></thead><tbody>';
+                Object.entries(s.avg_on_hand_by_type).forEach(([k,v]) => {
+                    html += `<tr><td style="text-align:left;">${k}</td><td>${formatNumber(v)}</td></tr>`;
+                });
+                html += '</tbody></table>';
+            }
+
+            // 欠品上位品目
+            if (s.top_shortage_items && s.top_shortage_items.length) {
+                html += '<h3>欠品上位（店舗/品目）</h3>';
+                html += '<table><thead><tr><th>Item</th><th>Shortage</th></tr></thead><tbody>';
+                s.top_shortage_items.forEach(row => {
+                    html += `<tr><td style="text-align:left;">${row.item}</td><td>${formatNumber(row.shortage)}</td></tr>`;
+                });
+                html += '</tbody></table>';
+            }
+
+            summaryOutput.innerHTML = html;
+        }
+
         // --- Event Listeners ---
         runButton.addEventListener('click', runSimulation);
         tabButtons.forEach(button => {
@@ -257,6 +398,10 @@
         });
         nodeFilter.addEventListener('change', applyFilters);
         itemFilter.addEventListener('change', applyFilters);
+        dayFrom.addEventListener('change', applyFilters);
+        dayTo.addEventListener('change', applyFilters);
+        downloadResultsCsvBtn.addEventListener('click', exportResultsCsv);
+        downloadPlCsvBtn.addEventListener('click', exportPlCsv);
 
     });
 })();

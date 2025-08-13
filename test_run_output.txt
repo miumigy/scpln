@@ -1,0 +1,13 @@
+test_factory_component_orders_apply_link_constraints (test_factory_enhancements.TestFactoryEnhancements.test_factory_component_orders_apply_link_constraints) ... ok
+test_factory_production_accounts_for_scheduled_outgoing (test_factory_enhancements.TestFactoryEnhancements.test_factory_production_accounts_for_scheduled_outgoing) ... ok
+test_backorder_pipeline_prevents_order_balloon (test_simulation_consistency.TestSimulationConsistency.test_backorder_pipeline_prevents_order_balloon) ... ok
+test_cumulative_order_balance (test_simulation_consistency.TestSimulationConsistency.test_cumulative_order_balance) ... ok
+test_moq_and_multiples_applied (test_simulation_consistency.TestSimulationConsistency.test_moq_and_multiples_applied) ... ok
+test_psi_identity_and_stock_flow (test_simulation_consistency.TestSimulationConsistency.test_psi_identity_and_stock_flow) ... ok
+test_lcm_order_multiple_rounding (test_strict_cases.TestStrictCases.test_lcm_order_multiple_rounding) ... ok
+test_warehouse_orders_include_scheduled_outgoing (test_strict_cases.TestStrictCases.test_warehouse_orders_include_scheduled_outgoing) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.113s
+
+OK

@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 from collections import defaultdict
 import math
@@ -29,7 +30,7 @@ def _service_level_z(p: float) -> float:
     return float(norm_ppf(p))
 
 
-from typing import List, Dict, Literal, Annotated, Union
+from typing import List, Dict, Literal, Annotated, Union, Optional
 from pydantic import BaseModel, Field
 from copy import deepcopy  # Added for deepcopy
 
@@ -37,11 +38,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-# Configure logging
+# Configure logging (環境変数で制御。ファイル出力はオプトイン)
+_log_level = os.getenv("SIM_LOG_LEVEL", "INFO").upper()
+_log_to_file = os.getenv("SIM_LOG_TO_FILE", "0") == "1"
+_handlers = [logging.StreamHandler()]
+if _log_to_file:
+    _handlers.append(logging.FileHandler("simulation.log"))
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=getattr(logging, _log_level, logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("simulation.log"), logging.StreamHandler()],
+    handlers=_handlers,
 )
 
 app = FastAPI()
@@ -159,6 +165,8 @@ class SimulationInput(BaseModel):
     nodes: List[AnyNode]
     network: List[NetworkLink]
     customer_demand: List[CustomerDemand]
+    # 再現性向上のための乱数シード（省略可）
+    random_seed: Optional[int] = None
 
 
 # --- Simulation Engine ---
@@ -251,6 +259,12 @@ class SupplyChainSimulator:
         return profiles
 
     def run(self):
+        # 乱数シード（指定時のみ適用）
+        if getattr(self.input, "random_seed", None) is not None:
+            try:
+                random.seed(self.input.random_seed)
+            except Exception:
+                pass
         for day in range(self.input.planning_horizon):
             start_of_day_stock = {
                 name: self.stock[name].copy() for name in self.nodes_map
@@ -707,8 +721,21 @@ class SupplyChainSimulator:
                                 for i, q, f in orders:
                                     if f == node_name and i == item_name:
                                         pipeline_finished += q
+                        # 将来出荷確定分（factory -> 下流）を控除
+                        scheduled_outgoing = 0.0
+                        for d, orders in self.pending_shipments.items():
+                            if d > day:
+                                for rec in orders:
+                                    if len(rec) == 4:
+                                        it, q, supplier, _dest = rec
+                                    else:
+                                        it, q, supplier, _dest, _is_bo = rec
+                                    if supplier == node_name and it == item_name:
+                                        scheduled_outgoing += q
                         inv_pos = (
-                            self.stock[node_name].get(item_name, 0) + pipeline_finished
+                            self.stock[node_name].get(item_name, 0)
+                            + pipeline_finished
+                            - scheduled_outgoing
                         )
                         z = _service_level_z(current_node.service_level)
                         order_up_to = z * profile["std_dev"] * math.sqrt(
@@ -796,14 +823,6 @@ class SupplyChainSimulator:
                                 item_name, inv_pos
                             )
                             qty_to_order = max(0, order_up_to - inv_pos)
-                            moq = current_node.moq.get(item_name, 0)
-                            if 0 < qty_to_order < moq:
-                                qty_to_order = moq
-                            mult = current_node.order_multiple.get(item_name, 0)
-                            if mult and mult > 0:
-                                qty_to_order = int(
-                                    math.ceil(qty_to_order / mult) * mult
-                                )
                             if qty_to_order > 0:
                                 parent_name = next(
                                     (
@@ -818,6 +837,50 @@ class SupplyChainSimulator:
                                     None,
                                 )
                                 if parent_name:
+                                    # ノード/リンクのMOQ・発注倍数を反映（両方整数の場合はLCM）
+                                    link_obj = self.network_map.get((parent_name, node_name))
+                                    node_moq = getattr(current_node, "moq", {}).get(
+                                        item_name, 0
+                                    )
+                                    node_mult = getattr(current_node, "order_multiple", {}).get(
+                                        item_name, 0
+                                    )
+                                    link_moq = (
+                                        getattr(link_obj, "moq", {}).get(item_name, 0)
+                                        if link_obj
+                                        else 0
+                                    )
+                                    link_mult = (
+                                        getattr(link_obj, "order_multiple", {}).get(
+                                            item_name, 0
+                                        )
+                                        if link_obj
+                                        else 0
+                                    )
+                                    # MOQ: 厳しい方（大きい方）を適用
+                                    effective_moq = max(node_moq or 0, link_moq or 0)
+                                    if 0 < qty_to_order < effective_moq:
+                                        qty_to_order = effective_moq
+                                    # 発注倍数: 両方が正の整数ならLCM、そうでなければ逐次丸め
+                                    def _is_int(x: float) -> bool:
+                                        return math.isclose(x, round(x))
+                                    eff_mult = 0
+                                    if (node_mult or 0) > 0 and (link_mult or 0) > 0:
+                                        if _is_int(node_mult) and _is_int(link_mult):
+                                            a, b = int(round(node_mult)), int(round(link_mult))
+                                            eff_mult = abs(a * b) // math.gcd(a, b)
+                                        else:
+                                            eff_mult = 0
+                                    if eff_mult:
+                                        qty_to_order = int(
+                                            math.ceil(qty_to_order / eff_mult) * eff_mult
+                                        )
+                                    else:
+                                        for m in [node_mult, link_mult]:
+                                            if m and m > 0:
+                                                qty_to_order = int(
+                                                    math.ceil(qty_to_order / m) * m
+                                                )
                                     logging.debug(
                                         f"Day {day}: Component order of {qty_to_order} for {item_name} from {node_name} to {parent_name}. Placing order via _place_order."
                                     )
@@ -829,7 +892,7 @@ class SupplyChainSimulator:
                                         day,
                                     )
                                     logging.debug(
-                                        f"Day {day}: Node {node_name}, Item {item_name}: inv_pos={inv_pos}, order_up_to={order_up_to}, moq={moq}, calculated qty_to_order={qty_to_order}"
+                                        f"Day {day}: Node {node_name}, Item {item_name}: inv_pos={inv_pos}, order_up_to={order_up_to}, effective_moq={effective_moq}, calculated qty_to_order={qty_to_order}"
                                     )
 
             # 4. Record daily snapshot
@@ -864,6 +927,75 @@ class SupplyChainSimulator:
         self.pending_shipments[ship_day].append(
             (item_name, quantity, supplier_node_name, customer_node_name, False)
         )
+
+    def compute_summary(self):
+        # Aggregate KPIs across the simulation
+        node_type_map = {name: n.node_type for name, n in self.nodes_map.items()}
+        totals_by_type = {
+            t: {"demand": 0.0, "sales": 0.0, "shortage": 0.0, "end_stock_sum": 0.0}
+            for t in ("store", "warehouse", "factory", "material")
+        }
+        top_shortage_by_item = defaultdict(float)
+        backorder_total_by_day = []
+
+        for day in self.daily_results:
+            bo_day_total = 0.0
+            for node_name, items in day.get("nodes", {}).items():
+                ntype = node_type_map.get(node_name)
+                if not ntype:
+                    continue
+                for item_name, m in items.items():
+                    d = m.get("demand", 0) or 0
+                    s = m.get("sales", 0) or 0
+                    sh = m.get("shortage", 0) or 0
+                    end = m.get("end_stock", 0) or 0
+                    totals_by_type[ntype]["demand"] += d
+                    totals_by_type[ntype]["sales"] += s
+                    totals_by_type[ntype]["shortage"] += sh
+                    totals_by_type[ntype]["end_stock_sum"] += end
+                    if ntype == "store":
+                        top_shortage_by_item[item_name] += sh
+                        bo_day_total += m.get("backorder_balance", 0) or 0
+            backorder_total_by_day.append(bo_day_total)
+
+        days = max(1, len(self.daily_results))
+        avg_on_hand_by_type = {
+            t: totals_by_type[t]["end_stock_sum"] / days for t in totals_by_type
+        }
+        store_demand = totals_by_type["store"]["demand"]
+        store_sales = totals_by_type["store"]["sales"]
+        fill_rate = (store_sales / store_demand) if store_demand > 0 else 1.0
+
+        # Financials
+        total_revenue = sum(pl.get("revenue", 0) or 0 for pl in self.daily_profit_loss)
+        total_material = sum(pl.get("material_cost", 0) or 0 for pl in self.daily_profit_loss)
+        total_flow = sum(sum((pl.get("flow_costs", {}) or {}).values()) for pl in self.daily_profit_loss)
+        total_stock = sum(sum((pl.get("stock_costs", {}) or {}).values()) for pl in self.daily_profit_loss)
+        total_cost = total_material + total_flow + total_stock
+        total_profit = total_revenue - total_cost
+
+        # Top shortage items (stores)
+        top_short = sorted(top_shortage_by_item.items(), key=lambda x: -x[1])[:5]
+
+        summary = {
+            "planning_days": days,
+            "fill_rate": fill_rate,
+            "store_demand_total": store_demand,
+            "store_sales_total": store_sales,
+            "customer_shortage_total": totals_by_type["store"]["shortage"],
+            "network_shortage_total": sum(
+                totals_by_type[t]["shortage"] for t in ("warehouse", "factory", "material")
+            ),
+            "avg_on_hand_by_type": avg_on_hand_by_type,
+            "backorder_peak": max(backorder_total_by_day) if backorder_total_by_day else 0,
+            "backorder_peak_day": (backorder_total_by_day.index(max(backorder_total_by_day)) + 1) if backorder_total_by_day else 0,
+            "revenue_total": total_revenue,
+            "cost_total": total_cost,
+            "profit_total": total_profit,
+            "profit_per_day_avg": total_profit / days if days else 0,
+            "top_shortage_items": [{"item": it, "shortage": qty} for it, qty in top_short],
+        }
+        return summary
 
     def record_daily_snapshot(self, day, start_stock, end_stock, events):
         snapshot = {"day": day + 1, "nodes": {}}
@@ -1198,11 +1330,13 @@ async def run_simulation(input_data: SimulationInput):
         logging.info(f"Received input data: {input_data.json()}")
         simulator = SupplyChainSimulator(input_data)
         results, profit_loss = simulator.run()
+        summary = simulator.compute_summary()
         logging.info(f"Calculated profit_loss: {profit_loss}")
         return {
             "message": "Simulation completed successfully.",
             "results": results,
             "profit_loss": profit_loss,
+            "summary": summary,
         }
     except Exception as e:
         import traceback

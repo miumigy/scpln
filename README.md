@@ -14,6 +14,8 @@
 *   **収支機能**: 各ノードの保管費用、フローコスト（材料原価、生産、輸送）を固定費・変動費に分けて計算し、日別の収支表を表示します。
 *   **キャパシティ制約**: フロー（輸送・生産）とストック（保管）にキャパシティを設定可能。超過を許容/不許可の選択と、許容時の追加固定・変動費の計上に対応。
 *   **UI改善**: タブ切り替えUI、実行結果のノード・品目フィルタ機能、数値のカンマ区切り整数表示。
+*   **KPIサマリ**: フィルレート、需要/販売/欠品合計、BOピーク、平均在庫（ノード種別）、収益・コスト・利益を集計表示。
+*   **エクスポート/フィルタ**: 結果/収支のCSVダウンロード、日範囲フィルタ（From/To）に対応。
 
 ## セットアップと起動
 
@@ -249,7 +251,7 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
 - `POST /simulation`
   - ヘッダ: `Content-Type: application/json`
   - リクエスト本文: 「入力スキーマ（SimulationInput）」参照
-  - 成功時（200）レスポンス: `{"message": str, "results": DayResult[], "profit_loss": PLDay[]}`
+  - 成功時（200）レスポンス: `{"message": str, "results": DayResult[], "profit_loss": PLDay[], "summary": Summary}`
   - 失敗時: 422（バリデーション）、500（予期せぬエラー）など
 
 ## クラス構造
@@ -434,6 +436,7 @@ sequenceDiagram
 
 - 入力: `SimulationInput`
   - `planning_horizon`（int>0）: 計画日数
+  - `random_seed`（int｜省略可）: 需要乱数の再現性確保のためのシード
   - `products`（Product[]）
     - Product: `name`（str）, `sales_price`（>=0）, `assembly_bom`（BomItem[]）
     - BomItem: `item_name`（str）, `quantity_per`（>0）
@@ -578,3 +581,15 @@ sequenceDiagram
 - リードタイムの変動性: リードタイムに不確実性（ランダムな変動）を導入し、より現実的なシミュレーションを実現。
 - 異なる在庫ポリシーの比較: Min-Max法以外（固定発注量方式、定期発注方式など）を実装し、比較分析。
 - 特定シナリオ分析: 供給ショックや需要急増などのシナリオをプリセット化し、ワンクリックで検証。
+### Summary（レスポンス）
+
+`summary` は以下のキーを含むシンプルな集計です。
+
+- `planning_days`: 計画日数
+- `fill_rate`: 店舗の販売数量/需要数量
+- `store_demand_total`, `store_sales_total`: 店舗の需要/販売合計
+- `customer_shortage_total`, `network_shortage_total`: 顧客/ネットワーク欠品合計
+- `avg_on_hand_by_type`: ノード種別ごとの平均在庫（end_stockの日平均）
+- `backorder_peak`, `backorder_peak_day`: 顧客BOのピーク値と発生日
+- `revenue_total`, `cost_total`, `profit_total`, `profit_per_day_avg`
+- `top_shortage_items`: 欠品上位（店舗/品目）
