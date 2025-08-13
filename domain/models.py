@@ -36,6 +36,10 @@ class BaseNode(BaseModel):
     storage_cost_fixed: float = Field(default=0, ge=0)
     storage_cost_variable: Dict[str, float] = Field(default_factory=dict)
     backorder_enabled: bool = Field(default=True)
+    # 欠品時の販売逸失モード（true の場合はバックオーダーを保持しない）
+    lost_sales: bool = Field(default=False)
+    # レビュー間隔（日）。R=0で従来互換。
+    review_period_days: int = Field(default=0, ge=0)
     storage_capacity: float = Field(default=float("inf"), gt=0)
     allow_storage_over_capacity: bool = Field(default=True)
     storage_over_capacity_fixed_cost: float = Field(default=0, ge=0)
@@ -98,4 +102,3 @@ class SimulationInput(BaseModel):
     network: List[NetworkLink]
     customer_demand: List[CustomerDemand]
     random_seed: Optional[int] = None
-
