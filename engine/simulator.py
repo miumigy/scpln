@@ -530,7 +530,10 @@ class SupplyChainSimulator:
         total_material = sum(pl.get("material_cost", 0) or 0 for pl in self.daily_profit_loss)
         total_flow = sum(sum((pl.get("flow_costs", {}) or {}).values()) for pl in self.daily_profit_loss)
         total_stock = sum(sum((pl.get("stock_costs", {}) or {}).values()) for pl in self.daily_profit_loss)
-        total_cost = total_material + total_flow + total_stock
+        total_penalty_stockout = sum(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0) for pl in self.daily_profit_loss)
+        total_penalty_backorder = sum(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0) for pl in self.daily_profit_loss)
+        total_penalty = total_penalty_stockout + total_penalty_backorder
+        total_cost = total_material + total_flow + total_stock + total_penalty
         total_profit = total_revenue - total_cost
 
         top_short = sorted(top_shortage_by_item.items(), key=lambda x: -x[1])[:5]
@@ -547,6 +550,9 @@ class SupplyChainSimulator:
             "backorder_peak_day": (backorder_total_by_day.index(max(backorder_total_by_day)) + 1) if backorder_total_by_day else 0,
             "revenue_total": total_revenue,
             "cost_total": total_cost,
+            "penalty_stockout_total": total_penalty_stockout,
+            "penalty_backorder_total": total_penalty_backorder,
+            "penalty_total": total_penalty,
             "profit_total": total_profit,
             "profit_per_day_avg": total_profit / days if days else 0,
             "top_shortage_items": [{"item": it, "shortage": qty} for it, qty in top_short],
