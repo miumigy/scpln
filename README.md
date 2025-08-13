@@ -287,7 +287,7 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
   - `SimulationInput`: ルート入力（計画日数、`products`、`nodes`、`network`、`customer_demand`）。
 
 - シミュレーションエンジン: `SupplyChainSimulator`（`main.py`）。
-  - 状態管理: `stock`、`pending_shipments`（出荷確定・出荷日ベース）、`in_transit_orders`（互換用）、`production_orders`、`order_history`、`customer_backorders`、集計（`daily_results`、`daily_profit_loss`、累計 `cumulative_ordered/received`）。
+  - 状態管理: `stock`、`pending_shipments`（到着日キーでスケジュール。未来日は期末未着）、`production_orders`、`order_history`、`customer_backorders`、集計（`daily_results`、`daily_profit_loss`、累計 `cumulative_ordered/received`）。
   - 事前計算: `_get_topological_order`（処理順）、`_calculate_warehouse_demand_profiles`/`_calculate_factory_demand_profiles`（需要集約）。
   - 主処理: `run()` が日次ループで入荷処理→需要伝播→補充発注（店舗・倉庫はサービスレベル法）→生産計画/部材発注（工場）→スナップショット/収支計算を実施。
   - 補助: `_place_order`（LTを考慮して `pending_shipments` に登録）、`record_daily_snapshot`、`calculate_daily_profit_loss`。
@@ -508,7 +508,7 @@ sequenceDiagram
 備考
 - PSI恒等: すべてのノード・品目で `demand = sales + shortage`。
 - 在庫フロー: `end = start + incoming + produced − sales − consumption`。
-- 累積整合: 「発注合計 = 受入合計 + 期末の未着（翌日以降の出荷予定）」が成立。
+- 累積整合: 「発注合計 = 受入合計 + 期末の未着（翌日以降の到着予定）」が成立（`pending_shipments` の未来日合計）。
 - MOQ/発注倍数: ノードとリンクの双方を適用（倍数が整数のときLCM、その他は切上げ）。
 
 ## パラメータ詳細
