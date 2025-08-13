@@ -254,7 +254,8 @@ class SupplyChainSimulator:
                         daily_events[f"{store_name}_{item_name}"]["shortage"] += (demand_qty - shipped)
                         logging.debug(f"Day {day}: Shortage of {demand_qty - shipped} for {item_name} at {store_name}")
                         node_obj = self.nodes_map.get(store_name)
-                        if getattr(node_obj, "backorder_enabled", True):
+                        # lost_sales=true の場合はバックオーダーを積まない
+                        if getattr(node_obj, "backorder_enabled", True) and not getattr(node_obj, "lost_sales", False):
                             self.customer_backorders[store_name][item_name] += (demand_qty - shipped)
 
             logging.debug(f"--- Day {day}: Planning & Ordering ---")
@@ -294,6 +295,7 @@ class SupplyChainSimulator:
                             continue
                         link_obj = self.network_map.get((parent_name, node_name))
                         replenishment_lt = link_obj.lead_time if link_obj else 0
+                        review_R = getattr(current_node, "review_period_days", 0) or 0
 
                         profile = (
                             self.warehouse_demand_profiles.get(node_name, {}).get(item_name)
@@ -333,11 +335,15 @@ class SupplyChainSimulator:
                                         scheduled_outgoing += q
                         inv_pos = inv_on_hand + pipeline_incoming
                         if isinstance(current_node, StoreNode):
-                            inv_pos -= self.customer_backorders[node_name].get(item_name, 0.0)
+                            # lost_sales=false のときのみ顧客BOを控除
+                            if not getattr(current_node, "lost_sales", False):
+                                inv_pos -= self.customer_backorders[node_name].get(item_name, 0.0)
                         elif isinstance(current_node, WarehouseNode):
                             inv_pos -= scheduled_outgoing
                         z = _service_level_z(current_node.service_level)
-                        order_up_to = z * demand_std * math.sqrt(replenishment_lt) + demand_mean * (replenishment_lt + 1)
+                        # 互換性維持のため μ*(L+R+1)
+                        eff_LR = max(0.0, (replenishment_lt + review_R))
+                        order_up_to = z * demand_std * math.sqrt(eff_LR) + demand_mean * (eff_LR + 1)
                         qty_to_order = max(0, math.ceil(order_up_to - inv_pos))
                         logging.debug(
                             f"Day {day}: Node {node_name}, Item {item_name}: inv_pos={inv_pos}, order_up_to={order_up_to}, calculated qty_to_order={qty_to_order}"
@@ -381,6 +387,7 @@ class SupplyChainSimulator:
                         demand_mean = profile["mean"]
                         demand_std = profile.get("std_dev", 0.0)
                         prod_lt = getattr(current_node, "lead_time", 0)
+                        review_R = getattr(current_node, "review_period_days", 0) or 0
 
                         inv_on_hand = self.stock[node_name].get(fg_item, 0)
                         # Incoming finished goods from previously scheduled production
@@ -404,7 +411,8 @@ class SupplyChainSimulator:
 
                         inv_pos = inv_on_hand + pipeline_incoming - scheduled_outgoing
                         z = _service_level_z(current_node.service_level)
-                        order_up_to = z * demand_std * math.sqrt(prod_lt) + demand_mean * (prod_lt + 1)
+                        eff_LR = max(0.0, (prod_lt + review_R))
+                        order_up_to = z * demand_std * math.sqrt(eff_LR) + demand_mean * (eff_LR + 1)
                         qty_to_produce = max(0, math.ceil(order_up_to - inv_pos))
                         if qty_to_produce > 0:
                             completion_day = day + prod_lt

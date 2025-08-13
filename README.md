@@ -484,7 +484,8 @@ sequenceDiagram
   - `nodes`（AnyNode[]: 識別子 `node_type` によるUnion）
     - 共通（BaseNode）: `name`（str）, `initial_stock`（{item: qty}）,
       `lead_time`（>=0）, `storage_cost_fixed`（>=0）, `storage_cost_variable`（{item: >=0}）, 
-      `backorder_enabled`（bool, 既定 true）, `storage_capacity`（>0 | 省略=∞）, 
+      `backorder_enabled`（bool, 既定 true）, `lost_sales`（bool, 既定 false）, 
+      `review_period_days`（int>=0, 既定0）, `storage_capacity`（>0 | 省略=∞）, 
       `allow_storage_over_capacity`（bool, 既定 true）, 
       `storage_over_capacity_fixed_cost`（>=0）, `storage_over_capacity_variable_cost`（>=0）
     - StoreNode（`node_type: "store"`）: `service_level`（0..1）, `moq`（{item: >=0}）, `order_multiple`（{item: >=0}）
