@@ -294,14 +294,13 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
 
 ```mermaid
 graph TD;
-  B[Browser] -->|GET /| A[FastAPI];
-  B -->|GET /static| S[Static files];
-  B -->|GET /docs| A;
-  B -->|GET /redoc| A;
-  B -->|POST /simulation| A;
-  A -->|instantiate + run()| E[SupplyChainSimulator];
+  B[Browser] --> A[FastAPI];
+  B --> S[Static files];
+  B --> A;
+  B --> A;
+  A --> E[SupplyChainSimulator];
   E --> M[Pydantic Models];
-  A --> H[GET /healthz];
+  A --> H[Healthz endpoint];
   E --> L[simulation.log];
 ```
 
@@ -315,16 +314,16 @@ sequenceDiagram
   participant Nodes as Nodes
 
   User->>API: POST /simulation
-  API->>Sim: instantiate + run()
+  API->>Sim: instantiate and run
   loop day 1..planning_horizon
-    Sim->>Sim: Receive shipments/production
+    Sim->>Sim: Receive shipments and production
     Sim->>Nodes: Customer demand at stores
     Sim->>Nodes: Propagate upstream demand
-    Sim->>Nodes: Ship; backorder
+    Sim->>Nodes: Ship and backorder
     Sim->>Nodes: Plan production
     Sim->>Nodes: Order components
-    Sim->>Nodes: Replenish store/warehouse
-    Sim->>Sim: Snapshot + Profit/Loss
+    Sim->>Nodes: Replenish stores and warehouses
+    Sim->>Sim: Snapshot and Profit Loss
   end
   Sim-->>API: results[], profit_loss[]
   API-->>User: 200 OK (JSON)
