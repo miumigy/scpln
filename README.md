@@ -453,6 +453,10 @@ classDiagram
     +storage_cost_fixed: float
     +storage_cost_variable: Dict~str,float~
     +backorder_enabled: bool
+    +lost_sales: bool
+    +review_period_days: int
+    +stockout_cost_per_unit: float
+    +backorder_cost_per_unit_per_day: float
     +storage_capacity: float
     +allow_storage_over_capacity: bool
     +storage_over_capacity_fixed_cost: float
@@ -504,7 +508,6 @@ classDiagram
     -input: SimulationInput
     -stock: Dict~node,item,qty~
     -pending_shipments: Dict~day,list~
-    -in_transit_orders: Dict~day,list~
     -production_orders: Dict~day,list~
     -order_history: Dict~day,list~
     -customer_backorders: Dict~store,item,qty~
