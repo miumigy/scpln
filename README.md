@@ -150,6 +150,78 @@ SIM_LOG_LEVEL=DEBUG SIM_LOG_TO_FILE=1 bash scripts/serve.sh
 }
 ```
 
+### 設定テンプレート（全項目を明示・最新版）
+
+以下は、現行実装の全設定項目を明示したテンプレート例です（値は例示）。Web UI は `static/default_input.json` を既定で読み込みます（当該ファイルは本テンプレート準拠）。
+
+```json
+{
+  "planning_horizon": 30,
+  "random_seed": 0,
+  "products": [
+    {"name": "完成品A", "sales_price": 1500, "assembly_bom": [
+      {"item_name": "材料X", "quantity_per": 2}
+    ]}
+  ],
+  "nodes": [
+    {"name": "店舗1", "node_type": "store",
+     "initial_stock": {"完成品A": 10}, "lead_time": 3, "service_level": 0.95,
+     "moq": {"完成品A": 10}, "order_multiple": {"完成品A": 5},
+     "storage_capacity": 200, "allow_storage_over_capacity": true,
+     "storage_over_capacity_fixed_cost": 0, "storage_over_capacity_variable_cost": 0.2,
+     "storage_cost_fixed": 100, "storage_cost_variable": {"完成品A": 0.5},
+     "backorder_enabled": true, "lost_sales": false, "review_period_days": 0,
+     "stockout_cost_per_unit": 0, "backorder_cost_per_unit_per_day": 0},
+
+    {"name": "中央倉庫", "node_type": "warehouse",
+     "initial_stock": {"完成品A": 50}, "lead_time": 7, "service_level": 0.90,
+     "moq": {"完成品A": 30}, "order_multiple": {"完成品A": 10},
+     "storage_capacity": 1000, "allow_storage_over_capacity": false,
+     "storage_over_capacity_fixed_cost": 0, "storage_over_capacity_variable_cost": 0,
+     "storage_cost_fixed": 500, "storage_cost_variable": {"完成品A": 0.2},
+     "backorder_enabled": true, "lost_sales": false, "review_period_days": 0,
+     "stockout_cost_per_unit": 0, "backorder_cost_per_unit_per_day": 0},
+
+    {"name": "組立工場", "node_type": "factory",
+     "producible_products": ["完成品A"],
+     "initial_stock": {"完成品A": 0, "材料X": 200}, "lead_time": 14,
+     "production_capacity": 50, "allow_production_over_capacity": true,
+     "production_over_capacity_fixed_cost": 2000, "production_over_capacity_variable_cost": 10,
+     "reorder_point": {"材料X": 100}, "order_up_to_level": {"材料X": 300},
+     "moq": {"材料X": 50}, "order_multiple": {"材料X": 25},
+     "storage_capacity": 2000, "allow_storage_over_capacity": true,
+     "storage_over_capacity_fixed_cost": 0, "storage_over_capacity_variable_cost": 0.1,
+     "production_cost_fixed": 10000, "production_cost_variable": 50,
+     "storage_cost_fixed": 1000, "storage_cost_variable": {"完成品A": 0.3, "材料X": 0.1},
+     "backorder_enabled": true, "lost_sales": false, "review_period_days": 0,
+     "stockout_cost_per_unit": 0, "backorder_cost_per_unit_per_day": 0},
+
+    {"name": "サプライヤーX", "node_type": "material",
+     "initial_stock": {"材料X": 10000}, "lead_time": 30,
+     "material_cost": {"材料X": 100},
+     "storage_cost_fixed": 20, "storage_cost_variable": {"材料X": 0.01},
+     "backorder_enabled": true, "lost_sales": false, "review_period_days": 0,
+     "stockout_cost_per_unit": 0, "backorder_cost_per_unit_per_day": 0}
+  ],
+  "network": [
+    {"from_node": "中央倉庫", "to_node": "店舗1",
+     "transportation_cost_fixed": 200, "transportation_cost_variable": 3,
+     "capacity_per_day": 80, "allow_over_capacity": true,
+     "over_capacity_fixed_cost": 100, "over_capacity_variable_cost": 1,
+     "lead_time": 3, "moq": {"完成品A": 20}, "order_multiple": {"完成品A": 10}},
+
+    {"from_node": "サプライヤーX", "to_node": "組立工場",
+     "transportation_cost_fixed": 1000, "transportation_cost_variable": 1,
+     "capacity_per_day": 300, "allow_over_capacity": true,
+     "over_capacity_fixed_cost": 0, "over_capacity_variable_cost": 0.5,
+     "lead_time": 30}
+  ],
+  "customer_demand": [
+    {"store_name": "店舗1", "product_name": "完成品A", "demand_mean": 15, "demand_std_dev": 2}
+  ]
+}
+```
+
 ### 複数店舗の追加（JSONのみで可能）
 
 以下の3箇所にエントリを追加するだけで、店舗をいくつでも増やせます（コード変更不要）。
