@@ -642,6 +642,10 @@ class SupplyChainSimulator:
                 "store_storage_fixed": 0,
                 "store_storage_variable": 0,
             },
+            "penalty_costs": {
+                "stockout": 0,
+                "backorder": 0,
+            },
             "total_cost": 0,
             "profit_loss": 0,
         }
@@ -773,8 +777,42 @@ class SupplyChainSimulator:
                     pl["stock_costs"][f"{cat}_variable"] += node.storage_over_capacity_variable_cost * over_qty
                     pl["stock_costs"][f"{cat}_fixed"] += node.storage_over_capacity_fixed_cost
 
+        # Penalties
+        # Stockout cost: apply per node shortage units on the day
+        for key, data in events.items():
+            if ":" in key:
+                continue
+            try:
+                node_name, _item = key.split("_", 1)
+            except ValueError:
+                continue
+            shortage = data.get("shortage", 0) or 0
+            if shortage > 0:
+                node = self.nodes_map.get(node_name)
+                if node:
+                    pl["penalty_costs"]["stockout"] += getattr(node, "stockout_cost_per_unit", 0) * shortage
+
+        # Backorder carrying cost per day
+        supplier_bo_by_node = defaultdict(float)
+        for future_day, records in self.pending_shipments.items():
+            if future_day >= day + 1:
+                for rec in records:
+                    if len(rec) == 5:
+                        _item, qty, supplier, _dest, is_bo = rec
+                        if is_bo:
+                            supplier_bo_by_node[supplier] += qty
+        store_bo_by_node = defaultdict(float)
+        for store_name, items in self.customer_backorders.items():
+            store_bo_by_node[store_name] += sum(q for q in items.values() if q > 0)
+
+        for node_name, qty in list(supplier_bo_by_node.items()) + list(store_bo_by_node.items()):
+            node = self.nodes_map.get(node_name)
+            if node and qty > 0:
+                pl["penalty_costs"]["backorder"] += getattr(node, "backorder_cost_per_unit_per_day", 0) * qty
+
         total_flow = sum(pl["flow_costs"].values())
         total_stock = sum(pl["stock_costs"].values())
-        pl["total_cost"] = pl["material_cost"] + total_flow + total_stock
+        total_penalty = sum(pl["penalty_costs"].values())
+        pl["total_cost"] = pl["material_cost"] + total_flow + total_stock + total_penalty
         pl["profit_loss"] = pl["revenue"] - pl["total_cost"]
         self.daily_profit_loss.append(pl)
