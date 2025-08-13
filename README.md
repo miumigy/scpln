@@ -34,7 +34,7 @@
 *   **収支機能**: 各ノードの保管費用、フローコスト（材料原価、生産、輸送）を固定費・変動費に分けて計算し、日別の収支表を表示します。
 *   **キャパシティ制約**: フロー（輸送・生産）とストック（保管）にキャパシティを設定可能。超過を許容/不許可の選択と、許容時の追加固定・変動費の計上に対応。
 *   **UI改善**: タブ切り替えUI、実行結果のノード・品目フィルタ機能、数値のカンマ区切り整数表示。
-*   **KPIサマリ**: フィルレート、需要/販売/欠品合計、BOピーク、平均在庫（ノード種別）、収益・コスト・利益を集計表示。
+*   **KPIサマリ**: フィルレート、需要/販売/欠品合計、BOピーク、平均在庫（ノード種別）、収益・コスト・利益、ペナルティ（欠品/BO）を集計表示。
 *   **エクスポート/フィルタ**: 結果/収支のCSVダウンロード、日範囲フィルタ（From/To）に対応。
 
 ## セットアップと起動
@@ -485,7 +485,7 @@ sequenceDiagram
     - 共通（BaseNode）: `name`（str）, `initial_stock`（{item: qty}）,
       `lead_time`（>=0）, `storage_cost_fixed`（>=0）, `storage_cost_variable`（{item: >=0}）, 
       `backorder_enabled`（bool, 既定 true）, `lost_sales`（bool, 既定 false）, 
-      `review_period_days`（int>=0, 既定0）, `storage_capacity`（>0 | 省略=∞）, 
+      `review_period_days`（int>=0, 既定0）, `stockout_cost_per_unit`（>=0, 既定0）, `backorder_cost_per_unit_per_day`（>=0, 既定0）, `storage_capacity`（>0 | 省略=∞）, 
       `allow_storage_over_capacity`（bool, 既定 true）, 
       `storage_over_capacity_fixed_cost`（>=0）, `storage_over_capacity_variable_cost`（>=0）
     - StoreNode（`node_type: "store"`）: `service_level`（0..1）, `moq`（{item: >=0}）, `order_multiple`（{item: >=0}）
@@ -514,7 +514,7 @@ sequenceDiagram
     - Metrics（数値は原則 >=0）:
       - `start_stock`, `incoming`, `demand`, `sales`, `consumption`, `produced`, `shortage`, `backorder_balance`, `end_stock`, `ordered_quantity`
   - PLDay: `day`（int）, `revenue`（>=0）, `material_cost`（>=0）, 
-    `flow_costs`（オブジェクト）, `stock_costs`（オブジェクト）, `total_cost`（>=0）, `profit_loss`（実数）
+    `flow_costs`（オブジェクト）, `stock_costs`（オブジェクト）, `penalty_costs`（オブジェクト）, `total_cost`（>=0）, `profit_loss`（実数）
     - `flow_costs` キー: 
       `material_transport_fixed`, `material_transport_variable`,
       `production_fixed`, `production_variable`,
@@ -526,11 +526,15 @@ sequenceDiagram
       `warehouse_storage_fixed`, `warehouse_storage_variable`,
       `store_storage_fixed`, `store_storage_variable`
 
+    - `penalty_costs` キー:
+      `stockout`（当日の欠品数量×ノード単価）, `backorder`（期末未出荷数量×ノード単価/日）
+
 備考
 - PSI恒等: すべてのノード・品目で `demand = sales + shortage`。
 - 在庫フロー: `end = start + incoming + produced − sales − consumption`。
 - 累積整合: 「発注合計 = 受入合計 + 期末の未着（翌日以降の到着予定）」が成立（`pending_shipments` の未来日合計）。
 - MOQ/発注倍数: ノードとリンクの双方を適用（倍数が整数のときLCM、その他は切上げ）。
+- ペナルティ: 欠品は当日分、BOは期末の未出荷残に対して日単位で計上。
 
 ## パラメータ詳細
 
