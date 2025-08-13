@@ -3,7 +3,7 @@ name: Auto Fix and Test
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 12 * * *' # daily at 12:00 UTC
+    - cron: '0 3 * * *' # daily at 12:00 JST (UTC+9)
 
 permissions:
   contents: write
