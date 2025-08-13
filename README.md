@@ -272,6 +272,22 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
   - 補助: `_place_order`（LTを考慮して `pending_shipments` に登録）、`record_daily_snapshot`、`calculate_daily_profit_loss`。
   - 補足: サービスレベルのz値は `_service_level_z`（SciPy未導入時は `statistics.NormalDist` にフォールバック）。
 
+## APIとクラスの対応
+
+- `POST /simulation`
+  - 入力: `SimulationInput`（`products: Product[]`, `nodes: AnyNode[]`＝`StoreNode`/`WarehouseNode`/`FactoryNode`/`MaterialNode`、`network: NetworkLink[]`, `customer_demand: CustomerDemand[]`）
+  - 実装: FastAPIハンドラ `run_simulation()` が `SupplyChainSimulator` を生成し `run()` を呼び出し。
+  - 主要クラス/関数: `SupplyChainSimulator.run` → `record_daily_snapshot`（日次の `DayResult` 相当を生成）, `calculate_daily_profit_loss`（日次の `PLDay` 相当を生成）。
+  - 出力: `{ message: str, results: DayResult[], profit_loss: PLDay[] }`。
+
+- `GET /healthz`
+  - 入出力: モデルなし。`{"status":"ok"}` を返却。
+  - 用途: ランタイム/デプロイ監視。
+
+- `GET /`
+  - 入出力: モデルなし。`index.html` を返す（`HTMLResponse`）。
+  - 用途: Web UI 配信。
+
 ## 入出力スキーマ定義
 
 - 入力: `SimulationInput`
