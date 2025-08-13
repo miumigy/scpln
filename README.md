@@ -293,36 +293,37 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
 ### 簡易アーキテクチャ
 
 ```mermaid
-graph TD
-  B[Browser (Web UI)] -->|GET /| A[FastAPI app (main.py)]
-  B -->|GET /static/*| S[Static files (index.html, js, css)]
-  B -->|GET /docs, /redoc| A
-  B -->|POST /simulation| A
-  A -->|instantiate + run()| E[SupplyChainSimulator]
-  E --> M[(Pydantic Models)]
-  A --> H[/GET /healthz/]
-  E --> L[[simulation.log]]
+graph TD;
+  B[Browser] -->|GET /| A[FastAPI];
+  B -->|GET /static| S[Static files];
+  B -->|GET /docs| A;
+  B -->|GET /redoc| A;
+  B -->|POST /simulation| A;
+  A -->|instantiate + run()| E[SupplyChainSimulator];
+  E --> M[Pydantic Models];
+  A --> H[GET /healthz];
+  E --> L[simulation.log];
 ```
 
 ### 時系列フロー（シーケンス）
 
 ```mermaid
 sequenceDiagram
-  participant User as Browser
+  actor User as Browser
   participant API as FastAPI
   participant Sim as SupplyChainSimulator
-  participant NW as Nodes(Store/Warehouse/Factory/Supplier)
+  participant Nodes as Nodes
 
-  User->>API: POST /simulation (SimulationInput)
+  User->>API: POST /simulation
   API->>Sim: instantiate + run()
-  loop day = 1..planning_horizon
-    Sim->>Sim: Receive shipments/production due
-    Sim->>NW: Customer demand at stores
-    Sim->>NW: Propagate upstream demand
-    Sim->>NW: Ship available; backorder shortages
-    Sim->>NW: Production planning (factory)
-    Sim->>NW: Component ordering (factory)
-    Sim->>NW: Replenishment orders (store/warehouse)
+  loop day 1..planning_horizon
+    Sim->>Sim: Receive shipments/production
+    Sim->>Nodes: Customer demand at stores
+    Sim->>Nodes: Propagate upstream demand
+    Sim->>Nodes: Ship; backorder
+    Sim->>Nodes: Plan production
+    Sim->>Nodes: Order components
+    Sim->>Nodes: Replenish store/warehouse
     Sim->>Sim: Snapshot + Profit/Loss
   end
   Sim-->>API: results[], profit_loss[]
