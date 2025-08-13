@@ -252,6 +252,26 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
   - 成功時（200）レスポンス: `{"message": str, "results": DayResult[], "profit_loss": PLDay[]}`
   - 失敗時: 422（バリデーション）、500（予期せぬエラー）など
 
+## クラス構造
+
+- データモデル: すべて `pydantic.BaseModel` で定義（`main.py`）。
+  - `BomItem`/`Product`: 製品とBOMを表現（品目名・使用量、販売単価を保持）。
+  - `NetworkLink`: ノード間リンク（固定/変動の輸送費、リードタイム、日次キャパ、超過許容と超過コスト、品目別MOQ・発注倍数）。
+  - `BaseNode`: ノード共通（名称、初期在庫、保管費、保管キャパ/超過可否と超過コスト、`backorder_enabled`）。
+    - `StoreNode`/`WarehouseNode`: `service_level` に基づく補充、任意の `moq`/`order_multiple` を保持。
+    - `FactoryNode`: 生産対象、`service_level`、生産キャパ/費用、超過政策/コスト、部材の `reorder_point`/`order_up_to_level`/`moq`/`order_multiple`。
+    - `MaterialNode`: 仕入れ品目と品目別 `material_cost`。
+    - これらは判別共用体 `AnyNode`（識別子 `node_type`）として入力に束ねられます。
+  - `CustomerDemand`: 店舗×製品ごとの需要分布パラメータ（平均・標準偏差）。
+  - `SimulationInput`: ルート入力（計画日数、`products`、`nodes`、`network`、`customer_demand`）。
+
+- シミュレーションエンジン: `SupplyChainSimulator`（`main.py`）。
+  - 状態管理: `stock`、`pending_shipments`（出荷確定・出荷日ベース）、`in_transit_orders`（互換用）、`production_orders`、`order_history`、`customer_backorders`、集計（`daily_results`、`daily_profit_loss`、累計 `cumulative_ordered/received`）。
+  - 事前計算: `_get_topological_order`（処理順）、`_calculate_warehouse_demand_profiles`/`_calculate_factory_demand_profiles`（需要集約）。
+  - 主処理: `run()` が日次ループで入荷処理→需要伝播→補充発注（店舗・倉庫はサービスレベル法）→生産計画/部材発注（工場）→スナップショット/収支計算を実施。
+  - 補助: `_place_order`（LTを考慮して `pending_shipments` に登録）、`record_daily_snapshot`、`calculate_daily_profit_loss`。
+  - 補足: サービスレベルのz値は `_service_level_z`（SciPy未導入時は `statistics.NormalDist` にフォールバック）。
+
 ## 入出力スキーマ定義
 
 - 入力: `SimulationInput`
