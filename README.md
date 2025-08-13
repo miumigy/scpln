@@ -288,6 +288,148 @@ ls backup/   # 例: main_YYYYMMDD_HHMMSS.py, index_YYYYMMDD_HHMMSS.html
   - 入出力: モデルなし。`index.html` を返す（`HTMLResponse`）。
   - 用途: Web UI 配信。
 
+## 図解
+
+### 簡易アーキテクチャ
+
+```mermaid
+graph TD
+  B[Browser (Web UI)] -->|GET /| A[FastAPI app (main.py)]
+  B -->|GET /static/*| S[Static files (index.html, js, css)]
+  B -->|GET /docs, /redoc| A
+  B -->|POST /simulation| A
+  A -->|instantiate + run()| E[SupplyChainSimulator]
+  E --> M[(Pydantic Models)]
+  A --> H[/GET /healthz/]
+  E --> L[[simulation.log]]
+```
+
+### 時系列フロー（シーケンス）
+
+```mermaid
+sequenceDiagram
+  participant User as Browser
+  participant API as FastAPI
+  participant Sim as SupplyChainSimulator
+  participant NW as Nodes(Store/Warehouse/Factory/Supplier)
+
+  User->>API: POST /simulation (SimulationInput)
+  API->>Sim: instantiate + run()
+  loop day = 1..planning_horizon
+    Sim->>Sim: Receive shipments/production due
+    Sim->>NW: Customer demand at stores
+    Sim->>NW: Propagate upstream demand
+    Sim->>NW: Ship available; backorder shortages
+    Sim->>NW: Production planning (factory)
+    Sim->>NW: Component ordering (factory)
+    Sim->>NW: Replenishment orders (store/warehouse)
+    Sim->>Sim: Snapshot + Profit/Loss
+  end
+  Sim-->>API: results[], profit_loss[]
+  API-->>User: 200 OK (JSON)
+```
+
+### クラス図（主要要素）
+
+```mermaid
+classDiagram
+  class BomItem {
+    +item_name: str
+    +quantity_per: float
+  }
+  class Product {
+    +name: str
+    +sales_price: float
+    +assembly_bom: List~BomItem~
+  }
+  Product "1" o-- "*" BomItem
+
+  class NetworkLink {
+    +from_node: str
+    +to_node: str
+    +transportation_cost_fixed: float
+    +transportation_cost_variable: float
+    +lead_time: int
+    +capacity_per_day: float
+    +allow_over_capacity: bool
+    +over_capacity_fixed_cost: float
+    +over_capacity_variable_cost: float
+    +moq: Dict~str,float~
+    +order_multiple: Dict~str,float~
+  }
+
+  class BaseNode {
+    +name: str
+    +initial_stock: Dict~str,float~
+    +lead_time: int
+    +storage_cost_fixed: float
+    +storage_cost_variable: Dict~str,float~
+    +backorder_enabled: bool
+    +storage_capacity: float
+    +allow_storage_over_capacity: bool
+    +storage_over_capacity_fixed_cost: float
+    +storage_over_capacity_variable_cost: float
+  }
+  class StoreNode {+service_level: float +moq +order_multiple}
+  class WarehouseNode {+service_level: float +moq +order_multiple}
+  class FactoryNode {
+    +producible_products: List~str~
+    +service_level: float
+    +production_capacity: float
+    +production_cost_fixed: float
+    +production_cost_variable: float
+    +allow_production_over_capacity: bool
+    +production_over_capacity_fixed_cost: float
+    +production_over_capacity_variable_cost: float
+    +reorder_point: Dict~str,float~
+    +order_up_to_level: Dict~str,float~
+    +moq: Dict~str,float~
+    +order_multiple: Dict~str,float~
+  }
+  class MaterialNode {+material_cost: Dict~str,float~}
+
+  BaseNode <|-- StoreNode
+  BaseNode <|-- WarehouseNode
+  BaseNode <|-- FactoryNode
+  BaseNode <|-- MaterialNode
+
+  class CustomerDemand {
+    +store_name: str
+    +product_name: str
+    +demand_mean: float
+    +demand_std_dev: float
+  }
+
+  class SimulationInput {
+    +planning_horizon: int
+    +products: List~Product~
+    +nodes: List~BaseNode-subtypes~
+    +network: List~NetworkLink~
+    +customer_demand: List~CustomerDemand~
+  }
+  SimulationInput "1" o-- "*" Product
+  SimulationInput "1" o-- "*" NetworkLink
+  SimulationInput "1" o-- "*" CustomerDemand
+  note for SimulationInput "nodes は判別共用体（Store/Warehouse/Factory/Material）"
+
+  class SupplyChainSimulator {
+    -input: SimulationInput
+    -stock: Dict~node,item,qty~
+    -pending_shipments: Dict~day,list~
+    -in_transit_orders: Dict~day,list~
+    -production_orders: Dict~day,list~
+    -order_history: Dict~day,list~
+    -customer_backorders: Dict~store,item,qty~
+    -daily_results: List
+    -daily_profit_loss: List
+    +run() DayResult[], PLDay[]
+    +record_daily_snapshot(day,...) void
+    +calculate_daily_profit_loss(day,...) void
+    +_place_order(supplier,customer,item,qty,day) void
+  }
+  SupplyChainSimulator --> SimulationInput
+```
+
 ## 入出力スキーマ定義
 
 - 入力: `SimulationInput`
