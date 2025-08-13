@@ -387,7 +387,10 @@ class SupplyChainSimulator:
                         demand_mean = profile["mean"]
                         demand_std = profile.get("std_dev", 0.0)
                         prod_lt = getattr(current_node, "lead_time", 0)
+<<<<<<< HEAD
                         review_R = getattr(current_node, "review_period_days", 0) or 0
+=======
+>>>>>>> origin/main
 
                         inv_on_hand = self.stock[node_name].get(fg_item, 0)
                         # Incoming finished goods from previously scheduled production
@@ -411,8 +414,12 @@ class SupplyChainSimulator:
 
                         inv_pos = inv_on_hand + pipeline_incoming - scheduled_outgoing
                         z = _service_level_z(current_node.service_level)
+<<<<<<< HEAD
                         eff_LR = max(0.0, (prod_lt + review_R))
                         order_up_to = z * demand_std * math.sqrt(eff_LR) + demand_mean * (eff_LR + 1)
+=======
+                        order_up_to = z * demand_std * math.sqrt(prod_lt) + demand_mean * (prod_lt + 1)
+>>>>>>> origin/main
                         qty_to_produce = max(0, math.ceil(order_up_to - inv_pos))
                         if qty_to_produce > 0:
                             completion_day = day + prod_lt
