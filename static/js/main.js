@@ -99,15 +99,19 @@
                 const storeSales = totals.store.sales;
                 const fillRate = storeDemand > 0 ? (storeSales / storeDemand) : 1.0;
 
-                let revenueTotal = 0, materialTotal = 0, flowTotal = 0, stockTotal = 0;
+                let revenueTotal = 0, materialTotal = 0, flowTotal = 0, stockTotal = 0, penaltyStockout = 0, penaltyBackorder = 0;
                 (profitLoss || []).forEach(pl => {
                     revenueTotal += (+pl.revenue || 0);
                     materialTotal += (+pl.material_cost || 0);
                     const fc = pl.flow_costs || {}; const sc = pl.stock_costs || {};
                     Object.values(fc).forEach(v => { flowTotal += (+v || 0); });
                     Object.values(sc).forEach(v => { stockTotal += (+v || 0); });
+                    const pc = pl.penalty_costs || {};
+                    penaltyStockout += (+pc.stockout || 0);
+                    penaltyBackorder += (+pc.backorder || 0);
                 });
-                const costTotal = materialTotal + flowTotal + stockTotal;
+                const penaltyTotal = penaltyStockout + penaltyBackorder;
+                const costTotal = materialTotal + flowTotal + stockTotal + penaltyTotal;
                 const profitTotal = revenueTotal - costTotal;
 
                 const topShortageItems = Object.entries(topShort)
@@ -129,6 +133,9 @@
                     backorder_peak_day: boPeakDay,
                     revenue_total: revenueTotal,
                     cost_total: costTotal,
+                    penalty_stockout_total: penaltyStockout,
+                    penalty_backorder_total: penaltyBackorder,
+                    penalty_total: penaltyTotal,
                     profit_total: profitTotal,
                     profit_per_day_avg: days ? (profitTotal / days) : 0,
                     top_shortage_items: topShortageItems,
@@ -289,6 +296,7 @@
                             <th rowspan="3">Material Cost</th>
                             <th colspan="8">Flow Costs</th>
                             <th colspan="8">Stock Costs</th>
+                            <th colspan="2">Penalty Costs</th>
                             <th rowspan="3">Total Cost</th>
                             <th rowspan="3">Profit/Loss</th>
                         </tr>
@@ -301,6 +309,7 @@
                             <th colspan="2">Factory Storage</th>
                             <th colspan="2">Warehouse Storage</th>
                             <th colspan="2">Store Storage</th>
+                            <th colspan="2">Penalty</th>
                         </tr>
                         <tr class="pl-header-row-3">
                             <th>Fixed</th><th>Variable</th>
@@ -311,6 +320,7 @@
                             <th>Fixed</th><th>Variable</th>
                             <th>Fixed</th><th>Variable</th>
                             <th>Fixed</th><th>Variable</th>
+                            <th>Stockout</th><th>Backorder</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -337,6 +347,8 @@
                     <td>${formatNumber(pl.stock_costs.warehouse_storage_variable)}</td>
                     <td>${formatNumber(pl.stock_costs.store_storage_fixed)}</td>
                     <td>${formatNumber(pl.stock_costs.store_storage_variable)}</td>
+                    <td>${formatNumber((pl.penalty_costs||{}).stockout)}</td>
+                    <td>${formatNumber((pl.penalty_costs||{}).backorder)}</td>
                     <td>${formatNumber(pl.total_cost)}</td>
                     <td>${formatNumber(pl.profit_loss)}</td>
                 </tr>`;
@@ -424,6 +436,8 @@
                     Stock_Warehouse_Variable: pl.stock_costs.warehouse_storage_variable,
                     Stock_Store_Fixed: pl.stock_costs.store_storage_fixed,
                     Stock_Store_Variable: pl.stock_costs.store_storage_variable,
+                    Penalty_Stockout: (pl.penalty_costs||{}).stockout,
+                    Penalty_Backorder: (pl.penalty_costs||{}).backorder,
                     TotalCost: pl.total_cost,
                     ProfitLoss: pl.profit_loss,
                 });
@@ -443,6 +457,10 @@
             html += `<tr><th>顧客欠品合計</th><td>${formatNumber(s.customer_shortage_total)}</td><th>ネットワーク欠品合計</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
             html += `<tr><th>BOピーク</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th>総収益</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
             html += `<tr><th>総コスト</th><td>${formatNumber(s.cost_total)}</td><th>総利益</th><td>${formatNumber(s.profit_total)}</td></tr>`;
+            if (typeof s.penalty_total !== 'undefined') {
+                html += `<tr><th>欠品ペナルティ合計</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th>BOペナルティ合計</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;
+                html += `<tr><th>ペナルティ合計</th><td>${formatNumber(s.penalty_total||0)}</td><th></th><td></td></tr>`;
+            }
             html += `<tr><th>平均日次利益</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
             html += '</tbody></table>';
 
