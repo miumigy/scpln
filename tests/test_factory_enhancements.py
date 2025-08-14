@@ -12,10 +12,37 @@ class TestFactoryEnhancements(unittest.TestCase):
             "planning_horizon": 2,
             "products": [{"name": "完成品A", "sales_price": 1000, "assembly_bom": []}],
             "nodes": [
-                {"name": "店舗1", "node_type": "store", "initial_stock": {"完成品A": 0}, "service_level": 0.0, "backorder_enabled": True},
-                {"name": "店舗2", "node_type": "store", "initial_stock": {"完成品A": 0}, "service_level": 0.0, "backorder_enabled": True},
-                {"name": "中央倉庫", "node_type": "warehouse", "initial_stock": {"完成品A": 0}, "service_level": 0.0, "backorder_enabled": True},
-                {"name": "組立工場", "node_type": "factory", "producible_products": ["完成品A"], "initial_stock": {"完成品A": 0}, "lead_time": 1, "production_capacity": 100000, "service_level": 0.0, "backorder_enabled": True},
+                {
+                    "name": "店舗1",
+                    "node_type": "store",
+                    "initial_stock": {"完成品A": 0},
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
+                {
+                    "name": "店舗2",
+                    "node_type": "store",
+                    "initial_stock": {"完成品A": 0},
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
+                {
+                    "name": "中央倉庫",
+                    "node_type": "warehouse",
+                    "initial_stock": {"完成品A": 0},
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
+                {
+                    "name": "組立工場",
+                    "node_type": "factory",
+                    "producible_products": ["完成品A"],
+                    "initial_stock": {"完成品A": 0},
+                    "lead_time": 1,
+                    "production_capacity": 100000,
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
             ],
             "network": [
                 {"from_node": "中央倉庫", "to_node": "店舗1", "lead_time": 3},
@@ -23,8 +50,18 @@ class TestFactoryEnhancements(unittest.TestCase):
                 {"from_node": "組立工場", "to_node": "中央倉庫", "lead_time": 1},
             ],
             "customer_demand": [
-                {"store_name": "店舗1", "product_name": "完成品A", "demand_mean": 10, "demand_std_dev": 0},
-                {"store_name": "店舗2", "product_name": "完成品A", "demand_mean": 5, "demand_std_dev": 0},
+                {
+                    "store_name": "店舗1",
+                    "product_name": "完成品A",
+                    "demand_mean": 10,
+                    "demand_std_dev": 0,
+                },
+                {
+                    "store_name": "店舗2",
+                    "product_name": "完成品A",
+                    "demand_mean": 5,
+                    "demand_std_dev": 0,
+                },
             ],
         }
 
@@ -107,4 +144,3 @@ class TestFactoryEnhancements(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
