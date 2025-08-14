@@ -74,7 +74,9 @@ async def read_index():
         with open("index.html") as f:
             return f.read()
     except FileNotFoundError:
-        return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+        return HTMLResponse(
+            "<h1>Error</h1><p>index.html not found.</p>", status_code=404
+        )
 
 
 @app.get("/healthz")
@@ -87,3 +89,5 @@ async def get_summary():
     if _LAST_SUMMARY is None:
         raise HTTPException(status_code=404, detail="No summary available yet. Run a simulation first.")
     return _LAST_SUMMARY
+
+>>>>>>> 6ed2f1f6df6314b0ca5430e31a7866fe26c613bd
