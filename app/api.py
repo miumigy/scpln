@@ -89,5 +89,3 @@ async def get_summary():
     if _LAST_SUMMARY is None:
         raise HTTPException(status_code=404, detail="No summary available yet. Run a simulation first.")
     return _LAST_SUMMARY
-
->>>>>>> 6ed2f1f6df6314b0ca5430e31a7866fe26c613bd
