@@ -53,6 +53,10 @@ class SupplyChainSimulator:
         #   (item_name, qty, supplier_node_name, dest_node_name, is_backorder)
         self.pending_shipments = defaultdict(list)  # {ship_day: [tuple]}
         self.customer_backorders = defaultdict(lambda: defaultdict(float))
+        # Fast lookup indices for pending shipments (strictly future after today's processing)
+        # Sum of quantities across all future days, keyed by (dest,item) and (supplier,item)
+        self._pending_by_dest_item = defaultdict(float)
+        self._pending_by_supplier_item = defaultdict(float)
 
         self.cumulative_ordered = defaultdict(float)
         self.cumulative_received = defaultdict(float)
@@ -126,6 +130,9 @@ class SupplyChainSimulator:
                         is_backorder = False
                     else:
                         item, qty, supplier_name, dest_name, is_backorder = rec
+                    # Remove from future indices at the start of ship-day processing
+                    self._pending_by_dest_item[(dest_name, item)] -= qty
+                    self._pending_by_supplier_item[(supplier_name, item)] -= qty
 
                     link_obj = self.network_map.get((supplier_name, dest_name))
                     supplier_node = self.nodes_map[supplier_name]
@@ -196,6 +203,9 @@ class SupplyChainSimulator:
                         logging.debug(f"Day {day}: Supplier {supplier_name} shortage {shortage} of {item} for {dest_name}")
                         if getattr(supplier_node, "backorder_enabled", True):
                             self.pending_shipments[day + 1].append((item, shortage, supplier_name, dest_name, True))
+                            # Update indices for rescheduled future shipment
+                            self._pending_by_dest_item[(dest_name, item)] += shortage
+                            self._pending_by_supplier_item[(supplier_name, item)] += shortage
 
             # Legacy in_transit_orders 経路は廃止（pending_shipmentsに統一）
             for item, qty, factory_name in self.production_orders.pop(day, []):
@@ -311,28 +321,9 @@ class SupplyChainSimulator:
                         demand_std = profile["std_dev"] if isinstance(profile, dict) else profile.demand_std_dev
 
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
-                        pipeline_incoming = 0.0
-                        for d, orders in self.pending_shipments.items():
-                            if d > day:
-                                for rec in orders:
-                                    if len(rec) == 4:
-                                        it, q, _src, dest = rec
-                                    else:
-                                        it, q, _src, dest, _is_bo = rec
-                                    if dest == node_name and it == item_name:
-                                        pipeline_incoming += q
-                        # in_transit_orders 統合に伴い pending_shipments のみを参照
-                        scheduled_outgoing = 0.0
-                        for d, orders in self.pending_shipments.items():
-                            if d > day:
-                                for rec in orders:
-                                    if len(rec) == 4:
-                                        it, q, supplier, _dest = rec
-                                        is_bo = False
-                                    else:
-                                        it, q, supplier, _dest, is_bo = rec
-                                    if supplier == node_name and it == item_name:
-                                        scheduled_outgoing += q
+                        # Use indices for future scheduled movements
+                        pipeline_incoming = self._pending_by_dest_item[(node_name, item_name)]
+                        scheduled_outgoing = self._pending_by_supplier_item[(node_name, item_name)]
                         inv_pos = inv_on_hand + pipeline_incoming
                         if isinstance(current_node, StoreNode):
                             # lost_sales=false のときのみ顧客BOを控除
@@ -423,17 +414,8 @@ class SupplyChainSimulator:
                         if reorder_point is None:
                             continue
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
-                        # Include pipeline component shipments (pending_shipments)
-                        pipeline_incoming = 0.0
-                        for d, orders in self.pending_shipments.items():
-                            if d > day:
-                                for rec in orders:
-                                    if len(rec) == 4:
-                                        it, q, _src, dest = rec
-                                    else:
-                                        it, q, _src, dest, _is_bo = rec
-                                    if dest == node_name and it == item_name:
-                                        pipeline_incoming += q
+                        # Use indices for future component receipts
+                        pipeline_incoming = self._pending_by_dest_item[(node_name, item_name)]
                         # 統合後は pending_shipments のみ
                         inv_pos = inv_on_hand + pipeline_incoming
                         if inv_pos <= reorder_point:
@@ -493,6 +475,9 @@ class SupplyChainSimulator:
         link_lt = link_obj.lead_time if link_obj else 0
         ship_day = current_day + link_lt
         self.pending_shipments[ship_day].append((item_name, quantity, supplier_node_name, customer_node_name, False))
+        # Update indices for future shipments
+        self._pending_by_dest_item[(customer_node_name, item_name)] += quantity
+        self._pending_by_supplier_item[(supplier_node_name, item_name)] += quantity
 
     def compute_summary(self):
         node_type_map = {name: n.node_type for name, n in self.nodes_map.items()}

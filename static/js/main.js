@@ -14,6 +14,7 @@
         const downloadResultsCsvBtn = document.getElementById('download-results-csv');
         const downloadPlCsvBtn = document.getElementById('download-pl-csv');
         const summaryOutput = document.getElementById('summary-output');
+        const downloadSummaryCsvBtn = document.getElementById('download-summary-csv');
         const runButton = document.querySelector('.run-button');
         const tabButtons = document.querySelectorAll('.tab-button');
 
@@ -370,6 +371,31 @@
             return lines.join('\n');
         }
 
+        function exportSummaryCsv() {
+            if (!fullSummary) return;
+            const s = fullSummary;
+            const rows = [{
+                planning_days: s.planning_days,
+                fill_rate: s.fill_rate,
+                store_demand_total: s.store_demand_total,
+                store_sales_total: s.store_sales_total,
+                customer_shortage_total: s.customer_shortage_total,
+                network_shortage_total: s.network_shortage_total,
+                backorder_peak: s.backorder_peak,
+                backorder_peak_day: s.backorder_peak_day,
+                revenue_total: s.revenue_total,
+                cost_total: s.cost_total,
+                penalty_stockout_total: s.penalty_stockout_total || 0,
+                penalty_backorder_total: s.penalty_backorder_total || 0,
+                penalty_total: s.penalty_total || 0,
+                profit_total: s.profit_total,
+                profit_per_day_avg: s.profit_per_day_avg,
+            }];
+            const headers = Object.keys(rows[0]);
+            const csv = toCsv(rows, headers);
+            downloadBlob('summary.csv', csv);
+        }
+
         function downloadBlob(filename, content, type='text/csv') {
             const blob = new Blob([content], { type });
             const url = URL.createObjectURL(blob);
@@ -500,6 +526,7 @@
         dayTo.addEventListener('change', applyFilters);
         downloadResultsCsvBtn.addEventListener('click', exportResultsCsv);
         downloadPlCsvBtn.addEventListener('click', exportPlCsv);
+        if (downloadSummaryCsvBtn) downloadSummaryCsvBtn.addEventListener('click', exportSummaryCsv);
 
     });
 })();
