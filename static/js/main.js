@@ -480,16 +480,16 @@
             const summaryKpisTitle = document.getElementById('summary-kpis-title');
             if (summaryKpisTitle) summaryKpisTitle.innerText = 'サマリKPIs';
             html += '<table><tbody>';
-            html += `<tr><th>計画日数</th><td>${s.planning_days}</td><th>フィルレート</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
-            html += `<tr><th>需要(店舗)</th><td>${formatNumber(s.store_demand_total)}</td><th>販売(店舗)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
-            html += `<tr><th>顧客欠品合計</th><td>${formatNumber(s.customer_shortage_total)}</td><th>ネットワーク欠品合計</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
-            html += `<tr><th>BOピーク</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th>総収益</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
-            html += `<tr><th>総コスト</th><td>${formatNumber(s.cost_total)}</td><th>総利益</th><td>${formatNumber(s.profit_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">計画日数</th><td>${s.planning_days}</td><th class="kpi-header">フィルレート</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
+            html += `<tr><th class="kpi-header">需要(店舗)</th><td>${formatNumber(s.store_demand_total)}</td><th class="kpi-header">販売(店舗)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">顧客欠品合計</th><td>${formatNumber(s.customer_shortage_total)}</td><th class="kpi-header">ネットワーク欠品合計</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">BOピーク</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th class="kpi-header">総収益</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">総コスト</th><td>${formatNumber(s.cost_total)}</td><th class="kpi-header">総利益</th><td>${formatNumber(s.profit_total)}</td></tr>`;
             if (typeof s.penalty_total !== 'undefined') {
-                html += `<tr><th>欠品ペナルティ合計</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th>BOペナルティ合計</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;
-                html += `<tr><th>ペナルティ合計</th><td>${formatNumber(s.penalty_total||0)}</td><th></th><td></td></tr>`;
+                html += `<tr><th class="kpi-header">欠品ペナルティ合計</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th class="kpi-header">BOペナルティ合計</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;
+                html += `<tr><th class="kpi-header">ペナルティ合計</th><td>${formatNumber(s.penalty_total||0)}</td><th></th><td></td></tr>`;
             }
-            html += `<tr><th>平均日次利益</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
+            html += `<tr><th class="kpi-header">平均日次利益</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
             html += '</tbody></table>';
 
             // 平均在庫
