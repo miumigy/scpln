@@ -253,14 +253,12 @@ class SupplyChainSimulator:
                         )
                         if getattr(supplier_node, "backorder_enabled", True):
 
-                            self.pending_shipments[day + 1].append((item, shortage, supplier_name, dest_name, True))
-                            # Update indices for rescheduled future shipment
-                            self._pending_by_dest_item[(dest_name, item)] += shortage
-                            self._pending_by_supplier_item[(supplier_name, item)] += shortage
-
                             self.pending_shipments[day + 1].append(
                                 (item, shortage, supplier_name, dest_name, True)
                             )
+                            # Update indices for rescheduled future shipment
+                            self._pending_by_dest_item[(dest_name, item)] += shortage
+                            self._pending_by_supplier_item[(supplier_name, item)] += shortage
 
 
             # Legacy in_transit_orders 経路は廃止（pending_shipmentsに統一）
