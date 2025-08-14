@@ -52,10 +52,11 @@ async def read_index():
         with open("index.html") as f:
             return f.read()
     except FileNotFoundError:
-        return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+        return HTMLResponse(
+            "<h1>Error</h1><p>index.html not found.</p>", status_code=404
+        )
 
 
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
-
