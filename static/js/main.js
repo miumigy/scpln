@@ -477,6 +477,7 @@
             if (!summary) { summaryOutput.innerHTML = 'サマリがありません。'; return; }
             const s = summary;
             let html = '';
+            html += '<h3>サマリKPIs</h3>';
             html += '<table><tbody>';
             html += `<tr><th>計画日数</th><td>${s.planning_days}</td><th>フィルレート</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
             html += `<tr><th>需要(店舗)</th><td>${formatNumber(s.store_demand_total)}</td><th>販売(店舗)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
