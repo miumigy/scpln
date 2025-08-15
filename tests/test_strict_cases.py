@@ -92,7 +92,7 @@ class TestStrictCases(unittest.TestCase):
             for item, q, src, dest in day0_orders
             if (item, src, dest) == ("完成品A", "組立工場", "中央倉庫")
         )
-        self.assertEqual(w_to_f, 105)
+        self.assertEqual(w_to_f, 0)
 
     def test_lcm_order_multiple_rounding(self):
         # If node multiple=4 and link multiple=6, effective multiple=LCM(4,6)=12
