@@ -65,9 +65,10 @@ class SupplyChainSimulator:
         self.daily_results = []
         self.daily_profit_loss = []
         self.node_order = self._get_topological_order()
-        self.factory_demand_profiles = self._calculate_factory_demand_profiles()
         self.pl_summary = {}
         self.cost_trace = []
+        self.warehouse_demand_profiles = self._calculate_warehouse_demand_profiles()
+        self.factory_demand_profiles = self._calculate_factory_demand_profiles()
 
     def _get_topological_order(self):
         order = []
@@ -109,7 +110,7 @@ class SupplyChainSimulator:
                     and self.nodes_map[link.to_node].node_type == "warehouse"
                 ):
                     wh_name = link.to_node
-                    wh_profile = getattr(self, 'warehouse_demand_profiles', {}).get(wh_name, {})
+                    wh_profile = self.warehouse_demand_profiles.get(wh_name, {})
                     for item, data in wh_profile.items():
                         if item in factory.producible_products:
                             profiles[factory.name][item]["mean"] += data["mean"]
@@ -400,7 +401,7 @@ class SupplyChainSimulator:
                         review_R = getattr(current_node, "review_period_days", 0) or 0
 
                         profile = (
-                            getattr(self, 'warehouse_demand_profiles', {}).get(node_name, {}).get(
+                            self.warehouse_demand_profiles.get(node_name, {}).get(
                                 item_name
                             )
                             if isinstance(current_node, WarehouseNode)
