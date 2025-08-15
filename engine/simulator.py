@@ -109,7 +109,7 @@ class SupplyChainSimulator:
                     and self.nodes_map[link.to_node].node_type == "warehouse"
                 ):
                     wh_name = link.to_node
-                    wh_profile = self.warehouse_demand_profiles.get(wh_name, {})
+                    wh_profile = getattr(self, 'warehouse_demand_profiles', {}).get(wh_name, {})
                     for item, data in wh_profile.items():
                         if item in factory.producible_products:
                             profiles[factory.name][item]["mean"] += data["mean"]
