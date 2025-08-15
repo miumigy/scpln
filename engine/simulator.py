@@ -258,8 +258,9 @@ class SupplyChainSimulator:
                             )
                             # Update indices for rescheduled future shipment
                             self._pending_by_dest_item[(dest_name, item)] += shortage
-                            self._pending_by_supplier_item[(supplier_name, item)] += shortage
-
+                            self._pending_by_supplier_item[
+                                (supplier_name, item)
+                            ] += shortage
 
             # Legacy in_transit_orders 経路は廃止（pending_shipmentsに統一）
             for item, qty, factory_name in self.production_orders.pop(day, []):
@@ -428,8 +429,12 @@ class SupplyChainSimulator:
 
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
                         # Use indices for future scheduled movements
-                        pipeline_incoming = self._pending_by_dest_item[(node_name, item_name)]
-                        scheduled_outgoing = self._pending_by_supplier_item[(node_name, item_name)]
+                        pipeline_incoming = self._pending_by_dest_item[
+                            (node_name, item_name)
+                        ]
+                        scheduled_outgoing = self._pending_by_supplier_item[
+                            (node_name, item_name)
+                        ]
                         inv_pos = inv_on_hand + pipeline_incoming
                         if isinstance(current_node, StoreNode):
                             # lost_sales=false のときのみ顧客BOを控除
@@ -551,7 +556,9 @@ class SupplyChainSimulator:
                             continue
                         inv_on_hand = self.stock[node_name].get(item_name, 0)
                         # Use indices for future component receipts
-                        pipeline_incoming = self._pending_by_dest_item[(node_name, item_name)]
+                        pipeline_incoming = self._pending_by_dest_item[
+                            (node_name, item_name)
+                        ]
                         # 統合後は pending_shipments のみ
                         inv_pos = inv_on_hand + pipeline_incoming
                         if inv_pos <= reorder_point:
@@ -654,7 +661,9 @@ class SupplyChainSimulator:
         link_obj = self.network_map.get((supplier_node_name, customer_node_name))
         link_lt = link_obj.lead_time if link_obj else 0
         ship_day = current_day + link_lt
-        self.pending_shipments[ship_day].append((item_name, quantity, supplier_node_name, customer_node_name, False))
+        self.pending_shipments[ship_day].append(
+            (item_name, quantity, supplier_node_name, customer_node_name, False)
+        )
         # Update indices for future shipments
         self._pending_by_dest_item[(customer_node_name, item_name)] += quantity
         self._pending_by_supplier_item[(supplier_node_name, item_name)] += quantity
