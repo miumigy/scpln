@@ -400,7 +400,7 @@ class SupplyChainSimulator:
                         review_R = getattr(current_node, "review_period_days", 0) or 0
 
                         profile = (
-                            self.warehouse_demand_profiles.get(node_name, {}).get(
+                            getattr(self, 'warehouse_demand_profiles', {}).get(node_name, {}).get(
                                 item_name
                             )
                             if isinstance(current_node, WarehouseNode)
