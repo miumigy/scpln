@@ -5,6 +5,11 @@ import logging
 import math
 from collections import defaultdict
 
+try:
+    import app.metrics  # noqa: F401  # /metrics を副作用で登録
+except Exception:
+    pass
+
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
