@@ -1,5 +1,4 @@
 import unittest
-import pytest
 from main import SupplyChainSimulator, SimulationInput
 
 class TestDailySnapshotIdentities(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 from fastapi.testclient import TestClient
-from main import app
+from app.api import app
 
 
 class TestSummaryEndpoint(unittest.TestCase):
