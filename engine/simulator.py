@@ -955,9 +955,12 @@ class SupplyChainSimulator:
                     self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
 
         for node_name in nodes_produced:
-            pl["flow_costs"]["production_fixed"] += self.nodes_map[
-                node_name
-            ].production_cost_fixed
+            node = self.nodes_map.get(node_name)
+            if isinstance(node, FactoryNode) and node.production_cost_fixed > 0:
+                pl["flow_costs"]["production_fixed"] += node.production_cost_fixed
+                self._push_cost(day=day, node=node_name, item="", event="production_fixed",
+                                qty=1.0, unit_cost=node.production_cost_fixed,
+                                account="production_fixed")
 
         for node_name, qty_prod in produced_by_factory.items():
             node = self.nodes_map.get(node_name)
@@ -969,13 +972,20 @@ class SupplyChainSimulator:
                 continue
             over_qty = max(0.0, qty_prod - prod_cap)
             if over_qty > 0:
-                pl["flow_costs"]["production_variable"] += (
-                    node.production_over_capacity_variable_cost * over_qty
-                )
+                if node.production_over_capacity_variable_cost > 0:
+                    pl["flow_costs"]["production_variable"] += (
+                        node.production_over_capacity_variable_cost * over_qty
+                    )
+                    self._push_cost(day=day, node=node_name, item="", event="production_over_var",
+                                    qty=over_qty, unit_cost=node.production_over_capacity_variable_cost,
+                                    account="production_var")
                 if node.production_over_capacity_fixed_cost > 0:
                     pl["flow_costs"][
                         "production_fixed"
                     ] += node.production_over_capacity_fixed_cost
+                    self._push_cost(day=day, node=node_name, item="", event="production_over_fixed",
+                                    qty=1.0, unit_cost=node.production_over_capacity_fixed_cost,
+                                    account="production_fixed")
 
         for transport_type, costs in transport_costs_by_type.items():
             pl["flow_costs"][f"{transport_type}_fixed"] = costs["fixed"]
@@ -1038,19 +1048,34 @@ class SupplyChainSimulator:
             }
             cat = cost_cat_map.get(node.node_type)
             if cat:
-                pl["stock_costs"][f"{cat}_fixed"] += node.storage_cost_fixed
+                if node.storage_cost_fixed > 0:
+                    pl["stock_costs"][f"{cat}_fixed"] += node.storage_cost_fixed
+                    self._push_cost(day=day, node=node.name, item="", event="storage_fixed",
+                                    qty=1.0, unit_cost=node.storage_cost_fixed, account="storage_fixed")
                 for item, stock in self.stock[node.name].items():
-                    pl["stock_costs"][
-                        f"{cat}_variable"
-                    ] += stock * node.storage_cost_variable.get(item, 0)
+                    unit_sv = node.storage_cost_variable.get(item, 0)
+                    if unit_sv > 0:
+                        pl["stock_costs"][
+                            f"{cat}_variable"
+                        ] += stock * unit_sv
+                        self._push_cost(day=day, node=node.name, item=item, event="storage_var",
+                                        qty=stock, unit_cost=unit_sv, account="storage_var")
                 over_qty = storage_overage_qty_by_node.get(node.name, 0)
                 if over_qty > 0:
-                    pl["stock_costs"][f"{cat}_variable"] += (
-                        node.storage_over_capacity_variable_cost * over_qty
-                    )
-                    pl["stock_costs"][
-                        f"{cat}_fixed"
-                    ] += node.storage_over_capacity_fixed_cost
+                    if node.storage_over_capacity_variable_cost > 0:
+                        pl["stock_costs"][f"{cat}_variable"] += (
+                            node.storage_over_capacity_variable_cost * over_qty
+                        )
+                        self._push_cost(day=day, node=node.name, item="", event="storage_over_var",
+                                        qty=over_qty, unit_cost=node.storage_over_capacity_variable_cost,
+                                        account="storage_var")
+                    if node.storage_over_capacity_fixed_cost > 0:
+                        pl["stock_costs"][
+                            f"{cat}_fixed"
+                        ] += node.storage_over_capacity_fixed_cost
+                        self._push_cost(day=day, node=node.name, item="", event="storage_over_fixed",
+                                        qty=1.0, unit_cost=node.storage_over_capacity_fixed_cost,
+                                        account="storage_fixed")
 
         # Penalties
         # Stockout cost: apply per node shortage units on the day
@@ -1064,10 +1089,13 @@ class SupplyChainSimulator:
             shortage = data.get("shortage", 0) or 0
             if shortage > 0:
                 node = self.nodes_map.get(node_name)
-                if node:
+                if node and getattr(node, "stockout_cost_per_unit", 0) > 0:
+                    unit_cost = getattr(node, "stockout_cost_per_unit", 0)
                     pl["penalty_costs"]["stockout"] += (
-                        getattr(node, "stockout_cost_per_unit", 0) * shortage
+                        unit_cost * shortage
                     )
+                    self._push_cost(day=day, node=node_name, item="", event="penalty_stockout",
+                                    qty=shortage, unit_cost=unit_cost, account="penalty_stockout")
 
         # Backorder carrying cost per day
         supplier_bo_by_node = defaultdict(float)
@@ -1086,10 +1114,13 @@ class SupplyChainSimulator:
             store_bo_by_node.items()
         ):
             node = self.nodes_map.get(node_name)
-            if node and qty > 0:
+            if node and qty > 0 and getattr(node, "backorder_cost_per_unit_per_day", 0) > 0:
+                unit_cost = getattr(node, "backorder_cost_per_unit_per_day", 0)
                 pl["penalty_costs"]["backorder"] += (
-                    getattr(node, "backorder_cost_per_unit_per_day", 0) * qty
+                    unit_cost * qty
                 )
+                self._push_cost(day=day, node=node_name, item="", event="penalty_backorder",
+                                qty=qty, unit_cost=unit_cost, account="penalty_backorder")
 
         total_flow = sum(pl["flow_costs"].values())
         total_stock = sum(pl["stock_costs"].values())
