@@ -15,6 +15,11 @@ try:
 except Exception:
     pass
 
+try:
+    import app.run_compare_api  # noqa: F401
+except Exception:
+    pass
+
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 

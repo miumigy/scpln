@@ -3,14 +3,25 @@ from fastapi import Query
 from app.api import app, validate_input, set_last_summary
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
+import time
+from app.run_registry import REGISTRY
 
 @app.post("/simulation")
 def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)):
     validate_input(payload)
     run_id = str(uuid4())
+    start = time.time()
     sim = SupplyChainSimulator(payload)
     results, daily_pl = sim.run()
+    duration_ms = int((time.time() - start) * 1000)
     summary = sim.compute_summary()
+    REGISTRY.put(run_id, {
+        "run_id": run_id,
+        "started_at": int(start * 1000),
+        "duration_ms": duration_ms,
+        "schema_version": getattr(payload, "schema_version", "1.0"),
+        "summary": summary,
+    })
     set_last_summary(summary)
     resp = {
         "run_id": run_id,
