@@ -31,16 +31,24 @@ def validate_input(input_data: SimulationInput) -> None:
     names = [n.name for n in input_data.nodes]
     if len(names) != len(set(names)):
         dup = [x for x in names if names.count(x) > 1]
-        raise HTTPException(status_code=422, detail=f"Duplicate node names: {sorted(set(dup))}")
+        raise HTTPException(
+            status_code=422, detail=f"Duplicate node names: {sorted(set(dup))}"
+        )
     name_set = set(names)
     # Network links referential integrity and duplicate detection
     seen = set()
     for l in input_data.network:
         if l.from_node not in name_set or l.to_node not in name_set:
-            raise HTTPException(status_code=422, detail=f"Network link refers unknown node: {l.from_node}->{l.to_node}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Network link refers unknown node: {l.from_node}->{l.to_node}",
+            )
         key = (l.from_node, l.to_node)
         if key in seen:
-            raise HTTPException(status_code=422, detail=f"Duplicate network link: {l.from_node}->{l.to_node}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Duplicate network link: {l.from_node}->{l.to_node}",
+            )
         seen.add(key)
 
 
@@ -87,5 +95,7 @@ async def healthz():
 @app.get("/summary")
 async def get_summary():
     if _LAST_SUMMARY is None:
-        raise HTTPException(status_code=404, detail="No summary available yet. Run a simulation first.")
+        raise HTTPException(
+            status_code=404, detail="No summary available yet. Run a simulation first."
+        )
     return _LAST_SUMMARY
