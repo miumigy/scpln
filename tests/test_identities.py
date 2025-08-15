@@ -95,6 +95,9 @@ class TestDailySnapshotIdentities(unittest.TestCase):
                     demand = item_data.get("demand", 0)
                     backorder_balance = item_data.get("backorder_balance", 0)
 
+                    print(f"DEBUG: Day {day}, Node {node_name}, Item {item_name}")
+                    print(f"  Demand: {demand}, Sales: {sales}, Shortage: {shortage}")
+
                     # demand == sales + shortage の検査
                     with self.subTest(msg=f"Day {day}, Node {node_name}, Item {item_name}: Demand Identity"):
                         self.assertAlmostEqual(demand, sales + shortage, msg=f"Demand ({demand}) != Sales ({sales}) + Shortage ({shortage})")
