@@ -98,6 +98,7 @@ class CustomerDemand(BaseModel):
 
 
 class SimulationInput(BaseModel):
+    schema_version: str = Field(default="1.0")
     planning_horizon: int = Field(gt=0)
     products: List[Product]
     nodes: List[AnyNode]
