@@ -65,9 +65,10 @@ class SupplyChainSimulator:
         self.daily_results = []
         self.daily_profit_loss = []
         self.node_order = self._get_topological_order()
-        self.factory_demand_profiles = self._calculate_factory_demand_profiles()
         self.pl_summary = {}
         self.cost_trace = []
+        self.warehouse_demand_profiles = self._calculate_warehouse_demand_profiles()
+        self.factory_demand_profiles = self._calculate_factory_demand_profiles()
 
     def _get_topological_order(self):
         order = []
