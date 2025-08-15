@@ -90,7 +90,7 @@ class TestStrictCases(unittest.TestCase):
         w_to_f = sum(
             q
             for item, q, src, dest in day0_orders
-            if (item, src, dest) == ("完成品A", "組立工場", "中央倉庫")
+            if (item, src, dest) == ("完成品A", "中央倉庫", "組立工場")
         )
         self.assertEqual(w_to_f, 105)
 
