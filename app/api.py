@@ -25,6 +25,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Cache last summary for GET /summary
 _LAST_SUMMARY = None
 
+def set_last_summary(summary):
+    global _LAST_SUMMARY
+    _LAST_SUMMARY = summary
+
+def reset_last_summary():
+    global _LAST_SUMMARY
+    _LAST_SUMMARY = None
+
 
 def validate_input(input_data: SimulationInput) -> None:
     # Node name uniqueness
@@ -52,28 +60,7 @@ def validate_input(input_data: SimulationInput) -> None:
         seen.add(key)
 
 
-@app.post("/simulation")
-async def run_simulation(input_data: SimulationInput):
-    try:
-        validate_input(input_data)
-        logging.info(f"Received input data: {input_data.json()}")
-        simulator = SupplyChainSimulator(input_data)
-        results, profit_loss = simulator.run()
-        summary = simulator.compute_summary()
-        logging.info(f"Calculated profit_loss: {profit_loss}")
-        global _LAST_SUMMARY
-        _LAST_SUMMARY = summary
-        return {
-            "message": "Simulation completed successfully.",
-            "results": results,
-            "profit_loss": profit_loss,
-            "summary": summary,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logging.error(f"Error during simulation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/", response_class=HTMLResponse)

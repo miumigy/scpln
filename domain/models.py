@@ -1,4 +1,5 @@
 from typing import List, Dict, Literal, Annotated, Union, Optional
+import sys
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ class NetworkLink(BaseModel):
     transportation_cost_fixed: float = Field(default=0, ge=0)
     transportation_cost_variable: float = Field(default=0, ge=0)
     lead_time: int = Field(default=0, ge=0)
-    capacity_per_day: float = Field(default=float("inf"), gt=0)
+    capacity_per_day: float = Field(default=sys.float_info.max, gt=0)
     allow_over_capacity: bool = Field(default=True)
     over_capacity_fixed_cost: float = Field(default=0, ge=0)
     over_capacity_variable_cost: float = Field(default=0, ge=0)
@@ -42,7 +43,7 @@ class BaseNode(BaseModel):
     # ペナルティコスト
     stockout_cost_per_unit: float = Field(default=0, ge=0)
     backorder_cost_per_unit_per_day: float = Field(default=0, ge=0)
-    storage_capacity: float = Field(default=float("inf"), gt=0)
+    storage_capacity: float = Field(default=sys.float_info.max, gt=0)
     allow_storage_over_capacity: bool = Field(default=True)
     storage_over_capacity_fixed_cost: float = Field(default=0, ge=0)
     storage_over_capacity_variable_cost: float = Field(default=0, ge=0)
@@ -72,7 +73,7 @@ class FactoryNode(BaseNode):
     node_type: Literal["factory"] = "factory"
     producible_products: List[str]
     service_level: float = Field(default=0.95, ge=0, le=1)
-    production_capacity: float = Field(default=float("inf"), gt=0)
+    production_capacity: float = Field(default=sys.float_info.max, gt=0)
     production_cost_fixed: float = Field(default=0, ge=0)
     production_cost_variable: float = Field(default=0, ge=0)
     allow_production_over_capacity: bool = Field(default=True)

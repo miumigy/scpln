@@ -1,11 +1,12 @@
 import unittest
 from fastapi.testclient import TestClient
-from app.api import app
+from app.api import app, reset_last_summary
 
 
 class TestSummaryEndpoint(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        reset_last_summary()
 
     def test_summary_flow(self):
         # Before any run, /summary should 404
