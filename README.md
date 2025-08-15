@@ -713,6 +713,7 @@ sequenceDiagram
 - 累積整合: `合計発注 = 合計受入 + 期末輸送中`
 - 発注制約: ノード/リンクの `MOQ` と（整数の）`order_multiple` 満足
 - BO誘発下の安定性: リードタイム内の連日発注が単調非増加（雪だるま抑制）
+- `tests/test_identities.py` は、上記PSI恒等と在庫フローの恒等式を検証します。
 
 ### CI（GitHub Actions）
 
