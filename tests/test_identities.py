@@ -5,24 +5,73 @@ from main import SupplyChainSimulator, SimulationInput
 class TestDailySnapshotIdentities(unittest.TestCase):
 
     def test_daily_snapshot_identities(self):
-        pytest.skip("TODO: fill minimal scenario")
-
         # ダミーの最小入力 payload
         sim_input_payload = {
-            # TODO: ユーザーがここに最小限のシミュレーション入力データを埋める
-            # 例:
-            # "planning_horizon": 1,
-            # "products": [{"name": "ProductA", "sales_price": 100, "assembly_bom": []}],
-            # "nodes": [
-            #     {"name": "Store1", "node_type": "store", "initial_stock": {"ProductA": 10}},
-            #     {"name": "Warehouse1", "node_type": "warehouse", "initial_stock": {"ProductA": 50}},
-            # ],
-            # "network": [
-            #     {"from_node": "Warehouse1", "to_node": "Store1", "lead_time": 1},
-            # ],
-            # "customer_demand": [
-            #     {"store_name": "Store1", "product_name": "ProductA", "demand_mean": 5, "demand_std_dev": 0},
-            # ],
+            "planning_horizon": 5,
+            "products": [
+                {"name": "itemA", "sales_price": 100.0, "assembly_bom": []}
+            ],
+            "nodes": [
+                {
+                    "name": "mat1",
+                    "node_type": "material",
+                    "initial_stock": {"itemA": 1000},
+                    "material_cost": {"itemA": 20.0},
+                },
+                {
+                    "name": "fac1",
+                    "node_type": "factory",
+                    "initial_stock": {"itemA": 0},
+                    "producible_products": ["itemA"],
+                    "production_capacity": 50,
+                    "production_cost_fixed": 500.0,
+                    "production_cost_variable": 10.0,
+                },
+                {
+                    "name": "wh1",
+                    "node_type": "warehouse",
+                    "initial_stock": {"itemA": 0},
+                    "storage_capacity": 500,
+                    "storage_cost_fixed": 100.0,
+                    "storage_cost_variable": {"itemA": 1.0},
+                },
+                {
+                    "name": "st1",
+                    "node_type": "store",
+                    "initial_stock": {"itemA": 0},
+                },
+            ],
+            "network": [
+                {
+                    "from_node": "mat1",
+                    "to_node": "fac1",
+                    "transportation_cost_fixed": 50.0,
+                    "transportation_cost_variable": 2.0,
+                    "lead_time": 0,
+                },
+                {
+                    "from_node": "fac1",
+                    "to_node": "wh1",
+                    "transportation_cost_fixed": 30.0,
+                    "transportation_cost_variable": 1.0,
+                    "lead_time": 0,
+                },
+                {
+                    "from_node": "wh1",
+                    "to_node": "st1",
+                    "transportation_cost_fixed": 20.0,
+                    "transportation_cost_variable": 1.0,
+                    "lead_time": 0,
+                },
+            ],
+            "customer_demand": [
+                {
+                    "store_name": "st1",
+                    "product_name": "itemA",
+                    "demand_mean": 30,
+                    "demand_std_dev": 0.0,
+                }
+            ],
         }
 
         # シミュレーションの実行
