@@ -65,8 +65,9 @@ class SupplyChainSimulator:
         self.daily_results = []
         self.daily_profit_loss = []
         self.node_order = self._get_topological_order()
-        self.warehouse_demand_profiles = self._calculate_warehouse_demand_profiles()
         self.factory_demand_profiles = self._calculate_factory_demand_profiles()
+        self.pl_summary = {}
+        self.cost_trace = []
 
     def _get_topological_order(self):
         order = []
@@ -820,6 +821,19 @@ class SupplyChainSimulator:
 
         self.daily_results.append(snapshot)
 
+    def _push_cost(self, day: int, node: str, item: str, event: str, qty: float, unit_cost: float, account: str):
+        amount = qty * unit_cost
+        self.cost_trace.append({
+            "day": day + 1,  # 1-based
+            "node": node,
+            "item": item,
+            "event": event,
+            "qty": qty,
+            "unit_cost": unit_cost,
+            "amount": amount,
+            "account": account
+        })
+
     def calculate_daily_profit_loss(self, day, events):
         pl = {
             "day": day + 1,
@@ -898,30 +912,37 @@ class SupplyChainSimulator:
                     transport_costs_by_type["material_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
+                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
                     transport_costs_by_type["material_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
+                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
                     pl["material_cost"] += (
                         getattr(supplier, "material_cost", {}).get(item, 0) * qty
                     )
+                    self._push_cost(day, dest_name, item, "material_purchase", qty, getattr(supplier, "material_cost", {}).get(item, 0), "material")
                 elif isinstance(supplier, FactoryNode) and isinstance(
                     dest, WarehouseNode
                 ):
                     transport_costs_by_type["warehouse_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
+                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
                     transport_costs_by_type["warehouse_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
+                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
                 elif isinstance(supplier, WarehouseNode) and isinstance(
                     dest, StoreNode
                 ):
                     transport_costs_by_type["store_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
+                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
                     transport_costs_by_type["store_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
+                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
 
         for node_name in nodes_produced:
             pl["flow_costs"]["production_fixed"] += self.nodes_map[
