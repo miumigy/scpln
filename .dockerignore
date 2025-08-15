@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+.build/
+dist/
+venv/
+.env
+.git
+.gitignore
+.idea
+.vscode
+simulation.log
