@@ -1,24 +1,15 @@
 #!/usr/bin/env python3
-import unittest
+import pytest
 import sys
-
-try:
-    import xmlrunner  # type: ignore
-except Exception:
-    sys.stderr.write(
-        "xmlrunner is required. Install with: pip install unittest-xml-reporting\n"
-    )
-    raise
 
 
 def main():
-    suite = unittest.defaultTestLoader.discover("tests", pattern="test_*.py")
-    # Write JUnit XML files into test-results/ (one file per test case)
-    runner = xmlrunner.XMLTestRunner(output="test-results")
-    result = runner.run(suite)
-    # Return non-zero exit code on failures/errors to fail the CI job
-    if not result.wasSuccessful():
-        sys.exit(1)
+    # pytest を実行し、JUnit XMLレポートを生成する
+    # レポートは test-results/results.xml に保存される
+    retcode = pytest.main(["--junitxml=test-results/results.xml", "tests/"])
+
+    # pytest の終了コードをそのまま返す
+    sys.exit(retcode)
 
 
 if __name__ == "__main__":
