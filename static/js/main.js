@@ -184,9 +184,9 @@
                 }
 
                 fullResultsData = data.results;
-                fullProfitLoss = data.profit_loss || [];
+                fullProfitLoss = data.profit_loss || data.daily_profit_loss || [];
                 fullSummary = data.summary || computeClientSummary(fullResultsData, fullProfitLoss, requestBody) || null;
-                fullCostTrace = data.cost_trace || [];
+                fullCostTrace = Array.isArray(data.cost_trace) ? data.cost_trace : [];
                 populateTraceFilters(fullCostTrace);
                 populateFilters(fullResultsData);
                 applyFilters(); // This will call displayResultsTable
