@@ -7,6 +7,7 @@ importlib.import_module("app.metrics")
 from fastapi.testclient import TestClient
 from app.api import app
 
+
 def test_metrics_endpoint_works():
     client = TestClient(app)
     r = client.get("/metrics")

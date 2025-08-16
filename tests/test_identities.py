@@ -1,15 +1,14 @@
 import unittest
 from main import SupplyChainSimulator, SimulationInput
 
+
 class TestDailySnapshotIdentities(unittest.TestCase):
 
     def test_daily_snapshot_identities(self):
         # ダミーの最小入力 payload
         sim_input_payload = {
             "planning_horizon": 5,
-            "products": [
-                {"name": "itemA", "sales_price": 100.0, "assembly_bom": []}
-            ],
+            "products": [{"name": "itemA", "sales_price": 100.0, "assembly_bom": []}],
             "nodes": [
                 {
                     "name": "mat1",
@@ -98,22 +97,48 @@ class TestDailySnapshotIdentities(unittest.TestCase):
                     print(f"  Demand: {demand}, Sales: {sales}, Shortage: {shortage}")
 
                     # demand == sales + shortage の検査
-                    with self.subTest(msg=f"Day {day}, Node {node_name}, Item {item_name}: Demand Identity"):
-                        self.assertAlmostEqual(demand, sales + shortage, msg=f"Demand ({demand}) != Sales ({sales}) + Shortage ({shortage})")
+                    with self.subTest(
+                        msg=f"Day {day}, Node {node_name}, Item {item_name}: Demand Identity"
+                    ):
+                        self.assertAlmostEqual(
+                            demand,
+                            sales + shortage,
+                            msg=f"Demand ({demand}) != Sales ({sales}) + Shortage ({shortage})",
+                        )
 
                     # 在庫恒等式の検査
                     # end_stock = start_stock + incoming + produced - sales - consumption
                     # 浮動小数点数の比較のため assertAlmostEqual を使用
-                    expected_end_stock = start_stock + incoming + produced - sales - consumption
-                    with self.subTest(msg=f"Day {day}, Node {node_name}, Item {item_name}: Stock Identity"):
-                        self.assertAlmostEqual(end_stock, expected_end_stock, places=5, msg=f"End Stock ({end_stock}) != Expected End Stock ({expected_end_stock})")
+                    expected_end_stock = (
+                        start_stock + incoming + produced - sales - consumption
+                    )
+                    with self.subTest(
+                        msg=f"Day {day}, Node {node_name}, Item {item_name}: Stock Identity"
+                    ):
+                        self.assertAlmostEqual(
+                            end_stock,
+                            expected_end_stock,
+                            places=5,
+                            msg=f"End Stock ({end_stock}) != Expected End Stock ({expected_end_stock})",
+                        )
 
                     # 欠品/BOは負にならないことを検査
-                    with self.subTest(msg=f"Day {day}, Node {node_name}, Item {item_name}: Non-negative Shortage"):
-                        self.assertGreaterEqual(shortage, 0, msg=f"Shortage ({shortage}) is negative")
-                    
-                    with self.subTest(msg=f"Day {day}, Node {node_name}, Item {item_name}: Non-negative Backorder"):
-                        self.assertGreaterEqual(backorder_balance, 0, msg=f"Backorder Balance ({backorder_balance}) is negative")
+                    with self.subTest(
+                        msg=f"Day {day}, Node {node_name}, Item {item_name}: Non-negative Shortage"
+                    ):
+                        self.assertGreaterEqual(
+                            shortage, 0, msg=f"Shortage ({shortage}) is negative"
+                        )
 
-if __name__ == '__main__':
+                    with self.subTest(
+                        msg=f"Day {day}, Node {node_name}, Item {item_name}: Non-negative Backorder"
+                    ):
+                        self.assertGreaterEqual(
+                            backorder_balance,
+                            0,
+                            msg=f"Backorder Balance ({backorder_balance}) is negative",
+                        )
+
+
+if __name__ == "__main__":
     unittest.main()

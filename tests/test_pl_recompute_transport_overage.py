@@ -31,7 +31,9 @@ def _payload_transport_overage(days: int = 2) -> SimulationInput:
             ),
         ],
         customer_demand=[
-            CustomerDemand(store_name="S1", product_name="FG", demand_mean=30.0, demand_std_dev=0.0)
+            CustomerDemand(
+                store_name="S1", product_name="FG", demand_mean=30.0, demand_std_dev=0.0
+            )
         ],
         random_seed=11,
     )
@@ -43,4 +45,3 @@ def test_recomputed_pl_length_and_assertion_transport_overage():
     trace_daily = sim.recompute_pl_from_trace()
     assert len(trace_daily) == sim.input.planning_horizon
     sim.assert_pl_equals_trace_totals()
-

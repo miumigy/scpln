@@ -16,6 +16,7 @@ COMPARE_KEYS = [
     "customer_shortage_total",
 ]
 
+
 def _pick(summary: Dict[str, Any]) -> Dict[str, float]:
     out = {}
     for k in COMPARE_KEYS:
@@ -26,10 +27,12 @@ def _pick(summary: Dict[str, Any]) -> Dict[str, float]:
             pass
     return out
 
+
 @app.get("/runs")
 def list_runs():
     # 最近順
     return {"runs": REGISTRY.list()}
+
 
 @app.get("/runs/{run_id}")
 def get_run(run_id: str):
@@ -37,6 +40,7 @@ def get_run(run_id: str):
     if not r:
         raise HTTPException(status_code=404, detail="run not found")
     return r
+
 
 @app.post("/compare")
 def compare_runs(body: Dict[str, Any] = Body(...)):
