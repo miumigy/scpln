@@ -390,11 +390,9 @@ UIのデフォルトサンプルは `static/default_input.json` にあり、複�
 - トレースCSV: PLタブの「トレースCSVフィルタ」（Day/Event/Account）で絞り込み後、「トレースCSV」ボタンから `cost_trace.csv` をダウンロード可能（ブラウザ内生成）。
   - 列: `Day, Node, Item, Event, Account, Qty, UnitCost, Amount`
   - フィルタ: Day 範囲、Event、Account（All で無条件）
-<<<<<<< HEAD
 - サマリCSV: 「サマリ」タブの「サマリCSV」ボタンから `summary.csv` をダウンロード可能（ブラウザ内生成）。
   - 主な列: `planning_days, fill_rate, store_demand_total, store_sales_total, customer_shortage_total, network_shortage_total, backorder_peak, backorder_peak_day, revenue_total, cost_total, penalty_stockout_total, penalty_backorder_total, penalty_total, profit_total, profit_per_day_avg`
-=======
->>>>>>> origin/main
+
 
 ## バックアップ（任意・手動）
 
@@ -597,13 +595,8 @@ sequenceDiagram
   end
   Sim-->>API: results[], profit_loss[], summary, cost_trace[]
   API-->>User: 200 OK (JSON with results, profit_loss, summary, cost_trace)
-<<<<<<< HEAD
   User->>User: Click CSV download buttons (Results/PL/Trace/Summary)
   User-->>User: Browser generates results.csv, profit_loss.csv, cost_trace.csv (filtered), summary.csv
-=======
-  User->>User: Click CSV download buttons (Results/PL/Trace)
-  User-->>User: Browser generates results.csv, profit_loss.csv, cost_trace.csv (filtered)
->>>>>>> origin/main
 ```
 
 ## 入出力スキーマ定義
