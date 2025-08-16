@@ -385,8 +385,11 @@ UIのデフォルトサンプルは `static/default_input.json` にあり、複�
 - サマリ表示: APIのレスポンスには `summary` を含み、UIの「サマリ」タブで集計を表形式表示します（キーは「Summary（レスポンス）」参照）。
 - 結果CSV: 画面の「結果CSV」ボタンから `results.csv` をダウンロード可能（ブラウザ内生成、From/Toで日範囲フィルタ適用）。
   - 列: `Day, Node, Item, StartStock, Incoming, Demand, Sales, Consumption, Produced, Shortage, Backorder, EndStock, Ordered`
-- 収支CSV: 画面の「収支CSV」ボタンから `profit_loss.csv` をダウンロード可能（ブラウザ内生成）。
+- 収支CSV: 「日別収支（PL）」見出しと同一行の「収支CSV」ボタンから `profit_loss.csv` をダウンロード可能（ブラウザ内生成）。
   - 列: `Day, Revenue, MaterialCost, Flow_Material_Fixed, Flow_Material_Variable, Flow_Production_Fixed, Flow_Production_Variable, Flow_Warehouse_Fixed, Flow_Warehouse_Variable, Flow_Store_Fixed, Flow_Store_Variable, Stock_Material_Fixed, Stock_Material_Variable, Stock_Factory_Fixed, Stock_Factory_Variable, Stock_Warehouse_Fixed, Stock_Warehouse_Variable, Stock_Store_Fixed, Stock_Store_Variable, TotalCost, ProfitLoss`
+- トレースCSV: PLタブの「トレースCSVフィルタ」（Day/Event/Account）で絞り込み後、「トレースCSV」ボタンから `cost_trace.csv` をダウンロード可能（ブラウザ内生成）。
+  - 列: `Day, Node, Item, Event, Account, Qty, UnitCost, Amount`
+  - フィルタ: Day 範囲、Event、Account（All で無条件）
 
 ## バックアップ（任意・手動）
 
@@ -587,10 +590,10 @@ sequenceDiagram
     Sim->>Nodes: Replenish stores and warehouses
     Sim->>Sim: Snapshot and Profit Loss
   end
-  Sim-->>API: results[], profit_loss[], summary
-  API-->>User: 200 OK (JSON with results, profit_loss, summary)
-  User->>User: Click CSV download buttons
-  API-->>User: Browser generates results.csv, profit_loss.csv
+  Sim-->>API: results[], profit_loss[], summary, cost_trace[]
+  API-->>User: 200 OK (JSON with results, profit_loss, summary, cost_trace)
+  User->>User: Click CSV download buttons (Results/PL/Trace)
+  User-->>User: Browser generates results.csv, profit_loss.csv, cost_trace.csv (filtered)
 ```
 
 ## 入出力スキーマ定義

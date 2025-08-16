@@ -572,6 +572,8 @@
             const csv = toCsv(rows, headers);
             downloadBlob('cost_trace.csv', csv);
         }
+<<<<<<< HEAD
+=======
 
 <<<<<<< HEAD
 =======
@@ -627,6 +629,7 @@
             const csv = toCsv(rows, headers);
             downloadBlob('cost_trace.csv', csv);
         }
+>>>>>>> origin/main
 
         // --- Event Listeners ---
         runButton.addEventListener('click', runSimulation);
