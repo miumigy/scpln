@@ -45,7 +45,9 @@ def _payload_production_over(days: int = 2) -> SimulationInput:
             ),
         ],
         customer_demand=[
-            CustomerDemand(store_name="S1", product_name="FG", demand_mean=80.0, demand_std_dev=0.0)
+            CustomerDemand(
+                store_name="S1", product_name="FG", demand_mean=80.0, demand_std_dev=0.0
+            )
         ],
         random_seed=42,
     )
@@ -61,4 +63,3 @@ def test_recomputed_pl_length_and_assertion_production_over():
 
     # 整合性アサート（例外なしで通過すること）
     sim.assert_pl_equals_trace_totals()
-

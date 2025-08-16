@@ -22,31 +22,63 @@ UUID4_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 def _minimal_payload():
     # もっとも単純な 1 製品チェーン（需要ゼロ）: API の疎通検証用
     return SimulationInput(
         planning_horizon=2,
         products=[Product(name="P1", sales_price=100.0)],
         nodes=[
-            MaterialNode(name="M1", node_type="material", initial_stock={"P1": 0}, material_cost={"P1": 0.0}, storage_capacity=1e18),
-            FactoryNode(name="F1", node_type="factory", producible_products=["P1"], initial_stock={"P1": 0}, storage_capacity=1e18),
-            WarehouseNode(name="W1", node_type="warehouse", initial_stock={"P1": 0}, storage_capacity=1e18),
-            StoreNode(name="S1", node_type="store", initial_stock={"P1": 0}, storage_capacity=1e18),
+            MaterialNode(
+                name="M1",
+                node_type="material",
+                initial_stock={"P1": 0},
+                material_cost={"P1": 0.0},
+                storage_capacity=1e18,
+            ),
+            FactoryNode(
+                name="F1",
+                node_type="factory",
+                producible_products=["P1"],
+                initial_stock={"P1": 0},
+                storage_capacity=1e18,
+            ),
+            WarehouseNode(
+                name="W1",
+                node_type="warehouse",
+                initial_stock={"P1": 0},
+                storage_capacity=1e18,
+            ),
+            StoreNode(
+                name="S1",
+                node_type="store",
+                initial_stock={"P1": 0},
+                storage_capacity=1e18,
+            ),
         ],
         network=[
-            NetworkLink(from_node="M1", to_node="F1", lead_time=0, capacity_per_day=1e18),
-            NetworkLink(from_node="F1", to_node="W1", lead_time=0, capacity_per_day=1e18),
-            NetworkLink(from_node="W1", to_node="S1", lead_time=0, capacity_per_day=1e18),
+            NetworkLink(
+                from_node="M1", to_node="F1", lead_time=0, capacity_per_day=1e18
+            ),
+            NetworkLink(
+                from_node="F1", to_node="W1", lead_time=0, capacity_per_day=1e18
+            ),
+            NetworkLink(
+                from_node="W1", to_node="S1", lead_time=0, capacity_per_day=1e18
+            ),
         ],
         customer_demand=[
-            CustomerDemand(store_name="S1", product_name="P1", demand_mean=0.0, demand_std_dev=0.0)
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=0.0, demand_std_dev=0.0
+            )
         ],
         random_seed=1,
     )
 
+
 def test_simulation_endpoint_runs_and_returns_run_id_without_trace_by_default():
     client = TestClient(app)
-    payload = _minimal_payload().model_dump(mode='json')
+    payload = _minimal_payload().model_dump(mode="json")
     r = client.post("/simulation", json=payload)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -59,9 +91,10 @@ def test_simulation_endpoint_runs_and_returns_run_id_without_trace_by_default():
     assert isinstance(body.get("results"), list)
     assert isinstance(body.get("daily_profit_loss"), list)
 
+
 def test_simulation_endpoint_returns_trace_when_requested():
     client = TestClient(app)
-    payload = _minimal_payload().model_dump(mode='json')
+    payload = _minimal_payload().model_dump(mode="json")
     r = client.post("/simulation?include_trace=true", json=payload)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -70,9 +103,10 @@ def test_simulation_endpoint_returns_trace_when_requested():
     assert "cost_trace" in body
     assert isinstance(body["cost_trace"], list)
 
+
 def test_run_id_changes_each_call():
     client = TestClient(app)
-    payload = _minimal_payload().model_dump(mode='json')
+    payload = _minimal_payload().model_dump(mode="json")
     r1 = client.post("/simulation", json=payload)
     r2 = client.post("/simulation", json=payload)
     id1 = r1.json()["run_id"]

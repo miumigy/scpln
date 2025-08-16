@@ -5,7 +5,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from domain.models import SimulationInput
-from engine.simulator import SupplyChainSimulator
 
 
 _log_level = os.getenv("SIM_LOG_LEVEL", "INFO").upper()
@@ -25,9 +24,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Cache last summary for GET /summary
 _LAST_SUMMARY = None
 
+
 def set_last_summary(summary):
     global _LAST_SUMMARY
     _LAST_SUMMARY = summary
+
 
 def reset_last_summary():
     global _LAST_SUMMARY
@@ -58,9 +59,6 @@ def validate_input(input_data: SimulationInput) -> None:
                 detail=f"Duplicate network link: {l.from_node}->{l.to_node}",
             )
         seen.add(key)
-
-
-
 
 
 @app.get("/", response_class=HTMLResponse)

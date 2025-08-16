@@ -45,4 +45,3 @@ def test_recomputed_pl_length_and_assertion_store_only():
 
     # 整合性アサート（例外なしで通過すること）
     sim.assert_pl_equals_trace_totals()
-

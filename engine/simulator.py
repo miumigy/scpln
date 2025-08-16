@@ -831,18 +831,29 @@ class SupplyChainSimulator:
 
         self.daily_results.append(snapshot)
 
-    def _push_cost(self, day: int, node: str, item: str, event: str, qty: float, unit_cost: float, account: str):
+    def _push_cost(
+        self,
+        day: int,
+        node: str,
+        item: str,
+        event: str,
+        qty: float,
+        unit_cost: float,
+        account: str,
+    ):
         amount = qty * unit_cost
-        self.cost_trace.append({
-            "day": day + 1,  # 1-based
-            "node": node,
-            "item": item,
-            "event": event,
-            "qty": qty,
-            "unit_cost": unit_cost,
-            "amount": amount,
-            "account": account
-        })
+        self.cost_trace.append(
+            {
+                "day": day + 1,  # 1-based
+                "node": node,
+                "item": item,
+                "event": event,
+                "qty": qty,
+                "unit_cost": unit_cost,
+                "amount": amount,
+                "account": account,
+            }
+        )
 
     def calculate_daily_profit_loss(self, day, events):
         pl = {
@@ -922,45 +933,107 @@ class SupplyChainSimulator:
                     transport_costs_by_type["material_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
-                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_fixed",
+                        1.0,
+                        link.transportation_cost_fixed,
+                        "transport_fixed",
+                    )
                     transport_costs_by_type["material_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
-                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_var",
+                        qty,
+                        link.transportation_cost_variable,
+                        "transport_var",
+                    )
                     pl["material_cost"] += (
                         getattr(supplier, "material_cost", {}).get(item, 0) * qty
                     )
-                    self._push_cost(day, dest_name, item, "material_purchase", qty, getattr(supplier, "material_cost", {}).get(item, 0), "material")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "material_purchase",
+                        qty,
+                        getattr(supplier, "material_cost", {}).get(item, 0),
+                        "material",
+                    )
                 elif isinstance(supplier, FactoryNode) and isinstance(
                     dest, WarehouseNode
                 ):
                     transport_costs_by_type["warehouse_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
-                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_fixed",
+                        1.0,
+                        link.transportation_cost_fixed,
+                        "transport_fixed",
+                    )
                     transport_costs_by_type["warehouse_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
-                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_var",
+                        qty,
+                        link.transportation_cost_variable,
+                        "transport_var",
+                    )
                 elif isinstance(supplier, WarehouseNode) and isinstance(
                     dest, StoreNode
                 ):
                     transport_costs_by_type["store_transport"][
                         "fixed"
                     ] += link.transportation_cost_fixed
-                    self._push_cost(day, dest_name, item, "transport_fixed", 1.0, link.transportation_cost_fixed, "transport_fixed")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_fixed",
+                        1.0,
+                        link.transportation_cost_fixed,
+                        "transport_fixed",
+                    )
                     transport_costs_by_type["store_transport"]["variable"] += (
                         link.transportation_cost_variable * qty
                     )
-                    self._push_cost(day, dest_name, item, "transport_var", qty, link.transportation_cost_variable, "transport_var")
+                    self._push_cost(
+                        day,
+                        dest_name,
+                        item,
+                        "transport_var",
+                        qty,
+                        link.transportation_cost_variable,
+                        "transport_var",
+                    )
 
         for node_name in nodes_produced:
             node = self.nodes_map.get(node_name)
             if isinstance(node, FactoryNode) and node.production_cost_fixed > 0:
                 pl["flow_costs"]["production_fixed"] += node.production_cost_fixed
-                self._push_cost(day=day, node=node_name, item="", event="production_fixed",
-                                qty=1.0, unit_cost=node.production_cost_fixed,
-                                account="production_fixed")
+                self._push_cost(
+                    day=day,
+                    node=node_name,
+                    item="",
+                    event="production_fixed",
+                    qty=1.0,
+                    unit_cost=node.production_cost_fixed,
+                    account="production_fixed",
+                )
 
         for node_name, qty_prod in produced_by_factory.items():
             node = self.nodes_map.get(node_name)
@@ -976,16 +1049,28 @@ class SupplyChainSimulator:
                     pl["flow_costs"]["production_variable"] += (
                         node.production_over_capacity_variable_cost * over_qty
                     )
-                    self._push_cost(day=day, node=node_name, item="", event="production_over_var",
-                                    qty=over_qty, unit_cost=node.production_over_capacity_variable_cost,
-                                    account="production_var")
+                    self._push_cost(
+                        day=day,
+                        node=node_name,
+                        item="",
+                        event="production_over_var",
+                        qty=over_qty,
+                        unit_cost=node.production_over_capacity_variable_cost,
+                        account="production_var",
+                    )
                 if node.production_over_capacity_fixed_cost > 0:
                     pl["flow_costs"][
                         "production_fixed"
                     ] += node.production_over_capacity_fixed_cost
-                    self._push_cost(day=day, node=node_name, item="", event="production_over_fixed",
-                                    qty=1.0, unit_cost=node.production_over_capacity_fixed_cost,
-                                    account="production_fixed")
+                    self._push_cost(
+                        day=day,
+                        node=node_name,
+                        item="",
+                        event="production_over_fixed",
+                        qty=1.0,
+                        unit_cost=node.production_over_capacity_fixed_cost,
+                        account="production_fixed",
+                    )
 
         for transport_type, costs in transport_costs_by_type.items():
             pl["flow_costs"][f"{transport_type}_fixed"] = costs["fixed"]
@@ -1071,32 +1156,56 @@ class SupplyChainSimulator:
             if cat:
                 if node.storage_cost_fixed > 0:
                     pl["stock_costs"][f"{cat}_fixed"] += node.storage_cost_fixed
-                    self._push_cost(day=day, node=node.name, item="", event="storage_fixed",
-                                    qty=1.0, unit_cost=node.storage_cost_fixed, account="storage_fixed")
+                    self._push_cost(
+                        day=day,
+                        node=node.name,
+                        item="",
+                        event="storage_fixed",
+                        qty=1.0,
+                        unit_cost=node.storage_cost_fixed,
+                        account="storage_fixed",
+                    )
                 for item, stock in self.stock[node.name].items():
                     unit_sv = node.storage_cost_variable.get(item, 0)
                     if unit_sv > 0:
-                        pl["stock_costs"][
-                            f"{cat}_variable"
-                        ] += stock * unit_sv
-                        self._push_cost(day=day, node=node.name, item=item, event="storage_var",
-                                        qty=stock, unit_cost=unit_sv, account="storage_var")
+                        pl["stock_costs"][f"{cat}_variable"] += stock * unit_sv
+                        self._push_cost(
+                            day=day,
+                            node=node.name,
+                            item=item,
+                            event="storage_var",
+                            qty=stock,
+                            unit_cost=unit_sv,
+                            account="storage_var",
+                        )
                 over_qty = storage_overage_qty_by_node.get(node.name, 0)
                 if over_qty > 0:
                     if node.storage_over_capacity_variable_cost > 0:
                         pl["stock_costs"][f"{cat}_variable"] += (
                             node.storage_over_capacity_variable_cost * over_qty
                         )
-                        self._push_cost(day=day, node=node.name, item="", event="storage_over_var",
-                                        qty=over_qty, unit_cost=node.storage_over_capacity_variable_cost,
-                                        account="storage_var")
+                        self._push_cost(
+                            day=day,
+                            node=node.name,
+                            item="",
+                            event="storage_over_var",
+                            qty=over_qty,
+                            unit_cost=node.storage_over_capacity_variable_cost,
+                            account="storage_var",
+                        )
                     if node.storage_over_capacity_fixed_cost > 0:
                         pl["stock_costs"][
                             f"{cat}_fixed"
                         ] += node.storage_over_capacity_fixed_cost
-                        self._push_cost(day=day, node=node.name, item="", event="storage_over_fixed",
-                                        qty=1.0, unit_cost=node.storage_over_capacity_fixed_cost,
-                                        account="storage_fixed")
+                        self._push_cost(
+                            day=day,
+                            node=node.name,
+                            item="",
+                            event="storage_over_fixed",
+                            qty=1.0,
+                            unit_cost=node.storage_over_capacity_fixed_cost,
+                            account="storage_fixed",
+                        )
 
         # Penalties
         # Stockout cost: apply per node shortage units on the day
@@ -1112,11 +1221,16 @@ class SupplyChainSimulator:
                 node = self.nodes_map.get(node_name)
                 if node and getattr(node, "stockout_cost_per_unit", 0) > 0:
                     unit_cost = getattr(node, "stockout_cost_per_unit", 0)
-                    pl["penalty_costs"]["stockout"] += (
-                        unit_cost * shortage
+                    pl["penalty_costs"]["stockout"] += unit_cost * shortage
+                    self._push_cost(
+                        day=day,
+                        node=node_name,
+                        item="",
+                        event="penalty_stockout",
+                        qty=shortage,
+                        unit_cost=unit_cost,
+                        account="penalty_stockout",
                     )
-                    self._push_cost(day=day, node=node_name, item="", event="penalty_stockout",
-                                    qty=shortage, unit_cost=unit_cost, account="penalty_stockout")
 
         # Backorder carrying cost per day
         supplier_bo_by_node = defaultdict(float)
@@ -1135,13 +1249,22 @@ class SupplyChainSimulator:
             store_bo_by_node.items()
         ):
             node = self.nodes_map.get(node_name)
-            if node and qty > 0 and getattr(node, "backorder_cost_per_unit_per_day", 0) > 0:
+            if (
+                node
+                and qty > 0
+                and getattr(node, "backorder_cost_per_unit_per_day", 0) > 0
+            ):
                 unit_cost = getattr(node, "backorder_cost_per_unit_per_day", 0)
-                pl["penalty_costs"]["backorder"] += (
-                    unit_cost * qty
+                pl["penalty_costs"]["backorder"] += unit_cost * qty
+                self._push_cost(
+                    day=day,
+                    node=node_name,
+                    item="",
+                    event="penalty_backorder",
+                    qty=qty,
+                    unit_cost=unit_cost,
+                    account="penalty_backorder",
                 )
-                self._push_cost(day=day, node=node_name, item="", event="penalty_backorder",
-                                qty=qty, unit_cost=unit_cost, account="penalty_backorder")
 
         total_flow = sum(pl["flow_costs"].values())
         total_stock = sum(pl["stock_costs"].values())
@@ -1169,7 +1292,11 @@ class SupplyChainSimulator:
         - self.daily_profit_loss の日数に合わせて 1-based day で返す
         - trace 側に該当日が無い場合は 0 埋め
         """
-        days = len(self.daily_profit_loss) if self.daily_profit_loss else getattr(self.input, "planning_horizon", 0)
+        days = (
+            len(self.daily_profit_loss)
+            if self.daily_profit_loss
+            else getattr(self.input, "planning_horizon", 0)
+        )
 
         def _blank(day_num: int) -> dict:
             return {
@@ -1202,7 +1329,9 @@ class SupplyChainSimulator:
         # revenue を転用
         for i in range(days):
             try:
-                out[i]["revenue"] = float(self.daily_profit_loss[i].get("revenue", 0) or 0)
+                out[i]["revenue"] = float(
+                    self.daily_profit_loss[i].get("revenue", 0) or 0
+                )
             except Exception:
                 out[i]["revenue"] = 0.0
 
@@ -1244,7 +1373,12 @@ class SupplyChainSimulator:
             )
             d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
             d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
-            d["total_cost"] = d["material_cost"] + d["flow"]["total"] + d["stock"]["total"] + d["penalty"]["total"]
+            d["total_cost"] = (
+                d["material_cost"]
+                + d["flow"]["total"]
+                + d["stock"]["total"]
+                + d["penalty"]["total"]
+            )
             d["profit_loss"] = d["revenue"] - d["total_cost"]
 
         return out
@@ -1258,9 +1392,7 @@ class SupplyChainSimulator:
 
         days = len(self.daily_profit_loss)
         if len(trace_daily) != days:
-            raise AssertionError(
-                f"length mismatch: pl={days} trace={len(trace_daily)}"
-            )
+            raise AssertionError(f"length mismatch: pl={days} trace={len(trace_daily)}")
 
         for i in range(days):
             pl = self.daily_profit_loss[i] or {}
@@ -1269,19 +1401,49 @@ class SupplyChainSimulator:
             revenue = float(pl.get("revenue", 0) or 0)
             total_flow = float(sum((pl.get("flow_costs", {}) or {}).values()))
             total_stock = float(sum((pl.get("stock_costs", {}) or {}).values()))
-            penalty_stockout = float(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0))
-            penalty_backorder = float(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0))
+            penalty_stockout = float(
+                ((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0)
+            )
+            penalty_backorder = float(
+                ((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0)
+            )
             material_cost = float(pl.get("material_cost", 0) or 0)
-            total_cost = material_cost + total_flow + total_stock + penalty_stockout + penalty_backorder
+            total_cost = (
+                material_cost
+                + total_flow
+                + total_stock
+                + penalty_stockout
+                + penalty_backorder
+            )
             profit_loss = revenue - total_cost
 
             checks = [
                 ("revenue", revenue, float(tr.get("revenue", 0) or 0)),
-                ("flow.total", total_flow, float(((tr.get("flow", {}) or {}).get("total", 0)) or 0)),
-                ("stock.total", total_stock, float(((tr.get("stock", {}) or {}).get("total", 0)) or 0)),
-                ("penalty.stockout", penalty_stockout, float(((tr.get("penalty", {}) or {}).get("stockout", 0)) or 0)),
-                ("penalty.backorder", penalty_backorder, float(((tr.get("penalty", {}) or {}).get("backorder", 0)) or 0)),
-                ("material_cost", material_cost, float(tr.get("material_cost", 0) or 0)),
+                (
+                    "flow.total",
+                    total_flow,
+                    float(((tr.get("flow", {}) or {}).get("total", 0)) or 0),
+                ),
+                (
+                    "stock.total",
+                    total_stock,
+                    float(((tr.get("stock", {}) or {}).get("total", 0)) or 0),
+                ),
+                (
+                    "penalty.stockout",
+                    penalty_stockout,
+                    float(((tr.get("penalty", {}) or {}).get("stockout", 0)) or 0),
+                ),
+                (
+                    "penalty.backorder",
+                    penalty_backorder,
+                    float(((tr.get("penalty", {}) or {}).get("backorder", 0)) or 0),
+                ),
+                (
+                    "material_cost",
+                    material_cost,
+                    float(tr.get("material_cost", 0) or 0),
+                ),
                 ("total_cost", total_cost, float(tr.get("total_cost", 0) or 0)),
                 ("profit_loss", profit_loss, float(tr.get("profit_loss", 0) or 0)),
             ]
@@ -1312,7 +1474,11 @@ class SupplyChainSimulator:
         - self.daily_profit_loss の日数に合わせて 1-based day で返す
         - trace 側に該当日が無い場合は 0 埋め
         """
-        days = len(self.daily_profit_loss) if self.daily_profit_loss else getattr(self.input, "planning_horizon", 0)
+        days = (
+            len(self.daily_profit_loss)
+            if self.daily_profit_loss
+            else getattr(self.input, "planning_horizon", 0)
+        )
 
         def _blank(day_num: int) -> dict:
             return {
@@ -1345,7 +1511,9 @@ class SupplyChainSimulator:
         # revenue を転用
         for i in range(days):
             try:
-                out[i]["revenue"] = float(self.daily_profit_loss[i].get("revenue", 0) or 0)
+                out[i]["revenue"] = float(
+                    self.daily_profit_loss[i].get("revenue", 0) or 0
+                )
             except Exception:
                 out[i]["revenue"] = 0.0
 
@@ -1387,7 +1555,12 @@ class SupplyChainSimulator:
             )
             d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
             d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
-            d["total_cost"] = d["material_cost"] + d["flow"]["total"] + d["stock"]["total"] + d["penalty"]["total"]
+            d["total_cost"] = (
+                d["material_cost"]
+                + d["flow"]["total"]
+                + d["stock"]["total"]
+                + d["penalty"]["total"]
+            )
             d["profit_loss"] = d["revenue"] - d["total_cost"]
 
         return out
