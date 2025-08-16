@@ -23,20 +23,18 @@ def _payload_force_production(days=2):
         nodes=[
             # 原材料（コストはゼロでもOK。ここではゼロにして生産コストの検証に集中）
             MaterialNode(name="M1", initial_stock={"P1": 0}, material_cost={"P1": 0.0}),
-
             # 工場：P1を生産。キャパを小さく、オーバー固定/変動を設定
             FactoryNode(
                 name="F1",
                 producible_products=["P1"],
                 initial_stock={"P1": 0},
-                production_capacity=10,                       # 小さいキャパ
-                production_cost_fixed=40.0,                   # 生産があれば/日1回の固定費
-                production_cost_variable=0.0,                 # 基本の変動費は使わない
+                production_capacity=10,  # 小さいキャパ
+                production_cost_fixed=40.0,  # 生産があれば/日1回の固定費
+                production_cost_variable=0.0,  # 基本の変動費は使わない
                 allow_production_over_capacity=True,
-                production_over_capacity_fixed_cost=25.0,     # オーバー固定費
-                production_over_capacity_variable_cost=2.0,   # オーバー変動（数量比例）
+                production_over_capacity_fixed_cost=25.0,  # オーバー固定費
+                production_over_capacity_variable_cost=2.0,  # オーバー変動（数量比例）
             ),
-
             # 倉庫と店舗：需要は店舗のみで発生（大きめにして工場生産を誘発）
             WarehouseNode(name="W1", initial_stock={"P1": 0}),
             StoreNode(name="S1", initial_stock={"P1": 0}),
@@ -49,7 +47,9 @@ def _payload_force_production(days=2):
         ],
         customer_demand=[
             # 大きな需要で工場の生産量をキャパ超へ
-            CustomerDemand(store_name="S1", product_name="P1", demand_mean=80.0, demand_std_dev=0.0)
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=80.0, demand_std_dev=0.0
+            )
         ],
         random_seed=1,
     )
@@ -65,10 +65,10 @@ def test_production_fixed_and_overage_events_exist():
     assert ("production_fixed", "production_fixed") in events
 
     # キャパ超過が起きるので、固定/変動のいずれか（または両方）が発生しているはず
-    assert (
-        ("production_over_fixed", "production_fixed") in events
-        or ("production_over_var", "production_var") in events
-    )
+    assert ("production_over_fixed", "production_fixed") in events or (
+        "production_over_var",
+        "production_var",
+    ) in events
 
 
 def test_trace_matches_pl_for_production_costs():
@@ -82,8 +82,8 @@ def test_trace_matches_pl_for_production_costs():
 
     # PL 側の対象科目（flow_costs）
     total_fixed = sum(pl["flow_costs"]["production_fixed"] for pl in daily_pl_list)
-    total_var   = sum(pl["flow_costs"]["production_variable"] for pl in daily_pl_list)
+    total_var = sum(pl["flow_costs"]["production_variable"] for pl in daily_pl_list)
 
     # 誤差は浮動小数の丸めに配慮
     assert abs(agg["production_fixed"] - total_fixed) < 1e-6
-    assert abs(agg["production_var"]   - total_var)   < 1e-6
+    assert abs(agg["production_var"] - total_var) < 1e-6

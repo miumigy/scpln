@@ -1,6 +1,6 @@
 import threading
-import time
 from typing import Dict, Any, List, Optional
+
 
 class RunRegistry:
     def __init__(self, capacity: int = 50):
@@ -27,5 +27,6 @@ class RunRegistry:
     def list(self) -> List[Dict[str, Any]]:
         with self._lock:
             return [dict(self._runs[r]) for r in reversed(self._order)]
+
 
 REGISTRY = RunRegistry(capacity=50)
