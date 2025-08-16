@@ -572,64 +572,6 @@
             const csv = toCsv(rows, headers);
             downloadBlob('cost_trace.csv', csv);
         }
-<<<<<<< HEAD
-=======
-
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> origin/main
-        function populateTraceFilters(trace) {
-            const days = (trace || []).map(e => +e.day || 0);
-            const maxDay = days.length ? Math.max(...days) : (fullResultsData.length || 1);
-            const minDay = days.length ? Math.min(...days) : 1;
-            if (traceDayFrom) { traceDayFrom.min = 1; traceDayFrom.max = maxDay; traceDayFrom.value = minDay; }
-            if (traceDayTo)   { traceDayTo.min   = 1; traceDayTo.max   = maxDay; traceDayTo.value   = maxDay; }
-
-            const events = new Set(['all']);
-            const accounts = new Set(['all']);
-            (trace || []).forEach(e => {
-                if (e && e.event) events.add(e.event);
-                if (e && e.account) accounts.add(e.account);
-            });
-            if (traceEventFilter) {
-                traceEventFilter.innerHTML = '';
-                Array.from(events).forEach(v => {
-                    traceEventFilter.innerHTML += `<option value="${v}">${v === 'all' ? 'All' : v}</option>`;
-                });
-            }
-            if (traceAccountFilter) {
-                traceAccountFilter.innerHTML = '';
-                Array.from(accounts).forEach(v => {
-                    traceAccountFilter.innerHTML += `<option value="${v}">${v === 'all' ? 'All' : v}</option>`;
-                });
-            }
-        }
-
-        function exportTraceCsv() {
-            const from = Math.max(1, parseInt((traceDayFrom && traceDayFrom.value) || '1', 10));
-            const to = Math.max(from, parseInt((traceDayTo && traceDayTo.value) || String(from), 10));
-            const ev = (traceEventFilter && traceEventFilter.value) || 'all';
-            const ac = (traceAccountFilter && traceAccountFilter.value) || 'all';
-            const rows = (fullCostTrace || [])
-                .filter(e => (e.day >= from && e.day <= to))
-                .filter(e => (ev === 'all' || e.event === ev))
-                .filter(e => (ac === 'all' || e.account === ac))
-                .map(e => ({
-                    Day: e.day,
-                    Node: e.node,
-                    Item: e.item,
-                    Event: e.event,
-                    Account: e.account,
-                    Qty: e.qty,
-                    UnitCost: e.unit_cost,
-                    Amount: e.amount,
-                }));
-            const headers = ['Day','Node','Item','Event','Account','Qty','UnitCost','Amount'];
-            const csv = toCsv(rows, headers);
-            downloadBlob('cost_trace.csv', csv);
-        }
->>>>>>> origin/main
 
         // --- Event Listeners ---
         runButton.addEventListener('click', runSimulation);

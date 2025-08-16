@@ -1,0 +1,38 @@
+name: conflict-markers
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scan-conflict-markers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 競合マーカーを検出
+        shell: bash
+        run: |
+          echo "競合マーカーをスキャン中…"
+          set -euo pipefail
+
+          # トラッキングされているファイルのみを対象にする（バイナリ混入の誤検知を避ける）
+          found=0
+          while IFS= read -r file; do
+            # 行頭に '<<<<<<<' / '=======' / '>>>>>>>' が現れるパターンを検出
+            if grep -n -E '^(<<<<<<<|=======|>>>>>>>)' "$file" >/dev/null; then
+              echo "::error file=$file::Merge conflict marker found in $file"
+              grep -n -E '^(<<<<<<<|=======|>>>>>>>)' "$file" | sed 's/^/  /'
+              found=1
+            fi
+          done < <(git ls-files)
+
+          if [ "$found" -ne 0 ]; then
+            echo "競合マーカーが検出されました。解消してから再実行してください。"
+            exit 1
+          fi
+
+          echo "競合マーカーは検出されませんでした。"
