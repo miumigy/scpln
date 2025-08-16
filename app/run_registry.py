@@ -28,5 +28,9 @@ class RunRegistry:
         with self._lock:
             return [dict(self._runs[r]) for r in reversed(self._order)]
 
+    def list_ids(self) -> List[str]:
+        with self._lock:
+            return list(reversed(self._order))
+
 
 REGISTRY = RunRegistry(capacity=50)
