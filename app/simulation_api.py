@@ -23,12 +23,14 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
         "summary": summary,
     })
     set_last_summary(summary)
+    # UIとの互換性のため、profit_loss と summary も返す。
+    # また、トレースCSV用途で cost_trace も常に返す（サイズ増を許容）。
     resp = {
         "run_id": run_id,
         "results": results,
         "daily_profit_loss": daily_pl,
+        "profit_loss": daily_pl,
+        "summary": summary,
+        "cost_trace": getattr(sim, "cost_trace", []),
     }
-    if include_trace:
-        # Issue1/拡張で実装済みの cost_trace を返す
-        resp["cost_trace"] = getattr(sim, "cost_trace", [])
     return resp

@@ -184,9 +184,10 @@
                 }
 
                 fullResultsData = data.results;
-                fullProfitLoss = data.profit_loss || [];
+                fullProfitLoss = data.profit_loss || data.daily_profit_loss || [];
                 fullSummary = data.summary || computeClientSummary(fullResultsData, fullProfitLoss, requestBody) || null;
-                fullCostTrace = data.cost_trace || [];
+<<<<<<< HEAD
+                fullCostTrace = Array.isArray(data.cost_trace) ? data.cost_trace : [];
                 populateTraceFilters(fullCostTrace);
                 populateFilters(fullResultsData);
                 applyFilters(); // This will call displayResultsTable
@@ -524,6 +525,9 @@
         }
 
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
         function populateTraceFilters(trace) {
             const days = (trace || []).map(e => +e.day || 0);
             const maxDay = days.length ? Math.max(...days) : (fullResultsData.length || 1);
@@ -570,6 +574,8 @@
                     UnitCost: e.unit_cost,
                     Amount: e.amount,
                 }));
+<<<<<<< HEAD
+=======
 =======
         function exportTraceCsv() {
             const rows = (fullCostTrace || []).map(e => ({
@@ -582,6 +588,7 @@
                 UnitCost: e.unit_cost,
                 Amount: e.amount,
             }));
+>>>>>>> origin/main
 >>>>>>> origin/main
             const headers = ['Day','Node','Item','Event','Account','Qty','UnitCost','Amount'];
             const csv = toCsv(rows, headers);
