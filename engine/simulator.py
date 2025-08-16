@@ -1248,8 +1248,8 @@ class SupplyChainSimulator:
             revenue = float(pl.get("revenue", 0) or 0)
             total_flow = float(sum((pl.get("flow_costs", {}) or {}).values()))
             total_stock = float(sum((pl.get("stock_costs", {}) or {}).values()))
-            penalty_stockout = float(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0)
-            penalty_backorder = float(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0)
+            penalty_stockout = float(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0))
+            penalty_backorder = float(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0))
             material_cost = float(pl.get("material_cost", 0) or 0)
             total_cost = material_cost + total_flow + total_stock + penalty_stockout + penalty_backorder
             profit_loss = revenue - total_cost
