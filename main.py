@@ -25,6 +25,11 @@ try:
 except Exception:
     pass
 
+try:
+    import app.trace_export_api  # noqa: F401
+except Exception:
+    pass
+
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
