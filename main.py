@@ -6,17 +6,17 @@ import math
 from collections import defaultdict
 
 try:
-    import app.metrics  # noqa: F401  # /metrics を副作用で登録
+    from app import metrics as _metrics  # noqa: F401  # /metrics を副作用で登録
 except Exception:
     pass
 
 try:
-    import app.simulation_api  # noqa: F401
+    from app import simulation_api as _simulation_api  # noqa: F401
 except Exception:
     pass
 
 try:
-    import app.run_compare_api  # noqa: F401
+    from app import run_compare_api as _run_compare_api  # noqa: F401
 except Exception:
     pass
 
