@@ -1132,16 +1132,101 @@ class SupplyChainSimulator:
         self.daily_profit_loss.append(pl)
 
     def recompute_pl_from_trace(self) -> list[dict]:
-        """Return empty list for now (skeleton)."""
-        return []
+        """cost_trace を日別に集計し、PL風の辞書配列を返す。
 
-    def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
-        """No-op for now."""
-        return
+        - revenue は従来の self.daily_profit_loss を転用
+        - account のマップ:
+          material -> material_cost
+          production_fixed -> flow.production_fixed
+          production_var   -> flow.production_variable
+          transport_fixed  -> flow.transport_fixed
+          transport_var    -> flow.transport_variable
+          storage_fixed    -> stock.fixed
+          storage_var      -> stock.variable
+          penalty_stockout -> penalty.stockout
+          penalty_backorder-> penalty.backorder
+        - self.daily_profit_loss の日数に合わせて 1-based day で返す
+        - trace 側に該当日が無い場合は 0 埋め
+        """
+        days = len(self.daily_profit_loss) if self.daily_profit_loss else getattr(self.input, "planning_horizon", 0)
 
-    def recompute_pl_from_trace(self) -> list[dict]:
-        """Return empty list for now (skeleton)."""
-        return []
+        def _blank(day_num: int) -> dict:
+            return {
+                "day": day_num,
+                "revenue": 0.0,
+                "material_cost": 0.0,
+                "flow": {
+                    "production_fixed": 0.0,
+                    "production_variable": 0.0,
+                    "transport_fixed": 0.0,
+                    "transport_variable": 0.0,
+                    "total": 0.0,
+                },
+                "stock": {
+                    "fixed": 0.0,
+                    "variable": 0.0,
+                    "total": 0.0,
+                },
+                "penalty": {
+                    "stockout": 0.0,
+                    "backorder": 0.0,
+                    "total": 0.0,
+                },
+                "total_cost": 0.0,
+                "profit_loss": 0.0,
+            }
+
+        out = [_blank(i + 1) for i in range(days)]
+
+        # revenue を転用
+        for i in range(days):
+            try:
+                out[i]["revenue"] = float(self.daily_profit_loss[i].get("revenue", 0) or 0)
+            except Exception:
+                out[i]["revenue"] = 0.0
+
+        # trace 集計
+        mapping = {
+            "material": ("material_cost", None),
+            "production_fixed": ("flow", "production_fixed"),
+            "production_var": ("flow", "production_variable"),
+            "transport_fixed": ("flow", "transport_fixed"),
+            "transport_var": ("flow", "transport_variable"),
+            "storage_fixed": ("stock", "fixed"),
+            "storage_var": ("stock", "variable"),
+            "penalty_stockout": ("penalty", "stockout"),
+            "penalty_backorder": ("penalty", "backorder"),
+        }
+
+        for rec in self.cost_trace:
+            day = int(rec.get("day", 0) or 0)
+            if not (1 <= day <= days):
+                continue
+            account = rec.get("account")
+            amount = float(rec.get("amount", 0) or 0)
+            target = mapping.get(account)
+            if not target:
+                continue
+            key, sub = target
+            if sub is None:
+                out[day - 1][key] += amount
+            else:
+                out[day - 1][key][sub] += amount
+
+        # 合計の計算
+        for d in out:
+            d["flow"]["total"] = (
+                d["flow"]["production_fixed"]
+                + d["flow"]["production_variable"]
+                + d["flow"]["transport_fixed"]
+                + d["flow"]["transport_variable"]
+            )
+            d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
+            d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
+            d["total_cost"] = d["material_cost"] + d["flow"]["total"] + d["stock"]["total"] + d["penalty"]["total"]
+            d["profit_loss"] = d["revenue"] - d["total_cost"]
+
+        return out
 
     def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
         """No-op for now."""
