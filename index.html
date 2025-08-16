@@ -75,8 +75,22 @@
         </div>
 
         <div id="pl" class="tab-content">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap: wrap;">
                 <button id="download-pl-csv" class="run-button">収支CSV</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="trace-day-from">Day:</label>
+                    <input id="trace-day-from" type="number" min="1" value="1" style="width:80px;">
+                    <span>〜</span>
+                    <input id="trace-day-to" type="number" min="1" value="1" style="width:80px;">
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="trace-event-filter">Event:</label>
+                    <select id="trace-event-filter"></select>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label for="trace-account-filter">Account:</label>
+                    <select id="trace-account-filter"></select>
+                </div>
                 <button id="download-trace-csv" class="run-button" style="margin-left:auto;">トレースCSV</button>
             </div>
             <div id="profit-loss-output"></div>
