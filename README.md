@@ -74,6 +74,30 @@
     - ReDoc: `http://localhost:8000/redoc`
     - 健康監視: `GET /healthz`
 
+### Run Registry と比較API
+
+- `POST /simulation`: シミュレーション実行。
+  - クエリ: `include_trace`（bool, 既定 false）。true で `cost_trace` をレスポンスに含めます。
+  - レスポンス（主要フィールド）:
+    - `run_id`(UUID4): 実行ID。
+    - `results`: 日次結果配列。
+    - `daily_profit_loss` / `profit_loss`: 日次PL配列（互換目的で両方）。
+    - `summary`: 集計KPI。
+    - `cost_trace`: コストトレース配列（既定は空/非表示）。
+  - 内部的に実行記録はインメモリ `RunRegistry` に保存され、最近50件を保持します。
+
+- `GET /runs`: 最近の実行一覧（新しい順）。要素は `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary` を含みます。
+
+- `GET /runs/{run_id}`: 実行詳細。`results`, `daily_profit_loss`, `cost_trace` も含まれます（サイズに注意）。
+
+- `POST /compare`: 実行間のKPI比較。
+  - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
+  - レスポンス: `metrics`（各runの主要KPI）と `diffs`（先頭runとの差分）
+
+備考
+- `RunRegistry` はプロセス内でのみ保持（再起動でクリア）。保持件数は既定50件。
+- `schema_version` は入力の `schema_version` が存在すればそれを反映、無い場合は `"1.0"`。
+
 ## 運用コマンド
 
 - 起動: `bash scripts/serve.sh`（`RELOAD=1` で自動再起動）
