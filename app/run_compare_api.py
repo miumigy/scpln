@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from fastapi import Body, HTTPException
+from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
 
@@ -29,17 +29,43 @@ def _pick(summary: Dict[str, Any]) -> Dict[str, float]:
 
 
 @app.get("/runs")
-def list_runs():
-    # 最近順
-    return {"runs": REGISTRY.list()}
+def list_runs(detail: bool = Query(False)):
+    """ラン一覧を返す。
+    - detail=false（既定）: 軽量メタ+summary のみ
+    - detail=true: フル（results/daily_profit_loss/cost_trace 含む）
+    """
+    if detail:
+        return {"runs": REGISTRY.list()}
+    ids = REGISTRY.list_ids()
+    out = []
+    for rid in ids:
+        rec = REGISTRY.get(rid) or {}
+        out.append(
+            {
+                "run_id": rec.get("run_id"),
+                "started_at": rec.get("started_at"),
+                "duration_ms": rec.get("duration_ms"),
+                "schema_version": rec.get("schema_version"),
+                "summary": rec.get("summary", {}),
+            }
+        )
+    return {"runs": out}
 
 
 @app.get("/runs/{run_id}")
-def get_run(run_id: str):
+def get_run(run_id: str, detail: bool = Query(False)):
     r = REGISTRY.get(run_id)
     if not r:
         raise HTTPException(status_code=404, detail="run not found")
-    return r
+    if detail:
+        return r
+    return {
+        "run_id": r.get("run_id"),
+        "started_at": r.get("started_at"),
+        "duration_ms": r.get("duration_ms"),
+        "schema_version": r.get("schema_version"),
+        "summary": r.get("summary", {}),
+    }
 
 
 @app.post("/compare")

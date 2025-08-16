@@ -86,9 +86,13 @@
     - `cost_trace`: コストトレース配列（既定は空/非表示）。
   - 内部的に実行記録はインメモリ `RunRegistry` に保存され、最近50件を保持します。
 
-- `GET /runs`: 最近の実行一覧（新しい順）。要素は `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary` を含みます。
+- `GET /runs`: 最近の実行一覧（新しい順）。
+  - 既定: 軽量（`run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`）
+  - 詳細: `GET /runs?detail=true` でフル（`results`/`daily_profit_loss`/`cost_trace`含む）
 
-- `GET /runs/{run_id}`: 実行詳細。`results`, `daily_profit_loss`, `cost_trace` も含まれます（サイズに注意）。
+- `GET /runs/{run_id}`: 実行詳細。
+  - 既定: 軽量メタ＋`summary`
+  - 詳細: `GET /runs/{run_id}?detail=true` でフル（サイズに注意）
 
 - `POST /compare`: 実行間のKPI比較。
   - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
