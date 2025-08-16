@@ -36,7 +36,7 @@
 *   **UI改善**: タブ切り替えUI、実行結果のノード・品目フィルタ機能、数値のカンマ区切り整数表示。
 *   **KPIサマリ**: フィルレート、需要/販売/欠品合計、BOピーク、平均在庫（ノード種別）、収益・コスト・利益、ペナルティ（欠品/BO）を集計表示。
 *   **エクスポート/フィルタ**: 結果/収支のCSVダウンロード、日範囲フィルタ（From/To）に対応。
-*   **コストトレース機能**: シミュレーション中に発生する原材料購入費や輸送費（固定費・変動費）などのコストを日次で詳細に記録します。`SupplyChainSimulator` の `cost_trace` 属性（List[dict]）としてアクセス可能で、各エントリは `{day, node, item, event, qty, unit_cost, amount, account}` の形式で構成されます。
+*   **コストトレース機能**: シミュレーション中に発生する原材料購入費や輸送費（固定費・変動費）などのコストを日次で詳細に記録します。`SupplyChainSimulator` の `cost_trace` 属性（List[dict]）としてアクセス可能で、各エントリは `{day, node, item, event, qty, unit_cost, amount, account}` の形式で構成されます（`day` は 1-based）。
 
 ## セットアップと起動
 
@@ -335,6 +335,50 @@ UIのデフォルトサンプルは `static/default_input.json` にあり、複�
     *   Store Storage (Fixed/Variable)
 *   **Total Cost**
 *   **Profit/Loss**
+
+### コストトレース仕様（cost_trace）
+
+- 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
+- レコード: `{day, node, item, event, qty, unit_cost, amount, account}`
+  - `day`: 1始まり（1-based）の日番号
+  - `event`: 発生イベントの種別
+  - `account`: 勘定科目キー（下記マッピングでPLへ集約）
+- 主なイベントと勘定科目（抜粋）
+  - 材料購入: `event=material_purchase`, `account=material`
+  - 生産: `event=production_fixed`, `account=production_fixed` / `event=production_over_fixed`, `account=production_fixed` / `event=production_over_var`, `account=production_var`
+  - 輸送: `event=transport_fixed`, `account=transport_fixed` / `event=transport_var`, `account=transport_var`
+  - 輸送オーバー: `event=transport_over_fixed`, `account=transport_fixed` / `event=transport_over_var`, `account=transport_var`
+  - 保管: `event=storage_fixed`, `account=storage_fixed` / `event=storage_var`, `account=storage_var`
+  - 保管オーバー: `event=storage_over_fixed`, `account=storage_fixed` / `event=storage_over_var`, `account=storage_var`
+  - 罰金: `event=penalty_stockout`, `account=penalty_stockout` / `event=penalty_backorder`, `account=penalty_backorder`
+
+### PLのtrace再集計と整合性検証
+
+- 再集計API: `SupplyChainSimulator.recompute_pl_from_trace()`
+  - `cost_trace` を日別に集約し、PL風の辞書を日配列で返す（長さは `planning_horizon`）。
+  - `revenue` は従来の収支（`daily_profit_loss`）から転用。
+  - 勘定科目→PL集約のマッピング:
+    - `material` → `material_cost`
+    - `production_fixed` → `flow.production_fixed`
+    - `production_var` → `flow.production_variable`
+    - `transport_fixed` → `flow.transport_fixed`
+    - `transport_var` → `flow.transport_variable`
+    - `storage_fixed` → `stock.fixed`
+    - `storage_var` → `stock.variable`
+    - `penalty_stockout` → `penalty.stockout`
+    - `penalty_backorder` → `penalty.backorder`
+  - 各日で算出: `flow.total`（上記4項目の合算）、`stock.total`、`penalty.total`、`total_cost`、`profit_loss`。
+
+- 整合性アサート: `SupplyChainSimulator.assert_pl_equals_trace_totals(atol=1e-6)`
+  - 従来PL（`daily_profit_loss`）と再集計PLを日次で比較し、以下を `abs(diff) <= atol` で検証:
+    - `revenue`
+    - `flow.total`
+    - `stock.total`
+    - `penalty.stockout`, `penalty.backorder`
+    - `material_cost`
+    - `total_cost`
+    - `profit_loss`
+  - いずれかが閾値を超えた場合は `AssertionError` を送出。
 
 ### サマリ/CSVダウンロード
 
