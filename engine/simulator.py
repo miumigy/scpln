@@ -1229,8 +1229,50 @@ class SupplyChainSimulator:
         return out
 
     def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
-        """No-op for now."""
-        return
+        """従来PLとtrace再集計の主要合計が日次で一致することを検証する。
+
+        不一致が1つでもあれば AssertionError を投げる。
+        """
+        trace_daily = self.recompute_pl_from_trace()
+
+        days = len(self.daily_profit_loss)
+        if len(trace_daily) != days:
+            raise AssertionError(
+                f"length mismatch: pl={days} trace={len(trace_daily)}"
+            )
+
+        for i in range(days):
+            pl = self.daily_profit_loss[i] or {}
+            tr = trace_daily[i] or {}
+
+            revenue = float(pl.get("revenue", 0) or 0)
+            total_flow = float(sum((pl.get("flow_costs", {}) or {}).values()))
+            total_stock = float(sum((pl.get("stock_costs", {}) or {}).values()))
+            penalty_stockout = float(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0)
+            penalty_backorder = float(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0)
+            material_cost = float(pl.get("material_cost", 0) or 0)
+            total_cost = material_cost + total_flow + total_stock + penalty_stockout + penalty_backorder
+            profit_loss = revenue - total_cost
+
+            checks = [
+                ("revenue", revenue, float(tr.get("revenue", 0) or 0)),
+                ("flow.total", total_flow, float(((tr.get("flow", {}) or {}).get("total", 0)) or 0)),
+                ("stock.total", total_stock, float(((tr.get("stock", {}) or {}).get("total", 0)) or 0)),
+                ("penalty.stockout", penalty_stockout, float(((tr.get("penalty", {}) or {}).get("stockout", 0)) or 0)),
+                ("penalty.backorder", penalty_backorder, float(((tr.get("penalty", {}) or {}).get("backorder", 0)) or 0)),
+                ("material_cost", material_cost, float(tr.get("material_cost", 0) or 0)),
+                ("total_cost", total_cost, float(tr.get("total_cost", 0) or 0)),
+                ("profit_loss", profit_loss, float(tr.get("profit_loss", 0) or 0)),
+            ]
+
+            for key, expected, actual in checks:
+                if abs(expected - actual) > atol:
+                    day = i + 1
+                    raise AssertionError(
+                        f"day {day} {key} mismatch: pl={expected} trace={actual} (atol={atol})"
+                    )
+
+        return None
 
     def recompute_pl_from_trace(self) -> list[dict]:
         """cost_trace を日別に集計し、PL風の辞書配列を返す。
