@@ -585,7 +585,7 @@ sequenceDiagram
       `demand_mean`（>=0）, `demand_std_dev`（>=0）
 
 - 出力: 200 OK（`POST /simulation`）
-  - ルート: `message`（str）, `results`（DayResult[]）, `profit_loss`（PLDay[]）
+  - ルート: `message`（str）, `results`（DayResult[]）, `profit_loss`（PLDay[]）, `cost_trace`（TraceEvent[]）
   - DayResult: `day`（int, 1始まり）, `nodes`（{node_name: {item_name: Metrics}}）
     - Metrics（数値は原則 >=0）:
       - `start_stock`, `incoming`, `demand`, `sales`, `consumption`, `produced`, `shortage`, `backorder_balance`, `end_stock`, `ordered_quantity`
@@ -604,6 +604,31 @@ sequenceDiagram
 
     - `penalty_costs` キー:
       `stockout`（当日の欠品数量×ノード単価）, `backorder`（期末未出荷数量×ノード単価/日）
+
+  - TraceEvent（cost_traceの要素）: `{day, node, item, event, qty, unit_cost, amount, account}`
+    - `day` は 1始まり（1-based）
+    - `event` は発生イベント、`account` はPL集計の勘定科目
+
+#### レスポンス例（抜粋: cost_trace）
+
+```json
+{
+  "message": "ok",
+  "results": [/* 省略 */],
+  "profit_loss": [/* 省略 */],
+  "summary": { /* 省略 */ },
+  "cost_trace": [
+    {"day":1, "node":"S1", "item":"FG", "event":"transport_fixed", "qty":1.0, "unit_cost":1.0, "amount":1.0, "account":"transport_fixed"},
+    {"day":1, "node":"S1", "item":"FG", "event":"transport_var",   "qty":30.0, "unit_cost":0.5, "amount":15.0, "account":"transport_var"},
+    {"day":1, "node":"S1", "item":"",   "event":"transport_over_fixed", "qty":1.0, "unit_cost":7.0, "amount":7.0, "account":"transport_fixed"},
+    {"day":1, "node":"S1", "item":"",   "event":"transport_over_var",   "qty":20.0, "unit_cost":3.0, "amount":60.0, "account":"transport_var"},
+    {"day":1, "node":"S1", "item":"",   "event":"storage_fixed",   "qty":1.0, "unit_cost":2.0, "amount":2.0, "account":"storage_fixed"},
+    {"day":1, "node":"S1", "item":"FG", "event":"storage_var",     "qty":5.0, "unit_cost":1.0, "amount":5.0, "account":"storage_var"},
+    {"day":1, "node":"S1", "item":"",   "event":"penalty_stockout","qty":10.0, "unit_cost":3.0, "amount":30.0, "account":"penalty_stockout"},
+    {"day":1, "node":"S1", "item":"",   "event":"penalty_backorder","qty":8.0, "unit_cost":1.0, "amount":8.0, "account":"penalty_backorder"}
+  ]
+}
+```
 
 備考
 - PSI恒等: すべてのノード・品目で `demand = sales + shortage`。
