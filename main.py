@@ -30,6 +30,11 @@ try:
 except Exception:
     pass
 
+try:
+    import app.ui_runs  # noqa: F401
+except Exception:
+    pass
+
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 

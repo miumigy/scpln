@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Runs</h2>
+  {% if rows %}
+  <table role="grid">
+    <thead>
+      <tr>
+        <th>run_id</th>
+        <th>started_at</th>
+        <th>dur(ms)</th>
+        <th>schema</th>
+        <th>fill_rate</th>
+        <th>profit_total</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
+        <td>{{ r.started_at }}</td>
+        <td>{{ r.duration_ms }}</td>
+        <td>{{ r.schema_version }}</td>
+        <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
+        <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
+        <td>
+          <a role="button" href="/ui/runs/{{ r.run_id }}">Detail</a>
+          <a role="button" class="secondary" href="/runs/{{ r.run_id }}/trace.csv">CSV</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>まだランはありません。/simulation を叩いて生成してください。</p>
+  {% endif %}
+</section>
+<section>
+  <h3>Compare</h3>
+  <form method="post" action="/ui/compare">
+    <label>Run IDs (comma-separated)
+      <input class="mono" type="text" name="run_ids" placeholder="id1,id2" required />
+    </label>
+    <button type="submit">Compare</button>
+  </form>
+  </section>
+{% endblock %}
+
