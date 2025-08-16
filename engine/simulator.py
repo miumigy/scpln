@@ -1130,11 +1130,3 @@ class SupplyChainSimulator:
         )
         pl["profit_loss"] = pl["revenue"] - pl["total_cost"]
         self.daily_profit_loss.append(pl)
-
-    def recompute_pl_from_trace(self) -> list[dict]:
-        """Return empty list for now (skeleton)."""
-        return []
-
-    def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
-        """No-op for now."""
-        return
