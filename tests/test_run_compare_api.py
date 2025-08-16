@@ -1,5 +1,4 @@
 import importlib
-import time
 from fastapi.testclient import TestClient
 
 # /simulation と /compare のAPIを副作用importで登録
@@ -8,9 +7,16 @@ importlib.import_module("app.run_compare_api")
 
 from app.api import app
 from domain.models import (
-    SimulationInput, Product, MaterialNode, FactoryNode, WarehouseNode, StoreNode,
-    NetworkLink, CustomerDemand
+    SimulationInput,
+    Product,
+    MaterialNode,
+    FactoryNode,
+    WarehouseNode,
+    StoreNode,
+    NetworkLink,
+    CustomerDemand,
 )
+
 
 def _payload(fill_rate_bias: float, days=3):
     # fill_rate を意図的に変えるため、需要量にバイアスを掛ける
@@ -19,21 +25,40 @@ def _payload(fill_rate_bias: float, days=3):
         planning_horizon=days,
         products=[Product(name="P1", sales_price=100.0)],
         nodes=[
-            MaterialNode(name="M1", initial_stock={"P1": 0}, material_cost={"P1": 0.0}, storage_capacity=1e18),
-            FactoryNode(name="F1", producible_products=["P1"], initial_stock={"P1": 0}, storage_capacity=1e18),
+            MaterialNode(
+                name="M1",
+                initial_stock={"P1": 0},
+                material_cost={"P1": 0.0},
+                storage_capacity=1e18,
+            ),
+            FactoryNode(
+                name="F1",
+                producible_products=["P1"],
+                initial_stock={"P1": 0},
+                storage_capacity=1e18,
+            ),
             WarehouseNode(name="W1", initial_stock={"P1": 0}, storage_capacity=1e18),
             StoreNode(name="S1", initial_stock={"P1": 0}, storage_capacity=1e18),
         ],
         network=[
-            NetworkLink(from_node="M1", to_node="F1", lead_time=0, capacity_per_day=1e18),
-            NetworkLink(from_node="F1", to_node="W1", lead_time=0, capacity_per_day=1e18),
-            NetworkLink(from_node="W1", to_node="S1", lead_time=0, capacity_per_day=1e18),
+            NetworkLink(
+                from_node="M1", to_node="F1", lead_time=0, capacity_per_day=1e18
+            ),
+            NetworkLink(
+                from_node="F1", to_node="W1", lead_time=0, capacity_per_day=1e18
+            ),
+            NetworkLink(
+                from_node="W1", to_node="S1", lead_time=0, capacity_per_day=1e18
+            ),
         ],
         customer_demand=[
-            CustomerDemand(store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0.0)
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0.0
+            )
         ],
         random_seed=1,
     )
+
 
 def test_runs_registry_and_compare():
     client = TestClient(app)
