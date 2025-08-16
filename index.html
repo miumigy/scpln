@@ -75,14 +75,14 @@
         </div>
 
         <div id="pl" class="tab-content">
-            <!-- 見出しと収支CSV（同一行・右寄せ） -->
-            <div style="display:flex; align-items:center; justify-content: space-between; gap:10px; margin-bottom:10px; flex-wrap: wrap;">
-                <h3 style="margin: 0;">日別収支（PL）</h3>
-                <button id="download-pl-csv" class="run-button">収支CSV</button>
+            <!-- 見出しと収支CSV（同一行・右寄せ固定） -->
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <h3 style="margin: 0;">日別収支表</h3>
+                <button id="download-pl-csv" class="run-button" style="margin-left:auto;">収支CSV</button>
             </div>
 
             <!-- トレース（cost_trace）ツールバー：フィルタ/ボタンを全て右寄せ -->
-            <div style="display:flex; align-items:center; justify-content: flex-end; gap:8px; margin-bottom:10px; flex-wrap: wrap;">
+            <div style="display:flex; align-items:center; justify-content: flex-end; gap:8px; margin-bottom:10px;">
                 <span style="font-weight:600;">トレースCSVフィルタ</span>
                 <label for="trace-day-from">Day:</label>
                 <input id="trace-day-from" type="number" min="1" value="1" style="width:80px;">
