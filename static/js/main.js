@@ -522,7 +522,6 @@
 
             summaryOutput.innerHTML = html;
         }
-
         function populateTraceFilters(trace) {
             const days = (trace || []).map(e => +e.day || 0);
             const maxDay = days.length ? Math.max(...days) : (fullResultsData.length || 1);
