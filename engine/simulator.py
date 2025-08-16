@@ -1023,6 +1023,17 @@ class SupplyChainSimulator:
                     pl["flow_costs"][f"{ttype}_variable"] += (
                         link.over_capacity_variable_cost * over_qty
                     )
+                    # traceにもオーバー分の輸送コストを記録（可変）
+                    if link.over_capacity_variable_cost > 0:
+                        self._push_cost(
+                            day=day,
+                            node=dest_name,
+                            item="",
+                            event="transport_over_var",
+                            qty=over_qty,
+                            unit_cost=link.over_capacity_variable_cost,
+                            account="transport_var",
+                        )
                     lkey = (supplier_name, dest_name)
                     if (
                         lkey not in overage_fixed_applied
@@ -1032,6 +1043,16 @@ class SupplyChainSimulator:
                             f"{ttype}_fixed"
                         ] += link.over_capacity_fixed_cost
                         overage_fixed_applied.add(lkey)
+                        # traceにもオーバー分の輸送コストを記録（固定）
+                        self._push_cost(
+                            day=day,
+                            node=dest_name,
+                            item="",
+                            event="transport_over_fixed",
+                            qty=1.0,
+                            unit_cost=link.over_capacity_fixed_cost,
+                            account="transport_fixed",
+                        )
 
         storage_overage_qty_by_node = defaultdict(float)
         for key, data in events.items():
