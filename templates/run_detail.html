@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<article>
+  <header>
+    <h2>Run Detail</h2>
+    <p class="mono">{{ run_id }}</p>
+  </header>
+
+  <section>
+    <h3>Summary</h3>
+    {% if summary %}
+    <table>
+      <tbody>
+        {% for k, v in summary.items() %}
+        <tr><th class="mono">{{ k }}</th><td>{{ v }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No summary.</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h3>Artifacts</h3>
+    <ul>
+      <li>results: {{ counts.results_len }}</li>
+      <li>daily_profit_loss: {{ counts.pl_len }}</li>
+      <li>cost_trace: {{ counts.trace_len }}</li>
+      <li><a role="button" class="secondary" href="/runs/{{ run_id }}/trace.csv">Download trace.csv</a></li>
+    </ul>
+  </section>
+
+  <footer>
+    <a role="button" href="/ui/runs">← Back to runs</a>
+  </footer>
+</article>
+{% endblock %}
+

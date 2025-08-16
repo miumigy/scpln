@@ -1,5 +1,5 @@
 from app.api import app
-from fastapi import Request
+from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.run_registry import REGISTRY
@@ -25,3 +25,19 @@ def ui_runs(request: Request):
         )
     return templates.TemplateResponse("runs.html", {"request": request, "rows": rows})
 
+
+@app.get("/ui/runs/{run_id}", response_class=HTMLResponse)
+def ui_run_detail(request: Request, run_id: str):
+    rec = REGISTRY.get(run_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="run not found")
+    summary = rec.get("summary") or {}
+    counts = {
+        "results_len": len(rec.get("results") or []),
+        "pl_len": len(rec.get("daily_profit_loss") or []),
+        "trace_len": len(rec.get("cost_trace") or []),
+    }
+    return templates.TemplateResponse(
+        "run_detail.html",
+        {"request": request, "run_id": run_id, "summary": summary, "counts": counts},
+    )
