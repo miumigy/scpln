@@ -15,7 +15,10 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
     sim = SupplyChainSimulator(payload)
     results, daily_pl = sim.run()
     duration_ms = int((time.time() - start) * 1000)
-    summary = sim.compute_summary()
+    try:
+        summary = sim.compute_summary()
+    except Exception:
+        summary = {}
     REGISTRY.put(
         run_id,
         {
@@ -24,6 +27,10 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
             "duration_ms": duration_ms,
             "schema_version": getattr(payload, "schema_version", "1.0"),
             "summary": summary,
+            # 後から参照できるよう主要出力も保存
+            "results": results,
+            "daily_profit_loss": daily_pl,
+            "cost_trace": getattr(sim, "cost_trace", []),
         },
     )
     set_last_summary(summary)
