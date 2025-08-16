@@ -15,6 +15,7 @@
         const downloadPlCsvBtn = document.getElementById('download-pl-csv');
         const summaryOutput = document.getElementById('summary-output');
         const downloadSummaryCsvBtn = document.getElementById('download-summary-csv');
+        const downloadTraceCsvBtn = document.getElementById('download-trace-csv');
         const runButton = document.querySelector('.run-button');
         const tabButtons = document.querySelectorAll('.tab-button');
 
@@ -22,6 +23,7 @@
         let fullResultsData = [];
         let fullProfitLoss = [];
         let fullSummary = null;
+        let fullCostTrace = [];
 
         // Load default JSON from external file and initialize editor
         fetch('/static/default_input.json')
@@ -161,7 +163,7 @@
             }
 
             try {
-                const response = await fetch('/simulation', {
+                const response = await fetch('/simulation?include_trace=1', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)
@@ -180,6 +182,7 @@
                 fullResultsData = data.results;
                 fullProfitLoss = data.profit_loss || [];
                 fullSummary = data.summary || computeClientSummary(fullResultsData, fullProfitLoss, requestBody) || null;
+                fullCostTrace = data.cost_trace || [];
                 populateFilters(fullResultsData);
                 applyFilters(); // This will call displayResultsTable
                 displayProfitLossTable(fullProfitLoss);
@@ -515,6 +518,22 @@
             summaryOutput.innerHTML = html;
         }
 
+        function exportTraceCsv() {
+            const rows = (fullCostTrace || []).map(e => ({
+                Day: e.day,
+                Node: e.node,
+                Item: e.item,
+                Event: e.event,
+                Account: e.account,
+                Qty: e.qty,
+                UnitCost: e.unit_cost,
+                Amount: e.amount,
+            }));
+            const headers = ['Day','Node','Item','Event','Account','Qty','UnitCost','Amount'];
+            const csv = toCsv(rows, headers);
+            downloadBlob('cost_trace.csv', csv);
+        }
+
         // --- Event Listeners ---
         runButton.addEventListener('click', runSimulation);
         tabButtons.forEach(button => {
@@ -529,6 +548,7 @@
         downloadResultsCsvBtn.addEventListener('click', exportResultsCsv);
         downloadPlCsvBtn.addEventListener('click', exportPlCsv);
         if (downloadSummaryCsvBtn) downloadSummaryCsvBtn.addEventListener('click', exportSummaryCsv);
+        if (downloadTraceCsvBtn) downloadTraceCsvBtn.addEventListener('click', exportTraceCsv);
 
     });
 })();
