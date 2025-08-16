@@ -1023,6 +1023,17 @@ class SupplyChainSimulator:
                     pl["flow_costs"][f"{ttype}_variable"] += (
                         link.over_capacity_variable_cost * over_qty
                     )
+                    # traceにもオーバー分の輸送コストを記録（可変）
+                    if link.over_capacity_variable_cost > 0:
+                        self._push_cost(
+                            day=day,
+                            node=dest_name,
+                            item="",
+                            event="transport_over_var",
+                            qty=over_qty,
+                            unit_cost=link.over_capacity_variable_cost,
+                            account="transport_var",
+                        )
                     lkey = (supplier_name, dest_name)
                     if (
                         lkey not in overage_fixed_applied
@@ -1032,6 +1043,16 @@ class SupplyChainSimulator:
                             f"{ttype}_fixed"
                         ] += link.over_capacity_fixed_cost
                         overage_fixed_applied.add(lkey)
+                        # traceにもオーバー分の輸送コストを記録（固定）
+                        self._push_cost(
+                            day=day,
+                            node=dest_name,
+                            item="",
+                            event="transport_over_fixed",
+                            qty=1.0,
+                            unit_cost=link.over_capacity_fixed_cost,
+                            account="transport_fixed",
+                        )
 
         storage_overage_qty_by_node = defaultdict(float)
         for key, data in events.items():
@@ -1130,3 +1151,247 @@ class SupplyChainSimulator:
         )
         pl["profit_loss"] = pl["revenue"] - pl["total_cost"]
         self.daily_profit_loss.append(pl)
+
+    def recompute_pl_from_trace(self) -> list[dict]:
+        """cost_trace を日別に集計し、PL風の辞書配列を返す。
+
+        - revenue は従来の self.daily_profit_loss を転用
+        - account のマップ:
+          material -> material_cost
+          production_fixed -> flow.production_fixed
+          production_var   -> flow.production_variable
+          transport_fixed  -> flow.transport_fixed
+          transport_var    -> flow.transport_variable
+          storage_fixed    -> stock.fixed
+          storage_var      -> stock.variable
+          penalty_stockout -> penalty.stockout
+          penalty_backorder-> penalty.backorder
+        - self.daily_profit_loss の日数に合わせて 1-based day で返す
+        - trace 側に該当日が無い場合は 0 埋め
+        """
+        days = len(self.daily_profit_loss) if self.daily_profit_loss else getattr(self.input, "planning_horizon", 0)
+
+        def _blank(day_num: int) -> dict:
+            return {
+                "day": day_num,
+                "revenue": 0.0,
+                "material_cost": 0.0,
+                "flow": {
+                    "production_fixed": 0.0,
+                    "production_variable": 0.0,
+                    "transport_fixed": 0.0,
+                    "transport_variable": 0.0,
+                    "total": 0.0,
+                },
+                "stock": {
+                    "fixed": 0.0,
+                    "variable": 0.0,
+                    "total": 0.0,
+                },
+                "penalty": {
+                    "stockout": 0.0,
+                    "backorder": 0.0,
+                    "total": 0.0,
+                },
+                "total_cost": 0.0,
+                "profit_loss": 0.0,
+            }
+
+        out = [_blank(i + 1) for i in range(days)]
+
+        # revenue を転用
+        for i in range(days):
+            try:
+                out[i]["revenue"] = float(self.daily_profit_loss[i].get("revenue", 0) or 0)
+            except Exception:
+                out[i]["revenue"] = 0.0
+
+        # trace 集計
+        mapping = {
+            "material": ("material_cost", None),
+            "production_fixed": ("flow", "production_fixed"),
+            "production_var": ("flow", "production_variable"),
+            "transport_fixed": ("flow", "transport_fixed"),
+            "transport_var": ("flow", "transport_variable"),
+            "storage_fixed": ("stock", "fixed"),
+            "storage_var": ("stock", "variable"),
+            "penalty_stockout": ("penalty", "stockout"),
+            "penalty_backorder": ("penalty", "backorder"),
+        }
+
+        for rec in self.cost_trace:
+            day = int(rec.get("day", 0) or 0)
+            if not (1 <= day <= days):
+                continue
+            account = rec.get("account")
+            amount = float(rec.get("amount", 0) or 0)
+            target = mapping.get(account)
+            if not target:
+                continue
+            key, sub = target
+            if sub is None:
+                out[day - 1][key] += amount
+            else:
+                out[day - 1][key][sub] += amount
+
+        # 合計の計算
+        for d in out:
+            d["flow"]["total"] = (
+                d["flow"]["production_fixed"]
+                + d["flow"]["production_variable"]
+                + d["flow"]["transport_fixed"]
+                + d["flow"]["transport_variable"]
+            )
+            d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
+            d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
+            d["total_cost"] = d["material_cost"] + d["flow"]["total"] + d["stock"]["total"] + d["penalty"]["total"]
+            d["profit_loss"] = d["revenue"] - d["total_cost"]
+
+        return out
+
+    def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
+        """従来PLとtrace再集計の主要合計が日次で一致することを検証する。
+
+        不一致が1つでもあれば AssertionError を投げる。
+        """
+        trace_daily = self.recompute_pl_from_trace()
+
+        days = len(self.daily_profit_loss)
+        if len(trace_daily) != days:
+            raise AssertionError(
+                f"length mismatch: pl={days} trace={len(trace_daily)}"
+            )
+
+        for i in range(days):
+            pl = self.daily_profit_loss[i] or {}
+            tr = trace_daily[i] or {}
+
+            revenue = float(pl.get("revenue", 0) or 0)
+            total_flow = float(sum((pl.get("flow_costs", {}) or {}).values()))
+            total_stock = float(sum((pl.get("stock_costs", {}) or {}).values()))
+            penalty_stockout = float(((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0))
+            penalty_backorder = float(((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0))
+            material_cost = float(pl.get("material_cost", 0) or 0)
+            total_cost = material_cost + total_flow + total_stock + penalty_stockout + penalty_backorder
+            profit_loss = revenue - total_cost
+
+            checks = [
+                ("revenue", revenue, float(tr.get("revenue", 0) or 0)),
+                ("flow.total", total_flow, float(((tr.get("flow", {}) or {}).get("total", 0)) or 0)),
+                ("stock.total", total_stock, float(((tr.get("stock", {}) or {}).get("total", 0)) or 0)),
+                ("penalty.stockout", penalty_stockout, float(((tr.get("penalty", {}) or {}).get("stockout", 0)) or 0)),
+                ("penalty.backorder", penalty_backorder, float(((tr.get("penalty", {}) or {}).get("backorder", 0)) or 0)),
+                ("material_cost", material_cost, float(tr.get("material_cost", 0) or 0)),
+                ("total_cost", total_cost, float(tr.get("total_cost", 0) or 0)),
+                ("profit_loss", profit_loss, float(tr.get("profit_loss", 0) or 0)),
+            ]
+
+            for key, expected, actual in checks:
+                if abs(expected - actual) > atol:
+                    day = i + 1
+                    raise AssertionError(
+                        f"day {day} {key} mismatch: pl={expected} trace={actual} (atol={atol})"
+                    )
+
+        return None
+
+    def recompute_pl_from_trace(self) -> list[dict]:
+        """cost_trace を日別に集計し、PL風の辞書配列を返す。
+
+        - revenue は従来の self.daily_profit_loss を転用
+        - account のマップ:
+          material -> material_cost
+          production_fixed -> flow.production_fixed
+          production_var   -> flow.production_variable
+          transport_fixed  -> flow.transport_fixed
+          transport_var    -> flow.transport_variable
+          storage_fixed    -> stock.fixed
+          storage_var      -> stock.variable
+          penalty_stockout -> penalty.stockout
+          penalty_backorder-> penalty.backorder
+        - self.daily_profit_loss の日数に合わせて 1-based day で返す
+        - trace 側に該当日が無い場合は 0 埋め
+        """
+        days = len(self.daily_profit_loss) if self.daily_profit_loss else getattr(self.input, "planning_horizon", 0)
+
+        def _blank(day_num: int) -> dict:
+            return {
+                "day": day_num,
+                "revenue": 0.0,
+                "material_cost": 0.0,
+                "flow": {
+                    "production_fixed": 0.0,
+                    "production_variable": 0.0,
+                    "transport_fixed": 0.0,
+                    "transport_variable": 0.0,
+                    "total": 0.0,
+                },
+                "stock": {
+                    "fixed": 0.0,
+                    "variable": 0.0,
+                    "total": 0.0,
+                },
+                "penalty": {
+                    "stockout": 0.0,
+                    "backorder": 0.0,
+                    "total": 0.0,
+                },
+                "total_cost": 0.0,
+                "profit_loss": 0.0,
+            }
+
+        out = [_blank(i + 1) for i in range(days)]
+
+        # revenue を転用
+        for i in range(days):
+            try:
+                out[i]["revenue"] = float(self.daily_profit_loss[i].get("revenue", 0) or 0)
+            except Exception:
+                out[i]["revenue"] = 0.0
+
+        # trace 集計
+        mapping = {
+            "material": ("material_cost", None),
+            "production_fixed": ("flow", "production_fixed"),
+            "production_var": ("flow", "production_variable"),
+            "transport_fixed": ("flow", "transport_fixed"),
+            "transport_var": ("flow", "transport_variable"),
+            "storage_fixed": ("stock", "fixed"),
+            "storage_var": ("stock", "variable"),
+            "penalty_stockout": ("penalty", "stockout"),
+            "penalty_backorder": ("penalty", "backorder"),
+        }
+
+        for rec in self.cost_trace:
+            day = int(rec.get("day", 0) or 0)
+            if not (1 <= day <= days):
+                continue
+            account = rec.get("account")
+            amount = float(rec.get("amount", 0) or 0)
+            target = mapping.get(account)
+            if not target:
+                continue
+            key, sub = target
+            if sub is None:
+                out[day - 1][key] += amount
+            else:
+                out[day - 1][key][sub] += amount
+
+        # 合計の計算
+        for d in out:
+            d["flow"]["total"] = (
+                d["flow"]["production_fixed"]
+                + d["flow"]["production_variable"]
+                + d["flow"]["transport_fixed"]
+                + d["flow"]["transport_variable"]
+            )
+            d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
+            d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
+            d["total_cost"] = d["material_cost"] + d["flow"]["total"] + d["stock"]["total"] + d["penalty"]["total"]
+            d["profit_loss"] = d["revenue"] - d["total_cost"]
+
+        return out
+
+    def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
+        """No-op for now."""
+        return

@@ -523,6 +523,7 @@
             summaryOutput.innerHTML = html;
         }
 
+<<<<<<< HEAD
         function populateTraceFilters(trace) {
             const days = (trace || []).map(e => +e.day || 0);
             const maxDay = days.length ? Math.max(...days) : (fullResultsData.length || 1);
@@ -569,6 +570,19 @@
                     UnitCost: e.unit_cost,
                     Amount: e.amount,
                 }));
+=======
+        function exportTraceCsv() {
+            const rows = (fullCostTrace || []).map(e => ({
+                Day: e.day,
+                Node: e.node,
+                Item: e.item,
+                Event: e.event,
+                Account: e.account,
+                Qty: e.qty,
+                UnitCost: e.unit_cost,
+                Amount: e.amount,
+            }));
+>>>>>>> origin/main
             const headers = ['Day','Node','Item','Event','Account','Qty','UnitCost','Amount'];
             const csv = toCsv(rows, headers);
             downloadBlob('cost_trace.csv', csv);
