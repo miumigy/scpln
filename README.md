@@ -135,9 +135,13 @@ graph TD;
   B[Browser] --> A[FastAPI];
   B --> S[Static files];
   A --> E[SupplyChainSimulator];
+  A <--> D[(SQLite DB)];
   E --> M[Pydantic Models];
   A --> H[Healthz endpoint];
   E --> L[simulation.log];
+  %% UI routes
+  B -->|/ui/configs| A;
+  B -->|/ui/runs| A;
 ```
 
 ### クラス図（主要要素）
@@ -213,6 +217,10 @@ classDiagram
   SimulationInput "1" o-- "*" Product
   SimulationInput "1" o-- "*" NetworkLink
   SimulationInput "1" o-- "*" CustomerDemand
+  %% --- Persistence / Registry (概念モデル) ---
+  class Config {+id: int; +name: str; +json_text: str; +created_at: int; +updated_at: int}
+  class RunRecord {+run_id: str; +started_at: int; +duration_ms: int; +schema_version: str; +summary: dict; +results: list; +daily_profit_loss: list; +cost_trace: list; +config_id: int; +config_json: dict}
+  RunRecord "*" o-- "1" Config : optional
 ```
 
 ### 時系列フロー（シーケンス）
@@ -230,8 +238,8 @@ sequenceDiagram
   UI->>API: POST /simulation?config_id
   API->>Sim: run()
   Sim-->>API: results, PL, summary, trace
-  API->>REG: save run
-  API-->>User: 200 JSON
+  API->>REG: save run (includes config_id, config_json)
+  API-->>User: 200 JSON { run_id, ... }
 
   %% 履歴一覧
   User->>UI: GET /ui/runs
@@ -246,6 +254,8 @@ sequenceDiagram
   %% CSVs
   User->>API: GET /runs/{id}/(results|pl|summary|trace).csv
   API-->>User: CSV
+  User->>API: GET /runs/{id}/config.(json|csv)
+  API-->>User: config
 
   %% 比較
   User->>UI: POST /ui/compare
