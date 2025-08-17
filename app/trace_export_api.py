@@ -61,7 +61,14 @@ def get_results_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     results = rec.get("results") or []
-    flat_rows = [_flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)} for r in results]
+    flat_rows = [
+        (
+            _flatten(r)
+            if isinstance(r, dict)
+            else {"data": json.dumps(r, ensure_ascii=False)}
+        )
+        for r in results
+    ]
     fieldnames = _collect_fieldnames(flat_rows)
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=fieldnames)
@@ -78,7 +85,14 @@ def get_pl_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     pl = rec.get("daily_profit_loss") or []
-    flat_rows = [_flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)} for r in pl]
+    flat_rows = [
+        (
+            _flatten(r)
+            if isinstance(r, dict)
+            else {"data": json.dumps(r, ensure_ascii=False)}
+        )
+        for r in pl
+    ]
     fieldnames = _collect_fieldnames(flat_rows)
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=fieldnames)

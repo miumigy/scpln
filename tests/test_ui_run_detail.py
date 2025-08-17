@@ -14,7 +14,12 @@ def test_ui_run_detail_page():
         "nodes": [{"node_type": "store", "name": "S1", "initial_stock": {"P1": 1}}],
         "network": [],
         "customer_demand": [
-            {"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}
+            {
+                "store_name": "S1",
+                "product_name": "P1",
+                "demand_mean": 1,
+                "demand_std_dev": 0,
+            }
         ],
         "random_seed": 1,
     }
@@ -23,4 +28,3 @@ def test_ui_run_detail_page():
     assert r.status_code == 200
     assert "Run Detail" in r.text
     assert rid in r.text
-

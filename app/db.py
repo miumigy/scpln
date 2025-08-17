@@ -74,4 +74,3 @@ def delete_config(cfg_id: int) -> None:
 
 # Initialize at import
 init_db()
-

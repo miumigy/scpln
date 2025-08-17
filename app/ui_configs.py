@@ -12,13 +12,16 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 @app.get("/ui/configs", response_class=HTMLResponse)
 def ui_configs_list(request: Request):
     rows = list_configs()
-    return templates.TemplateResponse("configs_list.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse(
+        "configs_list.html", {"request": request, "rows": rows}
+    )
 
 
 @app.get("/ui/configs/new", response_class=HTMLResponse)
 def ui_configs_new(request: Request):
     return templates.TemplateResponse(
-        "configs_edit.html", {"request": request, "mode": "create", "rec": {"name": "", "json_text": ""}}
+        "configs_edit.html",
+        {"request": request, "mode": "create", "rec": {"name": "", "json_text": ""}},
     )
 
 
@@ -52,4 +55,3 @@ def ui_configs_delete(cfg_id: int):
         raise HTTPException(status_code=404, detail="config not found")
     delete_config(cfg_id)
     return RedirectResponse(url="/ui/configs", status_code=303)
-
