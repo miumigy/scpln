@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-DB_PATH = os.getenv("SCPLN_DB", str(Path("data") / "scpln.db"))
+_BASE_DIR = Path(__file__).resolve().parents[1]
+_DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
+DB_PATH = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
 Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 
