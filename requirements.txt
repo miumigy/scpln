@@ -5,3 +5,4 @@ httpx>=0.27
 pytest
 prometheus-client
 Jinja2
+python-multipart
