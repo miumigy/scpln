@@ -23,7 +23,6 @@
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td>
           <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
-          <a role="button" class="secondary" href="/runs/${r.run_id}/trace.csv">CSV</a>
         </td>
       </tr>
     `;
@@ -57,4 +56,3 @@
   if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
 })();
-
