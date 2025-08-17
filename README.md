@@ -52,17 +52,21 @@ bash scripts/status.sh          # 状態確認（PID/ヘルス/ログ）
 bash scripts/stop.sh            # 停止
 ```
 
-アクセス: `http://localhost:8000`（ヘッダ右「ラン履歴」で `/ui/runs` へ別タブ遷移）
+アクセス: `http://localhost:8000`（ヘッダ右「ラン履歴」「設定マスタ」は別タブ遷移）
 
 ## Web UI ガイド
 
 - メイン画面（index.html）: 入力JSON編集、結果/PL/サマリの表示とCSVダウンロード
+  - 設定マスタバー: プルダウン選択で設定を自動読込（change）、『設定マスタ読込』で一覧再取得
+- 設定マスタ: `GET /ui/configs`（SQLite 永続化）
+  - 一覧/新規/編集/削除
+  - 「エディタで開く」で `/?config_id=ID` を付与してメイン画面へ
 - ラン履歴: `GET /ui/runs`
   - Refresh: `GET /runs` で一覧再取得
   - チェックボックス → Compare フォームに反映（Use selected）
 - ラン詳細: `GET /ui/runs/{run_id}`
   - Summary 表示、Artifacts 件数
-  - CSV リンク（results/pl/summary/trace）
+  - CSV/JSON リンク（results/pl/summary/trace, config.json/config.csv）
   - Refresh summary from API: `GET /runs/{id}?detail=false`
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
 
@@ -70,6 +74,7 @@ bash scripts/stop.sh            # 停止
 
 - `POST /simulation`
   - クエリ: `include_trace`（bool, 既定 false）
+  - クエリ: `config_id`（int｜省略可）選択した設定のID。RunRegistry に保存されます
   - レスポンス: `run_id`, `results`, `daily_profit_loss`/`profit_loss`, `summary`, `cost_trace`
   - 実行記録は RunRegistry に保存
 
@@ -87,12 +92,21 @@ bash scripts/stop.sh            # 停止
 
 - `GET /healthz`: ヘルスチェック
 
+- 設定マスタ（Configs）
+  - `GET /configs`: 一覧（id, name, created_at/updated_at）
+  - `GET /configs/{id}`: 詳細（name, json_text, config(JSON)）
+  - `POST /configs`（Form: `name`, `json_text`）: 追加
+  - `PUT /configs/{id}`（Form: `name`, `json_text`）: 更新
+  - `DELETE /configs/{id}`: 削除
+
 ## CSV エクスポート（Runごと）
 
 - `GET /runs/{run_id}/results.csv`: 実行結果
 - `GET /runs/{run_id}/pl.csv`: 日次PL
 - `GET /runs/{run_id}/summary.csv`: サマリ（`run_id,metric,value`）
 - `GET /runs/{run_id}/trace.csv`: コストトレース
+- `GET /runs/{run_id}/config.json`: 実行時に使用した設定（config_id と config 本文）
+- `GET /runs/{run_id}/config.csv`: 上記を1行CSVでダウンロード
 
 出力ルール
 - ネスト辞書はドット区切りでフラット化（例: `flow_costs.production_fixed`）
@@ -102,7 +116,7 @@ bash scripts/stop.sh            # 停止
 ## RunRegistry の仕様
 
 - プロセス内メモリに最近順で保持（既定50件）
-- 保存内容（主な項目）: `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`, `results`, `daily_profit_loss`, `cost_trace`
+- 保存内容（主な項目）: `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`, `results`, `daily_profit_loss`, `cost_trace`, `config_id`, `config_json`
 - 参照API: `/runs`, `/runs/{id}`（上記参照）
 
 ## 運用コマンド / 環境変数
@@ -110,6 +124,7 @@ bash scripts/stop.sh            # 停止
 - コマンド: `serve.sh`, `stop.sh`, `status.sh`, `health.sh`
 - `SIM_LOG_LEVEL`（既定 INFO）、`SIM_LOG_TO_FILE=1`（ファイル出力）
 - 入力 `random_seed`: 需要乱数の再現性確保
+- `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 
 ## 図解
 
@@ -211,7 +226,8 @@ sequenceDiagram
   participant REG as RunRegistry
 
   %% Run 実行
-  User->>API: POST /simulation
+  User->>UI: select config (optional)
+  UI->>API: POST /simulation?config_id
   API->>Sim: run()
   Sim-->>API: results, PL, summary, trace
   API->>REG: save run
@@ -259,4 +275,3 @@ sequenceDiagram
 - 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
 - レコード: `{day, node, item, event, qty, unit_cost, amount, account}`（day は 1-based）
 - 例: 材料購入、輸送、保管、工場生産（固定/変動）などを発生日に計上し、PL へ集約。
-
