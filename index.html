@@ -127,12 +127,14 @@
       (function(){
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
+        window.__currentConfigId = cid || '';
         function loadConfigById(id){
           if (!id) return;
           fetch(`/configs/${id}`).then(r=>r.ok?r.json():null).then(data=>{
             if (!data || !data.json_text) return;
             const el = document.getElementById('simulation-editor');
             if (el) el.value = data.json_text;
+            window.__currentConfigId = String(id);
           }).catch(()=>{});
         }
         if (cid) {
@@ -147,15 +149,24 @@
             const sel = document.getElementById('config-select');
             if(!sel) return;
             const opts = (data.configs||[]).map(r=>({value: r.id, label: `#${r.id} ${r.name}`}));
-            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+            const cur = window.__currentConfigId || '';
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
           }catch(e){/* noop */}
         }
         document.getElementById('configs-refresh')?.addEventListener('click', refreshConfigs);
+        document.getElementById('config-select')?.addEventListener('change', (ev)=>{
+          const sel = ev.target;
+          const id = sel && sel.value;
+          if(!id) return;
+          loadConfigById(id);
+          window.__currentConfigId = String(id);
+        });
         document.getElementById('config-load')?.addEventListener('click', ()=>{
           const sel = document.getElementById('config-select');
           const id = sel && sel.value;
           if(!id){ alert('設定を選択してください'); return; }
           loadConfigById(id);
+          window.__currentConfigId = String(id);
         });
         // 初期ロード
         refreshConfigs();
