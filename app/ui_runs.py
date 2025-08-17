@@ -3,8 +3,10 @@ from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.run_registry import REGISTRY
+from pathlib import Path
 
-templates = Jinja2Templates(directory="templates")
+_BASE_DIR = Path(__file__).resolve().parents[1]
+templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
 @app.get("/ui/runs", response_class=HTMLResponse)

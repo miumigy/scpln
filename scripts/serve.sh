@@ -15,9 +15,35 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # Install deps if uvicorn is missing
+# 依存インストール: uvicorn が無い、または requirements.txt が更新、または必須モジュール不足の場合に実行
+REQ_HASH_FILE="$VENV_DIR/requirements.hash"
+NEED_INSTALL=0
+
 if ! command -v uvicorn >/dev/null 2>&1; then
+  NEED_INSTALL=1
+fi
+
+if [[ -f requirements.txt ]]; then
+  NEW_HASH=$(sha256sum requirements.txt | awk '{print $1}')
+  OLD_HASH=$(cat "$REQ_HASH_FILE" 2>/dev/null || true)
+  if [[ "$NEW_HASH" != "$OLD_HASH" ]]; then
+    NEED_INSTALL=1
+  fi
+fi
+
+# FastAPI UI で必要なモジュールの存在チェック（不足時はインストール）
+python - <<'PY' 2>/dev/null || NEED_INSTALL=1
+import importlib
+for m in ("fastapi","jinja2","multipart"):
+    importlib.import_module(m)
+PY
+
+if [[ "$NEED_INSTALL" == "1" ]]; then
   echo "[setup] installing dependencies from requirements.txt"
   pip install -r requirements.txt
+  if [[ -f requirements.txt ]]; then
+    sha256sum requirements.txt | awk '{print $1}' > "$REQ_HASH_FILE" || true
+  fi
 fi
 
 PORT="${PORT:-8000}"
@@ -25,6 +51,13 @@ HOST="${HOST:-0.0.0.0}"
 RELOAD_FLAG=""
 if [[ "${RELOAD:-0}" == "1" ]]; then
   RELOAD_FLAG="--reload --reload-dir ."
+fi
+
+# 既存の待ち受けがある場合は停止を試みる
+if ss -ltnp 2>/dev/null | grep -q ":${PORT} "; then
+  echo "[warn] :$PORT is already in use. attempting to stop existing uvicorn..."
+  PORT="$PORT" bash scripts/stop.sh || true
+  sleep 1
 fi
 
 echo "[run] starting uvicorn on http://$HOST:$PORT ${RELOAD_FLAG:+(reload)}"

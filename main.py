@@ -21,22 +21,22 @@ except Exception:
     pass
 
 try:
-    import app.run_list_api  # noqa: F401
+    from app import run_list_api as _run_list_api  # noqa: F401
 except Exception:
     pass
 
 try:
-    import app.trace_export_api  # noqa: F401
+    from app import trace_export_api as _trace_export_api  # noqa: F401
 except Exception:
     pass
 
 try:
-    import app.ui_runs  # noqa: F401
+    from app import ui_runs as _ui_runs  # noqa: F401
 except Exception:
     pass
 
 try:
-    import app.ui_compare  # noqa: F401
+    from app import ui_compare as _ui_compare  # noqa: F401
 except Exception:
     pass
 

@@ -27,7 +27,13 @@
       <li>results: {{ counts.results_len }}</li>
       <li>daily_profit_loss: {{ counts.pl_len }}</li>
       <li>cost_trace: {{ counts.trace_len }}</li>
-      <li><a role="button" class="secondary" href="/runs/{{ run_id }}/trace.csv">Download trace.csv</a></li>
+      <li style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <span class="mono">CSV:</span>
+        <a role="button" class="secondary" href="/runs/{{ run_id }}/results.csv">results.csv</a>
+        <a role="button" class="secondary" href="/runs/{{ run_id }}/pl.csv">pl.csv</a>
+        <a role="button" class="secondary" href="/runs/{{ run_id }}/summary.csv">summary.csv</a>
+        <a role="button" class="secondary" href="/runs/{{ run_id }}/trace.csv">trace.csv</a>
+      </li>
     </ul>
   </section>
 
