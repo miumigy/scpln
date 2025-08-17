@@ -40,6 +40,11 @@ try:
 except Exception:
     pass
 
+try:
+    from app import config_api as _config_api  # noqa: F401
+    from app import ui_configs as _ui_configs  # noqa: F401
+except Exception:
+    pass
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
