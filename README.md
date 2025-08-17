@@ -98,9 +98,51 @@
   - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
   - レスポンス: `metrics`（各runの主要KPI）と `diffs`（先頭runとの差分）
 
+- CSV エクスポート（Runごと）:
+  - `GET /runs/{run_id}/results.csv`: 実行結果（配列はJSON文字列、ネストはドット区切りでフラット化）
+  - `GET /runs/{run_id}/pl.csv`: 日次PL（同上）
+  - `GET /runs/{run_id}/summary.csv`: サマリ（`run_id,metric,value`）
+  - `GET /runs/{run_id}/trace.csv`: コストトレース
+
 備考
 - `RunRegistry` はプロセス内でのみ保持（再起動でクリア）。保持件数は既定50件。
 - `schema_version` は入力の `schema_version` が存在すればそれを反映、無い場合は `"1.0"`。
+
+#### UI（ラン履歴/比較）
+
+- 一覧: `GET /ui/runs`（右上ナビから別タブで遷移）
+  - API連携で `GET /runs` を再取得（Refresh）
+  - 選択チェックボックス → Compare フォームに反映（Use selected）
+- 詳細: `GET /ui/runs/{run_id}`
+  - Summary 表示、Artifacts 件数、各種 CSV ダウンロード（results/pl/summary/trace）
+  - APIからの再取得ボタン（Refresh summary from API）
+- 比較: `POST /ui/compare`
+  - 入力: `run_ids`（カンマ区切り）
+  - 表示: Metrics（横並び）と Diffs（先頭基準の絶対/比）
+
+##### フロー図（Mermaid）
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant UI
+  participant API
+  participant REG as RunRegistry
+
+  User->>API: POST /simulation
+  API->>REG: save run
+  User->>UI: GET /ui/runs
+  UI->>API: GET /runs
+  API-->>UI: runs list
+  User->>UI: open run detail
+  UI->>API: GET /runs/{id}?detail=false
+  API-->>UI: summary
+  User->>API: GET /runs/{id}/results.csv
+  API-->>User: CSV
+  User->>UI: POST /ui/compare (run_ids)
+  UI->>REG: read summaries
+  UI-->>User: metrics + diffs
+```
 
 ## 運用コマンド
 
