@@ -26,13 +26,34 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
+            // If branch is already deleted (e.g., auto-merged), skip gracefully
+            try {
+              await github.rest.repos.getBranch({ owner, repo, branch });
+            } catch (e) {
+              if (e.status === 404) {
+                core.info(`Branch ${branch} not found (likely merged/deleted). Skipping auto-PR.`);
+                return;
+              }
+              throw e;
+            }
+
             // Check if an open PR already exists for this branch
             const prs = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${branch}` });
 
-            // Build summary from compare
-            const compare = await github.rest.repos.compareCommits({ owner, repo, base: 'main', head: branch });
-            const files = compare.data.files || [];
-            const commitsAll = compare.data.commits || [];
+            // Build summary from compare, tolerate 404 (branch might have just been deleted)
+            let files = [], commitsAll = [];
+            try {
+              const compare = await github.rest.repos.compareCommits({ owner, repo, base: 'main', head: branch });
+              files = compare.data.files || [];
+              commitsAll = compare.data.commits || [];
+            } catch (e) {
+              if (e.status === 404) {
+                core.warning(`compareCommits returned 404 for ${branch}. Proceeding with empty summary.`);
+              } else {
+                throw e;
+              }
+            }
+
             const filesList = files.slice(0, 20).map(f => `- ${f.filename} (+${f.additions} / -${f.deletions})`).join('\n');
             const extra = files.length > 20 ? `\n...and ${files.length - 20} more files` : '';
             const additions = files.reduce((a,f)=>a+f.additions,0);
