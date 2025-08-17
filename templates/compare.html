@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Compare</h2>
+  {% if rows %}
+  <h3>Metrics</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>run_id</th>
+        {% for k in keys %}<th>{{ k }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
+        {% for k in keys %}
+        <td>{{ "%.4f"|format(r[k] or 0) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if diffs %}
+  <h3>Diffs (base = {{ diffs[0].base }})</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>target</th>
+        {% for k in keys %}<th>{{ k }} (abs / %)</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in diffs %}
+      <tr>
+        <td class="mono">{{ d.target }}</td>
+        {% for k in keys %}
+          {% set v = d[k] %}
+          <td>{{ "%.4f"|format(v.abs or 0) }} / {% if v.pct is not none %}{{ "%.2f"|format(v.pct) }}%{% else %}-{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}
+    <p>No rows.</p>
+  {% endif %}
+  <footer>
+    <a role="button" href="/ui/runs">← Back to runs</a>
+  </footer>
+</section>
+{% endblock %}
+
