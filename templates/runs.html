@@ -2,10 +2,14 @@
 {% block content %}
 <section>
   <h2>Runs</h2>
+  <p>
+    <button id="reload-btn" type="button">Refresh from API</button>
+  </p>
   {% if rows %}
   <table role="grid">
     <thead>
       <tr>
+        <th></th>
         <th>run_id</th>
         <th>started_at</th>
         <th>dur(ms)</th>
@@ -15,9 +19,10 @@
         <th></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="runs-tbody">
       {% for r in rows %}
       <tr>
+        <td><input class="pick" type="checkbox" value="{{ r.run_id }}" /></td>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
         <td>{{ r.started_at }}</td>
         <td>{{ r.duration_ms }}</td>
@@ -38,12 +43,17 @@
 </section>
 <section>
   <h3>Compare</h3>
-  <form method="post" action="/ui/compare">
+  <form method="post" action="/ui/compare" id="compare-form">
     <label>Run IDs (comma-separated)
-      <input class="mono" type="text" name="run_ids" placeholder="id1,id2" required />
+      <input id="run-ids" class="mono" type="text" name="run_ids" placeholder="id1,id2" required />
     </label>
+    <small>上のチェックボックス選択を反映するには「Use selected」を押下</small>
+    <button id="use-selected" type="button" class="secondary">Use selected</button>
     <button type="submit">Compare</button>
   </form>
   </section>
 {% endblock %}
 
+{% block scripts %}
+<script src="/static/js/runs_ui.js"></script>
+{% endblock %}
