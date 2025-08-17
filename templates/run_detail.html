@@ -37,3 +37,30 @@
 </article>
 {% endblock %}
 
+{% block scripts %}
+<script>
+(function(){
+  const runId = {{ run_id|tojson|safe }};
+  const btn = document.createElement('button');
+  btn.textContent = 'Refresh summary from API';
+  btn.type = 'button';
+  const header = document.querySelector('article header');
+  if (header) header.appendChild(btn);
+
+  async function refresh() {
+    try {
+      const res = await fetch(`/runs/${runId}?detail=false`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const tbody = document.querySelector('section table tbody');
+      if (!tbody) return;
+      const s = data.summary || {};
+      tbody.innerHTML = Object.keys(s).map(k => `<tr><th class="mono">${k}</th><td>${s[k]}</td></tr>`).join('');
+    } catch (e) {
+      console.error(e); alert('Failed to refresh from API');
+    }
+  }
+  btn.addEventListener('click', refresh);
+})();
+</script>
+{% endblock %}
