@@ -68,9 +68,7 @@
             <div class="configs-bar">
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
-              <button id="config-load" class="run-button" style="padding:6px 12px;">読み込み</button>
-              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">再読込</button>
-              <a class="nav-link" href="/ui/configs" target="_blank" rel="noopener noreferrer">一覧を開く</a>
+              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -158,13 +156,6 @@
           const sel = ev.target;
           const id = sel && sel.value;
           if(!id) return;
-          loadConfigById(id);
-          window.__currentConfigId = String(id);
-        });
-        document.getElementById('config-load')?.addEventListener('click', ()=>{
-          const sel = document.getElementById('config-select');
-          const id = sel && sel.value;
-          if(!id){ alert('設定を選択してください'); return; }
           loadConfigById(id);
           window.__currentConfigId = String(id);
         });
