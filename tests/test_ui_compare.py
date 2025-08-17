@@ -15,7 +15,12 @@ def test_ui_compare_page_roundtrip():
         "nodes": [{"node_type": "store", "name": "S1", "initial_stock": {"P1": 5}}],
         "network": [],
         "customer_demand": [
-            {"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}
+            {
+                "store_name": "S1",
+                "product_name": "P1",
+                "demand_mean": 1,
+                "demand_std_dev": 0,
+            }
         ],
         "random_seed": 1,
     }
@@ -27,4 +32,3 @@ def test_ui_compare_page_roundtrip():
     assert r.status_code == 200
     assert "Compare" in r.text
     assert id1 in r.text and id2 in r.text
-

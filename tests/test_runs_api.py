@@ -6,8 +6,14 @@ importlib.import_module("app.run_list_api")
 
 from app.api import app
 from domain.models import (
-    SimulationInput, Product, MaterialNode, FactoryNode, WarehouseNode, StoreNode,
-    NetworkLink, CustomerDemand
+    SimulationInput,
+    Product,
+    MaterialNode,
+    FactoryNode,
+    WarehouseNode,
+    StoreNode,
+    NetworkLink,
+    CustomerDemand,
 )
 
 
@@ -26,7 +32,11 @@ def _payload(dm: float):
             NetworkLink(from_node="F1", to_node="W1"),
             NetworkLink(from_node="W1", to_node="S1"),
         ],
-        customer_demand=[CustomerDemand(store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0)],
+        customer_demand=[
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0
+            )
+        ],
         random_seed=1,
     )
 
@@ -51,4 +61,3 @@ def test_runs_list_and_get():
 
     g404 = client.get("/runs/does-not-exist")
     assert g404.status_code == 404
-

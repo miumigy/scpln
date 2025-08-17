@@ -8,8 +8,14 @@ importlib.import_module("app.simulation_api")
 from app.api import app
 from app.run_registry import REGISTRY
 from domain.models import (
-    SimulationInput, Product, MaterialNode, FactoryNode, WarehouseNode, StoreNode,
-    NetworkLink, CustomerDemand
+    SimulationInput,
+    Product,
+    MaterialNode,
+    FactoryNode,
+    WarehouseNode,
+    StoreNode,
+    NetworkLink,
+    CustomerDemand,
 )
 
 UUID4_RE = re.compile(
@@ -33,7 +39,11 @@ def _payload():
             NetworkLink(from_node="F1", to_node="W1"),
             NetworkLink(from_node="W1", to_node="S1"),
         ],
-        customer_demand=[CustomerDemand(store_name="S1", product_name="P1", demand_mean=0, demand_std_dev=0)],
+        customer_demand=[
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=0, demand_std_dev=0
+            )
+        ],
         random_seed=1,
     )
 
@@ -48,4 +58,3 @@ def test_run_id_and_registry_put():
     rec = REGISTRY.get(body["run_id"])
     assert rec and rec["run_id"] == body["run_id"]
     assert "results" in rec and "daily_profit_loss" in rec
-

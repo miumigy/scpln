@@ -1,6 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
-from fastapi import Body, Form, HTTPException
+from fastapi import Form, HTTPException
 from app.api import app
 from app.db import list_configs, get_config, create_config, update_config, delete_config
 
@@ -58,4 +57,3 @@ def configs_delete(cfg_id: int):
         raise HTTPException(status_code=404, detail="config not found")
     delete_config(cfg_id)
     return {"ok": True}
-
