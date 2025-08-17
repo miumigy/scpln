@@ -120,29 +120,9 @@
   - 入力: `run_ids`（カンマ区切り）
   - 表示: Metrics（横並び）と Diffs（先頭基準の絶対/比）
 
-##### フロー図（Mermaid）
+##### フロー図の位置づけ
 
-```mermaid
-sequenceDiagram
-  actor User
-  participant UI
-  participant API
-  participant REG as RunRegistry
-
-  User->>API: POST /simulation
-  API->>REG: save run
-  User->>UI: GET /ui/runs
-  UI->>API: GET /runs
-  API-->>UI: runs list
-  User->>UI: open run detail
-  UI->>API: GET /runs/{id}?detail=false
-  API-->>UI: summary
-  User->>API: GET /runs/{id}/results.csv
-  API-->>User: CSV
-  User->>UI: POST /ui/compare (run_ids)
-  UI->>REG: read summaries
-  UI-->>User: metrics + diffs
-```
+ラン実行から履歴・比較・CSVまでの一連の流れは、下記「図解 > 時系列フロー（シーケンス）」に統合して掲載しています。
 
 ## 運用コマンド
 
@@ -646,26 +626,42 @@ classDiagram
 ```mermaid
 sequenceDiagram
   actor User as Browser
+  participant UI as UI
   participant API as FastAPI
-  participant Sim as SupplyChainSimulator
-  participant Nodes as Nodes
+  participant Sim as Simulator
+  participant REG as RunRegistry
 
+  %% 実行
   User->>API: POST /simulation
-  API->>Sim: instantiate and run
-  loop day 1..planning_horizon
-    Sim->>Sim: Receive shipments and production
-    Sim->>Nodes: Customer demand at stores
-    Sim->>Nodes: Propagate upstream demand
-    Sim->>Nodes: Ship and backorder
-    Sim->>Nodes: Plan production
-    Sim->>Nodes: Order components
-    Sim->>Nodes: Replenish stores and warehouses
-    Sim->>Sim: Snapshot and Profit Loss
-  end
-  Sim-->>API: results[], profit_loss[], summary, cost_trace[]
-  API-->>User: 200 OK (JSON with results, profit_loss, summary, cost_trace)
-  User->>User: Click CSV download buttons (Results/PL/Trace/Summary)
-  User-->>User: Browser generates results.csv, profit_loss.csv, cost_trace.csv (filtered), summary.csv
+  API->>Sim: run()
+  Sim-->>API: results, PL, summary, trace
+  API->>REG: save run (run_id)
+  API-->>User: 200 JSON { run_id, results, daily_profit_loss, summary, cost_trace }
+
+  %% 履歴一覧
+  User->>UI: GET /ui/runs
+  UI->>API: GET /runs
+  API-->>UI: runs list (recent)
+
+  %% 詳細
+  User->>UI: open /ui/runs/{id}
+  UI->>API: GET /runs/{id}?detail=false
+  API-->>UI: summary (light)
+
+  %% CSV エクスポート
+  User->>API: GET /runs/{id}/results.csv
+  API-->>User: CSV
+  User->>API: GET /runs/{id}/pl.csv
+  API-->>User: CSV
+  User->>API: GET /runs/{id}/summary.csv
+  API-->>User: CSV
+  User->>API: GET /runs/{id}/trace.csv
+  API-->>User: CSV
+
+  %% 比較
+  User->>UI: POST /ui/compare (run_ids)
+  UI->>REG: read summaries
+  UI-->>User: metrics + diffs
 ```
 
 ## 入出力スキーマ定義
