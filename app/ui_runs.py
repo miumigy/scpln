@@ -3,6 +3,7 @@ from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.run_registry import REGISTRY
+from app.utils import ms_to_jst_str
 from pathlib import Path
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -19,13 +20,14 @@ def ui_runs(request: Request):
             {
                 "run_id": rid,
                 "started_at": rec.get("started_at"),
+                "started_at_str": ms_to_jst_str(rec.get("started_at")),
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
                 "fill_rate": (rec.get("summary") or {}).get("fill_rate"),
                 "profit_total": (rec.get("summary") or {}).get("profit_total"),
             }
         )
-    return templates.TemplateResponse("runs.html", {"request": request, "rows": rows})
+    return templates.TemplateResponse("runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"})
 
 
 @app.get("/ui/runs/{run_id}", response_class=HTMLResponse)
@@ -41,5 +43,5 @@ def ui_run_detail(request: Request, run_id: str):
     }
     return templates.TemplateResponse(
         "run_detail.html",
-        {"request": request, "run_id": run_id, "summary": summary, "counts": counts},
+        {"request": request, "run_id": run_id, "summary": summary, "counts": counts, "subtitle": "Run Viewer"},
     )

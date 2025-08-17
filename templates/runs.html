@@ -24,7 +24,7 @@
       <tr>
         <td><input class="pick" type="checkbox" value="{{ r.run_id }}" /></td>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
-        <td>{{ r.started_at }}</td>
+        <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
         <td>{{ r.duration_ms }}</td>
         <td>{{ r.schema_version }}</td>
         <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
@@ -55,4 +55,25 @@
 
 {% block scripts %}
 <script src="/static/js/runs_ui.js"></script>
+<script>
+(function(){
+  function fmtJst(ms){
+    var n = Number(ms);
+    if (!Number.isFinite(n)) return '';
+    var t = new Date(n + 9*3600*1000);
+    var y = t.getUTCFullYear();
+    var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+    var d = String(t.getUTCDate()).padStart(2,'0');
+    var h = String(t.getUTCHours()).padStart(2,'0');
+    var mi = String(t.getUTCMinutes()).padStart(2,'0');
+    var s = String(t.getUTCSeconds()).padStart(2,'0');
+    return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s;
+  }
+  document.querySelectorAll('td.ts-ms').forEach(function(td){
+    var ms = td.getAttribute('data-ms');
+    var txt = fmtJst(ms);
+    if (txt) td.textContent = txt;
+  });
+})();
+</script>
 {% endblock %}

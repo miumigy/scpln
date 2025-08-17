@@ -11,12 +11,26 @@
     return n.toFixed(digits);
   }
 
+  function fmtJst(ms) {
+    if (ms === null || ms === undefined) return '';
+    const n = Number(ms);
+    if (!Number.isFinite(n)) return '';
+    const t = new Date(n + 9 * 3600 * 1000); // shift to JST
+    const y = t.getUTCFullYear();
+    const mo = String(t.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(t.getUTCDate()).padStart(2, '0');
+    const h = String(t.getUTCHours()).padStart(2, '0');
+    const mi = String(t.getUTCMinutes()).padStart(2, '0');
+    const s = String(t.getUTCSeconds()).padStart(2, '0');
+    return `${y}/${mo}/${d} ${h}:${mi}:${s}`;
+  }
+
   function rowHtml(r) {
     return `
       <tr>
         <td><input class="pick" type="checkbox" value="${r.run_id}" /></td>
         <td class="mono truncate" title="${r.run_id}">${r.run_id}</td>
-        <td>${r.started_at ?? ''}</td>
+        <td>${fmtJst(r.started_at)}</td>
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>

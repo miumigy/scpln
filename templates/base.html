@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>SCPLN</title>
+  <title>サプライチェーンシミュレーション</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- PicoCSS (CDN) -->
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
@@ -14,7 +14,12 @@
   </head>
 <body>
   <main class="container">
-    <header><hgroup><h1>SCPLN</h1><p class="mono">Run Viewer</p></hgroup></header>
+    <header>
+      <hgroup>
+        <h1>サプライチェーンシミュレーション</h1>
+        {% if subtitle %}<p class="mono">{{ subtitle }}</p>{% endif %}
+      </hgroup>
+    </header>
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}

@@ -12,7 +12,7 @@
       <tr>
         <th>ID</th>
         <th>名前</th>
-        <th>更新時刻(ms)</th>
+        <th>更新時刻</th>
         <th></th>
       </tr>
     </thead>
@@ -21,13 +21,13 @@
       <tr>
         <td class="mono">{{ r.id }}</td>
         <td class="mono truncate">{{ r.name }}</td>
-        <td>{{ r.updated_at }}</td>
+        <td class="ts-ms" data-ms="{{ r.updated_at }}">{{ r.updated_at_str or r.updated_at }}</td>
         <td>
           <a role="button" href="/ui/configs/{{ r.id }}/edit">編集</a>
           <form method="post" action="/ui/configs/{{ r.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか?');">
             <button type="submit" class="secondary">削除</button>
           </form>
-          <a role="button" class="contrast" href="/?config_id={{ r.id }}" target="_blank" rel="noopener noreferrer">エディタで開く</a>
+          <a role="button" class="contrast" href="/?config_id={{ r.id }}" target="_blank" rel="noopener noreferrer">Simへ</a>
         </td>
       </tr>
       {% endfor %}
@@ -39,3 +39,26 @@
 </section>
 {% endblock %}
 
+{% block scripts %}
+<script>
+  (function(){
+    function fmtJst(ms){
+      var n = Number(ms);
+      if (!Number.isFinite(n)) return '';
+      var t = new Date(n + 9*3600*1000); // JSTへシフトしUTC系getterで安全に整形
+      var y = t.getUTCFullYear();
+      var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+      var d = String(t.getUTCDate()).padStart(2,'0');
+      var h = String(t.getUTCHours()).padStart(2,'0');
+      var mi = String(t.getUTCMinutes()).padStart(2,'0');
+      var s = String(t.getUTCSeconds()).padStart(2,'0');
+      return y + '/' + mo + '/' + d + ' ' + h + ':' + mi + ':' + s;
+    }
+    document.querySelectorAll('td.ts-ms').forEach(function(td){
+      var ms = td.getAttribute('data-ms');
+      var txt = fmtJst(ms);
+      if (txt) td.textContent = txt;
+    });
+  })();
+  </script>
+{% endblock %}

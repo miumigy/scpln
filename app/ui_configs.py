@@ -3,6 +3,7 @@ from fastapi import Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from app.api import app
+from app.utils import ms_to_jst_str
 from app.db import list_configs, get_config, create_config, update_config, delete_config
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -12,16 +13,19 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 @app.get("/ui/configs", response_class=HTMLResponse)
 def ui_configs_list(request: Request):
     rows = list_configs()
+    # 表示用にJST日時の整形カラムを付与
+    for r in rows:
+        r["updated_at_str"] = ms_to_jst_str(r.get("updated_at"))
+        r["created_at_str"] = ms_to_jst_str(r.get("created_at"))
     return templates.TemplateResponse(
-        "configs_list.html", {"request": request, "rows": rows}
+        "configs_list.html", {"request": request, "rows": rows, "subtitle": "設定マスタ"}
     )
 
 
 @app.get("/ui/configs/new", response_class=HTMLResponse)
 def ui_configs_new(request: Request):
     return templates.TemplateResponse(
-        "configs_edit.html",
-        {"request": request, "mode": "create", "rec": {"name": "", "json_text": ""}},
+        "configs_edit.html", {"request": request, "mode": "create", "rec": {"name": "", "json_text": ""}, "subtitle": "設定マスタ"}
     )
 
 
@@ -37,7 +41,7 @@ def ui_configs_edit(request: Request, cfg_id: int):
     if not rec:
         raise HTTPException(status_code=404, detail="config not found")
     return templates.TemplateResponse(
-        "configs_edit.html", {"request": request, "mode": "edit", "rec": rec}
+        "configs_edit.html", {"request": request, "mode": "edit", "rec": rec, "subtitle": "設定マスタ"}
     )
 
 
