@@ -36,6 +36,8 @@
         .nav-actions { display:flex; align-items:center; gap:12px; }
         .nav-link { color:#007bff; text-decoration:none; font-weight:600; }
         .nav-link:hover { text-decoration:underline; }
+        .configs-bar { display:flex; align-items:center; gap:8px; margin:8px 0; }
+        .configs-bar select { min-width: 280px; }
         .filters { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
         .filters label { font-size: 0.9em; }
         .filters select { padding: 5px; border-radius: 4px; border: 1px solid #ced4da; }
@@ -49,6 +51,7 @@
         <h1>サプライチェーンシミュレーション</h1>
         <div class="nav-actions">
             <a class="nav-link" href="/ui/runs" title="ラン履歴" target="_blank" rel="noopener noreferrer">ラン履歴</a>
+            <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
             <button class="run-button">シミュレーション実行</button>
         </div>
     </div>
@@ -62,6 +65,13 @@
         </div>
 
         <div id="config" class="tab-content active">
+            <div class="configs-bar">
+              <label for="config-select">設定マスタ:</label>
+              <select id="config-select"><option value="">（選択）</option></select>
+              <button id="config-load" class="run-button" style="padding:6px 12px;">読み込み</button>
+              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">再読込</button>
+              <a class="nav-link" href="/ui/configs" target="_blank" rel="noopener noreferrer">一覧を開く</a>
+            </div>
             <textarea id="simulation-editor"></textarea>
         </div>
 
@@ -117,12 +127,38 @@
       (function(){
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
-        if (!cid) return;
-        fetch(`/configs/${cid}`).then(r=>r.ok?r.json():null).then(data=>{
-          if (!data || !data.json_text) return;
-          const el = document.getElementById('simulation-editor');
-          if (el) el.value = data.json_text;
-        }).catch(()=>{});
+        function loadConfigById(id){
+          if (!id) return;
+          fetch(`/configs/${id}`).then(r=>r.ok?r.json():null).then(data=>{
+            if (!data || !data.json_text) return;
+            const el = document.getElementById('simulation-editor');
+            if (el) el.value = data.json_text;
+          }).catch(()=>{});
+        }
+        if (cid) {
+          loadConfigById(cid);
+        }
+
+        async function refreshConfigs(){
+          try{
+            const res = await fetch('/configs');
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('config-select');
+            if(!sel) return;
+            const opts = (data.configs||[]).map(r=>({value: r.id, label: `#${r.id} ${r.name}`}));
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}">${o.label}</option>`).join('');
+          }catch(e){/* noop */}
+        }
+        document.getElementById('configs-refresh')?.addEventListener('click', refreshConfigs);
+        document.getElementById('config-load')?.addEventListener('click', ()=>{
+          const sel = document.getElementById('config-select');
+          const id = sel && sel.value;
+          if(!id){ alert('設定を選択してください'); return; }
+          loadConfigById(id);
+        });
+        // 初期ロード
+        refreshConfigs();
       })();
     </script>
 </body>
