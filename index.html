@@ -113,5 +113,17 @@
     </div>
 
     <script type="module" src="/static/js/main.js?v=1.2.1"></script>
+    <script>
+      (function(){
+        const params = new URLSearchParams(location.search);
+        const cid = params.get('config_id');
+        if (!cid) return;
+        fetch(`/configs/${cid}`).then(r=>r.ok?r.json():null).then(data=>{
+          if (!data || !data.json_text) return;
+          const el = document.getElementById('simulation-editor');
+          if (el) el.value = data.json_text;
+        }).catch(()=>{});
+      })();
+    </script>
 </body>
 </html>
