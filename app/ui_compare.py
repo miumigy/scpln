@@ -3,8 +3,10 @@ from fastapi import Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from typing import List
+from pathlib import Path
 
-templates = Jinja2Templates(directory="templates")
+_BASE_DIR = Path(__file__).resolve().parents[1]
+templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
 @app.post("/ui/compare", response_class=HTMLResponse)
@@ -60,4 +62,3 @@ def ui_compare(request: Request, run_ids: str = Form(...)):
         "compare.html",
         {"request": request, "rows": rows, "diffs": diffs, "keys": COMPARE_KEYS},
     )
-
