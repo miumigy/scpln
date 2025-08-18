@@ -20,4 +20,3 @@ def ms_to_jst_str(ms: Any) -> str:
         return dt.strftime("%Y/%m/%d %H:%M:%S")
     except Exception:
         return ""
-

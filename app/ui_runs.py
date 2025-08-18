@@ -27,7 +27,9 @@ def ui_runs(request: Request):
                 "profit_total": (rec.get("summary") or {}).get("profit_total"),
             }
         )
-    return templates.TemplateResponse("runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"})
+    return templates.TemplateResponse(
+        "runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"}
+    )
 
 
 @app.get("/ui/runs/{run_id}", response_class=HTMLResponse)
@@ -43,5 +45,11 @@ def ui_run_detail(request: Request, run_id: str):
     }
     return templates.TemplateResponse(
         "run_detail.html",
-        {"request": request, "run_id": run_id, "summary": summary, "counts": counts, "subtitle": "Run Viewer"},
+        {
+            "request": request,
+            "run_id": run_id,
+            "summary": summary,
+            "counts": counts,
+            "subtitle": "Run Viewer",
+        },
     )
