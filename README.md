@@ -17,6 +17,7 @@
 - 図解（アーキテクチャ / クラス / 時系列）
 - 入出力スキーマ（詳細）
 - コストトレース仕様（概要）
+ - [拡張戦略（エンタープライズ対応）](#拡張戦略エンタープライズ対応)
 
 ## 概要 / 構成
 
@@ -285,3 +286,9 @@ sequenceDiagram
 - 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
 - レコード: `{day, node, item, event, qty, unit_cost, amount, account}`（day は 1-based）
 - 例: 材料購入、輸送、保管、工場生産（固定/変動）などを発生日に計上し、PL へ集約。
+
+## 拡張戦略（エンタープライズ対応）
+
+本プロジェクトをIBP/S&OPを含むエンタープライズ対応へ段階的に拡張するための戦略は、以下のドキュメントにまとめています。
+
+- [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
