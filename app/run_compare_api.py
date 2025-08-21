@@ -43,7 +43,10 @@ def list_runs(
         if limit is None:
             limit = 10
         elif limit > 10:
-            raise HTTPException(status_code=400, detail="detail=true の場合は limit <= 10 にしてください")
+            raise HTTPException(
+                status_code=400,
+                detail="detail=true の場合は limit <= 10 にしてください",
+            )
         runs = REGISTRY.list()
         total = len(runs)
         sliced = runs[offset : offset + limit]
