@@ -81,7 +81,8 @@ bash scripts/stop.sh            # 停止
 
 - `GET /runs`
   - 既定: 軽量（`run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`）
-  - `?detail=true`: フル（`results`/`daily_profit_loss`/`cost_trace`含む）
+  - ページング: `?offset=0&limit=50`（`1..100`）をサポート。レスポンスに `total/offset/limit` を含む
+  - `?detail=true`: フル（`results`/`daily_profit_loss`/`cost_trace`含む、ページング適用）。既定 `limit=10`。`limit>10` は `400 Bad Request`
 
 - `GET /runs/{run_id}`
   - 既定: 軽量メタ＋`summary`
@@ -124,6 +125,7 @@ bash scripts/stop.sh            # 停止
 
 - コマンド: `serve.sh`, `stop.sh`, `status.sh`, `health.sh`
 - `SIM_LOG_LEVEL`（既定 INFO）、`SIM_LOG_TO_FILE=1`（ファイル出力）
+- `REGISTRY_CAPACITY`（既定 50）: RunRegistry のメモリ保持件数
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 

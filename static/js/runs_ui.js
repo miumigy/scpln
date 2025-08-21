@@ -3,6 +3,12 @@
   const reloadBtn = document.getElementById('reload-btn');
   const runIdsInput = document.getElementById('run-ids');
   const useSelectedBtn = document.getElementById('use-selected');
+  const prevBtn = document.getElementById('prev-page');
+  const nextBtn = document.getElementById('next-page');
+  const limitSel = document.getElementById('limit-select');
+  const pagerInfo = document.getElementById('pager-info');
+
+  let state = { offset: 0, limit: 20, total: 0 };
 
   function fmt(v, digits = 3) {
     if (v === null || v === undefined) return '';
@@ -44,12 +50,26 @@
 
   async function reloadRuns() {
     try {
-      const res = await fetch('/runs');
+      const q = new URLSearchParams({ offset: String(state.offset), limit: String(state.limit) });
+      const res = await fetch(`/runs?${q.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const rows = (data.runs || []);
+      state.total = Number(data.total || rows.length || 0);
+      state.offset = Number(data.offset || state.offset);
+      state.limit = Number(data.limit || state.limit);
       if (tbody) {
         tbody.innerHTML = rows.map(rowHtml).join('');
+      }
+      // update pager
+      const start = state.total ? (state.offset + 1) : 0;
+      const end = Math.min(state.offset + state.limit, state.total);
+      if (pagerInfo) pagerInfo.textContent = `${start}-${end} / ${state.total}`;
+      if (prevBtn) prevBtn.disabled = (state.offset <= 0);
+      if (nextBtn) nextBtn.disabled = (state.offset + state.limit >= state.total);
+      if (limitSel && String(state.limit) !== limitSel.value) {
+        // sync select without triggering change
+        limitSel.value = String(state.limit);
       }
     } catch (e) {
       console.error('Failed to reload runs', e);
@@ -69,4 +89,16 @@
 
   if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
+  if (prevBtn) prevBtn.addEventListener('click', () => { state.offset = Math.max(0, state.offset - state.limit); reloadRuns(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { state.offset = state.offset + state.limit; reloadRuns(); });
+  if (limitSel) limitSel.addEventListener('change', () => {
+    const v = Number(limitSel.value);
+    if (!Number.isFinite(v) || v <= 0) return;
+    state.limit = v;
+    state.offset = 0; // reset to first page
+    reloadRuns();
+  });
+
+  // expose for inline script to trigger initial load
+  window.RunsUI = { reloadRuns };
 })();

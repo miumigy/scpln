@@ -29,16 +29,31 @@ def _pick(summary: Dict[str, Any]) -> Dict[str, float]:
 
 
 @app.get("/runs")
-def list_runs(detail: bool = Query(False)):
+def list_runs(
+    detail: bool = Query(False),
+    offset: int = Query(0, ge=0),
+    limit: int | None = Query(None, ge=1, le=100),
+):
     """ラン一覧を返す。
     - detail=false（既定）: 軽量メタ+summary のみ
     - detail=true: フル（results/daily_profit_loss/cost_trace 含む）
     """
+    # 既定の limit を detail に応じて切替。detail=true は既定10、かつ >10 は拒否。
     if detail:
-        return {"runs": REGISTRY.list()}
+        if limit is None:
+            limit = 10
+        elif limit > 10:
+            raise HTTPException(status_code=400, detail="detail=true の場合は limit <= 10 にしてください")
+        runs = REGISTRY.list()
+        total = len(runs)
+        sliced = runs[offset : offset + limit]
+        return {"runs": sliced, "total": total, "offset": offset, "limit": limit}
     ids = REGISTRY.list_ids()
     out = []
-    for rid in ids:
+    total = len(ids)
+    if limit is None:
+        limit = 50
+    for rid in ids[offset : offset + limit]:
         rec = REGISTRY.get(rid) or {}
         out.append(
             {
@@ -49,7 +64,7 @@ def list_runs(detail: bool = Query(False)):
                 "summary": rec.get("summary", {}),
             }
         )
-    return {"runs": out}
+    return {"runs": out, "total": total, "offset": offset, "limit": limit}
 
 
 @app.get("/runs/{run_id}")
