@@ -3,6 +3,7 @@ import csv
 import json
 from typing import Any, Dict, Iterable, List, Set
 from fastapi import HTTPException, Response
+from starlette.responses import StreamingResponse
 from app.api import app
 from app.run_registry import REGISTRY
 
@@ -25,14 +26,21 @@ def get_trace_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     trace = rec.get("cost_trace") or []
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=FIELDS)
-    w.writeheader()
-    for e in trace:
-        row = {"run_id": run_id}
-        row.update({k: e.get(k) for k in FIELDS if k != "run_id"})
-        w.writerow(row)
-    return Response(content=buf.getvalue(), media_type="text/csv")
+    def _iter():
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=FIELDS)
+        w.writeheader()
+        yield buf.getvalue()
+        buf.seek(0)
+        buf.truncate(0)
+        for e in trace:
+            row = {"run_id": run_id}
+            row.update({k: e.get(k) for k in FIELDS if k != "run_id"})
+            w.writerow(row)
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+    return StreamingResponse(_iter(), media_type="text/csv")
 
 
 def _flatten(d: Dict[str, Any], parent: str = "", sep: str = ".") -> Dict[str, Any]:

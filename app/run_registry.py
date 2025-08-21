@@ -45,4 +45,15 @@ def _capacity_from_env(default: int = 50) -> int:
         return default
 
 
-REGISTRY = RunRegistry(capacity=_capacity_from_env(50))
+_BACKEND = os.getenv("REGISTRY_BACKEND", "memory").lower()
+
+if _BACKEND == "db":
+    try:
+        from .run_registry_db import RunRegistryDB  # type: ignore
+
+        REGISTRY = RunRegistryDB()  # type: ignore
+    except Exception:
+        # フォールバック: DB初期化失敗時はメモリ実装
+        REGISTRY = RunRegistry(capacity=_capacity_from_env(50))
+else:
+    REGISTRY = RunRegistry(capacity=_capacity_from_env(50))

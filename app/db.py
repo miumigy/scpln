@@ -30,6 +30,30 @@ def init_db() -> None:
             )
             """
         )
+        # runs テーブル（JSONはTEXT格納。将来PGではJSONB想定）
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS runs (
+                run_id TEXT PRIMARY KEY,
+                started_at INTEGER NOT NULL,
+                duration_ms INTEGER NOT NULL,
+                schema_version TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                results TEXT NOT NULL,
+                daily_profit_loss TEXT NOT NULL,
+                cost_trace TEXT NOT NULL,
+                config_id INTEGER,
+                config_json TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at DESC)
+            """
+        )
 
 
 def list_configs(limit: int = 200) -> List[Dict[str, Any]]:

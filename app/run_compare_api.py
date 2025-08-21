@@ -33,11 +33,22 @@ def list_runs(
     detail: bool = Query(False),
     offset: int = Query(0, ge=0),
     limit: int | None = Query(None, ge=1, le=100),
+    sort: str = Query("started_at"),
+    order: str = Query("desc"),
+    schema_version: str | None = Query(None),
+    config_id: int | None = Query(None),
 ):
     """ラン一覧を返す。
     - detail=false（既定）: 軽量メタ+summary のみ
     - detail=true: フル（results/daily_profit_loss/cost_trace 含む）
     """
+    # サニタイズと limit 既定
+    sort_keys = {"started_at", "duration_ms", "schema_version"}
+    if sort not in sort_keys:
+        sort = "started_at"
+    order = order.lower()
+    if order not in ("asc", "desc"):
+        order = "desc"
     # 既定の limit を detail に応じて切替。detail=true は既定10、かつ >10 は拒否。
     if detail:
         if limit is None:
@@ -48,15 +59,15 @@ def list_runs(
                 detail="detail=true の場合は limit <= 10 にしてください",
             )
         runs = REGISTRY.list()
+        runs = _filter_and_sort(runs, sort, order, schema_version, config_id)
         total = len(runs)
         sliced = runs[offset : offset + limit]
         return {"runs": sliced, "total": total, "offset": offset, "limit": limit}
     ids = REGISTRY.list_ids()
     out = []
-    total = len(ids)
     if limit is None:
         limit = 50
-    for rid in ids[offset : offset + limit]:
+    for rid in ids:
         rec = REGISTRY.get(rid) or {}
         out.append(
             {
@@ -65,8 +76,12 @@ def list_runs(
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
+                "config_id": rec.get("config_id"),
             }
         )
+    out = _filter_and_sort(out, sort, order, schema_version, config_id)
+    total = len(out)
+    out = out[offset : offset + limit]
     return {"runs": out, "total": total, "offset": offset, "limit": limit}
 
 
@@ -114,3 +129,23 @@ def compare_runs(body: Dict[str, Any] = Body(...)):
             diffs.append(diff_row)
 
     return {"metrics": rows, "diffs": diffs}
+
+
+def _filter_and_sort(
+    rows: List[Dict[str, Any]],
+    sort: str,
+    order: str,
+    schema_version: str | None,
+    config_id: int | None,
+) -> List[Dict[str, Any]]:
+    def f(x: Dict[str, Any]) -> bool:
+        if schema_version is not None and x.get("schema_version") != schema_version:
+            return False
+        if config_id is not None and x.get("config_id") != config_id:
+            return False
+        return True
+
+    out = [r for r in rows if f(r)]
+    reverse = order == "desc"
+    out.sort(key=lambda x: (x.get(sort) is None, x.get(sort)), reverse=reverse)
+    return out

@@ -1,8 +1,10 @@
 import logging
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+import uuid
 
 from domain.models import SimulationInput
 
@@ -59,6 +61,18 @@ def validate_input(input_data: SimulationInput) -> None:
                 detail=f"Duplicate network link: {l.from_node}->{l.to_node}",
             )
         seen.add(key)
+
+
+class _RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        request.state.request_id = rid
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = rid
+        return response
+
+
+app.add_middleware(_RequestIDMiddleware)
 
 
 @app.get("/", response_class=HTMLResponse)
