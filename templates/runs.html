@@ -49,6 +49,29 @@
     </label>
     <span id="pager-info" class="mono"></span>
   </div>
+  <div id="filters" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+    <label>Sort
+      <select id="sort-select">
+        <option value="started_at" selected>started_at</option>
+        <option value="duration_ms">duration_ms</option>
+        <option value="schema_version">schema_version</option>
+      </select>
+    </label>
+    <label>Order
+      <select id="order-select">
+        <option value="desc" selected>desc</option>
+        <option value="asc">asc</option>
+      </select>
+    </label>
+    <label>Schema
+      <input id="schema-filter" type="text" placeholder="1.0" size="6" />
+    </label>
+    <label>Config ID
+      <input id="config-filter" type="number" placeholder="" min="1" style="width:7em" />
+    </label>
+    <button id="apply-filter" type="button" class="secondary">Apply</button>
+    <button id="clear-filter" type="button" class="secondary">Clear</button>
+  </div>
   {% else %}
     <p>まだランはありません。/simulation を叩いて生成してください。</p>
   {% endif %}

@@ -7,8 +7,14 @@
   const nextBtn = document.getElementById('next-page');
   const limitSel = document.getElementById('limit-select');
   const pagerInfo = document.getElementById('pager-info');
+  const sortSel = document.getElementById('sort-select');
+  const orderSel = document.getElementById('order-select');
+  const schemaInput = document.getElementById('schema-filter');
+  const configInput = document.getElementById('config-filter');
+  const applyBtn = document.getElementById('apply-filter');
+  const clearBtn = document.getElementById('clear-filter');
 
-  let state = { offset: 0, limit: 20, total: 0 };
+  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '' };
 
   function fmt(v, digits = 3) {
     if (v === null || v === undefined) return '';
@@ -51,6 +57,10 @@
   async function reloadRuns() {
     try {
       const q = new URLSearchParams({ offset: String(state.offset), limit: String(state.limit) });
+      if (state.sort) q.set('sort', state.sort);
+      if (state.order) q.set('order', state.order);
+      if (state.schema_version) q.set('schema_version', state.schema_version);
+      if (state.config_id) q.set('config_id', state.config_id);
       const res = await fetch(`/runs?${q.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -71,6 +81,10 @@
         // sync select without triggering change
         limitSel.value = String(state.limit);
       }
+      if (sortSel && state.sort !== sortSel.value) sortSel.value = state.sort;
+      if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
+      if (schemaInput && schemaInput.value !== (state.schema_version || '')) schemaInput.value = state.schema_version || '';
+      if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
     } catch (e) {
       console.error('Failed to reload runs', e);
       alert('Failed to load runs from API.');
@@ -96,6 +110,23 @@
     if (!Number.isFinite(v) || v <= 0) return;
     state.limit = v;
     state.offset = 0; // reset to first page
+    reloadRuns();
+  });
+  if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; reloadRuns(); });
+  if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; reloadRuns(); });
+  if (applyBtn) applyBtn.addEventListener('click', () => {
+    state.schema_version = (schemaInput && schemaInput.value || '').trim();
+    const cid = (configInput && configInput.value || '').trim();
+    state.config_id = cid;
+    state.offset = 0;
+    reloadRuns();
+  });
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    if (schemaInput) schemaInput.value = '';
+    if (configInput) configInput.value = '';
+    state.schema_version = '';
+    state.config_id = '';
+    state.offset = 0;
     reloadRuns();
   });
 

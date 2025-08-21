@@ -69,22 +69,26 @@ def get_results_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     results = rec.get("results") or []
-    flat_rows = [
-        (
-            _flatten(r)
-            if isinstance(r, dict)
-            else {"data": json.dumps(r, ensure_ascii=False)}
-        )
-        for r in results
-    ]
-    fieldnames = _collect_fieldnames(flat_rows)
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=fieldnames)
-    w.writeheader()
-    for r in flat_rows:
-        row = {"run_id": run_id, **r}
-        w.writerow(row)
-    return Response(content=buf.getvalue(), media_type="text/csv")
+    # 1st pass: collect header
+    field_set: Set[str] = set()
+    for r in results:
+        flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+        field_set.update(flat.keys())
+    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"]) ]
+
+    def _iter():
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=fieldnames)
+        w.writeheader()
+        yield buf.getvalue()
+        buf.seek(0); buf.truncate(0)
+        for r in results:
+            flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+            row = {"run_id": run_id, **flat}
+            w.writerow(row)
+            yield buf.getvalue()
+            buf.seek(0); buf.truncate(0)
+    return StreamingResponse(_iter(), media_type="text/csv")
 
 
 @app.get("/runs/{run_id}/pl.csv")
@@ -93,22 +97,26 @@ def get_pl_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     pl = rec.get("daily_profit_loss") or []
-    flat_rows = [
-        (
-            _flatten(r)
-            if isinstance(r, dict)
-            else {"data": json.dumps(r, ensure_ascii=False)}
-        )
-        for r in pl
-    ]
-    fieldnames = _collect_fieldnames(flat_rows)
-    buf = io.StringIO()
-    w = csv.DictWriter(buf, fieldnames=fieldnames)
-    w.writeheader()
-    for r in flat_rows:
-        row = {"run_id": run_id, **r}
-        w.writerow(row)
-    return Response(content=buf.getvalue(), media_type="text/csv")
+    # 1st pass: collect header
+    field_set: Set[str] = set()
+    for r in pl:
+        flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+        field_set.update(flat.keys())
+    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"]) ]
+
+    def _iter():
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=fieldnames)
+        w.writeheader()
+        yield buf.getvalue()
+        buf.seek(0); buf.truncate(0)
+        for r in pl:
+            flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+            row = {"run_id": run_id, **flat}
+            w.writerow(row)
+            yield buf.getvalue()
+            buf.seek(0); buf.truncate(0)
+    return StreamingResponse(_iter(), media_type="text/csv")
 
 
 @app.get("/runs/{run_id}/summary.csv")
