@@ -1,4 +1,5 @@
 from uuid import uuid4
+import logging
 from fastapi import Query
 from app.api import app, validate_input, set_last_summary
 from domain.models import SimulationInput
@@ -12,6 +13,7 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
     validate_input(payload)
     run_id = str(uuid4())
     start = time.time()
+    logging.info("run started run_id=%s", run_id)
     sim = SupplyChainSimulator(payload)
     results, daily_pl = sim.run()
     duration_ms = int((time.time() - start) * 1000)
@@ -34,6 +36,15 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
         },
     )
     set_last_summary(summary)
+    logging.info(
+        "run completed run_id=%s duration_ms=%d results=%d pl_days=%d trace_events=%d schema=%s",
+        run_id,
+        duration_ms,
+        len(results or []),
+        len(daily_pl or []),
+        len(getattr(sim, "cost_trace", []) or []),
+        getattr(payload, "schema_version", "1.0"),
+    )
     # UIとの互換性のため、profit_loss と summary も返す。
     # また、トレースCSV用途で cost_trace も常に返す（サイズ増を許容）。
     resp = {

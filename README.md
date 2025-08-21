@@ -65,6 +65,7 @@ bash scripts/stop.sh            # 停止
 - ラン履歴: `GET /ui/runs`
   - Refresh: `GET /runs` で一覧再取得
   - チェックボックス → Compare フォームに反映（Use selected）
+  - ページャ: 画面下の Prev/Next/Limit で `offset/limit` を制御（サーバは `total/offset/limit` を返却）
 - ラン詳細: `GET /ui/runs/{run_id}`
   - Summary 表示、Artifacts 件数
   - CSV/JSON リンク（results/pl/summary/trace, config.json/config.csv）
