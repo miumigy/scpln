@@ -36,6 +36,19 @@
       {% endfor %}
     </tbody>
   </table>
+  <div id="pager" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+    <button id="prev-page" type="button" class="secondary">Prev</button>
+    <button id="next-page" type="button" class="secondary">Next</button>
+    <label>Limit
+      <select id="limit-select">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </label>
+    <span id="pager-info" class="mono"></span>
+  </div>
   {% else %}
     <p>まだランはありません。/simulation を叩いて生成してください。</p>
   {% endif %}
@@ -74,6 +87,10 @@
     var txt = fmtJst(ms);
     if (txt) td.textContent = txt;
   });
+  // 初期ロード時にAPIからメタ情報(total/offset/limit)を取得してページャを更新
+  if (window.RunsUI && typeof window.RunsUI.reloadRuns === 'function') {
+    window.RunsUI.reloadRuns();
+  }
 })();
 </script>
 {% endblock %}

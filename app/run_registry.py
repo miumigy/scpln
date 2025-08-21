@@ -1,4 +1,5 @@
 import threading
+import os
 from typing import Dict, Any, List, Optional
 
 
@@ -33,4 +34,15 @@ class RunRegistry:
             return list(reversed(self._order))
 
 
-REGISTRY = RunRegistry(capacity=50)
+def _capacity_from_env(default: int = 50) -> int:
+    s = os.getenv("REGISTRY_CAPACITY")
+    if not s:
+        return default
+    try:
+        v = int(s)
+        return v if v > 0 else default
+    except Exception:
+        return default
+
+
+REGISTRY = RunRegistry(capacity=_capacity_from_env(50))
