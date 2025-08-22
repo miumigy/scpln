@@ -72,6 +72,13 @@ bash scripts/stop.sh            # 停止
   - CSV/JSON リンク（results/pl/summary/trace, config.json/config.csv）
   - Refresh summary from API: `GET /runs/{id}?detail=false`
   - Delete: 右下の [Delete this run] でRun削除（確認ダイアログあり）
+  
+- ジョブ一覧: `GET /ui/jobs`
+  - ステータスフィルタ（queued/running/succeeded/failed）、ページング（Prev/Next）
+  - 列: `job_id, type, status, submitted_at, started_at, finished_at, run_id`
+  - `run_id` からラン詳細へリンク
+- ジョブ詳細: `GET /ui/jobs/{job_id}`
+  - ステータス・タイムスタンプ・`run_id`リンク・`error`表示
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
   - Base/Threshold: 比較画面でベースRunと閾値(%)を指定可能（閾値超えをハイライト）
   - CSV: metrics.csv / diffs.csv をダウンロード（Base/Thresholdをメタ行として含む）
