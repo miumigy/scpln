@@ -159,6 +159,21 @@ SIM_LOG_TO_FILE=1
 REGISTRY_BACKEND=db
 SCPLN_DB=data/scpln.db
 ```
+
+Uvicorn ログもJSONに揃える（オプション）
+- アプリ内のミドルウェアで `http_request_*` ログを出すため、最も簡単なのはUvicornのログ設定は既定のまま（またはアクセスログを抑制）にし、アプリ側のJSONログへ統一する方法です。
+- もしくは `--log-config` を使って Uvicorn の logger/handler をJSON構成にします（サンプルを同梱）。
+
+コマンド例（UvicornのloggerもJSONで出力）
+```bash
+SIM_LOG_JSON=1 uvicorn main:app \
+  --host 0.0.0.0 --port 8000 \
+  --log-config configs/uvicorn_logging.json
+```
+
+補足
+- 上記 `configs/uvicorn_logging.json` は `app.api.JsonFormatter`/`RequestIdFilter` を利用し、`uvicorn.access`/`uvicorn.error`/root をJSON化します。
+- 既存の `scripts/serve.sh` でも `SIM_LOG_JSON=1` を有効化すればアプリ側のログはJSONになります。必要に応じて `--log-config` を付与する運用に変更してください。
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 
