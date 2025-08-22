@@ -71,6 +71,7 @@ bash scripts/stop.sh            # 停止
   - Summary 表示、Artifacts 件数
   - CSV/JSON リンク（results/pl/summary/trace, config.json/config.csv）
   - Refresh summary from API: `GET /runs/{id}?detail=false`
+  - Delete: 右下の [Delete this run] でRun削除（確認ダイアログあり）
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
 
 ## API リファレンス
@@ -91,6 +92,9 @@ bash scripts/stop.sh            # 停止
 - `GET /runs/{run_id}`
   - 既定: 軽量メタ＋`summary`
   - `?detail=true`: フル（サイズ注意）
+  
+- `DELETE /runs/{run_id}`
+  - 指定したRunを削除（メモリ/DBいずれも対応）。運用注意（認可未実装）
 
 - `POST /compare`
   - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
@@ -118,7 +122,7 @@ bash scripts/stop.sh            # 停止
 - ネスト辞書はドット区切りでフラット化（例: `flow_costs.production_fixed`）
 - 配列は JSON 文字列として埋め込み
 - レコードが空でもヘッダは返却
- - CSVは `Content-Disposition` を付与し、`text/csv; charset=utf-8` で配信
+- CSVは `Content-Disposition` を付与し、`text/csv; charset=utf-8` で配信
 
 ## RunRegistry の仕様
 
@@ -134,6 +138,13 @@ bash scripts/stop.sh            # 停止
 - `REGISTRY_BACKEND=memory|db`（既定 memory）: RunRegistry のバックエンド選択（`db` でSQLite永続化）
 - `SCPLN_DB`（既定 `data/scpln.db`）: SQLite DBパス
 - `SIM_LOG_JSON=1`（既定 0）: ログをJSONで出力（`timestamp, level, message, request_id, run_id, ...`）
+- `RUNS_DB_MAX_ROWS`（既定 0=無効）: DBバックエンド時、保持する最新Run件数の上限（超過は古い順に自動削除）
+
+メトリクス（Prometheus）
+- `runs_total`（Counter）: シミュレーション実行回数
+- `simulation_duration_ms`（Histogram）: 実行時間（ms）
+- `http_requests_total{method,path,status}`（Counter）: HTTPリクエスト数
+- `http_request_duration_seconds{method,path,status}`（Histogram）: HTTPレイテンシ（秒）
 
 ログの例（JSON）
 ```json
