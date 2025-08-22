@@ -102,6 +102,7 @@ def update_job_status(
     finished_at: int | None = None,
     run_id: str | None = None,
     error: str | None = None,
+    submitted_at: int | None = None,
 ) -> None:
     with _conn() as c:
         row = c.execute("SELECT job_id FROM jobs WHERE job_id=?", (job_id,)).fetchone()
@@ -118,8 +119,15 @@ def update_job_status(
             sets.append("run_id=?"); params.append(run_id)
         if error is not None:
             sets.append("error=?"); params.append(error)
+        if submitted_at is not None:
+            sets.append("submitted_at=?"); params.append(submitted_at)
         params.append(job_id)
         c.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE job_id=?", tuple(params))
+
+
+def update_job_params(job_id: str, params_json: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE jobs SET params_json=? WHERE job_id=?", (params_json, job_id))
 
 
 def get_job(job_id: str) -> Dict[str, Any] | None:

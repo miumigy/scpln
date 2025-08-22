@@ -77,6 +77,10 @@ class JobManager:
                 continue
             job_id = job.get("job_id")
             jtype = job.get("type")
+            # Skip if job is not in queued state anymore (e.g., canceled)
+            row = db.get_job(job_id)
+            if not row or row.get("status") != "queued":
+                continue
             if jtype == "simulation":
                 self._run_simulation(job_id)
             else:
@@ -131,6 +135,12 @@ class JobManager:
                 JOBS_FAILED.labels(type="simulation").inc()
             except Exception:
                 pass
+
+    def enqueue_existing(self, job_id: str) -> None:
+        row = db.get_job(job_id)
+        if not row:
+            return
+        self.q.put({"job_id": job_id, "type": row.get("type") or "simulation"})
 
 
 # singleton manager (workers will be started on app startup)
