@@ -123,6 +123,7 @@ def validate_input(input_data: SimulationInput) -> None:
 
 
 from app.metrics import observe_http
+from app.jobs import JOB_MANAGER
 
 
 class _RequestIDMiddleware(BaseHTTPMiddleware):
@@ -220,3 +221,19 @@ async def get_summary():
             status_code=404, detail="No summary available yet. Run a simulation first."
         )
     return _LAST_SUMMARY
+
+
+@app.on_event("startup")
+async def _start_jobs():
+    try:
+        JOB_MANAGER.start()
+    except Exception:
+        logging.exception("failed to start JobManager")
+
+
+@app.on_event("shutdown")
+async def _stop_jobs():
+    try:
+        JOB_MANAGER.stop()
+    except Exception:
+        logging.exception("failed to stop JobManager")
