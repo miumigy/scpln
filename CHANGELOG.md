@@ -5,6 +5,14 @@
 - （運用）Auto-merge 設定とコンフリクト検出ワークフローの整備（継続）
 - fix(api): /ui/hierarchy が表示されない問題を修正（mainで app.hierarchy_api / app.ui_hierarchy を読み込み）
 
+## v0.3.6 (2025-08-22)
+
+- feat(ops): Alembic 初期構成を導入（`alembic.ini`/`env.py`/`versions/0001_initial.py`）。`SCPLN_DB` と連動し、CIで `alembic upgrade head` を実行
+- feat(security): 簡易認証トグル `AUTH_MODE=none|apikey|basic` を追加。`API_KEY_HEADER`/`API_KEY_VALUE`、`BASIC_USER`/`BASIC_PASS` に対応
+- feat(obs): OpenTelemetry 計装を追加（`OTEL_ENABLED=1` で有効化、`OTEL_EXPORTER_OTLP_ENDPOINT` に対応）
+- chore(ops): DBバックアップ/復元スクリプトを追加（`scripts/backup_db.sh` / `scripts/restore_db.sh`）
+- docs: README に認証/OTel/Alembic/バックアップ手順を追記、`configs/env.example` を更新
+
 ## v0.3.5 (2025-08-22)
 
 - feat(ui/runs): ページ番号ジャンプ、First/Last 追加、列ヘッダクリックでソート切替（↑/↓表示）、行ごとの CSV 直リンク（res/pl/sum/trace）
