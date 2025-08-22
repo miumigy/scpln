@@ -93,6 +93,17 @@
       state.limit = Number(data.limit || state.limit);
       if (tbody) {
         tbody.innerHTML = rows.map(rowHtml).join('');
+        // 直近の選択を復元
+        try {
+          const saved = JSON.parse(localStorage.getItem('runs_selected') || '[]');
+          if (Array.isArray(saved) && saved.length) {
+            const set = new Set(saved);
+            Array.from(tbody.querySelectorAll('input.pick')).forEach(el => {
+              if (set.has(el.value)) el.checked = true;
+            });
+            if (runIdsInput) runIdsInput.value = saved.join(',');
+          }
+        } catch {}
       }
       // update pager
       const start = state.total ? (state.offset + 1) : 0;
@@ -124,6 +135,7 @@
       return;
     }
     runIdsInput.value = ids.join(',');
+    try { localStorage.setItem('runs_selected', JSON.stringify(ids)); } catch {}
   }
 
   async function deleteSelected() {
@@ -145,6 +157,13 @@
   if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
   if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelected);
+  const compareForm = document.getElementById('compare-form');
+  if (compareForm) compareForm.addEventListener('submit', () => {
+    try {
+      const ids = (runIdsInput && runIdsInput.value) ? runIdsInput.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+      localStorage.setItem('runs_selected', JSON.stringify(ids));
+    } catch {}
+  });
   if (prevBtn) prevBtn.addEventListener('click', () => { state.offset = Math.max(0, state.offset - state.limit); reloadRuns(); });
   if (nextBtn) nextBtn.addEventListener('click', () => { state.offset = state.offset + state.limit; reloadRuns(); });
   if (limitSel) limitSel.addEventListener('change', () => {

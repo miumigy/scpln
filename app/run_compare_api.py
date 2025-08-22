@@ -95,6 +95,8 @@ def list_runs(
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
                 "config_id": rec.get("config_id"),
+                "created_at": rec.get("created_at", rec.get("started_at")),
+                "updated_at": rec.get("updated_at", (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0)),
             }
         )
     # DBバックエンドはSQLでページング
