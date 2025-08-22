@@ -54,6 +54,12 @@ jobs:
               }
             }
 
+            // If no diff with main, skip PR creation gracefully
+            if ((files?.length || 0) === 0 && (commitsAll?.length || 0) === 0) {
+              core.info(`No commits or file changes between main and ${branch}. Skipping auto-PR.`);
+              return;
+            }
+
             const filesList = files.slice(0, 20).map(f => `- ${f.filename} (+${f.additions} / -${f.deletions})`).join('\n');
             const extra = files.length > 20 ? `\n...and ${files.length - 20} more files` : '';
             const additions = files.reduce((a,f)=>a+f.additions,0);
@@ -81,8 +87,16 @@ jobs:
               core.info(`PR already exists: #${pr.number} ${pr.html_url}`);
               await github.rest.pulls.update({ owner, repo, pull_number: pr.number, title: titleDefault, body });
             } else {
-              const created = await github.rest.pulls.create({ owner, repo, head: branch, base: 'main', title: titleDefault, body });
-              core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+              try {
+                const created = await github.rest.pulls.create({ owner, repo, head: branch, base: 'main', title: titleDefault, body });
+                core.info(`Created PR #${created.data.number}: ${created.data.html_url}`);
+              } catch (e) {
+                if (e.status === 422) {
+                  core.info(`Skip creating PR: ${e.message}`);
+                } else {
+                  throw e;
+                }
+              }
             }
 
       - name: Add label (optional)
