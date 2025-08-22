@@ -50,6 +50,17 @@
         <button type="submit">Enqueue</button>
       </div>
     </form>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 12px;">
+      <label>Preset name
+        <input type="text" id="agg-preset-name" placeholder="my-preset" />
+      </label>
+      <button type="button" class="secondary" onclick="saveAggPreset()">Save preset</button>
+      <label>Presets
+        <select id="agg-preset-select"></select>
+      </label>
+      <button type="button" class="secondary" onclick="applyAggPreset()">Apply</button>
+      <button type="button" class="secondary" onclick="deleteAggPreset()">Delete</button>
+    </div>
   </details>
   <form method="get" action="/ui/jobs" style="display:flex; gap:8px; align-items:center; margin:8px 0;">
     <label>Status
@@ -125,6 +136,8 @@ async function submitAggregateJob(e){
   const date_field = document.getElementById('agg-date-field').value.trim() || undefined;
   const tz = document.getElementById('agg-tz').value.trim() || undefined;
   const calendar_mode = document.getElementById('agg-calendar-mode').value || undefined;
+  const week_start_offset = document.getElementById('agg-week-start') ? document.getElementById('agg-week-start').value.trim() : '';
+  const month_len = document.getElementById('agg-month-len') ? document.getElementById('agg-month-len').value.trim() : '';
   if(!run_id){ alert('run_id is required'); return false; }
   const body = { run_id, dataset, bucket };
   if(group_keys.length) body.group_keys = group_keys;
@@ -134,6 +147,8 @@ async function submitAggregateJob(e){
   if(date_field) body.date_field = date_field;
   if(tz) body.tz = tz;
   if(calendar_mode) body.calendar_mode = calendar_mode;
+  if(week_start_offset !== '') body.week_start_offset = Number(week_start_offset);
+  if(month_len !== '') body.month_len = Number(month_len);
   try{
     const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -146,6 +161,90 @@ async function submitAggregateJob(e){
   }
   return false;
 }
+function _readAggForm(){
+  const obj = {
+    run_id: document.getElementById('agg-run-id').value.trim(),
+    dataset: document.getElementById('agg-dataset').value,
+    bucket: document.getElementById('agg-bucket').value,
+    group_keys: (document.getElementById('agg-group-keys').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    sum_fields: (document.getElementById('agg-sum-fields').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    product_level: document.getElementById('agg-product-level').value.trim(),
+    location_level: document.getElementById('agg-location-level').value.trim(),
+    date_field: document.getElementById('agg-date-field').value.trim(),
+    tz: document.getElementById('agg-tz').value.trim(),
+    calendar_mode: document.getElementById('agg-calendar-mode').value,
+    week_start_offset: document.getElementById('agg-week-start') ? document.getElementById('agg-week-start').value.trim(): '',
+    month_len: document.getElementById('agg-month-len') ? document.getElementById('agg-month-len').value.trim(): '',
+  };
+  return obj;
+}
+function _writeAggForm(p){
+  const set = (id,val)=>{ const el=document.getElementById(id); if(!el) return; if(el.tagName==='SELECT'){ el.value=val||''; } else { el.value=val||''; } };
+  set('agg-run-id', p.run_id);
+  set('agg-dataset', p.dataset);
+  set('agg-bucket', p.bucket);
+  set('agg-group-keys', (p.group_keys||[]).join(','));
+  set('agg-sum-fields', (p.sum_fields||[]).join(','));
+  set('agg-product-level', p.product_level);
+  set('agg-location-level', p.location_level);
+  set('agg-date-field', p.date_field);
+  set('agg-tz', p.tz);
+  set('agg-calendar-mode', p.calendar_mode);
+  set('agg-week-start', p.week_start_offset);
+  set('agg-month-len', p.month_len);
+}
+function _loadAggPresets(){
+  try{
+    const raw = localStorage.getItem('agg_presets')||'{}';
+    const list = JSON.parse(raw);
+    const sel = document.getElementById('agg-preset-select');
+    if (!sel) return;
+    sel.innerHTML='';
+    Object.keys(list).sort().forEach(name=>{
+      const opt=document.createElement('option');
+      opt.value=name; opt.textContent=name; sel.appendChild(opt);
+    });
+  }catch{}
+}
+function saveAggPreset(){
+  const name = (document.getElementById('agg-preset-name').value||'').trim();
+  if(!name){ alert('Preset name is required'); return; }
+  const p = _readAggForm();
+  try{
+    const raw = localStorage.getItem('agg_presets')||'{}';
+    const list = JSON.parse(raw);
+    list[name] = p;
+    localStorage.setItem('agg_presets', JSON.stringify(list));
+    _loadAggPresets();
+    alert('Saved preset: '+name);
+  }catch{ alert('Failed to save preset'); }
+}
+function applyAggPreset(){
+  const sel = document.getElementById('agg-preset-select');
+  const name = sel && sel.value;
+  if(!name) { alert('Select a preset'); return; }
+  try{
+    const raw = localStorage.getItem('agg_presets')||'{}';
+    const list = JSON.parse(raw);
+    const p = list[name];
+    if(!p){ alert('Preset not found'); return; }
+    _writeAggForm(p);
+  }catch{ alert('Failed to apply preset'); }
+}
+function deleteAggPreset(){
+  const sel = document.getElementById('agg-preset-select');
+  const name = sel && sel.value;
+  if(!name) { alert('Select a preset'); return; }
+  if(!confirm('Delete preset '+name+'?')) return;
+  try{
+    const raw = localStorage.getItem('agg_presets')||'{}';
+    const list = JSON.parse(raw);
+    delete list[name];
+    localStorage.setItem('agg_presets', JSON.stringify(list));
+    _loadAggPresets();
+  }catch{ alert('Failed to delete preset'); }
+}
+(function(){ _loadAggPresets(); })();
 async function retryJob(id){
   if(!confirm('Retry this job?')) return;
   try{

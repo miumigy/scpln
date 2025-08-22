@@ -13,10 +13,15 @@
   const pagerInfo = document.getElementById('pager-info');
   const sortSel = document.getElementById('sort-select');
   const orderSel = document.getElementById('order-select');
+  const thSortStarted = document.getElementById('th-sort-started');
+  const thSortDur = document.getElementById('th-sort-dur');
+  const thSortSchema = document.getElementById('th-sort-schema');
   const schemaInput = document.getElementById('schema-filter');
   const configInput = document.getElementById('config-filter');
   const applyBtn = document.getElementById('apply-filter');
   const clearBtn = document.getElementById('clear-filter');
+  const pageNumInput = document.getElementById('page-number');
+  const pageTotalSpan = document.getElementById('page-total');
 
   let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '' };
 
@@ -148,6 +153,10 @@
       if (nextBtn) nextBtn.disabled = (state.offset + state.limit >= state.total);
       if (firstBtn) firstBtn.disabled = (state.offset <= 0);
       if (lastBtn) lastBtn.disabled = (state.offset + state.limit >= state.total);
+      // page number display
+      const pages = state.limit > 0 ? Math.ceil((state.total || 0) / state.limit) : 1;
+      if (pageTotalSpan) pageTotalSpan.textContent = String(Math.max(1, pages));
+      if (pageNumInput) pageNumInput.value = String(Math.floor((state.offset / state.limit) + 1));
       if (limitSel && String(state.limit) !== limitSel.value) {
         // sync select without triggering change
         limitSel.value = String(state.limit);
@@ -224,6 +233,28 @@
   });
   if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
   if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
+  function toggleSort(key){
+    if (state.sort === key) {
+      state.order = (state.order === 'asc') ? 'desc' : 'asc';
+    } else {
+      state.sort = key;
+      state.order = 'desc';
+    }
+    state.offset = 0;
+    savePrefs();
+    reloadRuns();
+  }
+  if (thSortStarted) thSortStarted.addEventListener('click', () => toggleSort('started_at'));
+  if (thSortDur) thSortDur.addEventListener('click', () => toggleSort('duration_ms'));
+  if (thSortSchema) thSortSchema.addEventListener('click', () => toggleSort('schema_version'));
+  if (pageNumInput) pageNumInput.addEventListener('change', () => {
+    const v = Number(pageNumInput.value);
+    const pages = state.limit > 0 ? Math.ceil((state.total || 0) / state.limit) : 1;
+    if (!Number.isFinite(v) || v < 1) { pageNumInput.value = '1'; return; }
+    const p = Math.min(Math.max(1, Math.floor(v)), Math.max(1, pages));
+    state.offset = (p - 1) * state.limit;
+    reloadRuns();
+  });
   if (applyBtn) applyBtn.addEventListener('click', () => {
     state.schema_version = (schemaInput && schemaInput.value || '').trim();
     const cid = (configInput && configInput.value || '').trim();

@@ -11,9 +11,9 @@
       <tr>
         <th></th>
         <th>run_id</th>
-        <th>started_at</th>
-        <th>dur(ms)</th>
-        <th>schema</th>
+        <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at">started_at</button></th>
+        <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms">dur(ms)</button></th>
+        <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version">schema</button></th>
         <th>fill_rate</th>
         <th>profit_total</th>
         <th></th>
@@ -41,6 +41,9 @@
     <button id="prev-page" type="button" class="secondary">Prev</button>
     <button id="next-page" type="button" class="secondary">Next</button>
     <button id="last-page" type="button" class="secondary">Last</button>
+    <span class="mono">Page</span>
+    <input id="page-number" type="number" min="1" value="1" style="width:5em" />
+    <span class="mono">/ <span id="page-total">1</span></span>
     <label>Limit
       <select id="limit-select">
         <option value="10">10</option>
