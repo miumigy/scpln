@@ -144,7 +144,7 @@ def get_run(run_id: str, detail: bool = Query(False)):
 
 
 @app.post("/compare")
-def compare_runs(body: Dict[str, Any] = Body(...)):
+def compare_runs(body: Dict[str, Any] = Body(...), threshold: float | None = Query(None)):
     ids: List[str] = body.get("run_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
@@ -161,16 +161,21 @@ def compare_runs(body: Dict[str, Any] = Body(...)):
     if len(rows) >= 2:
         base = rows[0]
         for other in rows[1:]:
-            diff_row = {"base": base["run_id"], "target": other["run_id"]}
+            diff_row: Dict[str, Any] = {"base": base["run_id"], "target": other["run_id"]}
             for k in COMPARE_KEYS:
                 b = base.get(k, 0.0)
                 t = other.get(k, 0.0)
                 diff = t - b
                 pct = (diff / b * 100.0) if b not in (0.0, None) else None
-                diff_row[k] = {"abs": diff, "pct": pct}
+                hit = None
+                if threshold is not None and pct is not None:
+                    hit = abs(pct) >= threshold
+                diff_row[k] = {"abs": diff, "pct": pct, "hit": hit}
             diffs.append(diff_row)
-
-    return {"metrics": rows, "diffs": diffs}
+    resp: Dict[str, Any] = {"metrics": rows, "diffs": diffs}
+    if threshold is not None:
+        resp["threshold"] = threshold
+    return resp
 
 
 @app.delete("/runs/{run_id}")
