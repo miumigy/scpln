@@ -23,11 +23,13 @@
         </select>
       </label>
       <label>group_keys (comma)
-        <input type="text" id="agg-group-keys" placeholder="node,item" />
+        <input type="text" id="agg-group-keys" placeholder="node,item" list="agg-group-keys-list" />
       </label>
       <label>sum_fields (comma)
-        <input type="text" id="agg-sum-fields" placeholder="qty,revenue" />
+        <input type="text" id="agg-sum-fields" placeholder="qty,revenue" list="agg-sum-fields-list" />
       </label>
+      <datalist id="agg-group-keys-list"></datalist>
+      <datalist id="agg-sum-fields-list"></datalist>
       <label>product_level
         <input type="text" id="agg-product-level" placeholder="category" />
       </label>
@@ -40,6 +42,9 @@
       <label style="grid-column: 1 / -1;">location_map (JSON)
         <textarea id="agg-location-map" rows="3" placeholder='{"S1":{"region":"R1"}}' style="width:100%;"></textarea>
       </label>
+      <div style="grid-column: 1 / -1; display:flex; gap:8px;">
+        <button type="button" class="secondary" onclick="formatAggJson()">Format JSON</button>
+      </div>
       <label>date_field
         <input type="text" id="agg-date-field" placeholder="date" />
       </label>
@@ -167,6 +172,7 @@ async function submitAggregateJob(e){
     const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const js = await res.json();
+    try{ _updateAggSuggestionsFromCurrent(); }catch{}
     alert('Enqueued aggregate job: '+ js.job_id);
     location.href = '/ui/jobs';
   }catch(err){
@@ -258,7 +264,41 @@ function deleteAggPreset(){
     _loadAggPresets();
   }catch{ alert('Failed to delete preset'); }
 }
-(function(){ _loadAggPresets(); })();
+function formatAggJson(){
+  const ids = ['agg-product-map','agg-location-map'];
+  for (const id of ids){
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const txt = (el.value||'').trim();
+    if (!txt) continue;
+    try { const obj = JSON.parse(txt); el.value = JSON.stringify(obj, null, 2);} catch(e){ alert(id+': JSONが不正です'); return; }
+  }
+}
+function _loadAggSuggestions(){
+  try{
+    const g = JSON.parse(localStorage.getItem('agg_group_keys_suggestions')||'[]');
+    const s = JSON.parse(localStorage.getItem('agg_sum_fields_suggestions')||'[]');
+    const gl = document.getElementById('agg-group-keys-list');
+    const sl = document.getElementById('agg-sum-fields-list');
+    if (gl){ gl.innerHTML=''; g.forEach(v=>{ const o=document.createElement('option'); o.value=v; gl.appendChild(o); }); }
+    if (sl){ sl.innerHTML=''; s.forEach(v=>{ const o=document.createElement('option'); o.value=v; sl.appendChild(o); }); }
+  }catch{}
+}
+function _updateAggSuggestionsFromCurrent(){
+  try{
+    const tokenize = (v)=> Array.from(new Set((v||'').split(',').map(x=>x.trim()).filter(Boolean)));
+    const gcur = tokenize(document.getElementById('agg-group-keys').value);
+    const scur = tokenize(document.getElementById('agg-sum-fields').value);
+    const gold = JSON.parse(localStorage.getItem('agg_group_keys_suggestions')||'[]');
+    const sold = JSON.parse(localStorage.getItem('agg_sum_fields_suggestions')||'[]');
+    const gset = Array.from(new Set([...gold, ...gcur])).slice(0, 20);
+    const sset = Array.from(new Set([...sold, ...scur])).slice(0, 20);
+    localStorage.setItem('agg_group_keys_suggestions', JSON.stringify(gset));
+    localStorage.setItem('agg_sum_fields_suggestions', JSON.stringify(sset));
+    _loadAggSuggestions();
+  }catch{}
+}
+(function(){ _loadAggPresets(); _loadAggSuggestions(); })();
 async function retryJob(id){
   if(!confirm('Retry this job?')) return;
   try{
