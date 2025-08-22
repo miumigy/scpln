@@ -10,10 +10,19 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
 @app.post("/ui/compare", response_class=HTMLResponse)
-def ui_compare(request: Request, run_ids: str = Form(...)):
+def ui_compare(
+    request: Request,
+    run_ids: str = Form(...),
+    base_id: str | None = Form(None),
+    threshold: str | None = Form(None),
+):
     ids: List[str] = [x.strip() for x in run_ids.split(",") if x.strip()]
     if len(ids) < 2:
         raise HTTPException(status_code=400, detail="Need 2 or more run_ids")
+
+    # base_id が指定されていれば先頭へ移動
+    if base_id and base_id in ids:
+        ids = [base_id] + [x for x in ids if x != base_id]
 
     # 簡易実装: REGISTRY から横並び & 差分（先頭基準）
     from app.run_registry import REGISTRY
@@ -45,6 +54,12 @@ def ui_compare(request: Request, run_ids: str = Form(...)):
                 row[k] = None
         rows.append(row)
 
+    # 閾値（%）
+    try:
+        th_pct = float(threshold) if threshold is not None and threshold != "" else None
+    except Exception:
+        th_pct = None
+
     diffs = []
     if len(rows) >= 2:
         base = rows[0]
@@ -60,5 +75,13 @@ def ui_compare(request: Request, run_ids: str = Form(...)):
 
     return templates.TemplateResponse(
         "compare.html",
-        {"request": request, "rows": rows, "diffs": diffs, "keys": COMPARE_KEYS},
+        {
+            "request": request,
+            "rows": rows,
+            "diffs": diffs,
+            "keys": COMPARE_KEYS,
+            "run_ids_str": ",".join([r["run_id"] for r in rows]),
+            "base_id": rows[0]["run_id"] if rows else None,
+            "threshold": th_pct,
+        },
     )
