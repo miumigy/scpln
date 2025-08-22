@@ -2,6 +2,55 @@
 {% block content %}
 <section>
   <h2>Jobs</h2>
+  <details open>
+    <summary>Create Aggregate Job</summary>
+    <form id="agg-form" onsubmit="return submitAggregateJob(event)" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
+      <label>run_id
+        <input type="text" id="agg-run-id" required placeholder="<run_id>" />
+      </label>
+      <label>dataset
+        <select id="agg-dataset">
+          <option value="pl" selected>pl</option>
+          <option value="results">results</option>
+          <option value="trace">trace</option>
+        </select>
+      </label>
+      <label>bucket
+        <select id="agg-bucket">
+          <option value="day">day</option>
+          <option value="week" selected>week</option>
+          <option value="month">month</option>
+        </select>
+      </label>
+      <label>group_keys (comma)
+        <input type="text" id="agg-group-keys" placeholder="node,item" />
+      </label>
+      <label>sum_fields (comma)
+        <input type="text" id="agg-sum-fields" placeholder="qty,revenue" />
+      </label>
+      <label>product_level
+        <input type="text" id="agg-product-level" placeholder="category" />
+      </label>
+      <label>location_level
+        <input type="text" id="agg-location-level" placeholder="region" />
+      </label>
+      <label>date_field
+        <input type="text" id="agg-date-field" placeholder="date" />
+      </label>
+      <label>tz
+        <input type="text" id="agg-tz" placeholder="Asia/Tokyo" />
+      </label>
+      <label>calendar_mode
+        <select id="agg-calendar-mode">
+          <option value="">(none)</option>
+          <option value="iso_week">iso_week</option>
+        </select>
+      </label>
+      <div>
+        <button type="submit">Enqueue</button>
+      </div>
+    </form>
+  </details>
   <form method="get" action="/ui/jobs" style="display:flex; gap:8px; align-items:center; margin:8px 0;">
     <label>Status
       <select name="status">
@@ -64,6 +113,39 @@
 {% endblock %}
 {% block scripts %}
 <script>
+async function submitAggregateJob(e){
+  e.preventDefault();
+  const run_id = document.getElementById('agg-run-id').value.trim();
+  const dataset = document.getElementById('agg-dataset').value;
+  const bucket = document.getElementById('agg-bucket').value;
+  const group_keys = (document.getElementById('agg-group-keys').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const sum_fields = (document.getElementById('agg-sum-fields').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const product_level = document.getElementById('agg-product-level').value.trim() || undefined;
+  const location_level = document.getElementById('agg-location-level').value.trim() || undefined;
+  const date_field = document.getElementById('agg-date-field').value.trim() || undefined;
+  const tz = document.getElementById('agg-tz').value.trim() || undefined;
+  const calendar_mode = document.getElementById('agg-calendar-mode').value || undefined;
+  if(!run_id){ alert('run_id is required'); return false; }
+  const body = { run_id, dataset, bucket };
+  if(group_keys.length) body.group_keys = group_keys;
+  if(sum_fields.length) body.sum_fields = sum_fields;
+  if(product_level) body.product_level = product_level;
+  if(location_level) body.location_level = location_level;
+  if(date_field) body.date_field = date_field;
+  if(tz) body.tz = tz;
+  if(calendar_mode) body.calendar_mode = calendar_mode;
+  try{
+    const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const js = await res.json();
+    alert('Enqueued aggregate job: '+ js.job_id);
+    location.href = '/ui/jobs';
+  }catch(err){
+    console.error(err);
+    alert('Failed to enqueue aggregate job');
+  }
+  return false;
+}
 async function retryJob(id){
   if(!confirm('Retry this job?')) return;
   try{

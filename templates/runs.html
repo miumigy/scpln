@@ -36,9 +36,11 @@
       {% endfor %}
     </tbody>
   </table>
-  <div id="pager" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+  <div id="pager" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <button id="first-page" type="button" class="secondary">First</button>
     <button id="prev-page" type="button" class="secondary">Prev</button>
     <button id="next-page" type="button" class="secondary">Next</button>
+    <button id="last-page" type="button" class="secondary">Last</button>
     <label>Limit
       <select id="limit-select">
         <option value="10">10</option>

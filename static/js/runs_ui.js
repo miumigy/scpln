@@ -7,6 +7,8 @@
   const deleteSelectedBtn = document.getElementById('delete-selected');
   const prevBtn = document.getElementById('prev-page');
   const nextBtn = document.getElementById('next-page');
+  const firstBtn = document.getElementById('first-page');
+  const lastBtn = document.getElementById('last-page');
   const limitSel = document.getElementById('limit-select');
   const pagerInfo = document.getElementById('pager-info');
   const sortSel = document.getElementById('sort-select');
@@ -18,6 +20,34 @@
 
   let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '' };
 
+  function loadPrefs() {
+    try {
+      const raw = localStorage.getItem('runs_prefs');
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') {
+        if (p.limit) state.limit = Number(p.limit) || state.limit;
+        if (p.sort) state.sort = String(p.sort);
+        if (p.order) state.order = String(p.order);
+        if (p.schema_version !== undefined) state.schema_version = String(p.schema_version || '');
+        if (p.config_id !== undefined) state.config_id = String(p.config_id || '');
+      }
+    } catch {}
+  }
+
+  function savePrefs() {
+    try {
+      const p = {
+        limit: state.limit,
+        sort: state.sort,
+        order: state.order,
+        schema_version: state.schema_version,
+        config_id: state.config_id,
+      };
+      localStorage.setItem('runs_prefs', JSON.stringify(p));
+    } catch {}
+  }
+
   function syncFromUrl() {
     const sp = new URLSearchParams(location.search);
     state.offset = Number(sp.get('offset') || state.offset) || 0;
@@ -26,6 +56,10 @@
     state.order = sp.get('order') || state.order;
     state.schema_version = sp.get('schema_version') || '';
     state.config_id = sp.get('config_id') || '';
+    // URLに指定がなければローカル保存のプリファレンスを適用
+    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id')) {
+      loadPrefs();
+    }
   }
 
   function syncToUrl() {
@@ -112,6 +146,8 @@
       if (pagerInfo) pagerInfo.textContent = `${start}-${end} / ${state.total}`;
       if (prevBtn) prevBtn.disabled = (state.offset <= 0);
       if (nextBtn) nextBtn.disabled = (state.offset + state.limit >= state.total);
+      if (firstBtn) firstBtn.disabled = (state.offset <= 0);
+      if (lastBtn) lastBtn.disabled = (state.offset + state.limit >= state.total);
       if (limitSel && String(state.limit) !== limitSel.value) {
         // sync select without triggering change
         limitSel.value = String(state.limit);
@@ -172,20 +208,28 @@
   });
   if (prevBtn) prevBtn.addEventListener('click', () => { state.offset = Math.max(0, state.offset - state.limit); reloadRuns(); });
   if (nextBtn) nextBtn.addEventListener('click', () => { state.offset = state.offset + state.limit; reloadRuns(); });
+  if (firstBtn) firstBtn.addEventListener('click', () => { state.offset = 0; reloadRuns(); });
+  if (lastBtn) lastBtn.addEventListener('click', () => {
+    const pages = state.limit > 0 ? Math.floor(Math.max(0, state.total - 1) / state.limit) : 0;
+    state.offset = pages * state.limit;
+    reloadRuns();
+  });
   if (limitSel) limitSel.addEventListener('change', () => {
     const v = Number(limitSel.value);
     if (!Number.isFinite(v) || v <= 0) return;
     state.limit = v;
     state.offset = 0; // reset to first page
+    savePrefs();
     reloadRuns();
   });
-  if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; reloadRuns(); });
-  if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; reloadRuns(); });
+  if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
+  if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
   if (applyBtn) applyBtn.addEventListener('click', () => {
     state.schema_version = (schemaInput && schemaInput.value || '').trim();
     const cid = (configInput && configInput.value || '').trim();
     state.config_id = cid;
     state.offset = 0;
+    savePrefs();
     reloadRuns();
   });
   if (clearBtn) clearBtn.addEventListener('click', () => {
@@ -194,6 +238,7 @@
     state.schema_version = '';
     state.config_id = '';
     state.offset = 0;
+    savePrefs();
     reloadRuns();
   });
 
