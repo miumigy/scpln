@@ -85,6 +85,11 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_jobs_status_submitted ON jobs(status, submitted_at DESC)
             """
         )
+        # 追加カラム（既存DBへの後方互換）
+        try:
+            c.execute("ALTER TABLE jobs ADD COLUMN result_json TEXT")
+        except Exception:
+            pass
 
 def create_job(job_id: str, jtype: str, status: str, submitted_at: int, params_json: str | None) -> None:
     with _conn() as c:
@@ -149,6 +154,11 @@ def list_jobs(status: str | None, offset: int, limit: int) -> Dict[str, Any]:
             (*params, limit, offset),
         ).fetchall()
         return {"jobs": [dict(r) for r in rows], "total": total, "offset": offset, "limit": limit}
+
+
+def set_job_result(job_id: str, result_json: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE jobs SET result_json=? WHERE job_id=?", (result_json, job_id))
 
 
 def list_configs(limit: int = 200) -> List[Dict[str, Any]]:

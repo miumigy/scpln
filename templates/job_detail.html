@@ -17,10 +17,15 @@
         <tr><th>error</th><td><pre>{{ job.error or '' }}</pre></td></tr>
       </tbody>
     </table>
+    {% if job.type == 'aggregate' and job.status == 'succeeded' %}
+    <p>
+      <a role="button" class="secondary" href="/jobs/{{ job.job_id }}/result.json">result.json</a>
+      <a role="button" class="secondary" href="/jobs/{{ job.job_id }}/result.csv">result.csv</a>
+    </p>
+    {% endif %}
   </section>
   <footer>
     <a role="button" href="/ui/jobs">← Back to jobs</a>
   </footer>
 </article>
 {% endblock %}
-
