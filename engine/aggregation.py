@@ -2,20 +2,27 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence, Tuple, Any, Optional
 from collections import defaultdict
+from datetime import datetime, date
+try:
+    from zoneinfo import ZoneInfo  # py3.9+
+except Exception:  # pragma: no cover
+    ZoneInfo = None  # type: ignore
 
 
 TimeBucket = str  # 'day' | 'week' | 'month'
 
 
-def _period_of_day(day: int, bucket: TimeBucket) -> int:
+def _period_of_day(day: int, bucket: TimeBucket, *, week_start_offset: int = 0, month_len: int = 30) -> int:
     if bucket == "day":
         return int(day)
     if bucket == "week":
-        # 1-based weeks, 7days per week
-        return (int(day) - 1) // 7 + 1
+        # 1-based weeks, 7days per week, offset(0..6) to shift week start
+        d = int(day) - 1 + int(week_start_offset or 0)
+        return d // 7 + 1
     if bucket == "month":
-        # 1-based months, 30days per month（簡易）
-        return (int(day) - 1) // 30 + 1
+        # 1-based months, configurable length（簡易）
+        L = int(month_len or 30)
+        return (int(day) - 1) // max(1, L) + 1
     raise ValueError(f"unknown bucket: {bucket}")
 
 
@@ -23,8 +30,16 @@ def aggregate_by_time(
     records: Sequence[Dict[str, Any]],
     bucket: TimeBucket,
     day_field: str = "day",
+    *,
     sum_fields: Optional[Sequence[str]] = None,
     group_keys: Optional[Sequence[str]] = None,
+    # calendar strict options (date-based)
+    date_field: Optional[str] = None,
+    tz: Optional[str] = None,
+    calendar_mode: Optional[str] = None,  # 'iso_week'|'month'
+    # relaxed options (day-based)
+    week_start_offset: int = 0,
+    month_len: int = 30,
 ) -> List[Dict[str, Any]]:
     """日次レコード（dayフィールドを持つ）を time bucket で集計する。
     - sum_fields が None の場合は数値型のフィールドを自動検出して合計
@@ -42,8 +57,42 @@ def aggregate_by_time(
     gkeys = list(group_keys or [])
 
     agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    def compute_period(r: Dict[str, Any]) -> Any:
+        if date_field and r.get(date_field) is not None:
+            raw = r.get(date_field)
+            # accept 'YYYY-MM-DD' or ISO datetime
+            try:
+                if isinstance(raw, (int, float)):
+                    # epoch seconds -> date
+                    dt = datetime.utcfromtimestamp(float(raw))
+                else:
+                    s = str(raw)
+                    # split timezone if present; ZoneInfo is optional
+                    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            except Exception:
+                return None
+            if tz and ZoneInfo is not None and dt.tzinfo is None:
+                try:
+                    dt = dt.replace(tzinfo=ZoneInfo(tz))
+                except Exception:
+                    pass
+            d = dt.date()
+            if bucket == "day":
+                return d.isoformat()
+            if bucket == "week" and (calendar_mode in ("iso", "iso_week")):
+                iso = d.isocalendar()
+                return f"{iso.year}-W{iso.week:02d}"
+            if bucket == "month":
+                return f"{d.year}-{d.month:02d}"
+            # fallback to relaxed day-based period from day field if present
+        # relaxed path (day-based)
+        return _period_of_day(int(r.get(day_field, 0) or 0), bucket, week_start_offset=week_start_offset, month_len=month_len)
+
     for r in records:
-        period = _period_of_day(int(r.get(day_field, 0) or 0), bucket)
+        period = compute_period(r)
+        if period is None:
+            # skip malformed rows
+            continue
         key_tuple = tuple([period] + [r.get(k) for k in gkeys])
         for f in sum_fields:
             v = r.get(f)
@@ -117,4 +166,3 @@ def rollup_axis(
         row.update({f: round(v, 6) for f, v in sums.items()})
         out.append(row)
     return out
-

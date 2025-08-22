@@ -193,8 +193,8 @@ class JobManager:
             if not isinstance(rows, list):
                 rows = []
 
-            # time aggregation if 'day' present
-            if rows and isinstance(rows[0], dict) and ("day" in rows[0]):
+            # time aggregation if day/date present
+            if rows and isinstance(rows[0], dict) and (("day" in rows[0]) or ("date" in rows[0]) or (cfg.get("date_field"))):
                 agg_time = aggregate_by_time(
                     rows,
                     bucket,
@@ -203,6 +203,9 @@ class JobManager:
                     group_keys=group_keys,
                     week_start_offset=week_start_offset,
                     month_len=month_len,
+                    date_field=cfg.get("date_field"),
+                    tz=cfg.get("tz"),
+                    calendar_mode=cfg.get("calendar_mode"),
                 )
             else:
                 agg_time = rows
