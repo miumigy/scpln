@@ -41,6 +41,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Prepare DB and run Alembic migrations
+        env:
+          SCPLN_DB: data/scpln.db
+        run: |
+          mkdir -p data
+          # Apply migrations to ensure schema is up-to-date
+          alembic upgrade head
+
       - name: Install test reporter (xml)
         run: |
           pip install unittest-xml-reporting

@@ -270,6 +270,11 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 
+### DBバックアップ/復元
+
+- 取得: `bash scripts/backup_db.sh`（`SCPLN_DB`が指すDBを`backup/`へコピー）
+- 復元: `bash scripts/restore_db.sh backup/scpln_YYYYmmdd_HHMMSS.db`
+
 ## UIの使い方（抜粋）
 
 - `/ui/runs`
