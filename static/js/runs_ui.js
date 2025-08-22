@@ -130,6 +130,12 @@
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td>
           <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
+          <span class="mono" style="margin-left:6px; white-space:nowrap;">
+            <a href="/runs/${r.run_id}/results.csv" title="results.csv">res</a>
+            <a href="/runs/${r.run_id}/pl.csv" title="pl.csv">pl</a>
+            <a href="/runs/${r.run_id}/summary.csv" title="summary.csv">sum</a>
+            <a href="/runs/${r.run_id}/trace.csv" title="trace.csv">trace</a>
+          </span>
         </td>
       </tr>
     `;

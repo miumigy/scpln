@@ -264,6 +264,36 @@ function deleteAggPreset(){
     _loadAggPresets();
   }catch{ alert('Failed to delete preset'); }
 }
+function exportAggPresets(){
+  try{
+    const raw = localStorage.getItem('agg_presets')||'{}';
+    const blob = new Blob([raw], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'agg_presets.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch{ alert('Failed to export'); }
+}
+function importAggPresets(ev){
+  const input = ev && ev.target;
+  if(!input || !input.files || !input.files.length) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const text = String(reader.result||'{}');
+      const incoming = JSON.parse(text);
+      const cur = JSON.parse(localStorage.getItem('agg_presets')||'{}');
+      const merged = {...cur, ...incoming};
+      localStorage.setItem('agg_presets', JSON.stringify(merged));
+      _loadAggPresets();
+      alert('Imported presets: '+Object.keys(incoming).length);
+      input.value = '';
+    }catch{ alert('Failed to import'); }
+  };
+  reader.readAsText(file);
+}
 function formatAggJson(){
   const ids = ['agg-product-map','agg-location-map'];
   for (const id of ids){
@@ -298,7 +328,31 @@ function _updateAggSuggestionsFromCurrent(){
     _loadAggSuggestions();
   }catch{}
 }
-(function(){ _loadAggPresets(); _loadAggSuggestions(); })();
+async function _seedAggSuggestionsFromLatestRun(){
+  try{
+    const q = new URLSearchParams({ detail: 'true', limit: '1', sort: 'started_at', order: 'desc' });
+    const res = await fetch('/runs?'+q.toString());
+    if(!res.ok) return;
+    const js = await res.json();
+    const rows = js && js.runs || [];
+    if(!rows.length) return;
+    const r = rows[0];
+    const sampleArr = (r.daily_profit_loss && r.daily_profit_loss[0]) ? r.daily_profit_loss : ((r.results && r.results[0]) ? r.results : []);
+    if(!sampleArr || !sampleArr[0]) return;
+    const sample = sampleArr[0];
+    const gCandidates = ['node','item','product','location'];
+    const g = gCandidates.filter(k => Object.prototype.hasOwnProperty.call(sample, k));
+    const numericKeys = Object.keys(sample).filter(k => typeof sample[k] === 'number' && !g.includes(k) && k !== 'period');
+    const gold = JSON.parse(localStorage.getItem('agg_group_keys_suggestions')||'[]');
+    const sold = JSON.parse(localStorage.getItem('agg_sum_fields_suggestions')||'[]');
+    const gset = Array.from(new Set([...gold, ...g])).slice(0, 20);
+    const sset = Array.from(new Set([...sold, ...numericKeys])).slice(0, 20);
+    localStorage.setItem('agg_group_keys_suggestions', JSON.stringify(gset));
+    localStorage.setItem('agg_sum_fields_suggestions', JSON.stringify(sset));
+    _loadAggSuggestions();
+  }catch{}
+}
+(function(){ _loadAggPresets(); _loadAggSuggestions(); _seedAggSuggestionsFromLatestRun(); })();
 async function retryJob(id){
   if(!confirm('Retry this job?')) return;
   try{
