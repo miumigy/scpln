@@ -39,6 +39,15 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
     db.update_job_status(job_id, status="running", started_at=started)
     t0 = time.monotonic()
     try:
+        config_id = payload.pop("config_id", None)
+        cfg_json = None
+        try:
+            if config_id is not None:
+                cre = db.get_config(int(config_id))
+                if cre and cre.get("json_text") is not None:
+                    cfg_json = json.loads(cre.get("json_text"))
+        except Exception:
+            cfg_json = None
         sim_input = SimulationInput(**payload)
         sim = SupplyChainSimulator(sim_input)
         results, daily_pl = sim.run()
@@ -57,6 +66,8 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
                 "results": results,
                 "daily_profit_loss": daily_pl,
                 "cost_trace": getattr(sim, "cost_trace", []),
+                "config_id": config_id,
+                "config_json": cfg_json,
             },
         )
         db.update_job_status(job_id, status="succeeded", finished_at=int(time.time() * 1000), run_id=job_id)
@@ -137,4 +148,3 @@ def run_aggregate_task(job_id: str, cfg: Dict[str, Any]):
         db.update_job_status(job_id, status="succeeded", finished_at=int(time.time() * 1000))
     except Exception as e:
         db.update_job_status(job_id, status="failed", finished_at=int(time.time() * 1000), error=str(e))
-

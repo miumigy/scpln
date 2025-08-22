@@ -23,6 +23,7 @@ def ui_runs(request: Request):
                 "started_at_str": ms_to_jst_str(rec.get("started_at")),
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
+                "config_id": rec.get("config_id"),
                 "fill_rate": (rec.get("summary") or {}).get("fill_rate"),
                 "profit_total": (rec.get("summary") or {}).get("profit_total"),
             }

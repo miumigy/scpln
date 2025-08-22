@@ -101,6 +101,16 @@ class JobManager:
         try:
             rec = db.get_job(job_id)
             payload = json.loads(rec.get("params_json") or "{}") if rec else {}
+            # extract optional config context
+            config_id = payload.pop("config_id", None)
+            cfg_json = None
+            try:
+                if config_id is not None:
+                    cre = db.get_config(int(config_id))
+                    if cre and cre.get("json_text") is not None:
+                        cfg_json = json.loads(cre.get("json_text"))
+            except Exception:
+                cfg_json = None
             # parse model
             sim_input = SimulationInput(**payload)
             sim = SupplyChainSimulator(sim_input)
@@ -122,6 +132,8 @@ class JobManager:
                     "results": results,
                     "daily_profit_loss": daily_pl,
                     "cost_trace": getattr(sim, "cost_trace", []),
+                    "config_id": config_id,
+                    "config_json": cfg_json,
                 },
             )
             finished = int(time.time() * 1000)
