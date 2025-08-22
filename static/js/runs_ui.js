@@ -86,6 +86,13 @@
     return n.toFixed(digits);
   }
 
+  function updateSortIndicators() {
+    const arrow = state.order === 'asc' ? '↑' : '↓';
+    if (thSortStarted) thSortStarted.textContent = 'started_at' + (state.sort === 'started_at' ? ' ' + arrow : '');
+    if (thSortDur) thSortDur.textContent = 'dur(ms)' + (state.sort === 'duration_ms' ? ' ' + arrow : '');
+    if (thSortSchema) thSortSchema.textContent = 'schema' + (state.sort === 'schema_version' ? ' ' + arrow : '');
+  }
+
   function fmtJst(ms) {
     if (ms === null || ms === undefined) return '';
     const n = Number(ms);
@@ -167,6 +174,8 @@
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
       // URL更新
       syncToUrl();
+      // ソート矢印表示
+      updateSortIndicators();
     } catch (e) {
       console.error('Failed to reload runs', e);
       alert('Failed to load runs from API.');
@@ -274,7 +283,7 @@
   });
 
   // 初期ロード: URL→state同期の上で読込
-  function init() { syncFromUrl(); reloadRuns(); }
+  function init() { syncFromUrl(); updateSortIndicators(); reloadRuns(); }
   // expose for inline script to trigger initial load
   window.RunsUI = { reloadRuns, init };
 })();
