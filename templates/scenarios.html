@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Scenarios</h2>
+  <form method="post" action="/ui/scenarios" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
+    <label>Name
+      <input type="text" name="name" placeholder="Scenario name" required />
+    </label>
+    <label>Parent ID
+      <input type="number" name="parent_id" min="1" />
+    </label>
+    <label>Tag
+      <input type="text" name="tag" />
+    </label>
+    <label style="grid-column:1 / -1;">Description
+      <textarea name="description" rows="3" style="width:100%"></textarea>
+    </label>
+    <div><button type="submit">Add</button></div>
+  </form>
+  {% if rows %}
+  <table role="grid">
+    <thead>
+      <tr>
+        <th>id</th><th>name</th><th>tag</th><th>parent_id</th><th>locked</th><th>updated_at</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.name }}</td>
+        <td>{{ r.tag or '' }}</td>
+        <td>{{ r.parent_id or '' }}</td>
+        <td>{{ r.locked }}</td>
+        <td>{{ r.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No scenarios.</p>
+  {% endif %}
+</section>
+{% endblock %}
+

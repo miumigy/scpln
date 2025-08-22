@@ -270,3 +270,55 @@ def delete_config(cfg_id: int) -> None:
 
 # Initialize at import
 init_db()
+
+# --- Scenarios (phase2 foundation) ---
+def list_scenarios(limit: int = 200) -> List[Dict[str, Any]]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, name, parent_id, tag, locked, updated_at, created_at FROM scenarios ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_scenario(sid: int) -> Optional[Dict[str, Any]]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM scenarios WHERE id=?", (sid,)).fetchone()
+        return dict(row) if row else None
+
+
+def create_scenario(name: str, parent_id: Optional[int], tag: Optional[str], description: Optional[str], locked: bool = False) -> int:
+    now = int(time.time() * 1000)
+    with _conn() as c:
+        cur = c.execute(
+            "INSERT INTO scenarios(name, parent_id, tag, description, locked, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
+            (name, parent_id, tag, description, 1 if locked else 0, now, now),
+        )
+        return int(cur.lastrowid)
+
+
+def update_scenario(sid: int, **fields: Any) -> None:
+    if not fields:
+        return
+    allowed = {"name", "parent_id", "tag", "description", "locked"}
+    keys = [k for k in fields.keys() if k in allowed]
+    if not keys:
+        return
+    sets = []
+    params: list[Any] = []
+    for k in keys:
+        sets.append(f"{k}=?")
+        v = fields[k]
+        if k == "locked":
+            params.append(1 if bool(v) else 0)
+        else:
+            params.append(v)
+    params.append(int(time.time() * 1000))
+    params.append(sid)
+    with _conn() as c:
+        c.execute(f"UPDATE scenarios SET {', '.join(sets)}, updated_at=? WHERE id=?", tuple(params))
+
+
+def delete_scenario(sid: int) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM scenarios WHERE id=?", (sid,))

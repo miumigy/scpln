@@ -206,7 +206,9 @@ bash scripts/stop.sh            # 停止
    - APIキー: `API_KEY_HEADER`（既定 `X-API-Key`）, `API_KEY_VALUE`
    - BASIC: `BASIC_USER`, `BASIC_PASS`
  - OpenTelemetry（任意）:
-   - `OTEL_ENABLED=1` で有効化、`OTEL_SERVICE_NAME`、`OTEL_EXPORTER_OTLP_ENDPOINT`（例: `http://localhost:4318`）
+- `OTEL_ENABLED=1` で有効化、`OTEL_SERVICE_NAME`、`OTEL_EXPORTER_OTLP_ENDPOINT`（例: `http://localhost:4318`）
+ - ジョブ外部キュー（任意）:
+   - `JOBS_BACKEND=rq` で有効化、`REDIS_URL`（例: `redis://localhost:6379/0`）、`RQ_QUEUE`（既定 `default`）
 
 ## マイグレーション（Alembic）
 
@@ -286,7 +288,10 @@ SIM_LOG_JSON=1 uvicorn main:app \
   - 集計ジョブ: run_id/dataset/bucket に加え、`date_field`/`tz`/`calendar_mode`、`week_start_offset`/`month_len`、`product_map`/`location_map`(JSON)を指定可能
   - プリセット: フォーム値をローカルに保存/読込/削除（localStorage）。繰り返しの集計設定を一括適用
   - プリセットの共有: Export（JSONファイル）/Import に対応し、チーム内で設定を共有可能
-  - 入力支援: 最新Runから `group_keys`/`sum_fields` 候補を自動推測し、datalist へ提示
+- 入力支援: 最新Runから `group_keys`/`sum_fields` 候補を自動推測し、datalist へ提示
+ - `/ui/scenarios`（フェーズ2の土台）
+   - シナリオ一覧/追加のUI（名前/タグ/親ID/説明）
+   - API: `GET /scenarios`, `GET /scenarios/{id}`, `POST /scenarios`, `PUT /scenarios/{id}`, `DELETE /scenarios/{id}`
 
 ## 図解
 

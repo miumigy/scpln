@@ -6,6 +6,10 @@ from uuid import uuid4
 from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.jobs import JOB_MANAGER
+try:
+    from app import jobs_rq
+except Exception:
+    jobs_rq = None  # type: ignore
 from app import db
 import csv
 import io
@@ -13,7 +17,10 @@ import io
 
 @app.post("/jobs/simulation")
 def post_job_simulation(body: Dict[str, Any] = Body(...)):
-    job_id = JOB_MANAGER.submit_simulation(body)
+    if jobs_rq and getattr(jobs_rq, 'is_enabled', lambda: False)():
+        job_id = jobs_rq.submit_simulation(body)
+    else:
+        job_id = JOB_MANAGER.submit_simulation(body)
     return {"job_id": job_id}
 
 
@@ -59,8 +66,11 @@ def post_job_cancel(job_id: str):
 
 @app.post("/jobs/aggregate")
 def post_job_aggregate(body: Dict[str, Any] = Body(...)):
-    # body: {run_id, dataset, bucket, group_keys?, sum_fields?, product_key?, product_map?, product_level?, location_key?, location_map?, location_level?}
-    job_id = JOB_MANAGER.submit_aggregate(body or {})
+    # body: {run_id, dataset, bucket, ...}
+    if jobs_rq and getattr(jobs_rq, 'is_enabled', lambda: False)():
+        job_id = jobs_rq.submit_aggregate(body or {})
+    else:
+        job_id = JOB_MANAGER.submit_aggregate(body or {})
     return {"job_id": job_id}
 
 

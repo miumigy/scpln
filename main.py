@@ -53,6 +53,13 @@ try:
 except Exception:
     pass
 
+# phase2: scenarios API/UI
+try:
+    from app import scenario_api as _scenario_api  # noqa: F401
+    from app import ui_scenarios as _ui_scenarios  # noqa: F401
+except Exception:
+    pass
+
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 
