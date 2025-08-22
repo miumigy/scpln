@@ -137,6 +137,28 @@ bash scripts/stop.sh            # 停止
 ```json
 {"timestamp":"2025-08-21T03:12:34.567890+00:00","level":"INFO","logger":"root","message":"run_completed","module":"simulation_api","function":"post_simulation","line":48,"request_id":"fbc2...","run_id":"c3a...","event":"run_completed","duration":1234,"results":120,"pl_days":30,"trace_events":456,"schema":"1.0"}
 ```
+
+ログイベント（主要）
+- `http_request_start`: リクエスト開始（`method, path, request_id`）
+- `http_request`: リクエスト完了（`method, path, status, request_id`）
+- `http_error`: `HTTPException` ハンドリング（`status, method, path, request_id`）
+- `http_exception`: 未処理例外（`status=500, method, path, request_id`）
+- `run_started`: シミュレーション開始（`run_id`）
+- `run_completed`: シミュレーション完了（`run_id, duration, results, pl_days, trace_events, schema`）
+
+ログ設定サンプル（.env）
+```dotenv
+# JSONロギングを有効化
+SIM_LOG_JSON=1
+# ログレベル（DEBUG/INFO/WARN/ERROR）
+SIM_LOG_LEVEL=INFO
+# ファイル出力（simulation.log）を有効化（任意）
+SIM_LOG_TO_FILE=1
+
+# （任意）RunRegistry をDB永続化する場合
+REGISTRY_BACKEND=db
+SCPLN_DB=data/scpln.db
+```
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 
