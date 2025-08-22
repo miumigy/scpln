@@ -79,6 +79,7 @@ bash scripts/stop.sh            # 停止
   - `run_id` からラン詳細へリンク
 - ジョブ詳細: `GET /ui/jobs/{job_id}`
   - ステータス・タイムスタンプ・`run_id`リンク・`error`表示
+  - 失敗時は [Retry] ボタン、キュー中は [Cancel] ボタンが表示
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
   - Base/Threshold: 比較画面でベースRunと閾値(%)を指定可能（閾値超えをハイライト）
   - CSV: metrics.csv / diffs.csv をダウンロード（Base/Thresholdをメタ行として含む）
@@ -118,6 +119,8 @@ bash scripts/stop.sh            # 停止
   - `GET /jobs/{job_id}`: ジョブの状態を取得（`status=queued|running|succeeded|failed`, `run_id`, `error`, `submitted_at/started_at/finished_at`）
   - `GET /jobs?status=&offset=&limit=`: ジョブ一覧（ページング）。`status` フィルタ対応
   - 備考: 既存 `POST /simulation` は従来通り。将来フラグでジョブ化に委譲可能
+  - `POST /jobs/{job_id}/retry`（failed/canceled のみ）: 再キュー投入（`{"params": SimulationInput}`でパラメータ上書き可）
+  - `POST /jobs/{job_id}/cancel`（queued のみ）: キャンセル（`status=canceled`）
 
 - 設定マスタ（Configs）
   - `GET /configs`: 一覧（id, name, created_at/updated_at）
