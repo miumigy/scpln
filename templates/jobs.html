@@ -34,6 +34,12 @@
       <label>location_level
         <input type="text" id="agg-location-level" placeholder="region" />
       </label>
+      <label style="grid-column: 1 / -1;">product_map (JSON)
+        <textarea id="agg-product-map" rows="3" placeholder='{"SKU1":{"category":"C1"}}' style="width:100%;"></textarea>
+      </label>
+      <label style="grid-column: 1 / -1;">location_map (JSON)
+        <textarea id="agg-location-map" rows="3" placeholder='{"S1":{"region":"R1"}}' style="width:100%;"></textarea>
+      </label>
       <label>date_field
         <input type="text" id="agg-date-field" placeholder="date" />
       </label>
@@ -138,6 +144,8 @@ async function submitAggregateJob(e){
   const calendar_mode = document.getElementById('agg-calendar-mode').value || undefined;
   const week_start_offset = document.getElementById('agg-week-start') ? document.getElementById('agg-week-start').value.trim() : '';
   const month_len = document.getElementById('agg-month-len') ? document.getElementById('agg-month-len').value.trim() : '';
+  const product_map_txt = document.getElementById('agg-product-map') ? document.getElementById('agg-product-map').value.trim() : '';
+  const location_map_txt = document.getElementById('agg-location-map') ? document.getElementById('agg-location-map').value.trim() : '';
   if(!run_id){ alert('run_id is required'); return false; }
   const body = { run_id, dataset, bucket };
   if(group_keys.length) body.group_keys = group_keys;
@@ -149,6 +157,12 @@ async function submitAggregateJob(e){
   if(calendar_mode) body.calendar_mode = calendar_mode;
   if(week_start_offset !== '') body.week_start_offset = Number(week_start_offset);
   if(month_len !== '') body.month_len = Number(month_len);
+  if(product_map_txt){
+    try { body.product_map = JSON.parse(product_map_txt); } catch(e){ alert('product_map JSON が不正です'); return false; }
+  }
+  if(location_map_txt){
+    try { body.location_map = JSON.parse(location_map_txt); } catch(e){ alert('location_map JSON が不正です'); return false; }
+  }
   try{
     const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     if(!res.ok) throw new Error('HTTP '+res.status);
