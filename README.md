@@ -138,6 +138,26 @@ bash scripts/stop.sh            # 停止
         "location_map": {"S1": {"region": "R1"}}
       }
       ```
+    - 時間集計の厳密カレンダー対応（任意指定）:
+      - `date_field`: レコード内の日付/日時フィールド名（例: `"date"`, `"timestamp"`）。指定時は日付ベースで集計
+      - `tz`: タイムゾーン（例: `"Asia/Tokyo"`）。UTCやオフセットなしのISO文字列に適用
+      - `calendar_mode`: 週の集計方式（`"iso_week"` を指定すると ISO 週番号で集計）
+      - 例（ISO週＋JSTで集計）:
+        ```json
+        {
+          "run_id": "<run_id>",
+          "dataset": "pl",
+          "bucket": "week",
+          "group_keys": ["node","item"],
+          "date_field": "date",
+          "tz": "Asia/Tokyo",
+          "calendar_mode": "iso_week"
+        }
+        ```
+      - 挙動:
+        - `date_field` 指定時は `bucket=day|week|month` に応じて `YYYY-MM-DD` / `YYYY-Www` / `YYYY-MM` で期間キーを生成
+        - `date_field` 未指定時は従来の `day` 整数を基準に `week_start_offset`/`month_len` で集計（後方互換）
+        - レコードに `day` と日付の両方がある場合は日付優先
     - レスポンス: `{ "job_id": "..." }`
   - `GET /jobs/{job_id}/result.json` / `GET /jobs/{job_id}/result.csv`: 集計結果の取得（成功時）
 
