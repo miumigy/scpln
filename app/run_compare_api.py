@@ -3,7 +3,7 @@ from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
 from app.run_registry import _BACKEND  # type: ignore
-from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED
+from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED, COMPARE_REQUESTS
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [
@@ -19,9 +19,10 @@ COMPARE_KEYS = [
 ]
 
 
-def _pick(summary: Dict[str, Any]) -> Dict[str, float]:
+def _pick(summary: Dict[str, Any], keys: List[str] | None = None) -> Dict[str, float]:
     out = {}
-    for k in COMPARE_KEYS:
+    use = keys or COMPARE_KEYS
+    for k in use:
         v = summary.get(k, 0.0)
         try:
             out[k] = float(v)
@@ -148,6 +149,7 @@ def compare_runs(
     body: Dict[str, Any] = Body(...),
     threshold: float | None = Query(None),
     base_id: str | None = Query(None),
+    keys: str | None = Query(None),
 ):
     ids: List[str] = body.get("run_ids") or []
     if not ids:
@@ -155,12 +157,20 @@ def compare_runs(
     if base_id and base_id in ids:
         ids = [base_id] + [x for x in ids if x != base_id]
 
+    # keys filter
+    use_keys = COMPARE_KEYS
+    if keys:
+        req = [x.strip() for x in keys.split(",") if x.strip()]
+        filt = [k for k in req if k in COMPARE_KEYS]
+        if filt:
+            use_keys = filt
+
     rows = []
     for rid in ids:
         r = REGISTRY.get(rid)
         if not r:
             raise HTTPException(status_code=404, detail=f"run not found: {rid}")
-        rows.append({"run_id": rid, **_pick(r.get("summary", {}))})
+        rows.append({"run_id": rid, **_pick(r.get("summary", {}), use_keys)})
 
     # 差分（先頭をベース）
     diffs = []
@@ -168,7 +178,7 @@ def compare_runs(
         base = rows[0]
         for other in rows[1:]:
             diff_row: Dict[str, Any] = {"base": base["run_id"], "target": other["run_id"]}
-            for k in COMPARE_KEYS:
+            for k in use_keys:
                 b = base.get(k, 0.0)
                 t = other.get(k, 0.0)
                 diff = t - b
@@ -183,6 +193,17 @@ def compare_runs(
         resp["threshold"] = threshold
     if base_id:
         resp["base_id"] = base_id
+    if keys:
+        resp["keys"] = use_keys
+    try:
+        COMPARE_REQUESTS.labels(
+            threshold=str(threshold is not None).lower(),
+            keys=str(keys is not None).lower(),
+            runs=str(len(ids)),
+            base_set=str(bool(base_id)).lower(),
+        ).inc()
+    except Exception:
+        pass
     return resp
 
 
