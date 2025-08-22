@@ -4,6 +4,11 @@
 
 - （運用）Auto-merge 設定とコンフリクト検出ワークフローの整備（継続）
 
+## v0.3.4 (2025-08-22)
+
+- feat(aggregation): カレンダー厳密化（`date_field`/ISO週/月境界）。週開始オフセット/月長は day ベースを維持（#93）
+- docs(readme): `/jobs/aggregate` に厳密カレンダー（`date_field`/`tz`/`calendar_mode`）の説明と例を追記
+
 ## 2025-08-22
 
 - feat(api): DELETE /runs/{id} を追加（メモリ/DB両対応）
