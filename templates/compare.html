@@ -20,6 +20,10 @@
   </form>
   {% if rows %}
   <h3>Metrics</h3>
+  <p>
+    <a role="button" class="secondary" href="/ui/compare/metrics.csv?run_ids={{ run_ids_str }}{% if base_id %}&base_id={{ base_id }}{% endif %}">Download metrics.csv</a>
+    <a role="button" class="secondary" href="/ui/compare/diffs.csv?run_ids={{ run_ids_str }}{% if base_id %}&base_id={{ base_id }}{% endif %}{% if threshold is not none %}&threshold={{ threshold }}{% endif %}">Download diffs.csv</a>
+  </p>
   <table>
     <thead>
       <tr>

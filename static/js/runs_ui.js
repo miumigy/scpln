@@ -3,6 +3,7 @@
   const reloadBtn = document.getElementById('reload-btn');
   const runIdsInput = document.getElementById('run-ids');
   const useSelectedBtn = document.getElementById('use-selected');
+  const compareSelectedBtn = document.getElementById('compare-selected');
   const deleteSelectedBtn = document.getElementById('delete-selected');
   const prevBtn = document.getElementById('prev-page');
   const nextBtn = document.getElementById('next-page');
@@ -157,6 +158,11 @@
   if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
   if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelected);
+  if (compareSelectedBtn) compareSelectedBtn.addEventListener('click', () => {
+    useSelected();
+    const form = document.getElementById('compare-form');
+    if (form) form.submit();
+  });
   const compareForm = document.getElementById('compare-form');
   if (compareForm) compareForm.addEventListener('submit', () => {
     try {
