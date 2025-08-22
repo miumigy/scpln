@@ -64,6 +64,83 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_runs_config_id ON runs(config_id)
             """
         )
+        # jobs テーブル
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                submitted_at INTEGER NOT NULL,
+                started_at INTEGER,
+                finished_at INTEGER,
+                params_json TEXT,
+                run_id TEXT,
+                error TEXT
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_jobs_status_submitted ON jobs(status, submitted_at DESC)
+            """
+        )
+
+def create_job(job_id: str, jtype: str, status: str, submitted_at: int, params_json: str | None) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO jobs(job_id, type, status, submitted_at, params_json) VALUES(?,?,?,?,?)",
+            (job_id, jtype, status, submitted_at, params_json),
+        )
+
+
+def update_job_status(
+    job_id: str,
+    *,
+    status: str,
+    started_at: int | None = None,
+    finished_at: int | None = None,
+    run_id: str | None = None,
+    error: str | None = None,
+) -> None:
+    with _conn() as c:
+        row = c.execute("SELECT job_id FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+        if not row:
+            return
+        # Build dynamic update
+        sets = ["status=?"]
+        params: list = [status]
+        if started_at is not None:
+            sets.append("started_at=?"); params.append(started_at)
+        if finished_at is not None:
+            sets.append("finished_at=?"); params.append(finished_at)
+        if run_id is not None:
+            sets.append("run_id=?"); params.append(run_id)
+        if error is not None:
+            sets.append("error=?"); params.append(error)
+        params.append(job_id)
+        c.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE job_id=?", tuple(params))
+
+
+def get_job(job_id: str) -> Dict[str, Any] | None:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def list_jobs(status: str | None, offset: int, limit: int) -> Dict[str, Any]:
+    with _conn() as c:
+        where = []
+        params: list = []
+        if status:
+            where.append("status = ?"); params.append(status)
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        total = c.execute(f"SELECT COUNT(*) AS cnt FROM jobs{where_sql}", params).fetchone()["cnt"]
+        rows = c.execute(
+            f"SELECT * FROM jobs{where_sql} ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+        return {"jobs": [dict(r) for r in rows], "total": total, "offset": offset, "limit": limit}
 
 
 def list_configs(limit: int = 200) -> List[Dict[str, Any]]:
