@@ -10,6 +10,16 @@ SIM_DURATION = Histogram(
     "Simulation duration in milliseconds",
     buckets=(50, 100, 200, 500, 1000, 2000, 5000, 10000, 30000, 60000, float("inf")),
 )
+RUNS_LIST_REQUESTS = Counter(
+    "runs_list_requests_total",
+    "Total runs list API calls",
+    labelnames=("detail", "backend"),
+)
+RUNS_LIST_RETURNED = Histogram(
+    "runs_list_returned",
+    "Number of runs returned by list API",
+    buckets=(1, 5, 10, 20, 50, 100, 200, 500, float("inf")),
+)
 
 HTTP_REQUESTS = Counter(
     "http_requests_total",

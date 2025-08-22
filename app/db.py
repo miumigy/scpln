@@ -54,6 +54,16 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at DESC)
             """
         )
+        c.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_runs_schema_version ON runs(schema_version)
+            """
+        )
+        c.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_runs_config_id ON runs(config_id)
+            """
+        )
 
 
 def list_configs(limit: int = 200) -> List[Dict[str, Any]]:
