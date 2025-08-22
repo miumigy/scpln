@@ -131,6 +131,12 @@ bash scripts/stop.sh            # 停止
 - `REGISTRY_CAPACITY`（既定 50）: RunRegistry のメモリ保持件数
 - `REGISTRY_BACKEND=memory|db`（既定 memory）: RunRegistry のバックエンド選択（`db` でSQLite永続化）
 - `SCPLN_DB`（既定 `data/scpln.db`）: SQLite DBパス
+- `SIM_LOG_JSON=1`（既定 0）: ログをJSONで出力（`timestamp, level, message, request_id, run_id, ...`）
+
+ログの例（JSON）
+```json
+{"timestamp":"2025-08-21T03:12:34.567890+00:00","level":"INFO","logger":"root","message":"run_completed","module":"simulation_api","function":"post_simulation","line":48,"request_id":"fbc2...","run_id":"c3a...","event":"run_completed","duration":1234,"results":120,"pl_days":30,"trace_events":456,"schema":"1.0"}
+```
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 

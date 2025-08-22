@@ -1,5 +1,8 @@
 import logging
 import os
+import json
+import contextvars
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,14 +14,67 @@ from domain.models import SimulationInput
 
 _log_level = os.getenv("SIM_LOG_LEVEL", "INFO").upper()
 _log_to_file = os.getenv("SIM_LOG_TO_FILE", "0") == "1"
-_handlers = [logging.StreamHandler()]
-if _log_to_file:
-    _handlers.append(logging.FileHandler("simulation.log"))
-logging.basicConfig(
-    level=getattr(logging, _log_level, logging.INFO),
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=_handlers,
+_log_json = os.getenv("SIM_LOG_JSON", "0") == "1"
+
+
+# request_id を文脈に保持し、ログへ注入する
+REQUEST_ID_VAR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "request_id", default=None
 )
+
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        rid = REQUEST_ID_VAR.get()
+        # 既に extra で与えられていない場合のみ設定
+        if not hasattr(record, "request_id"):
+            record.request_id = rid
+        return True
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        ts = datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat()
+        payload = {
+            "timestamp": ts,
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+        # 代表的な拡張属性（存在すれば追加）
+        for k in ("request_id", "run_id", "event", "path", "method", "status"):
+            v = getattr(record, k, None)
+            if v is not None:
+                payload[k] = v
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def _configure_logging() -> None:
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, _log_level, logging.INFO))
+    # 既存のハンドラをクリア（uvicorn などの設定と重複しないように）
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
+    fmt = JsonFormatter() if _log_json else logging.Formatter(
+        fmt="%(asctime)s %(levelname)s %(message)s [request_id=%(request_id)s]",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    )
+    stream_h = logging.StreamHandler()
+    stream_h.setFormatter(fmt)
+    stream_h.addFilter(RequestIdFilter())
+    root.addHandler(stream_h)
+    if _log_to_file:
+        file_h = logging.FileHandler("simulation.log")
+        file_h.setFormatter(fmt)
+        file_h.addFilter(RequestIdFilter())
+        root.addHandler(file_h)
+
+
+_configure_logging()
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -67,8 +123,23 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = rid
+        token = REQUEST_ID_VAR.set(rid)
         response = await call_next(request)
         response.headers["X-Request-ID"] = rid
+        # アクセスログ（簡易）
+        try:
+            logging.info(
+                "http_request",
+                extra={
+                    "event": "http_request",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status": response.status_code,
+                    "request_id": rid,
+                },
+            )
+        finally:
+            REQUEST_ID_VAR.reset(token)
         return response
 
 
