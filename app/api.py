@@ -3,7 +3,8 @@ import os
 import json
 import contextvars
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler as _default_http_exc_handler
 from starlette.requests import Request as StarletteRequest
@@ -122,8 +123,35 @@ def validate_input(input_data: SimulationInput) -> None:
         seen.add(key)
 
 
+# 認証トグル（AUTH_MODE=none|apikey|basic）
+_AUTH_MODE = os.getenv("AUTH_MODE", "none").lower()
+_APIKEY_NAME = os.getenv("API_KEY_HEADER", "X-API-Key")
+_APIKEY_VALUE = os.getenv("API_KEY_VALUE", "")
+_BASIC_USER = os.getenv("BASIC_USER", "")
+_BASIC_PASS = os.getenv("BASIC_PASS", "")
+_api_key_header = APIKeyHeader(name=_APIKEY_NAME, auto_error=False)
+_basic = HTTPBasic(auto_error=False)
+
+
+async def _require_auth(api_key: str | None = Depends(_api_key_header), creds: HTTPBasicCredentials | None = Depends(_basic)):
+    if _AUTH_MODE in ("", "none"):
+        return
+    # bypass for health/static
+    # 判定はルータ側で行うのが正確だが簡易に全体適用
+    if _AUTH_MODE == "apikey":
+        if _APIKEY_VALUE and api_key == _APIKEY_VALUE:
+            return
+        raise HTTPException(status_code=401, detail="invalid api key")
+    if _AUTH_MODE == "basic":
+        if creds and _BASIC_USER and _BASIC_PASS and creds.username == _BASIC_USER and creds.password == _BASIC_PASS:
+            return
+        raise HTTPException(status_code=401, detail="invalid basic auth")
+    raise HTTPException(status_code=401, detail="unauthorized")
+
+
 from app.metrics import observe_http
 from app.jobs import JOB_MANAGER
+import base64
 
 
 class _RequestIDMiddleware(BaseHTTPMiddleware):
@@ -196,6 +224,59 @@ async def _http_exc_logger(request: StarletteRequest, exc: HTTPException):
 
 
 app.add_middleware(_RequestIDMiddleware)
+ 
+# 簡易認証ミドルウェア
+class _AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if _AUTH_MODE in ("", "none"):
+            return await call_next(request)
+        # Allow static and health endpoints without auth
+        path = request.url.path or ""
+        if path.startswith("/static/") or path == "/healthz":
+            return await call_next(request)
+        try:
+            if _AUTH_MODE == "apikey":
+                key = request.headers.get(_APIKEY_NAME)
+                if _APIKEY_VALUE and key == _APIKEY_VALUE:
+                    return await call_next(request)
+                return JSONResponse(status_code=401, content={"detail": "invalid api key"})
+            if _AUTH_MODE == "basic":
+                auth = request.headers.get("Authorization", "")
+                if auth.lower().startswith("basic "):
+                    try:
+                        raw = base64.b64decode(auth.split(" ", 1)[1]).decode("utf-8")
+                        user, pwd = raw.split(":", 1)
+                        if user == _BASIC_USER and pwd == _BASIC_PASS and user and pwd:
+                            return await call_next(request)
+                    except Exception:
+                        pass
+                return JSONResponse(status_code=401, content={"detail": "invalid basic auth"})
+        except Exception:
+            return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+
+
+app.add_middleware(_AuthMiddleware)
+
+# OpenTelemetry (任意) 簡易計装
+_OTEL_ENABLED = os.getenv("OTEL_ENABLED", "0") == "1"
+if _OTEL_ENABLED:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+        resource = Resource(attributes={SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "scpln")})
+        provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(provider)
+        endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")  # e.g., http://localhost:4318
+        exporter = OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        FastAPIInstrumentor().instrument_app(app)
+    except Exception:
+        pass
 
 
 @app.get("/", response_class=HTMLResponse)

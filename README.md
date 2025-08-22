@@ -201,6 +201,22 @@ bash scripts/stop.sh            # 停止
  - 運用例: `configs/env.example` を `.env` にコピーし、`REGISTRY_BACKEND=db` と `RUNS_DB_MAX_ROWS` を設定
  - `JOBS_ENABLED`（既定 1）: ジョブワーカーの有効化
  - `JOBS_WORKERS`（既定 1）: ワーカースレッド数
+ - 認証トグル:
+   - `AUTH_MODE`=`none|apikey|basic`（既定 none）
+   - APIキー: `API_KEY_HEADER`（既定 `X-API-Key`）, `API_KEY_VALUE`
+   - BASIC: `BASIC_USER`, `BASIC_PASS`
+ - OpenTelemetry（任意）:
+   - `OTEL_ENABLED=1` で有効化、`OTEL_SERVICE_NAME`、`OTEL_EXPORTER_OTLP_ENDPOINT`（例: `http://localhost:4318`）
+
+## マイグレーション（Alembic）
+
+- 目的: スキーマの変更差分を追跡・適用
+- 初期構成: `alembic.ini`, `alembic/env.py`, `alembic/versions/0001_initial.py`
+- 使い方:
+  - DB指定: `.env` の `SCPLN_DB`（既定 `data/scpln.db`）
+  - 反映: `alembic upgrade head`（CIや起動フローに組み込み可）
+  - 新規生成: `alembic revision -m "msg"` → `alembic upgrade head`
+  - 備考: 既存の `app.db.init_db()` は後方互換のために残置（IF NOT EXISTS）。運用ではAlembicを優先
 
 メトリクス（Prometheus）
 - `runs_total`（Counter）: シミュレーション実行回数
