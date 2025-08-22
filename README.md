@@ -10,7 +10,7 @@
 - 主な機能
 - クイックスタート（起動・停止）
 - Web UI ガイド
-- API リファレンス（/simulation, /runs, /compare, /healthz）
+- API リファレンス（/simulation, /runs, /compare, /jobs, /healthz）
 - CSV エクスポート
 - RunRegistry の仕様
 - 運用コマンド / 環境変数
@@ -106,6 +106,12 @@ bash scripts/stop.sh            # 停止
 
 - `GET /healthz`: ヘルスチェック
 
+- ジョブ（Jobs）
+  - `POST /jobs/simulation`: シミュレーションをジョブとして投入。ボディは `SimulationInput`、レスポンス `{ job_id }`
+  - `GET /jobs/{job_id}`: ジョブの状態を取得（`status=queued|running|succeeded|failed`, `run_id`, `error`, `submitted_at/started_at/finished_at`）
+  - `GET /jobs?status=&offset=&limit=`: ジョブ一覧（ページング）。`status` フィルタ対応
+  - 備考: 既存 `POST /simulation` は従来通り。将来フラグでジョブ化に委譲可能
+
 - 設定マスタ（Configs）
   - `GET /configs`: 一覧（id, name, created_at/updated_at）
   - `GET /configs/{id}`: 詳細（name, json_text, config(JSON)）
@@ -143,12 +149,16 @@ bash scripts/stop.sh            # 停止
 - `SCPLN_DB`（既定 `data/scpln.db`）: SQLite DBパス
 - `SIM_LOG_JSON=1`（既定 0）: ログをJSONで出力（`timestamp, level, message, request_id, run_id, ...`）
 - `RUNS_DB_MAX_ROWS`（既定 0=無効）: DBバックエンド時、保持する最新Run件数の上限（超過は古い順に自動削除）
+ - `JOBS_ENABLED`（既定 1）: ジョブワーカーの有効化
+ - `JOBS_WORKERS`（既定 1）: ワーカースレッド数
 
 メトリクス（Prometheus）
 - `runs_total`（Counter）: シミュレーション実行回数
 - `simulation_duration_ms`（Histogram）: 実行時間（ms）
 - `http_requests_total{method,path,status}`（Counter）: HTTPリクエスト数
 - `http_request_duration_seconds{method,path,status}`（Histogram）: HTTPレイテンシ（秒）
+ - `jobs_enqueued_total{type}`/`jobs_completed_total{type}`/`jobs_failed_total{type}`（Counter）
+ - `jobs_duration_seconds{type}`（Histogram）
 
 ログの例（JSON）
 ```json
