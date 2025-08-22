@@ -92,6 +92,21 @@
 - 観測性（構造化ログ、基本メトリクス）
 - README更新（データ保持/互換ポリシー、サイジング、SLA初期値）
 
+## 次の一歩（実装/運用の具体）
+- 運用切替: RunRegistry を DB バックエンドに切替（既存機能は後方互換）
+  - 設定例: `configs/env.example` を参照し `.env` を作成
+    - `REGISTRY_BACKEND=db`
+    - `RUNS_DB_MAX_ROWS=1000`（保持上限。超過分を自動クリーンアップ）
+    - `SCPLN_DB=data/scpln.db`
+  - 起動: `env $(cat .env | xargs) uvicorn main:app --host 0.0.0.0 --port 8000`
+  - 期待効果: ラン履歴の永続化・ページング・フィルタ/ソートが DB で安定動作
+- ドキュメント: README の環境変数に DB バックエンドの手順を明示（リンク済）
+- 検証: E2E（/simulation→/runs detail=false/true、/runs?schema_version=）が 100 レコード規模で応答時間<200ms（ローカル）
+
+次の次の一歩（提案）
+- UI: `/ui/runs` に Schema/Config フィルタの保持と pager 改善（既存 localStorage を整理）
+- ジョブUI: 集計ジョブに `date_field/tz/calendar_mode` 入力（README準拠）
+
 ## マイルストーン
 - M1（2–3週）: Run永続化、ページング、観測性、スキーマ版管理
 - M2（3–4週）: 非同期実行、シナリオ管理1.0、週次バケット

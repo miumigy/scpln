@@ -198,6 +198,7 @@ bash scripts/stop.sh            # 停止
 - `SCPLN_DB`（既定 `data/scpln.db`）: SQLite DBパス
 - `SIM_LOG_JSON=1`（既定 0）: ログをJSONで出力（`timestamp, level, message, request_id, run_id, ...`）
 - `RUNS_DB_MAX_ROWS`（既定 0=無効）: DBバックエンド時、保持する最新Run件数の上限（超過は古い順に自動削除）
+ - 運用例: `configs/env.example` を `.env` にコピーし、`REGISTRY_BACKEND=db` と `RUNS_DB_MAX_ROWS` を設定
  - `JOBS_ENABLED`（既定 1）: ジョブワーカーの有効化
  - `JOBS_WORKERS`（既定 1）: ワーカースレッド数
 
