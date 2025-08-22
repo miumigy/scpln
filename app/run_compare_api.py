@@ -3,7 +3,8 @@ from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
 from app.run_registry import _BACKEND  # type: ignore
-from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED, COMPARE_REQUESTS
+from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED, COMPARE_REQUESTS, COMPARE_DURATION
+import time
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [
@@ -151,6 +152,7 @@ def compare_runs(
     base_id: str | None = Query(None),
     keys: str | None = Query(None),
 ):
+    _t0 = time.monotonic()
     ids: List[str] = body.get("run_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
@@ -193,8 +195,8 @@ def compare_runs(
         resp["threshold"] = threshold
     if base_id:
         resp["base_id"] = base_id
-    if keys:
-        resp["keys"] = use_keys
+    # 常にkeysを含める（明示性のため）
+    resp["keys"] = use_keys
     try:
         COMPARE_REQUESTS.labels(
             threshold=str(threshold is not None).lower(),
@@ -202,6 +204,7 @@ def compare_runs(
             runs=str(len(ids)),
             base_set=str(bool(base_id)).lower(),
         ).inc()
+        COMPARE_DURATION.observe(time.monotonic() - _t0)
     except Exception:
         pass
     return resp
