@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<article>
+  <header>
+    <h2>Job Detail</h2>
+    <p class="mono">{{ job.job_id }}</p>
+  </header>
+  <section>
+    <table>
+      <tbody>
+        <tr><th>type</th><td>{{ job.type }}</td></tr>
+        <tr><th>status</th><td>{{ job.status }}</td></tr>
+        <tr><th>submitted_at</th><td>{{ job.submitted_at }}</td></tr>
+        <tr><th>started_at</th><td>{{ job.started_at or '' }}</td></tr>
+        <tr><th>finished_at</th><td>{{ job.finished_at or '' }}</td></tr>
+        <tr><th>run_id</th><td class="mono">{% if job.run_id %}<a href="/ui/runs/{{ job.run_id }}">{{ job.run_id }}</a>{% endif %}</td></tr>
+        <tr><th>error</th><td><pre>{{ job.error or '' }}</pre></td></tr>
+      </tbody>
+    </table>
+  </section>
+  <footer>
+    <a role="button" href="/ui/jobs">← Back to jobs</a>
+  </footer>
+</article>
+{% endblock %}
+
