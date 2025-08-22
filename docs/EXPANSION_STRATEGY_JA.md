@@ -29,6 +29,11 @@
 
 ### フェーズ2: 層別計画とスケール
 - 時間バケット: `TimeBucketStrategy`（day/week/month）で粗密可変、集計/分配ユーティリティ
+  - 多軸集約: 時間軸に加え、商品軸（SKU→Item→Category→Department 等）、場所軸（Store→Region→Country 等）でもロールアップ可能な汎用集約を提供
+  - v0 方針: エンジン出力（day ベースの results/trace など）に対し、ユーティリティ（engine/aggregation.py）で
+    - 時間集約: 週次/⽉次へグループ化
+    - 軸ロールアップ: 与えられたマッピング（例: SKU→Category, Store→Region）で上位レベルへ合算
+  - v1 方針: マスタに階層（商品/場所）を持ち、クエリ/ジョブで任意のレベル・粒度へ集計（PostgreSQL/列指向DWHも視野）
 - シナリオ管理: `scenarios`（親子/タグ/バージョン/ロック）、差分保存（JSON-Patch）、比較UI強化
 - 性能: ベクトル化（NumPy）/差分実行/ストリーミングCSV/メモリ削減
 - ジョブ分散: 複数ワーカー、優先度キュー、長時間計算の再開/中断、成果物アーカイブ
@@ -58,6 +63,7 @@
   - `tests/`: 週次/月次サマリの検証
 - 非同期実行:
   - `app/simulation_api.py`: ジョブ起動API（job_id返却）、`/runs/{id}`でポーリング
+  - `jobs`: シミュレーション/集計/比較等をジョブ化し、キュー/再試行/キャンセル/メトリクスを提供（M2: 連鎖ジョブ、優先度）
   - `scripts/serve.sh`/`status.sh`: ワーカー起動/キュー可視化
 - シナリオ管理:
   - `app/config_api.py`: `scenario` エンティティ（親子/タグ/説明/ロック）、差分保存
