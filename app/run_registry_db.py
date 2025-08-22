@@ -128,7 +128,11 @@ class RunRegistryDB:
             total = c.execute(f"SELECT COUNT(*) as cnt FROM runs{where_sql}", params).fetchone()[
                 "cnt"
             ]
-            cols = "*" if detail else "run_id, started_at, duration_ms, schema_version, summary, config_id"
+            cols = (
+                "*"
+                if detail
+                else "run_id, started_at, duration_ms, schema_version, summary, config_id, created_at, updated_at"
+            )
             rows = c.execute(
                 f"SELECT {cols} FROM runs{where_sql} ORDER BY {sort} {order}, run_id {order} LIMIT ? OFFSET ?",
                 (*params, limit, offset),
@@ -147,6 +151,8 @@ class RunRegistryDB:
                             "schema_version": r["schema_version"],
                             "summary": json.loads(r["summary"] or "{}"),
                             "config_id": r["config_id"],
+                            "created_at": r["created_at"],
+                            "updated_at": r["updated_at"],
                         }
                     )
         return {"runs": data, "total": total, "offset": offset, "limit": limit}
