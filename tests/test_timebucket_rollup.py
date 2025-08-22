@@ -39,3 +39,16 @@ def test_rollup_axis_product_location():
         ("C1", "R1", 2, 3.0, 30.0),
     }
 
+
+def test_aggregate_by_time_iso_week_and_month_date_based():
+    records = [
+        {"date": "2025-01-05", "qty": 1.0},  # ISO week 2025-W01 (assuming week starts Monday)
+        {"date": "2025-01-06", "qty": 2.0},  # next ISO week if 2025-01-06 is Monday
+        {"date": "2025-02-01", "qty": 3.0},
+    ]
+    # ISO week
+    out_w = aggregate_by_time(records, "week", date_field="date", calendar_mode="iso_week", sum_fields=["qty"])
+    assert any(r["period"].startswith("2025-W") for r in out_w)
+    # Month
+    out_m = aggregate_by_time(records, "month", date_field="date", sum_fields=["qty"])
+    assert any(r["period"].startswith("2025-01") for r in out_m)
