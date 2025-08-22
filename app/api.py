@@ -10,6 +10,7 @@ from starlette.requests import Request as StarletteRequest
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 import uuid
+import time
 
 from domain.models import SimulationInput
 
@@ -121,11 +122,15 @@ def validate_input(input_data: SimulationInput) -> None:
         seen.add(key)
 
 
+from app.metrics import observe_http
+
+
 class _RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = rid
         token = REQUEST_ID_VAR.set(rid)
+        started = time.monotonic()
         # リクエスト開始ログ
         logging.info(
             "http_request_start",
@@ -149,7 +154,10 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
                     "request_id": rid,
                 },
             )
-            REQUEST_ID_VAR.reset(token)
+            try:
+                observe_http(request, 500, started)
+            finally:
+                REQUEST_ID_VAR.reset(token)
             return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
         response.headers["X-Request-ID"] = rid
         # リクエスト完了ログ
@@ -163,7 +171,10 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
                 "request_id": rid,
             },
         )
-        REQUEST_ID_VAR.reset(token)
+        try:
+            observe_http(request, response.status_code, started)
+        finally:
+            REQUEST_ID_VAR.reset(token)
         return response
 
 

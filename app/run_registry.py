@@ -33,6 +33,15 @@ class RunRegistry:
         with self._lock:
             return list(reversed(self._order))
 
+    def delete(self, run_id: str) -> None:
+        with self._lock:
+            if run_id in self._runs:
+                self._runs.pop(run_id, None)
+                try:
+                    self._order.remove(run_id)
+                except ValueError:
+                    pass
+
 
 def _capacity_from_env(default: int = 50) -> int:
     s = os.getenv("REGISTRY_CAPACITY")
@@ -46,6 +55,7 @@ def _capacity_from_env(default: int = 50) -> int:
 
 
 _BACKEND = os.getenv("REGISTRY_BACKEND", "memory").lower()
+_DB_MAX_ROWS = int(os.getenv("RUNS_DB_MAX_ROWS", "0") or 0)
 
 if _BACKEND == "db":
     try:

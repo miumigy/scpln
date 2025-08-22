@@ -7,6 +7,7 @@ from engine.simulator import SupplyChainSimulator
 import time
 from app.run_registry import REGISTRY
 from app.metrics import RUNS_TOTAL, SIM_DURATION
+from app.run_registry import _BACKEND, _DB_MAX_ROWS  # type: ignore
 
 
 @app.post("/simulation")
@@ -41,6 +42,12 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
             "cost_trace": getattr(sim, "cost_trace", []),
         },
     )
+    # DB使用時は容量上限で古いRunをクリーンアップ
+    try:
+        if _BACKEND == "db" and _DB_MAX_ROWS > 0 and hasattr(REGISTRY, "cleanup_by_capacity"):
+            REGISTRY.cleanup_by_capacity(_DB_MAX_ROWS)
+    except Exception:
+        pass
     set_last_summary(summary)
     logging.info(
         "run_completed",

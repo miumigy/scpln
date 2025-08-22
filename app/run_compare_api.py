@@ -153,6 +153,17 @@ def compare_runs(body: Dict[str, Any] = Body(...)):
     return {"metrics": rows, "diffs": diffs}
 
 
+@app.delete("/runs/{run_id}")
+def delete_run(run_id: str):
+    r = REGISTRY.get(run_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="run not found")
+    # DB/メモリ双方に対応
+    if hasattr(REGISTRY, "delete"):
+        REGISTRY.delete(run_id)
+    return {"status": "deleted", "run_id": run_id}
+
+
 def _filter_and_sort(
     rows: List[Dict[str, Any]],
     sort: str,

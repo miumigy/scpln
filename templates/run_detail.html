@@ -39,6 +39,7 @@
 
   <footer>
     <a role="button" href="/ui/runs">← Back to runs</a>
+    <button id="delete-run" class="contrast" style="float:right;">Delete this run</button>
   </footer>
 </article>
 {% endblock %}
@@ -67,6 +68,17 @@
     }
   }
   btn.addEventListener('click', refresh);
+  const delBtn = document.getElementById('delete-run');
+  async function del() {
+    if (!confirm('Delete this run? This action cannot be undone.')) return;
+    try {
+      const res = await fetch(`/runs/${runId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      alert('Run deleted.');
+      location.href = '/ui/runs';
+    } catch (e) { console.error(e); alert('Failed to delete run.'); }
+  }
+  if (delBtn) delBtn.addEventListener('click', del);
 })();
 </script>
 {% endblock %}

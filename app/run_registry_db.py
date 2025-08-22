@@ -167,3 +167,23 @@ class RunRegistryDB:
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),
         }
+
+    def delete(self, run_id: str) -> None:
+        with _conn() as c:
+            c.execute("DELETE FROM runs WHERE run_id=?", (run_id,))
+
+    def cleanup_by_capacity(self, max_rows: int) -> None:
+        if max_rows <= 0:
+            return
+        with _conn() as c:
+            cnt = c.execute("SELECT COUNT(*) AS cnt FROM runs").fetchone()["cnt"]
+            if cnt <= max_rows:
+                return
+            # 古い順に超過分を削除
+            to_delete = c.execute(
+                "SELECT run_id FROM runs ORDER BY started_at DESC, run_id DESC LIMIT -1 OFFSET ?",
+                (max_rows,),
+            ).fetchall()
+            ids = [r["run_id"] for r in to_delete]
+            for rid in ids:
+                c.execute("DELETE FROM runs WHERE run_id=?", (rid,))
