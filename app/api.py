@@ -4,7 +4,9 @@ import json
 import contextvars
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.exception_handlers import http_exception_handler as _default_http_exc_handler
+from starlette.requests import Request as StarletteRequest
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 import uuid
@@ -124,23 +126,61 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         request.state.request_id = rid
         token = REQUEST_ID_VAR.set(rid)
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = rid
-        # アクセスログ（簡易）
+        # リクエスト開始ログ
+        logging.info(
+            "http_request_start",
+            extra={
+                "event": "http_request_start",
+                "method": request.method,
+                "path": request.url.path,
+                "request_id": rid,
+            },
+        )
         try:
-            logging.info(
-                "http_request",
+            response = await call_next(request)
+        except Exception as e:  # ここに来るのは未ハンドル例外
+            logging.error(
+                "http_exception",
                 extra={
-                    "event": "http_request",
+                    "event": "http_exception",
                     "method": request.method,
                     "path": request.url.path,
-                    "status": response.status_code,
+                    "status": 500,
                     "request_id": rid,
                 },
             )
-        finally:
             REQUEST_ID_VAR.reset(token)
+            return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+        response.headers["X-Request-ID"] = rid
+        # リクエスト完了ログ
+        logging.info(
+            "http_request",
+            extra={
+                "event": "http_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "request_id": rid,
+            },
+        )
+        REQUEST_ID_VAR.reset(token)
         return response
+
+
+@app.exception_handler(HTTPException)
+async def _http_exc_logger(request: StarletteRequest, exc: HTTPException):
+    rid = getattr(getattr(request, "state", object()), "request_id", REQUEST_ID_VAR.get())
+    logging.warning(
+        "http_error",
+        extra={
+            "event": "http_error",
+            "method": request.method,
+            "path": request.url.path,
+            "status": exc.status_code,
+            "request_id": rid,
+        },
+    )
+    return await _default_http_exc_handler(request, exc)
 
 
 app.add_middleware(_RequestIDMiddleware)
