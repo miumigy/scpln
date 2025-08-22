@@ -111,8 +111,8 @@
     if (txt) td.textContent = txt;
   });
   // 初期ロード時にAPIからメタ情報(total/offset/limit)を取得してページャを更新
-  if (window.RunsUI && typeof window.RunsUI.reloadRuns === 'function') {
-    window.RunsUI.reloadRuns();
+  if (window.RunsUI && typeof window.RunsUI.init === 'function') {
+    window.RunsUI.init();
   }
 })();
 </script>

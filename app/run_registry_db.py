@@ -100,6 +100,57 @@ class RunRegistryDB:
             ).fetchall()
             return [self._row_to_rec(r) for r in rows]
 
+    # ページング/ソート/フィルタ対応（/runs 用）
+    def list_page(
+        self,
+        offset: int,
+        limit: int,
+        sort: str = "started_at",
+        order: str = "desc",
+        schema_version: Optional[str] = None,
+        config_id: Optional[int] = None,
+        detail: bool = False,
+    ) -> Dict[str, Any]:
+        sort_keys = {"started_at", "duration_ms", "schema_version"}
+        if sort not in sort_keys:
+            sort = "started_at"
+        order = "DESC" if order.lower() != "asc" else "ASC"
+        where = []
+        params: List[Any] = []
+        if schema_version is not None:
+            where.append("schema_version = ?")
+            params.append(schema_version)
+        if config_id is not None:
+            where.append("config_id = ?")
+            params.append(config_id)
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        with _conn() as c:
+            total = c.execute(f"SELECT COUNT(*) as cnt FROM runs{where_sql}", params).fetchone()[
+                "cnt"
+            ]
+            cols = "*" if detail else "run_id, started_at, duration_ms, schema_version, summary, config_id"
+            rows = c.execute(
+                f"SELECT {cols} FROM runs{where_sql} ORDER BY {sort} {order}, run_id {order} LIMIT ? OFFSET ?",
+                (*params, limit, offset),
+            ).fetchall()
+            if detail:
+                data = [self._row_to_rec(r) for r in rows]
+            else:
+                # 軽量メタ（summaryはTEXT→dict化）
+                data = []
+                for r in rows:
+                    data.append(
+                        {
+                            "run_id": r["run_id"],
+                            "started_at": r["started_at"],
+                            "duration_ms": r["duration_ms"],
+                            "schema_version": r["schema_version"],
+                            "summary": json.loads(r["summary"] or "{}"),
+                            "config_id": r["config_id"],
+                        }
+                    )
+        return {"runs": data, "total": total, "offset": offset, "limit": limit}
+
     @staticmethod
     def _row_to_rec(row) -> Dict[str, Any]:
         return {
