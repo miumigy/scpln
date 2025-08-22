@@ -17,6 +17,7 @@ def ui_compare(
     run_ids: str = Form(...),
     base_id: str | None = Form(None),
     threshold: str | None = Form(None),
+    keys: str | None = Form(None),
 ):
     ids: List[str] = [x.strip() for x in run_ids.split(",") if x.strip()]
     if len(ids) < 2:
@@ -41,6 +42,14 @@ def ui_compare(
         "customer_shortage_total",
     ]
 
+    # keys filter
+    use_keys = COMPARE_KEYS
+    if keys:
+        req = [x.strip() for x in keys.split(",") if x.strip()]
+        filt = [k for k in req if k in COMPARE_KEYS]
+        if filt:
+            use_keys = filt
+
     rows = []
     for rid in ids:
         rec = REGISTRY.get(rid)
@@ -48,7 +57,7 @@ def ui_compare(
             raise HTTPException(status_code=404, detail=f"run not found: {rid}")
         s = rec.get("summary") or {}
         row = {"run_id": rid}
-        for k in COMPARE_KEYS:
+        for k in use_keys:
             v = s.get(k, 0.0)
             try:
                 row[k] = float(v)
@@ -67,7 +76,7 @@ def ui_compare(
         base = rows[0]
         for other in rows[1:]:
             diff = {"base": base["run_id"], "target": other["run_id"]}
-            for k in COMPARE_KEYS:
+            for k in use_keys:
                 b = base.get(k) or 0.0
                 t = other.get(k) or 0.0
                 d = t - b
@@ -81,10 +90,11 @@ def ui_compare(
             "request": request,
             "rows": rows,
             "diffs": diffs,
-            "keys": COMPARE_KEYS,
+            "keys": use_keys,
             "run_ids_str": ",".join([r["run_id"] for r in rows]),
             "base_id": rows[0]["run_id"] if rows else None,
             "threshold": th_pct,
+            "keys_str": ",".join(use_keys),
         },
     )
 
