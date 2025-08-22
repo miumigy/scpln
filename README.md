@@ -121,6 +121,25 @@ bash scripts/stop.sh            # 停止
   - 備考: 既存 `POST /simulation` は従来通り。将来フラグでジョブ化に委譲可能
   - `POST /jobs/{job_id}/retry`（failed/canceled のみ）: 再キュー投入（`{"params": SimulationInput}`でパラメータ上書き可）
   - `POST /jobs/{job_id}/cancel`（queued のみ）: キャンセル（`status=canceled`）
+  - `POST /jobs/aggregate`: 集計ジョブの投入（時間×商品×場所のロールアップ）
+    - ボディ例:
+      ```json
+      {
+        "run_id": "<run_id>",
+        "dataset": "pl",        
+        "bucket": "week",        
+        "group_keys": ["node","item"],
+        "sum_fields": ["qty","revenue"],
+        "product_key": "item",
+        "product_level": "category",
+        "product_map": {"SKU1": {"category": "C1"}},
+        "location_key": "node",
+        "location_level": "region",
+        "location_map": {"S1": {"region": "R1"}}
+      }
+      ```
+    - レスポンス: `{ "job_id": "..." }`
+  - `GET /jobs/{job_id}/result.json` / `GET /jobs/{job_id}/result.csv`: 集計結果の取得（成功時）
 
 - 設定マスタ（Configs）
   - `GET /configs`: 一覧（id, name, created_at/updated_at）
