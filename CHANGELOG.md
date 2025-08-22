@@ -4,6 +4,13 @@
 
 - （運用）Auto-merge 設定とコンフリクト検出ワークフローの整備（継続）
 
+## v0.3.5 (2025-08-22)
+
+- feat(ui/runs): ページ番号ジャンプ、First/Last 追加、列ヘッダクリックでソート切替（↑/↓表示）、行ごとの CSV 直リンク（res/pl/sum/trace）
+- feat(ui/jobs): 集計フォームに `date_field`/`tz`/`calendar_mode`/`week_start_offset`/`month_len`、`product_map`/`location_map`(JSON) を追加
+- feat(ui/jobs): プリセットの保存/読込に加え、Export/Import(JSON)対応、最新Runからの `group_keys`/`sum_fields` 候補自動推測と datalist 提示
+- docs(readme): 上記UIの操作ガイドを追記
+
 ## v0.3.4 (2025-08-22)
 
 - feat(aggregation): カレンダー厳密化（`date_field`/ISO週/月境界）。週開始オフセット/月長は day ベースを維持（#93）
