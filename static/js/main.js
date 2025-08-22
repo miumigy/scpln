@@ -167,7 +167,9 @@
             }
 
             try {
-                const response = await fetch('/simulation?include_trace=1', {
+                const q = new URLSearchParams({ include_trace: '1' });
+                try { if (window.__currentConfigId) q.set('config_id', String(window.__currentConfigId)); } catch {}
+                const response = await fetch(`/simulation?${q.toString()}` , {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestBody)

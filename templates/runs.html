@@ -14,6 +14,7 @@
         <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at">started_at</button></th>
         <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms">dur(ms)</button></th>
         <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version">schema</button></th>
+        <th>config_id</th>
         <th>fill_rate</th>
         <th>profit_total</th>
         <th></th>
@@ -27,6 +28,7 @@
         <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
         <td>{{ r.duration_ms }}</td>
         <td>{{ r.schema_version }}</td>
+        <td>{{ r.config_id or '' }}</td>
         <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
         <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
         <td>

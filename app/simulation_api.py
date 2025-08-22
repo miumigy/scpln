@@ -1,6 +1,8 @@
 from uuid import uuid4
 import logging
 from fastapi import Query
+import json
+from app import db
 from app.api import app, validate_input, set_last_summary
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
@@ -11,7 +13,7 @@ from app.run_registry import _BACKEND, _DB_MAX_ROWS  # type: ignore
 
 
 @app.post("/simulation")
-def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)):
+def post_simulation(payload: SimulationInput, include_trace: bool = Query(False), config_id: int | None = Query(None)):
     validate_input(payload)
     run_id = str(uuid4())
     start = time.time()
@@ -28,6 +30,16 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
         summary = sim.compute_summary()
     except Exception:
         summary = {}
+    # optional: attach config context (id and json) when provided
+    cfg_json = None
+    try:
+        if config_id is not None:
+            rec = db.get_config(int(config_id))
+            if rec and rec.get("json_text") is not None:
+                cfg_json = json.loads(rec.get("json_text"))
+    except Exception:
+        cfg_json = None
+
     REGISTRY.put(
         run_id,
         {
@@ -40,6 +52,8 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
             "results": results,
             "daily_profit_loss": daily_pl,
             "cost_trace": getattr(sim, "cost_trace", []),
+            "config_id": config_id,
+            "config_json": cfg_json,
         },
     )
     # DB使用時は容量上限で古いRunをクリーンアップ

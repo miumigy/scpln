@@ -126,6 +126,7 @@
         <td>${fmtJst(r.started_at)}</td>
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
+        <td>${r.config_id ?? ''}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td>
