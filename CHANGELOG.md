@@ -4,6 +4,14 @@
 
 - （運用）Auto-merge 設定とコンフリクト検出ワークフローの整備（継続）
 
+## 2025-08-22
+
+- feat(api): DELETE /runs/{id} を追加（メモリ/DB両対応）
+- feat(ui): ラン詳細に Delete ボタン（確認ダイアログ付き）
+- feat(obs): /metrics に HTTP メトリクス（http_requests_total, http_request_duration_seconds）を追加
+- perf(db): RUNS_DB_MAX_ROWS による古いRunの自動クリーンアップ（DBバックエンド時）
+- docs: README に削除API・UI操作・環境変数・メトリクス一覧を追記
+
 ## 2025-08-21
 
 - feat(api): /runs にページングを追加（`offset`/`limit`）。detail=false 既定50、detail=true 既定10（>10は400）
