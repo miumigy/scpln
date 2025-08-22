@@ -174,6 +174,9 @@ class JobManager:
             location_level = cfg.get("location_level")
             location_map = cfg.get("location_map") or None
             location_key = cfg.get("location_key") or "node"
+            # calendar options
+            week_start_offset = int(cfg.get("week_start_offset") or 0)
+            month_len = int(cfg.get("month_len") or 30)
 
             run = REGISTRY.get(run_id) if run_id else None
             if not run:
@@ -192,7 +195,15 @@ class JobManager:
 
             # time aggregation if 'day' present
             if rows and isinstance(rows[0], dict) and ("day" in rows[0]):
-                agg_time = aggregate_by_time(rows, bucket, day_field="day", sum_fields=sum_fields, group_keys=group_keys)
+                agg_time = aggregate_by_time(
+                    rows,
+                    bucket,
+                    day_field="day",
+                    sum_fields=sum_fields,
+                    group_keys=group_keys,
+                    week_start_offset=week_start_offset,
+                    month_len=month_len,
+                )
             else:
                 agg_time = rows
 
@@ -201,10 +212,10 @@ class JobManager:
             out_rows = rollup_axis(
                 agg_time,
                 product_key=product_key,
-                product_map=product_map,
+                product_map=(product_map or db.get_product_hierarchy()),
                 product_level=product_level,
                 location_key=location_key,
-                location_map=location_map,
+                location_map=(location_map or db.get_location_hierarchy()),
                 location_level=location_level,
                 keep_fields=keep,
                 sum_fields=sum_fields,
