@@ -88,9 +88,20 @@
 
   function updateSortIndicators() {
     const arrow = state.order === 'asc' ? '↑' : '↓';
-    if (thSortStarted) thSortStarted.textContent = 'started_at' + (state.sort === 'started_at' ? ' ' + arrow : '');
-    if (thSortDur) thSortDur.textContent = 'dur(ms)' + (state.sort === 'duration_ms' ? ' ' + arrow : '');
-    if (thSortSchema) thSortSchema.textContent = 'schema' + (state.sort === 'schema_version' ? ' ' + arrow : '');
+    // reset classes
+    [thSortStarted, thSortDur, thSortSchema].forEach(el => { if (el) el.classList.remove('active-sort'); });
+    if (thSortStarted) {
+      thSortStarted.textContent = 'started_at' + (state.sort === 'started_at' ? ' ' + arrow : '');
+      if (state.sort === 'started_at') thSortStarted.classList.add('active-sort');
+    }
+    if (thSortDur) {
+      thSortDur.textContent = 'dur(ms)' + (state.sort === 'duration_ms' ? ' ' + arrow : '');
+      if (state.sort === 'duration_ms') thSortDur.classList.add('active-sort');
+    }
+    if (thSortSchema) {
+      thSortSchema.textContent = 'schema' + (state.sort === 'schema_version' ? ' ' + arrow : '');
+      if (state.sort === 'schema_version') thSortSchema.classList.add('active-sort');
+    }
   }
 
   function fmtJst(ms) {
