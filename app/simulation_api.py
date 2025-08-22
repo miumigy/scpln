@@ -6,6 +6,7 @@ from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import time
 from app.run_registry import REGISTRY
+from app.metrics import RUNS_TOTAL, SIM_DURATION
 
 
 @app.post("/simulation")
@@ -17,6 +18,11 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
     sim = SupplyChainSimulator(payload)
     results, daily_pl = sim.run()
     duration_ms = int((time.time() - start) * 1000)
+    try:
+        SIM_DURATION.observe(duration_ms)
+        RUNS_TOTAL.inc()
+    except Exception:
+        pass
     try:
         summary = sim.compute_summary()
     except Exception:

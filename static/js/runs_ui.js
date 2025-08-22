@@ -16,6 +16,28 @@
 
   let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '' };
 
+  function syncFromUrl() {
+    const sp = new URLSearchParams(location.search);
+    state.offset = Number(sp.get('offset') || state.offset) || 0;
+    state.limit = Number(sp.get('limit') || state.limit) || state.limit;
+    state.sort = sp.get('sort') || state.sort;
+    state.order = sp.get('order') || state.order;
+    state.schema_version = sp.get('schema_version') || '';
+    state.config_id = sp.get('config_id') || '';
+  }
+
+  function syncToUrl() {
+    const sp = new URLSearchParams();
+    sp.set('offset', String(state.offset));
+    sp.set('limit', String(state.limit));
+    if (state.sort) sp.set('sort', state.sort);
+    if (state.order) sp.set('order', state.order);
+    if (state.schema_version) sp.set('schema_version', state.schema_version);
+    if (state.config_id) sp.set('config_id', state.config_id);
+    const url = location.pathname + '?' + sp.toString();
+    history.replaceState(null, '', url);
+  }
+
   function fmt(v, digits = 3) {
     if (v === null || v === undefined) return '';
     const n = Number(v);
@@ -85,6 +107,8 @@
       if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
       if (schemaInput && schemaInput.value !== (state.schema_version || '')) schemaInput.value = state.schema_version || '';
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
+      // URL更新
+      syncToUrl();
     } catch (e) {
       console.error('Failed to reload runs', e);
       alert('Failed to load runs from API.');
@@ -130,6 +154,8 @@
     reloadRuns();
   });
 
+  // 初期ロード: URL→state同期の上で読込
+  function init() { syncFromUrl(); reloadRuns(); }
   // expose for inline script to trigger initial load
-  window.RunsUI = { reloadRuns };
+  window.RunsUI = { reloadRuns, init };
 })();

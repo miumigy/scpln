@@ -86,6 +86,7 @@ bash scripts/stop.sh            # 停止
   - ページング: `?offset=0&limit=50`（`1..100`）をサポート。レスポンスに `total/offset/limit` を含む
   - ソート/フィルタ: `?sort=started_at|duration_ms|schema_version&order=desc|asc&schema_version=1.0&config_id=123`
   - `?detail=true`: フル（`results`/`daily_profit_loss`/`cost_trace`含む、ページング適用）。既定 `limit=10`。`limit>10` は `400 Bad Request`
+  - DBバックエンド時はSQLでソート/フィルタ/ページング（`total` は `COUNT(*)`）
 
 - `GET /runs/{run_id}`
   - 既定: 軽量メタ＋`summary`
@@ -117,6 +118,7 @@ bash scripts/stop.sh            # 停止
 - ネスト辞書はドット区切りでフラット化（例: `flow_costs.production_fixed`）
 - 配列は JSON 文字列として埋め込み
 - レコードが空でもヘッダは返却
+ - CSVは `Content-Disposition` を付与し、`text/csv; charset=utf-8` で配信
 
 ## RunRegistry の仕様
 

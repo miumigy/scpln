@@ -58,6 +58,17 @@ def list_runs(
                 status_code=400,
                 detail="detail=true の場合は limit <= 10 にしてください",
             )
+        # DBバックエンドはSQLでページング
+        if hasattr(REGISTRY, "list_page"):
+            return REGISTRY.list_page(
+                offset=offset,
+                limit=limit,
+                sort=sort,
+                order=order,
+                schema_version=schema_version,
+                config_id=config_id,
+                detail=True,
+            )
         runs = REGISTRY.list()
         runs = _filter_and_sort(runs, sort, order, schema_version, config_id)
         total = len(runs)
@@ -78,6 +89,17 @@ def list_runs(
                 "summary": rec.get("summary", {}),
                 "config_id": rec.get("config_id"),
             }
+        )
+    # DBバックエンドはSQLでページング
+    if hasattr(REGISTRY, "list_page"):
+        return REGISTRY.list_page(
+            offset=offset,
+            limit=limit,
+            sort=sort,
+            order=order,
+            schema_version=schema_version,
+            config_id=config_id,
+            detail=False,
         )
     out = _filter_and_sort(out, sort, order, schema_version, config_id)
     total = len(out)
