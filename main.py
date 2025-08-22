@@ -46,6 +46,13 @@ try:
 except Exception:
     pass
 
+# hierarchy API/UI の登録（商品/場所の階層マスタ）
+try:
+    from app import hierarchy_api as _hierarchy_api  # noqa: F401
+    from app import ui_hierarchy as _ui_hierarchy  # noqa: F401
+except Exception:
+    pass
+
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 
