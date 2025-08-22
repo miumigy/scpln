@@ -254,6 +254,16 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - 入力 `random_seed`: 需要乱数の再現性確保
 - `SCPLN_DB`: SQLite のDBパス（既定 `data/scpln.db`）。未存在時は自動作成
 
+## UIの使い方（抜粋）
+
+- `/ui/runs`
+  - ページャ: First/Prev/Next/Last とページ番号ジャンプ（Page x/y）。`limit`/`sort`/`order`/`schema_version`/`config_id` は localStorage に保存・復元
+  - ソート: 列見出し（started_at/duration_ms/schema_version）クリックで昇順/降順を切替（↑/↓を表示）
+  - 比較: 行チェック→Use selected→Compare、または Compare selected で直接比較
+- `/ui/jobs`
+  - 集計ジョブ: run_id/dataset/bucket に加え、`date_field`/`tz`/`calendar_mode`、`week_start_offset`/`month_len`、`product_map`/`location_map`(JSON)を指定可能
+  - プリセット: フォーム値をローカルに保存/読込/削除（localStorage）。繰り返しの集計設定を一括適用
+
 ## 図解
 
 ### 簡易アーキテクチャ
