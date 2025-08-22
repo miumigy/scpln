@@ -3,6 +3,7 @@
   const reloadBtn = document.getElementById('reload-btn');
   const runIdsInput = document.getElementById('run-ids');
   const useSelectedBtn = document.getElementById('use-selected');
+  const deleteSelectedBtn = document.getElementById('delete-selected');
   const prevBtn = document.getElementById('prev-page');
   const nextBtn = document.getElementById('next-page');
   const limitSel = document.getElementById('limit-select');
@@ -125,8 +126,25 @@
     runIdsInput.value = ids.join(',');
   }
 
+  async function deleteSelected() {
+    if (!tbody) return;
+    const ids = Array.from(tbody.querySelectorAll('input.pick:checked')).map(el => el.value);
+    if (!ids.length) { alert('No runs selected.'); return; }
+    if (!confirm(`Delete ${ids.length} selected run(s)? This cannot be undone.`)) return;
+    let ok = 0, ng = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/runs/${id}`, { method: 'DELETE' });
+        if (res.ok) ok++; else ng++;
+      } catch (e) { console.error(e); ng++; }
+    }
+    alert(`Deleted: ${ok}, Failed: ${ng}`);
+    reloadRuns();
+  }
+
   if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
+  if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelected);
   if (prevBtn) prevBtn.addEventListener('click', () => { state.offset = Math.max(0, state.offset - state.limit); reloadRuns(); });
   if (nextBtn) nextBtn.addEventListener('click', () => { state.offset = state.offset + state.limit; reloadRuns(); });
   if (limitSel) limitSel.addEventListener('change', () => {

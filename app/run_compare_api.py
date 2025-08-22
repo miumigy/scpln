@@ -2,6 +2,8 @@ from typing import List, Dict, Any
 from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
+from app.run_registry import _BACKEND  # type: ignore
+from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [
@@ -73,6 +75,11 @@ def list_runs(
         runs = _filter_and_sort(runs, sort, order, schema_version, config_id)
         total = len(runs)
         sliced = runs[offset : offset + limit]
+        try:
+            RUNS_LIST_REQUESTS.labels(detail="true", backend=_BACKEND).inc()
+            RUNS_LIST_RETURNED.observe(len(sliced))
+        except Exception:
+            pass
         return {"runs": sliced, "total": total, "offset": offset, "limit": limit}
     ids = REGISTRY.list_ids()
     out = []
@@ -92,7 +99,7 @@ def list_runs(
         )
     # DBバックエンドはSQLでページング
     if hasattr(REGISTRY, "list_page"):
-        return REGISTRY.list_page(
+        resp = REGISTRY.list_page(
             offset=offset,
             limit=limit,
             sort=sort,
@@ -101,9 +108,20 @@ def list_runs(
             config_id=config_id,
             detail=False,
         )
+        try:
+            RUNS_LIST_REQUESTS.labels(detail="false", backend=_BACKEND).inc()
+            RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
+        except Exception:
+            pass
+        return resp
     out = _filter_and_sort(out, sort, order, schema_version, config_id)
     total = len(out)
     out = out[offset : offset + limit]
+    try:
+        RUNS_LIST_REQUESTS.labels(detail="false", backend=_BACKEND).inc()
+        RUNS_LIST_RETURNED.observe(len(out))
+    except Exception:
+        pass
     return {"runs": out, "total": total, "offset": offset, "limit": limit}
 
 
