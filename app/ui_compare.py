@@ -123,6 +123,11 @@ def ui_compare_metrics_csv(request: Request, run_ids: str, base_id: str | None =
                 row[k] = None
         rows.append(row)
     buf = io.StringIO()
+    # meta lines
+    import datetime as _dt
+    buf.write(f"# generated_at: {_dt.datetime.utcnow().isoformat()}Z\n")
+    if base_id:
+        buf.write(f"# base_id: {base_id}\n")
     w = csv.DictWriter(buf, fieldnames=["run_id", *COMPARE_KEYS])
     w.writeheader()
     for r in rows:
@@ -179,6 +184,12 @@ def ui_compare_diffs_csv(request: Request, run_ids: str, base_id: str | None = N
                 hit = abs(pct) >= threshold
             diffs.append({"base": base["run_id"], "target": other["run_id"], "metric": k, "abs": d, "pct": pct, "hit": hit})
     buf = io.StringIO()
+    # meta lines
+    import datetime as _dt
+    buf.write(f"# generated_at: {_dt.datetime.utcnow().isoformat()}Z\n")
+    buf.write(f"# base_id: {base['run_id']}\n")
+    if threshold is not None:
+        buf.write(f"# threshold_pct: {threshold}\n")
     w = csv.DictWriter(buf, fieldnames=["base", "target", "metric", "abs", "pct", "hit"])
     w.writeheader()
     for r in diffs:

@@ -144,10 +144,16 @@ def get_run(run_id: str, detail: bool = Query(False)):
 
 
 @app.post("/compare")
-def compare_runs(body: Dict[str, Any] = Body(...), threshold: float | None = Query(None)):
+def compare_runs(
+    body: Dict[str, Any] = Body(...),
+    threshold: float | None = Query(None),
+    base_id: str | None = Query(None),
+):
     ids: List[str] = body.get("run_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
+    if base_id and base_id in ids:
+        ids = [base_id] + [x for x in ids if x != base_id]
 
     rows = []
     for rid in ids:
@@ -175,6 +181,8 @@ def compare_runs(body: Dict[str, Any] = Body(...), threshold: float | None = Que
     resp: Dict[str, Any] = {"metrics": rows, "diffs": diffs}
     if threshold is not None:
         resp["threshold"] = threshold
+    if base_id:
+        resp["base_id"] = base_id
     return resp
 
 

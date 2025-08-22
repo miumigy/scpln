@@ -73,6 +73,8 @@ bash scripts/stop.sh            # 停止
   - Refresh summary from API: `GET /runs/{id}?detail=false`
   - Delete: 右下の [Delete this run] でRun削除（確認ダイアログあり）
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
+  - Base/Threshold: 比較画面でベースRunと閾値(%)を指定可能（閾値超えをハイライト）
+  - CSV: metrics.csv / diffs.csv をダウンロード（Base/Thresholdをメタ行として含む）
 
 ## API リファレンス
 
@@ -98,7 +100,9 @@ bash scripts/stop.sh            # 停止
 
 - `POST /compare`
   - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
-  - レスポンス: `metrics`（runごとの主要KPI）と `diffs`（先頭基準の差分）
+  - クエリ: `threshold`（省略可, %）。`diffs[*][metric]` に `hit` を付与
+  - クエリ: `base_id`（省略可）。ベースを指定順に固定
+  - レスポンス: `metrics`（runごとの主要KPI）と `diffs`（ベース基準の差分）。`threshold/base_id` を含む場合あり
 
 - `GET /healthz`: ヘルスチェック
 
