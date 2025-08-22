@@ -3,6 +3,7 @@
 ## Unreleased
 
 - （運用）Auto-merge 設定とコンフリクト検出ワークフローの整備（継続）
+- fix(api): /ui/hierarchy が表示されない問題を修正（mainで app.hierarchy_api / app.ui_hierarchy を読み込み）
 
 ## v0.3.5 (2025-08-22)
 
