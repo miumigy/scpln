@@ -9,7 +9,9 @@ class RunRegistryDB:
     def put(self, run_id: str, payload: Dict[str, Any]) -> None:
         now = int(time.time() * 1000)
         with _conn() as c:
-            row = c.execute("SELECT run_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            row = c.execute(
+                "SELECT run_id FROM runs WHERE run_id=?", (run_id,)
+            ).fetchone()
             doc = {
                 "run_id": run_id,
                 "started_at": int(payload.get("started_at") or now),
@@ -17,10 +19,18 @@ class RunRegistryDB:
                 "schema_version": str(payload.get("schema_version") or "1.0"),
                 "summary": json.dumps(payload.get("summary") or {}, ensure_ascii=False),
                 "results": json.dumps(payload.get("results") or [], ensure_ascii=False),
-                "daily_profit_loss": json.dumps(payload.get("daily_profit_loss") or [], ensure_ascii=False),
-                "cost_trace": json.dumps(payload.get("cost_trace") or [], ensure_ascii=False),
+                "daily_profit_loss": json.dumps(
+                    payload.get("daily_profit_loss") or [], ensure_ascii=False
+                ),
+                "cost_trace": json.dumps(
+                    payload.get("cost_trace") or [], ensure_ascii=False
+                ),
                 "config_id": payload.get("config_id"),
-                "config_json": json.dumps(payload.get("config_json")) if payload.get("config_json") is not None else None,
+                "config_json": (
+                    json.dumps(payload.get("config_json"))
+                    if payload.get("config_json") is not None
+                    else None
+                ),
                 "created_at": int(payload.get("started_at") or now),
                 "updated_at": now,
             }
@@ -102,6 +112,7 @@ class RunRegistryDB:
             "daily_profit_loss": json.loads(row["daily_profit_loss"] or "[]"),
             "cost_trace": json.loads(row["cost_trace"] or "[]"),
             "config_id": row["config_id"],
-            "config_json": json.loads(row["config_json"]) if row["config_json"] else None,
+            "config_json": (
+                json.loads(row["config_json"]) if row["config_json"] else None
+            ),
         }
-

@@ -26,6 +26,7 @@ def get_trace_csv(run_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     trace = rec.get("cost_trace") or []
+
     def _iter():
         buf = io.StringIO()
         w = csv.DictWriter(buf, fieldnames=FIELDS)
@@ -40,6 +41,7 @@ def get_trace_csv(run_id: str):
             yield buf.getvalue()
             buf.seek(0)
             buf.truncate(0)
+
     return StreamingResponse(_iter(), media_type="text/csv")
 
 
@@ -72,22 +74,33 @@ def get_results_csv(run_id: str):
     # 1st pass: collect header
     field_set: Set[str] = set()
     for r in results:
-        flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+        flat = (
+            _flatten(r)
+            if isinstance(r, dict)
+            else {"data": json.dumps(r, ensure_ascii=False)}
+        )
         field_set.update(flat.keys())
-    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"]) ]
+    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"])]
 
     def _iter():
         buf = io.StringIO()
         w = csv.DictWriter(buf, fieldnames=fieldnames)
         w.writeheader()
         yield buf.getvalue()
-        buf.seek(0); buf.truncate(0)
+        buf.seek(0)
+        buf.truncate(0)
         for r in results:
-            flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+            flat = (
+                _flatten(r)
+                if isinstance(r, dict)
+                else {"data": json.dumps(r, ensure_ascii=False)}
+            )
             row = {"run_id": run_id, **flat}
             w.writerow(row)
             yield buf.getvalue()
-            buf.seek(0); buf.truncate(0)
+            buf.seek(0)
+            buf.truncate(0)
+
     return StreamingResponse(_iter(), media_type="text/csv")
 
 
@@ -100,22 +113,33 @@ def get_pl_csv(run_id: str):
     # 1st pass: collect header
     field_set: Set[str] = set()
     for r in pl:
-        flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+        flat = (
+            _flatten(r)
+            if isinstance(r, dict)
+            else {"data": json.dumps(r, ensure_ascii=False)}
+        )
         field_set.update(flat.keys())
-    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"]) ]
+    fieldnames = ["run_id", *sorted([f for f in field_set if f != "run_id"])]
 
     def _iter():
         buf = io.StringIO()
         w = csv.DictWriter(buf, fieldnames=fieldnames)
         w.writeheader()
         yield buf.getvalue()
-        buf.seek(0); buf.truncate(0)
+        buf.seek(0)
+        buf.truncate(0)
         for r in pl:
-            flat = _flatten(r) if isinstance(r, dict) else {"data": json.dumps(r, ensure_ascii=False)}
+            flat = (
+                _flatten(r)
+                if isinstance(r, dict)
+                else {"data": json.dumps(r, ensure_ascii=False)}
+            )
             row = {"run_id": run_id, **flat}
             w.writerow(row)
             yield buf.getvalue()
-            buf.seek(0); buf.truncate(0)
+            buf.seek(0)
+            buf.truncate(0)
+
     return StreamingResponse(_iter(), media_type="text/csv")
 
 
