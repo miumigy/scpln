@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Hierarchy Master</h2>
+  <form method="post" action="/ui/hierarchy">
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:420px;">
+        <h3>Product Hierarchy</h3>
+        <small>JSON: {"SKU": {"item":"I1", "category":"C1", "department":"D1"}}</small>
+        <textarea name="product_json" rows="12" class="mono" style="width:100%">{{ pjson }}</textarea>
+      </div>
+      <div style="flex:1; min-width:420px;">
+        <h3>Location Hierarchy</h3>
+        <small>JSON: {"StoreA": {"region":"R1", "country":"JP"}}</small>
+        <textarea name="location_json" rows="12" class="mono" style="width:100%">{{ ljson }}</textarea>
+      </div>
+    </div>
+    <p><button type="submit">Save</button></p>
+  </form>
+</section>
+{% endblock %}
+
