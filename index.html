@@ -54,6 +54,11 @@
             <a class="nav-link" href="/ui/jobs" title="ジョブ一覧" target="_blank" rel="noopener noreferrer">ジョブ一覧</a>
             <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
             <a class="nav-link" href="/ui/hierarchy" title="階層マスタ" target="_blank" rel="noopener noreferrer">階層マスタ</a>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
+              API Key
+              <input id="api-key-input" type="password" placeholder="X-API-Key" style="width:12em;" />
+              <button id="api-key-save" class="run-button" style="padding:6px 10px;">保存</button>
+            </label>
             <button class="run-button">シミュレーション実行</button>
         </div>
     </div>
@@ -122,12 +127,21 @@
         </div>
     </div>
 
-    <script type="module" src="/static/js/main.js?v=1.2.1"></script>
+    <script type="module" src="/static/js/main.js?v=1.2.2"></script>
     <script>
       (function(){
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
         window.__currentConfigId = cid || '';
+        // API Key persistence
+        function loadApiKey(){
+          try{ const k = localStorage.getItem('api_key') || ''; const el = document.getElementById('api-key-input'); if (el) el.value = k; }catch{}
+        }
+        function saveApiKey(){
+          try{ const el = document.getElementById('api-key-input'); const v = el && el.value || ''; localStorage.setItem('api_key', v); alert('APIキーを保存しました'); }catch{}
+        }
+        document.getElementById('api-key-save')?.addEventListener('click', saveApiKey);
+        loadApiKey();
         function loadConfigById(id){
           if (!id) return;
           fetch(`/configs/${id}`).then(r=>r.ok?r.json():null).then(data=>{

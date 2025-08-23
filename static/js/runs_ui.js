@@ -142,6 +142,12 @@
     `;
   }
 
+  function getHeaders(){
+    const h = {};
+    try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+    return h;
+  }
+
   async function reloadRuns() {
     try {
       const q = new URLSearchParams({ offset: String(state.offset), limit: String(state.limit) });
@@ -149,7 +155,7 @@
       if (state.order) q.set('order', state.order);
       if (state.schema_version) q.set('schema_version', state.schema_version);
       if (state.config_id) q.set('config_id', state.config_id);
-      const res = await fetch(`/runs?${q.toString()}`);
+      const res = await fetch(`/runs?${q.toString()}`, { headers: getHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const rows = (data.runs || []);
@@ -219,7 +225,7 @@
     let ok = 0, ng = 0;
     for (const id of ids) {
       try {
-        const res = await fetch(`/runs/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/runs/${id}`, { method: 'DELETE', headers: getHeaders() });
         if (res.ok) ok++; else ng++;
       } catch (e) { console.error(e); ng++; }
     }

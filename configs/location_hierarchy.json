@@ -1,0 +1,9 @@
+{
+  "店舗1": {"region": "関東", "country": "JP"},
+  "店舗2": {"region": "関西", "country": "JP"},
+  "中央倉庫": {"region": "関東", "country": "JP"},
+  "組立工場": {"region": "中部", "country": "JP"},
+  "サプライヤーX": {"region": "海外", "country": "CN"},
+  "サプライヤーY": {"region": "海外", "country": "TW"},
+  "サプライヤーZ": {"region": "海外", "country": "KR"}
+}

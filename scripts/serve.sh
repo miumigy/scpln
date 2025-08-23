@@ -75,3 +75,10 @@ nohup uvicorn main:app --host "$HOST" --port "$PORT" --loop asyncio $RELOAD_FLAG
 echo $! > uvicorn.pid
 echo "[ok] pid $(cat uvicorn.pid)"
 echo "[log] tail -f uvicorn.out"
+
+# Optional: seed hierarchy if requested
+if [[ "${SEED_HIERARCHY:-0}" == "1" ]]; then
+  echo "[seed] seeding product/location hierarchy from configs/*.json"
+  source "$VENV_DIR/bin/activate"
+  python scripts/seed_hierarchy.py || true
+fi
