@@ -234,7 +234,12 @@ class _AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         # Allow static and health endpoints without auth
         path = request.url.path or ""
-        if path.startswith("/static/") or path in ("/healthz", "/", "/index.html", "/__debug/index"):
+        if (
+            path.startswith("/static/")
+            or path.startswith("/ui/")
+            or path in ("/healthz", "/", "/index.html", "/__debug/index", "/openapi.json")
+            or path.startswith("/docs")
+        ):
             return await call_next(request)
         try:
             if _AUTH_MODE == "apikey":
