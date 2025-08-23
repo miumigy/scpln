@@ -26,7 +26,9 @@ def ui_hierarchy(request: Request):
 
 
 @app.post("/ui/hierarchy", response_class=HTMLResponse)
-def ui_hierarchy_post(request: Request, product_json: str = Form(""), location_json: str = Form("")):
+def ui_hierarchy_post(
+    request: Request, product_json: str = Form(""), location_json: str = Form("")
+):
     try:
         if product_json:
             db.set_product_hierarchy(json.loads(product_json))
@@ -35,4 +37,3 @@ def ui_hierarchy_post(request: Request, product_json: str = Form(""), location_j
     except Exception:
         pass
     return ui_hierarchy(request)
-

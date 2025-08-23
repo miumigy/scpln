@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence, Tuple, Any, Optional
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime
+
 try:
     from zoneinfo import ZoneInfo  # py3.9+
 except Exception:  # pragma: no cover
@@ -12,7 +13,9 @@ except Exception:  # pragma: no cover
 TimeBucket = str  # 'day' | 'week' | 'month'
 
 
-def _period_of_day(day: int, bucket: TimeBucket, *, week_start_offset: int = 0, month_len: int = 30) -> int:
+def _period_of_day(
+    day: int, bucket: TimeBucket, *, week_start_offset: int = 0, month_len: int = 30
+) -> int:
     if bucket == "day":
         return int(day)
     if bucket == "week":
@@ -53,10 +56,17 @@ def aggregate_by_time(
         # 最初のレコードから数値フィールドを検出（day と group_keys を除外）
         sample = records[0]
         deny = set([day_field]) | set(group_keys or [])
-        sum_fields = [k for k, v in sample.items() if k not in deny and isinstance(v, (int, float))]
+        sum_fields = [
+            k
+            for k, v in sample.items()
+            if k not in deny and isinstance(v, (int, float))
+        ]
     gkeys = list(group_keys or [])
 
-    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
+
     def compute_period(r: Dict[str, Any]) -> Any:
         if date_field and r.get(date_field) is not None:
             raw = r.get(date_field)
@@ -86,7 +96,12 @@ def aggregate_by_time(
                 return f"{d.year}-{d.month:02d}"
             # fallback to relaxed day-based period from day field if present
         # relaxed path (day-based)
-        return _period_of_day(int(r.get(day_field, 0) or 0), bucket, week_start_offset=week_start_offset, month_len=month_len)
+        return _period_of_day(
+            int(r.get(day_field, 0) or 0),
+            bucket,
+            week_start_offset=week_start_offset,
+            month_len=month_len,
+        )
 
     for r in records:
         period = compute_period(r)
@@ -134,7 +149,11 @@ def rollup_axis(
     sample = records[0]
     if sum_fields is None:
         deny = set([product_key, location_key]) | set(keep_fields or [])
-        sum_fields = [k for k, v in sample.items() if k not in deny and isinstance(v, (int, float))]
+        sum_fields = [
+            k
+            for k, v in sample.items()
+            if k not in deny and isinstance(v, (int, float))
+        ]
 
     def proj_product(val: Any) -> Any:
         if product_map and product_level and isinstance(val, str):
@@ -146,7 +165,9 @@ def rollup_axis(
             return (location_map.get(val) or {}).get(location_level, val)
         return val
 
-    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
     keep = list(keep_fields or [])
     for r in records:
         p = proj_product(r.get(product_key))
@@ -159,10 +180,13 @@ def rollup_axis(
     out: List[Dict[str, Any]] = []
     for key, sums in sorted(agg.items(), key=lambda kv: kv[0]):
         idx = 0
-        row = {product_key if not product_level else product_level: key[idx]}; idx += 1
-        row.update({location_key if not location_level else location_level: key[idx]}); idx += 1
+        row = {product_key if not product_level else product_level: key[idx]}
+        idx += 1
+        row.update({location_key if not location_level else location_level: key[idx]})
+        idx += 1
         for k in keep:
-            row[k] = key[idx]; idx += 1
+            row[k] = key[idx]
+            idx += 1
         row.update({f: round(v, 6) for f, v in sums.items()})
         out.append(row)
     return out

@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.exception_handlers import http_exception_handler as _default_http_exc_handler
+from fastapi.exception_handlers import (
+    http_exception_handler as _default_http_exc_handler,
+)
 from starlette.requests import Request as StarletteRequest
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -64,9 +66,13 @@ def _configure_logging() -> None:
     for h in list(root.handlers):
         root.removeHandler(h)
 
-    fmt = JsonFormatter() if _log_json else logging.Formatter(
-        fmt="%(asctime)s %(levelname)s %(message)s [request_id=%(request_id)s]",
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
+    fmt = (
+        JsonFormatter()
+        if _log_json
+        else logging.Formatter(
+            fmt="%(asctime)s %(levelname)s %(message)s [request_id=%(request_id)s]",
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+        )
     )
     stream_h = logging.StreamHandler()
     stream_h.setFormatter(fmt)
@@ -135,7 +141,10 @@ _api_key_header = APIKeyHeader(name=_APIKEY_NAME, auto_error=False)
 _basic = HTTPBasic(auto_error=False)
 
 
-async def _require_auth(api_key: str | None = Depends(_api_key_header), creds: HTTPBasicCredentials | None = Depends(_basic)):
+async def _require_auth(
+    api_key: str | None = Depends(_api_key_header),
+    creds: HTTPBasicCredentials | None = Depends(_basic),
+):
     if _AUTH_MODE in ("", "none"):
         return
     # bypass for health/static
@@ -145,7 +154,13 @@ async def _require_auth(api_key: str | None = Depends(_api_key_header), creds: H
             return
         raise HTTPException(status_code=401, detail="invalid api key")
     if _AUTH_MODE == "basic":
-        if creds and _BASIC_USER and _BASIC_PASS and creds.username == _BASIC_USER and creds.password == _BASIC_PASS:
+        if (
+            creds
+            and _BASIC_USER
+            and _BASIC_PASS
+            and creds.username == _BASIC_USER
+            and creds.password == _BASIC_PASS
+        ):
             return
         raise HTTPException(status_code=401, detail="invalid basic auth")
     raise HTTPException(status_code=401, detail="unauthorized")
@@ -174,7 +189,7 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
         )
         try:
             response = await call_next(request)
-        except Exception as e:  # ここに来るのは未ハンドル例外
+        except Exception:  # ここに来るのは未ハンドル例外
             logging.error(
                 "http_exception",
                 extra={
@@ -189,7 +204,9 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
                 observe_http(request, 500, started)
             finally:
                 REQUEST_ID_VAR.reset(token)
-            return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+            return JSONResponse(
+                status_code=500, content={"detail": "Internal Server Error"}
+            )
         response.headers["X-Request-ID"] = rid
         # リクエスト完了ログ
         logging.info(
@@ -211,7 +228,9 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
 
 @app.exception_handler(HTTPException)
 async def _http_exc_logger(request: StarletteRequest, exc: HTTPException):
-    rid = getattr(getattr(request, "state", object()), "request_id", REQUEST_ID_VAR.get())
+    rid = getattr(
+        getattr(request, "state", object()), "request_id", REQUEST_ID_VAR.get()
+    )
     logging.warning(
         "http_error",
         extra={
@@ -226,7 +245,8 @@ async def _http_exc_logger(request: StarletteRequest, exc: HTTPException):
 
 
 app.add_middleware(_RequestIDMiddleware)
- 
+
+
 # 簡易認証ミドルウェア
 class _AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -237,7 +257,8 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         if (
             path.startswith("/static/")
             or path.startswith("/ui/")
-            or path in ("/healthz", "/", "/index.html", "/__debug/index", "/openapi.json")
+            or path
+            in ("/healthz", "/", "/index.html", "/__debug/index", "/openapi.json")
             or path.startswith("/docs")
         ):
             return await call_next(request)
@@ -246,7 +267,9 @@ class _AuthMiddleware(BaseHTTPMiddleware):
                 key = request.headers.get(_APIKEY_NAME)
                 if _APIKEY_VALUE and key == _APIKEY_VALUE:
                     return await call_next(request)
-                return JSONResponse(status_code=401, content={"detail": "invalid api key"})
+                return JSONResponse(
+                    status_code=401, content={"detail": "invalid api key"}
+                )
             if _AUTH_MODE == "basic":
                 auth = request.headers.get("Authorization", "")
                 if auth.lower().startswith("basic "):
@@ -257,7 +280,9 @@ class _AuthMiddleware(BaseHTTPMiddleware):
                             return await call_next(request)
                     except Exception:
                         pass
-                return JSONResponse(status_code=401, content={"detail": "invalid basic auth"})
+                return JSONResponse(
+                    status_code=401, content={"detail": "invalid basic auth"}
+                )
         except Exception:
             return JSONResponse(status_code=401, content={"detail": "unauthorized"})
 
@@ -272,14 +297,22 @@ if _OTEL_ENABLED:
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-        resource = Resource(attributes={SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "scpln")})
+        resource = Resource(
+            attributes={SERVICE_NAME: os.getenv("OTEL_SERVICE_NAME", "scpln")}
+        )
         provider = TracerProvider(resource=resource)
         trace.set_tracer_provider(provider)
-        endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")  # e.g., http://localhost:4318
-        exporter = OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
+        endpoint = os.getenv(
+            "OTEL_EXPORTER_OTLP_ENDPOINT"
+        )  # e.g., http://localhost:4318
+        exporter = (
+            OTLPSpanExporter(endpoint=endpoint) if endpoint else OTLPSpanExporter()
+        )
         provider.add_span_processor(BatchSpanProcessor(exporter))
         FastAPIInstrumentor().instrument_app(app)
     except Exception:
@@ -290,7 +323,10 @@ if _OTEL_ENABLED:
 async def read_index():
     idx = BASE_DIR / "index.html"
     try:
-        logging.info("index_resolve", extra={"event": "index_resolve", "path": str(idx), "exists": idx.exists()})
+        logging.info(
+            "index_resolve",
+            extra={"event": "index_resolve", "path": str(idx), "exists": idx.exists()},
+        )
     except Exception:
         pass
     if idx.exists():
@@ -302,11 +338,21 @@ async def read_index():
     cwd_idx = Path.cwd() / "index.html"
     if cwd_idx.exists():
         try:
-            logging.info("index_resolve_cwd", extra={"event": "index_resolve_cwd", "path": str(cwd_idx), "exists": True})
-            return FileResponse(path=str(cwd_idx), media_type="text/html; charset=utf-8")
+            logging.info(
+                "index_resolve_cwd",
+                extra={
+                    "event": "index_resolve_cwd",
+                    "path": str(cwd_idx),
+                    "exists": True,
+                },
+            )
+            return FileResponse(
+                path=str(cwd_idx), media_type="text/html; charset=utf-8"
+            )
         except Exception:
             logging.exception("failed_to_read_index_cwd")
     return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def read_index_alias():
@@ -319,14 +365,24 @@ async def read_index_alias():
     cwd_idx = Path.cwd() / "index.html"
     if cwd_idx.exists():
         try:
-            logging.info("index_resolve_cwd_alias", extra={"event": "index_resolve_cwd_alias", "path": str(cwd_idx), "exists": True})
-            return FileResponse(path=str(cwd_idx), media_type="text/html; charset=utf-8")
+            logging.info(
+                "index_resolve_cwd_alias",
+                extra={
+                    "event": "index_resolve_cwd_alias",
+                    "path": str(cwd_idx),
+                    "exists": True,
+                },
+            )
+            return FileResponse(
+                path=str(cwd_idx), media_type="text/html; charset=utf-8"
+            )
         except Exception:
             logging.exception("failed_to_read_index_cwd_alias")
     return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
 
 
 if os.getenv("ENABLE_DEBUG_ENDPOINTS", "0") == "1":
+
     @app.get("/__debug/index")
     async def debug_index_path():
         base_dir = Path(__file__).resolve().parents[1]

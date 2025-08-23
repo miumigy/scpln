@@ -14,7 +14,11 @@ def _payload(dm: float):
         products=[Product(name="P1", sales_price=100.0)],
         nodes=[StoreNode(name="S1", initial_stock={"P1": 0})],
         network=[],
-        customer_demand=[CustomerDemand(store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0)],
+        customer_demand=[
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=dm, demand_std_dev=0
+            )
+        ],
         random_seed=1,
     )
 
@@ -29,4 +33,3 @@ def test_runs_created_updated_present():
     assert "created_at" in row and "updated_at" in row
     assert isinstance(row["created_at"], int)
     assert isinstance(row["updated_at"], int)
-

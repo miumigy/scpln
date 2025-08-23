@@ -45,13 +45,16 @@ COMPARE_DURATION = Histogram(
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, float("inf")),
 )
 
+
 def observe_http(request: Request, status: int, started_at: float) -> None:
     try:
         path = request.url.path
         method = request.method
         elapsed = time.monotonic() - started_at
         HTTP_REQUESTS.labels(method=method, path=path, status=str(status)).inc()
-        HTTP_DURATION.labels(method=method, path=path, status=str(status)).observe(elapsed)
+        HTTP_DURATION.labels(method=method, path=path, status=str(status)).observe(
+            elapsed
+        )
     except Exception:
         pass
 

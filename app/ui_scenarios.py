@@ -1,5 +1,5 @@
 from app.api import app
-from fastapi import Request, Form, HTTPException
+from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -19,7 +19,17 @@ def ui_scenarios(request: Request):
 
 
 @app.post("/ui/scenarios", response_class=HTMLResponse)
-def ui_scenarios_post(request: Request, name: str = Form(""), parent_id: int | None = Form(None), tag: str = Form(""), description: str = Form("")):
-    sid = db.create_scenario(name=name or "(no name)", parent_id=parent_id, tag=(tag or None), description=(description or None))
+def ui_scenarios_post(
+    request: Request,
+    name: str = Form(""),
+    parent_id: int | None = Form(None),
+    tag: str = Form(""),
+    description: str = Form(""),
+):
+    sid = db.create_scenario(
+        name=name or "(no name)",
+        parent_id=parent_id,
+        tag=(tag or None),
+        description=(description or None),
+    )
     return RedirectResponse(url="/ui/scenarios", status_code=303)
-

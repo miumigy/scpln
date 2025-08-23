@@ -3,7 +3,7 @@ import queue
 import time
 import json
 from uuid import uuid4
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 import os
 import logging
 
@@ -18,8 +18,12 @@ from engine.aggregation import aggregate_by_time, rollup_axis
 JOBS_ENABLED = os.getenv("JOBS_ENABLED", "1") == "1"
 JOBS_WORKERS = int(os.getenv("JOBS_WORKERS", "1") or 1)
 
-JOBS_ENQUEUED = _Counter("jobs_enqueued_total", "Total jobs enqueued", labelnames=("type",))
-JOBS_COMPLETED = _Counter("jobs_completed_total", "Total jobs completed", labelnames=("type",))
+JOBS_ENQUEUED = _Counter(
+    "jobs_enqueued_total", "Total jobs enqueued", labelnames=("type",)
+)
+JOBS_COMPLETED = _Counter(
+    "jobs_completed_total", "Total jobs completed", labelnames=("type",)
+)
 JOBS_FAILED = _Counter("jobs_failed_total", "Total jobs failed", labelnames=("type",))
 JOBS_DURATION = _Histogram(
     "jobs_duration_seconds",
@@ -40,7 +44,9 @@ class JobManager:
         if self._threads:
             return
         for i in range(self.workers):
-            t = threading.Thread(target=self._run_loop, name=f"job-worker-{i}", daemon=True)
+            t = threading.Thread(
+                target=self._run_loop, name=f"job-worker-{i}", daemon=True
+            )
             t.start()
             self._threads.append(t)
 
@@ -63,7 +69,9 @@ class JobManager:
             self.start()
         job_id = uuid4().hex
         now = int(time.time() * 1000)
-        db.create_job(job_id, "simulation", "queued", now, json.dumps(payload, ensure_ascii=False))
+        db.create_job(
+            job_id, "simulation", "queued", now, json.dumps(payload, ensure_ascii=False)
+        )
         self.q.put({"job_id": job_id, "type": "simulation"})
         try:
             JOBS_ENQUEUED.labels(type="simulation").inc()
@@ -89,7 +97,12 @@ class JobManager:
                 self._run_aggregate(job_id)
             else:
                 # unknown type: mark failed
-                db.update_job_status(job_id, status="failed", finished_at=int(time.time() * 1000), error="unknown job type")
+                db.update_job_status(
+                    job_id,
+                    status="failed",
+                    finished_at=int(time.time() * 1000),
+                    error="unknown job type",
+                )
                 try:
                     JOBS_FAILED.labels(type=jtype or "unknown").inc()
                 except Exception:
@@ -157,7 +170,9 @@ class JobManager:
             except Exception:
                 pass
             finished = int(time.time() * 1000)
-            db.update_job_status(job_id, status="succeeded", finished_at=finished, run_id=run_id)
+            db.update_job_status(
+                job_id, status="succeeded", finished_at=finished, run_id=run_id
+            )
             try:
                 JOBS_COMPLETED.labels(type="simulation").inc()
                 JOBS_DURATION.labels(type="simulation").observe(time.monotonic() - t0)
@@ -165,7 +180,9 @@ class JobManager:
                 pass
         except Exception as e:
             finished = int(time.time() * 1000)
-            db.update_job_status(job_id, status="failed", finished_at=finished, error=str(e))
+            db.update_job_status(
+                job_id, status="failed", finished_at=finished, error=str(e)
+            )
             try:
                 JOBS_FAILED.labels(type="simulation").inc()
             except Exception:
@@ -180,7 +197,9 @@ class JobManager:
     def submit_aggregate(self, payload: Dict[str, Any]) -> str:
         job_id = uuid4().hex
         now = int(time.time() * 1000)
-        db.create_job(job_id, "aggregate", "queued", now, json.dumps(payload, ensure_ascii=False))
+        db.create_job(
+            job_id, "aggregate", "queued", now, json.dumps(payload, ensure_ascii=False)
+        )
         self.q.put({"job_id": job_id, "type": "aggregate"})
         try:
             JOBS_ENQUEUED.labels(type="aggregate").inc()
@@ -226,7 +245,13 @@ class JobManager:
                 rows = []
 
             # time aggregation if day/date present
-            if rows and isinstance(rows[0], dict) and (("day" in rows[0]) or ("date" in rows[0]) or (cfg.get("date_field"))):
+            if (
+                rows
+                and isinstance(rows[0], dict)
+                and (
+                    ("day" in rows[0]) or ("date" in rows[0]) or (cfg.get("date_field"))
+                )
+            ):
                 agg_time = aggregate_by_time(
                     rows,
                     bucket,
@@ -244,17 +269,21 @@ class JobManager:
 
             # axis rollup if requested
             keep = ["period"] if agg_time and "period" in agg_time[0] else []
-            out_rows = rollup_axis(
-                agg_time,
-                product_key=product_key,
-                product_map=(product_map or db.get_product_hierarchy()),
-                product_level=product_level,
-                location_key=location_key,
-                location_map=(location_map or db.get_location_hierarchy()),
-                location_level=location_level,
-                keep_fields=keep,
-                sum_fields=sum_fields,
-            ) if (product_level or location_level) else agg_time
+            out_rows = (
+                rollup_axis(
+                    agg_time,
+                    product_key=product_key,
+                    product_map=(product_map or db.get_product_hierarchy()),
+                    product_level=product_level,
+                    location_key=location_key,
+                    location_map=(location_map or db.get_location_hierarchy()),
+                    location_level=location_level,
+                    keep_fields=keep,
+                    sum_fields=sum_fields,
+                )
+                if (product_level or location_level)
+                else agg_time
+            )
 
             db.set_job_result(job_id, json.dumps(out_rows, ensure_ascii=False))
             finished = int(time.time() * 1000)
@@ -266,7 +295,9 @@ class JobManager:
                 pass
         except Exception as e:
             finished = int(time.time() * 1000)
-            db.update_job_status(job_id, status="failed", finished_at=finished, error=str(e))
+            db.update_job_status(
+                job_id, status="failed", finished_at=finished, error=str(e)
+            )
             try:
                 JOBS_FAILED.labels(type="aggregate").inc()
             except Exception:

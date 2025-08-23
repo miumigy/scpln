@@ -1,11 +1,11 @@
 from typing import Any, Dict
 import json
 import time
-from uuid import uuid4
 
 from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.jobs import JOB_MANAGER
+
 try:
     from app import jobs_rq
 except Exception:
@@ -17,7 +17,7 @@ import io
 
 @app.post("/jobs/simulation")
 def post_job_simulation(body: Dict[str, Any] = Body(...)):
-    if jobs_rq and getattr(jobs_rq, 'is_enabled', lambda: False)():
+    if jobs_rq and getattr(jobs_rq, "is_enabled", lambda: False)():
         job_id = jobs_rq.submit_simulation(body)
     else:
         job_id = JOB_MANAGER.submit_simulation(body)
@@ -33,7 +33,11 @@ def get_job(job_id: str):
 
 
 @app.get("/jobs")
-def list_jobs(status: str | None = Query(None), offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+def list_jobs(
+    status: str | None = Query(None),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+):
     return db.list_jobs(status, offset, limit)
 
 
@@ -43,11 +47,21 @@ def post_job_retry(job_id: str, body: Dict[str, Any] | None = Body(None)):
     if not row:
         raise HTTPException(status_code=404, detail="job not found")
     if row.get("status") not in ("failed", "canceled"):
-        raise HTTPException(status_code=409, detail="job is not in failed/canceled state")
+        raise HTTPException(
+            status_code=409, detail="job is not in failed/canceled state"
+        )
     if body and body.get("params") is not None:
         db.update_job_params(job_id, json.dumps(body.get("params")))
     now = int(time.time() * 1000)
-    db.update_job_status(job_id, status="queued", submitted_at=now, started_at=None, finished_at=None, run_id=None, error=None)
+    db.update_job_status(
+        job_id,
+        status="queued",
+        submitted_at=now,
+        started_at=None,
+        finished_at=None,
+        run_id=None,
+        error=None,
+    )
     JOB_MANAGER.enqueue_existing(job_id)
     return {"status": "queued", "job_id": job_id}
 
@@ -67,7 +81,7 @@ def post_job_cancel(job_id: str):
 @app.post("/jobs/aggregate")
 def post_job_aggregate(body: Dict[str, Any] = Body(...)):
     # body: {run_id, dataset, bucket, ...}
-    if jobs_rq and getattr(jobs_rq, 'is_enabled', lambda: False)():
+    if jobs_rq and getattr(jobs_rq, "is_enabled", lambda: False)():
         job_id = jobs_rq.submit_aggregate(body or {})
     else:
         job_id = JOB_MANAGER.submit_aggregate(body or {})
@@ -113,5 +127,8 @@ def get_job_result_csv(job_id: str):
     for r in rows:
         w.writerow(r)
     from fastapi import Response
+
     headers = {"Content-Disposition": f"attachment; filename=aggregate_{job_id}.csv"}
-    return Response(content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers)
+    return Response(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers
+    )

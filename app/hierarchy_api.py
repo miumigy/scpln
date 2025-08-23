@@ -30,4 +30,3 @@ def post_location_hierarchy(body: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=400, detail="mapping must be an object")
     db.set_location_hierarchy(mapping)
     return {"status": "ok", "size": len(mapping)}
-
