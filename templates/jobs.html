@@ -109,7 +109,11 @@
         <td>{{ r.started_at or '' }}</td>
         <td>{{ r.finished_at or '' }}</td>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id or '' }}</td>
-        <td><a role="button" href="/ui/jobs/{{ r.job_id }}">Detail</a></td>
+        <td>
+          {% if r.job_id %}
+          <a role="button" href="/ui/jobs/{{ r.job_id }}">Detail</a>
+          {% else %}-{% endif %}
+        </td>
         <td>
           {% if r.status == 'failed' %}
           <button class="secondary" onclick="retryJob('{{ r.job_id }}')">Retry</button>
@@ -353,10 +357,12 @@ async function _seedAggSuggestionsFromLatestRun(){
   }catch{}
 }
 (function(){ _loadAggPresets(); _loadAggSuggestions(); _seedAggSuggestionsFromLatestRun(); })();
+function _headers(){ try{ const k=localStorage.getItem('api_key')||''; return k? {'X-API-Key':k} : {}; }catch(e){ return {}; } }
 async function retryJob(id){
   if(!confirm('Retry this job?')) return;
   try{
-    const res = await fetch(`/jobs/${id}/retry`, {method:'POST', headers:{'Content-Type':'application/json'}});
+    const h = Object.assign({'Content-Type':'application/json'}, _headers());
+    const res = await fetch(`/jobs/${id}/retry`, {method:'POST', headers: h});
     if(!res.ok) throw new Error('HTTP '+res.status);
     location.reload();
   }catch(e){ alert('Retry failed'); }
@@ -364,7 +370,7 @@ async function retryJob(id){
 async function cancelJob(id){
   if(!confirm('Cancel this job?')) return;
   try{
-    const res = await fetch(`/jobs/${id}/cancel`, {method:'POST'});
+    const res = await fetch(`/jobs/${id}/cancel`, {method:'POST', headers: _headers()});
     if(!res.ok) throw new Error('HTTP '+res.status);
     location.reload();
   }catch(e){ alert('Cancel failed'); }
