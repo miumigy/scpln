@@ -77,6 +77,20 @@ class RunRegistryDB:
                         doc["updated_at"],
                     ),
                 )
+        try:
+            # Log what we saved (booleans only, to avoid large payloads)
+            import logging
+            logging.debug(
+                "run_saved",
+                extra={
+                    "event": "run_saved",
+                    "run_id": run_id,
+                    "config_id": payload.get("config_id"),
+                    "config_json_present": bool(payload.get("config_json")),
+                },
+            )
+        except Exception:
+            pass
 
     def get(self, run_id: str) -> Optional[Dict[str, Any]]:
         with _conn() as c:
@@ -131,7 +145,7 @@ class RunRegistryDB:
             cols = (
                 "*"
                 if detail
-                else "run_id, started_at, duration_ms, schema_version, summary, config_id, created_at, updated_at"
+                else "run_id, started_at, duration_ms, schema_version, summary, config_id, config_json, created_at, updated_at"
             )
             rows = c.execute(
                 f"SELECT {cols} FROM runs{where_sql} ORDER BY {sort} {order}, run_id {order} LIMIT ? OFFSET ?",
@@ -151,6 +165,9 @@ class RunRegistryDB:
                             "schema_version": r["schema_version"],
                             "summary": json.loads(r["summary"] or "{}"),
                             "config_id": r["config_id"],
+                            "config_json": (
+                                json.loads(r["config_json"]) if r["config_json"] else None
+                            ),
                             "created_at": r["created_at"],
                             "updated_at": r["updated_at"],
                         }

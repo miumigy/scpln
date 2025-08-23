@@ -5,6 +5,7 @@ import json
 from uuid import uuid4
 from typing import Any, Dict, Optional
 import os
+import logging
 
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
@@ -111,6 +112,12 @@ class JobManager:
                         cfg_json = json.loads(cre.get("json_text"))
             except Exception:
                 cfg_json = None
+            # fallback: store input payload for later matching if explicit config is not provided
+            try:
+                if cfg_json is None and payload:
+                    cfg_json = payload
+            except Exception:
+                pass
             # parse model
             sim_input = SimulationInput(**payload)
             sim = SupplyChainSimulator(sim_input)
@@ -136,6 +143,19 @@ class JobManager:
                     "config_json": cfg_json,
                 },
             )
+            try:
+                logging.debug(
+                    "config_saved",
+                    extra={
+                        "event": "config_saved",
+                        "route": "/jobs/simulation",
+                        "run_id": run_id,
+                        "config_id": config_id,
+                        "config_json_present": bool(cfg_json),
+                    },
+                )
+            except Exception:
+                pass
             finished = int(time.time() * 1000)
             db.update_job_status(job_id, status="succeeded", finished_at=finished, run_id=run_id)
             try:

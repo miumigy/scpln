@@ -8,6 +8,7 @@ from app.run_registry import REGISTRY
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 from engine.aggregation import aggregate_by_time, rollup_axis
+import logging
 
 
 _BACKEND = os.getenv("JOBS_BACKEND", "memory").lower()
@@ -48,6 +49,12 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
                     cfg_json = json.loads(cre.get("json_text"))
         except Exception:
             cfg_json = None
+        # fallback: store payload for later matching when explicit config not provided
+        try:
+            if cfg_json is None and payload:
+                cfg_json = payload
+        except Exception:
+            pass
         sim_input = SimulationInput(**payload)
         sim = SupplyChainSimulator(sim_input)
         results, daily_pl = sim.run()
@@ -70,6 +77,19 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
                 "config_json": cfg_json,
             },
         )
+        try:
+            logging.debug(
+                "config_saved",
+                extra={
+                    "event": "config_saved",
+                    "route": "/jobs_rq/simulation",
+                    "run_id": job_id,
+                    "config_id": config_id,
+                    "config_json_present": bool(cfg_json),
+                },
+            )
+        except Exception:
+            pass
         db.update_job_status(job_id, status="succeeded", finished_at=int(time.time() * 1000), run_id=job_id)
     except Exception as e:
         db.update_job_status(job_id, status="failed", finished_at=int(time.time() * 1000), error=str(e))

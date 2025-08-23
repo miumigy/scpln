@@ -1,6 +1,7 @@
 from uuid import uuid4
 import logging
-from fastapi import Query
+from fastapi import Query, Request
+from typing import Optional
 import json
 from app import db
 from app.api import app, validate_input, set_last_summary
@@ -13,7 +14,7 @@ from app.run_registry import _BACKEND, _DB_MAX_ROWS  # type: ignore
 
 
 @app.post("/simulation")
-def post_simulation(payload: SimulationInput, include_trace: bool = Query(False), config_id: int | None = Query(None)):
+def post_simulation(payload: SimulationInput, include_trace: bool = Query(False), config_id: int | None = Query(None), request: Request = None):
     validate_input(payload)
     run_id = str(uuid4())
     start = time.time()
@@ -31,6 +32,15 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
     except Exception:
         summary = {}
     # optional: attach config context (id and json) when provided
+    # fallback: header X-Config-Id
+    try:
+        if config_id is None and request is not None:
+            hdr = request.headers.get("X-Config-Id")
+            if hdr:
+                config_id = int(hdr)
+    except Exception:
+        pass
+    # Attach config context: prefer explicit config_id's JSON; otherwise store payload as config_json for later backfill
     cfg_json = None
     try:
         if config_id is not None:
@@ -39,6 +49,12 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
                 cfg_json = json.loads(rec.get("json_text"))
     except Exception:
         cfg_json = None
+    # fallback: store input payload for later matching if explicit config is not provided
+    try:
+        if cfg_json is None and payload is not None:
+            cfg_json = payload.model_dump()
+    except Exception:
+        pass
 
     REGISTRY.put(
         run_id,
@@ -56,6 +72,19 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
             "config_json": cfg_json,
         },
     )
+    try:
+        logging.debug(
+            "config_saved",
+            extra={
+                "event": "config_saved",
+                "route": "/simulation",
+                "run_id": run_id,
+                "config_id": config_id,
+                "config_json_present": bool(cfg_json),
+            },
+        )
+    except Exception:
+        pass
     # DB使用時は容量上限で古いRunをクリーンアップ
     try:
         if _BACKEND == "db" and _DB_MAX_ROWS > 0 and hasattr(REGISTRY, "cleanup_by_capacity"):
