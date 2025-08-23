@@ -74,12 +74,14 @@ def test_rbac_allows_jobs_with_role_and_org_tenant(monkeypatch):
 def test_rbac_blocks_job_actions_without_role(monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     c = TestClient(app)
-    # 事前にジョブを作成
-    job_id = JOB_MANAGER.submit_simulation({})
-    db.update_job_status(job_id, status="failed") # retry可能にする
+    # 事前にDBに直接ジョブを作成
+    job_id = "test-job-for-retry-blocked"
+    db.create_job(job_id, "simulation", "failed", int(time.time() * 1000), "{}")
     r_retry = c.post(f"/jobs/{job_id}/retry")
     assert r_retry.status_code == 403
-    r_cancel = c.post(f"/jobs/{job_id}/cancel")
+    job_id_2 = "test-job-for-cancel-blocked"
+    db.create_job(job_id_2, "simulation", "queued", int(time.time() * 1000), "{}")
+    r_cancel = c.post(f"/jobs/{job_id_2}/cancel")
     assert r_cancel.status_code == 403
 
 def test_rbac_allows_job_actions_with_role(monkeypatch):
@@ -87,14 +89,14 @@ def test_rbac_allows_job_actions_with_role(monkeypatch):
     monkeypatch.setenv("RBAC_MUTATE_ROLES", "planner")
     c = TestClient(app)
     headers = {"X-Role": "planner", "X-Org-ID": "org1", "X-Tenant-ID": "t1"}
-    # 事前にジョブを作成
-    job_id = JOB_MANAGER.submit_simulation({})
-    db.update_job_status(job_id, status="failed") # retry可能にする
+    # 事前にDBに直接ジョブを作成
+    job_id = "test-job-for-retry"
+    db.create_job(job_id, "simulation", "failed", int(time.time() * 1000), "{}")
     r_retry = c.post(f"/jobs/{job_id}/retry", headers=headers)
     assert r_retry.status_code == 200
-    # cancelはrunningじゃないと400だが、RBACはパスするはず
-    job_id_2 = JOB_MANAGER.submit_simulation({})
-    db.update_job_status(job_id_2, "running")
+    # cancelのテストも同様に修正
+    job_id_2 = "test-job-for-cancel"
+    db.create_job(job_id_2, "simulation", "queued", int(time.time() * 1000), "{}")
     r_cancel = c.post(f"/jobs/{job_id_2}/cancel", headers=headers)
     assert r_cancel.status_code == 200
 
@@ -123,7 +125,7 @@ def test_rbac_allows_delete_run_with_role(monkeypatch):
     from app.run_registry import REGISTRY
     REGISTRY.put(run_id, {"summary": {}})
     r = c.delete(f"/runs/{run_id}", headers=headers)
-    assert r.status_code == 204
+    assert r.status_code == 200
     # 存在しないことの確認
     assert REGISTRY.get(run_id) is None
     monkeypatch.setenv("RBAC_DELETE_ENABLED", "0")

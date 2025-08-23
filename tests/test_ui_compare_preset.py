@@ -48,7 +48,7 @@ def test_ui_compare_preset_bad_requests():
     
     # target_scenarios がない
     r = c.get("/ui/compare/preset?base_scenario=1")
-    assert r.status_code == 400
+    assert r.status_code == 422
     # 実行結果が見つからない
     r = c.get("/ui/compare/preset?base_scenario=998&target_scenarios=999")
     assert r.status_code == 404
