@@ -201,14 +201,22 @@ bash scripts/stop.sh            # 停止
  - 運用例: `configs/env.example` を `.env` にコピーし、`REGISTRY_BACKEND=db` と `RUNS_DB_MAX_ROWS` を設定
  - `JOBS_ENABLED`（既定 1）: ジョブワーカーの有効化
  - `JOBS_WORKERS`（既定 1）: ワーカースレッド数
- - 認証トグル:
-   - `AUTH_MODE`=`none|apikey|basic`（既定 none）
-   - APIキー: `API_KEY_HEADER`（既定 `X-API-Key`）, `API_KEY_VALUE`
-   - BASIC: `BASIC_USER`, `BASIC_PASS`
+- 認証トグル:
+  - `AUTH_MODE`=`none|apikey|basic`（既定 none）
+  - APIキー: `API_KEY_HEADER`（既定 `X-API-Key`）, `API_KEY_VALUE`
+  - BASIC: `BASIC_USER`, `BASIC_PASS`
+  - `scripts/serve.sh` は `.env` を自動読込します（再起動で反映）
  - OpenTelemetry（任意）:
 - `OTEL_ENABLED=1` で有効化、`OTEL_SERVICE_NAME`、`OTEL_EXPORTER_OTLP_ENDPOINT`（例: `http://localhost:4318`）
- - ジョブ外部キュー（任意）:
-   - `JOBS_BACKEND=rq` で有効化、`REDIS_URL`（例: `redis://localhost:6379/0`）、`RQ_QUEUE`（既定 `default`）
+- ジョブ外部キュー（任意）:
+  - `JOBS_BACKEND=rq` で有効化、`REDIS_URL`（例: `redis://localhost:6379/0`）、`RQ_QUEUE`（既定 `default`）
+
+## 階層マスタの適用
+
+- `/ui/hierarchy` で商品/場所の階層を登録すると、集計ジョブ（/jobs/aggregate）のロールアップで自動的に参照されます
+- 使用方法:
+  - `product_level` に `item|category|department`、`location_level` に `region|country` などを指定
+  - `product_map`/`location_map` を省略した場合、DBのマスタ（/ui/hierarchyで登録値）が使用されます
 
 ## マイグレーション（Alembic）
 
