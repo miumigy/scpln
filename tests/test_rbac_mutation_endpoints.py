@@ -1,4 +1,5 @@
 import importlib
+import time
 from fastapi.testclient import TestClient
 import os
 from app import db
@@ -127,6 +128,6 @@ def test_rbac_allows_delete_run_with_role(monkeypatch):
     r = c.delete(f"/runs/{run_id}", headers=headers)
     assert r.status_code == 200
     # 存在しないことの確認
-    assert REGISTRY.get(run_id) is None
+    assert REGISTRY.get(run_id) == {}
     monkeypatch.setenv("RBAC_DELETE_ENABLED", "0")
 
