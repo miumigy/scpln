@@ -23,7 +23,7 @@
   const pageNumInput = document.getElementById('page-number');
   const pageTotalSpan = document.getElementById('page-total');
 
-  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '' };
+  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', scenario_id: '' };
 
   function loadPrefs() {
     try {
@@ -36,6 +36,7 @@
         if (p.order) state.order = String(p.order);
         if (p.schema_version !== undefined) state.schema_version = String(p.schema_version || '');
         if (p.config_id !== undefined) state.config_id = String(p.config_id || '');
+        if (p.scenario_id !== undefined) state.scenario_id = String(p.scenario_id || '');
       }
     } catch {}
   }
@@ -48,6 +49,7 @@
         order: state.order,
         schema_version: state.schema_version,
         config_id: state.config_id,
+        scenario_id: state.scenario_id,
       };
       localStorage.setItem('runs_prefs', JSON.stringify(p));
     } catch {}
@@ -61,6 +63,7 @@
     state.order = sp.get('order') || state.order;
     state.schema_version = sp.get('schema_version') || '';
     state.config_id = sp.get('config_id') || '';
+    state.scenario_id = sp.get('scenario_id') || '';
     // URLに指定がなければローカル保存のプリファレンスを適用
     if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id')) {
       loadPrefs();
@@ -75,6 +78,7 @@
     if (state.order) sp.set('order', state.order);
     if (state.schema_version) sp.set('schema_version', state.schema_version);
     if (state.config_id) sp.set('config_id', state.config_id);
+    if (state.scenario_id) sp.set('scenario_id', state.scenario_id);
     const url = location.pathname + '?' + sp.toString();
     history.replaceState(null, '', url);
   }
@@ -127,6 +131,7 @@
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
         <td>${r.config_id ?? ''}</td>
+        <td>${r.scenario_id ?? ''}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td>
@@ -155,6 +160,7 @@
       if (state.order) q.set('order', state.order);
       if (state.schema_version) q.set('schema_version', state.schema_version);
       if (state.config_id) q.set('config_id', state.config_id);
+      if (state.scenario_id) q.set('scenario_id', state.scenario_id);
       const res = await fetch(`/runs?${q.toString()}`, { headers: getHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -196,6 +202,8 @@
       if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
       if (schemaInput && schemaInput.value !== (state.schema_version || '')) schemaInput.value = state.schema_version || '';
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
+      const scenarioInput = document.getElementById('scenario-filter');
+      if (scenarioInput && scenarioInput.value !== (state.scenario_id || '')) scenarioInput.value = state.scenario_id || '';
       // URL更新
       syncToUrl();
       // ソート矢印表示
@@ -291,7 +299,10 @@
   if (applyBtn) applyBtn.addEventListener('click', () => {
     state.schema_version = (schemaInput && schemaInput.value || '').trim();
     const cid = (configInput && configInput.value || '').trim();
+    const sidEl = document.getElementById('scenario-filter');
+    const sid = (sidEl && sidEl.value || '').trim();
     state.config_id = cid;
+    state.scenario_id = sid;
     state.offset = 0;
     savePrefs();
     reloadRuns();
@@ -301,6 +312,8 @@
     if (configInput) configInput.value = '';
     state.schema_version = '';
     state.config_id = '';
+    const sidEl = document.getElementById('scenario-filter'); if (sidEl) sidEl.value = '';
+    state.scenario_id = '';
     state.offset = 0;
     savePrefs();
     reloadRuns();

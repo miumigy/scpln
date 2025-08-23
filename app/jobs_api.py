@@ -2,7 +2,7 @@ from typing import Any, Dict
 import json
 import time
 
-from fastapi import Body, HTTPException, Query
+from fastapi import Body, HTTPException, Query, Request
 from app.api import app
 from app.jobs import JOB_MANAGER
 
@@ -16,7 +16,21 @@ import io
 
 
 @app.post("/jobs/simulation")
-def post_job_simulation(body: Dict[str, Any] = Body(...)):
+def post_job_simulation(request: Request, body: Dict[str, Any] = Body(...)):
+    import os
+    if os.getenv("RBAC_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role") if request else None
+        org = request.headers.get("X-Org-ID") if request else None
+        tenant = request.headers.get("X-Tenant-ID") if request else None
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_MUTATE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if not role or role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+        if not org or not tenant:
+            raise HTTPException(status_code=400, detail="missing org/tenant headers")
     if jobs_rq and getattr(jobs_rq, "is_enabled", lambda: False)():
         job_id = jobs_rq.submit_simulation(body)
     else:
@@ -42,7 +56,21 @@ def list_jobs(
 
 
 @app.post("/jobs/{job_id}/retry")
-def post_job_retry(job_id: str, body: Dict[str, Any] | None = Body(None)):
+def post_job_retry(request: Request, job_id: str, body: Dict[str, Any] | None = Body(None)):
+    import os
+    if os.getenv("RBAC_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role") if request else None
+        org = request.headers.get("X-Org-ID") if request else None
+        tenant = request.headers.get("X-Tenant-ID") if request else None
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_MUTATE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if not role or role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+        if not org or not tenant:
+            raise HTTPException(status_code=400, detail="missing org/tenant headers")
     row = db.get_job(job_id)
     if not row:
         raise HTTPException(status_code=404, detail="job not found")
@@ -67,7 +95,21 @@ def post_job_retry(job_id: str, body: Dict[str, Any] | None = Body(None)):
 
 
 @app.post("/jobs/{job_id}/cancel")
-def post_job_cancel(job_id: str):
+def post_job_cancel(request: Request, job_id: str):
+    import os
+    if os.getenv("RBAC_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role") if request else None
+        org = request.headers.get("X-Org-ID") if request else None
+        tenant = request.headers.get("X-Tenant-ID") if request else None
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_MUTATE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if not role or role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+        if not org or not tenant:
+            raise HTTPException(status_code=400, detail="missing org/tenant headers")
     row = db.get_job(job_id)
     if not row:
         raise HTTPException(status_code=404, detail="job not found")
@@ -79,7 +121,21 @@ def post_job_cancel(job_id: str):
 
 
 @app.post("/jobs/aggregate")
-def post_job_aggregate(body: Dict[str, Any] = Body(...)):
+def post_job_aggregate(request: Request, body: Dict[str, Any] = Body(...)):
+    import os
+    if os.getenv("RBAC_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role") if request else None
+        org = request.headers.get("X-Org-ID") if request else None
+        tenant = request.headers.get("X-Tenant-ID") if request else None
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_MUTATE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if not role or role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+        if not org or not tenant:
+            raise HTTPException(status_code=400, detail="missing org/tenant headers")
     # body: {run_id, dataset, bucket, ...}
     if jobs_rq and getattr(jobs_rq, "is_enabled", lambda: False)():
         job_id = jobs_rq.submit_aggregate(body or {})

@@ -25,6 +25,7 @@ def ui_runs(request: Request):
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
                 "config_id": rec.get("config_id"),
+                "scenario_id": rec.get("scenario_id"),
                 "fill_rate": (rec.get("summary") or {}).get("fill_rate"),
                 "profit_total": (rec.get("summary") or {}).get("profit_total"),
             }
@@ -47,6 +48,7 @@ def ui_run_detail(request: Request, run_id: str):
     }
     cfg_id = rec.get("config_id")
     cfg_json = rec.get("config_json")
+    scenario_id = rec.get("scenario_id")
     try:
         cfg_json_str = json.dumps(cfg_json, ensure_ascii=False, indent=2) if cfg_json is not None else ""
     except Exception:
@@ -59,6 +61,7 @@ def ui_run_detail(request: Request, run_id: str):
             "summary": summary,
             "counts": counts,
             "config_id": cfg_id,
+            "scenario_id": scenario_id,
             "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
         },

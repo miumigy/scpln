@@ -15,6 +15,7 @@
         <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms">dur(ms)</button></th>
         <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version">schema</button></th>
         <th>config_id</th>
+        <th>scenario_id</th>
         <th>fill_rate</th>
         <th>profit_total</th>
         <th></th>
@@ -29,6 +30,7 @@
         <td>{{ r.duration_ms }}</td>
         <td>{{ r.schema_version }}</td>
         <td>{{ r.config_id or '' }}</td>
+        <td>{{ r.scenario_id or '' }}</td>
         <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
         <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
         <td>
@@ -84,6 +86,9 @@
     </label>
     <label>Config ID
       <input id="config-filter" type="number" placeholder="" min="1" style="width:7em" />
+    </label>
+    <label>Scenario ID
+      <input id="scenario-filter" type="number" placeholder="" min="1" style="width:7em" />
     </label>
     <button id="apply-filter" type="button" class="secondary">Apply</button>
     <button id="clear-filter" type="button" class="secondary">Clear</button>

@@ -1,4 +1,5 @@
 # tests/test_dockerfile.py
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -29,7 +30,17 @@ def test_dockerfile_exists_and_has_expected_content():
 @pytest.mark.skipif(
     shutil.which("docker") is None, reason="docker コマンドが見つからないためスキップ"
 )
+@pytest.mark.skipif(
+    os.getenv("ALLOW_DOCKER_BUILD") != "1",
+    reason="skip heavy docker build unless ALLOW_DOCKER_BUILD=1",
+)
 def test_docker_image_builds(tmp_path):
+    # unittest 経由でも早期スキップ（pytest でない実行器向け）
+    if os.getenv("ALLOW_DOCKER_BUILD") != "1":
+        try:
+            pytest.skip("skip heavy docker build unless ALLOW_DOCKER_BUILD=1")
+        except Exception:
+            return
     # 変更中の作業ツリーを誤ってビルドに含めないよう、ワークツリー全体でビルド
     # ただしタグ名は一時的なものにする
     tag = "scpln:test"

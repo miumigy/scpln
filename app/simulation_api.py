@@ -1,6 +1,6 @@
 from uuid import uuid4
 import logging
-from fastapi import Query, Request
+from fastapi import Query, Request, HTTPException
 import json
 from app import db
 from app.api import app, validate_input, set_last_summary
@@ -17,8 +17,24 @@ def post_simulation(
     payload: SimulationInput,
     include_trace: bool = Query(False),
     config_id: int | None = Query(None),
+    scenario_id: int | None = Query(None),
     request: Request = None,
 ):
+    # RBAC（ライト）: 変更系のためロール/テナント必須（有効化時）
+    import os
+    if os.getenv("RBAC_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role") if request else None
+        org = request.headers.get("X-Org-ID") if request else None
+        tenant = request.headers.get("X-Tenant-ID") if request else None
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_MUTATE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if not role or role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+        if not org or not tenant:
+            raise HTTPException(status_code=400, detail="missing org/tenant headers")
     validate_input(payload)
     run_id = str(uuid4())
     start = time.time()
@@ -73,6 +89,7 @@ def post_simulation(
             "daily_profit_loss": daily_pl,
             "cost_trace": getattr(sim, "cost_trace", []),
             "config_id": config_id,
+            "scenario_id": scenario_id,
             "config_json": cfg_json,
         },
     )

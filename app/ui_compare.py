@@ -6,6 +6,8 @@ from typing import List
 from pathlib import Path
 import csv
 import io
+from app.run_registry import REGISTRY
+from typing import Optional
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
@@ -95,6 +97,133 @@ def ui_compare(
             "base_id": rows[0]["run_id"] if rows else None,
             "threshold": th_pct,
             "keys_str": ",".join(use_keys),
+            "base_scenario": None,
+            "target_scenarios": None,
+        },
+    )
+
+
+def _latest_runs_by_scenarios(base_scenario: int, target_scenarios: List[int], limit: int = 1) -> List[str]:
+    out: List[str] = []
+    limit = max(1, int(limit or 1))
+    def _latest_for_many(sid: int, n: int) -> List[str]:
+        try:
+            if hasattr(REGISTRY, "list_page"):
+                resp = REGISTRY.list_page(
+                    offset=0,
+                    limit=n,
+                    sort="started_at",
+                    order="desc",
+                    schema_version=None,
+                    config_id=None,
+                    scenario_id=sid,
+                    detail=False,
+                )
+                runs = resp.get("runs") or []
+                return [r.get("run_id") for r in runs if r.get("run_id")]
+            else:
+                # メモリ実装: list_ids は新しい順を返す想定
+                ids = getattr(REGISTRY, "list_ids", lambda: [])()
+                matched = []
+                for rid in ids:
+                    rec = REGISTRY.get(rid) or {}
+                    if rec.get("scenario_id") == sid:
+                        matched.append(rid)
+                        if len(matched) >= n:
+                            break
+                return matched
+        except Exception:
+            return []
+    out.extend(_latest_for_many(int(base_scenario), limit))
+    for t in target_scenarios:
+        out.extend(_latest_for_many(int(t), limit))
+    # 重複除去（順序保持）
+    seen = set()
+    uniq = []
+    for rid in out:
+        if rid in seen:
+            continue
+        seen.add(rid)
+        uniq.append(rid)
+    return uniq
+
+
+@app.get("/ui/compare/preset", response_class=HTMLResponse)
+def ui_compare_preset(
+    request: Request,
+    base_scenario: int,
+    target_scenarios: str,
+    limit: int = 1,
+    threshold: float | None = None,
+    keys: str | None = None,
+):
+    try:
+        targets = [int(x) for x in (target_scenarios or "").split(",") if x.strip()]
+    except Exception:
+        targets = []
+    if not targets:
+        raise HTTPException(status_code=400, detail="target_scenarios required")
+    ids = _latest_runs_by_scenarios(int(base_scenario), targets, limit=max(1, int(limit or 1)))
+    if len(ids) < 2:
+        raise HTTPException(status_code=404, detail="runs not found for scenarios")
+    # reuse ui_compare path by constructing rows/diffs here
+    # keys filter
+    COMPARE_KEYS = [
+        "fill_rate",
+        "revenue_total",
+        "cost_total",
+        "penalty_total",
+        "profit_total",
+        "profit_per_day_avg",
+        "store_demand_total",
+        "store_sales_total",
+        "customer_shortage_total",
+    ]
+    use_keys = COMPARE_KEYS
+    if keys:
+        req = [x.strip() for x in keys.split(",") if x.strip()]
+        filt = [k for k in req if k in COMPARE_KEYS]
+        if filt:
+            use_keys = filt
+    rows = []
+    for rid in ids:
+        rec = REGISTRY.get(rid)
+        if not rec:
+            continue
+        s = rec.get("summary") or {}
+        row = {"run_id": rid}
+        for k in use_keys:
+            try:
+                row[k] = float(s.get(k, 0.0))
+            except Exception:
+                row[k] = None
+        rows.append(row)
+    diffs = []
+    if len(rows) >= 2:
+        base_id = rows[0]["run_id"]
+        base = rows[0]
+        for other in rows[1:]:
+            diff = {"base": base_id, "target": other["run_id"]}
+            for k in use_keys:
+                b = base.get(k) or 0.0
+                t = other.get(k) or 0.0
+                d = t - b
+                pct = (d / b * 100.0) if b else None
+                diff[k] = {"abs": d, "pct": pct}
+            diffs.append(diff)
+    return templates.TemplateResponse(
+        "compare.html",
+        {
+            "request": request,
+            "rows": rows,
+            "diffs": diffs,
+            "keys": use_keys,
+            "run_ids_str": ",".join([r["run_id"] for r in rows]),
+            "base_id": rows[0]["run_id"] if rows else None,
+            "threshold": threshold,
+            "keys_str": ",".join(use_keys),
+            "base_scenario": int(base_scenario),
+            "target_scenarios": target_scenarios,
         },
     )
 

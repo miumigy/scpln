@@ -26,6 +26,7 @@ class RunRegistryDB:
                     payload.get("cost_trace") or [], ensure_ascii=False
                 ),
                 "config_id": payload.get("config_id"),
+                "scenario_id": payload.get("scenario_id"),
                 "config_json": (
                     json.dumps(payload.get("config_json"))
                     if payload.get("config_json") is not None
@@ -38,7 +39,7 @@ class RunRegistryDB:
                 c.execute(
                     """
                     UPDATE runs SET started_at=?, duration_ms=?, schema_version=?, summary=?, results=?,
-                        daily_profit_loss=?, cost_trace=?, config_id=?, config_json=?, updated_at=?
+                        daily_profit_loss=?, cost_trace=?, config_id=?, scenario_id=?, config_json=?, updated_at=?
                     WHERE run_id=?
                     """,
                     (
@@ -50,6 +51,7 @@ class RunRegistryDB:
                         doc["daily_profit_loss"],
                         doc["cost_trace"],
                         doc["config_id"],
+                        doc["scenario_id"],
                         doc["config_json"],
                         doc["updated_at"],
                         run_id,
@@ -59,8 +61,8 @@ class RunRegistryDB:
                 c.execute(
                     """
                     INSERT INTO runs(run_id, started_at, duration_ms, schema_version, summary, results,
-                        daily_profit_loss, cost_trace, config_id, config_json, created_at, updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                        daily_profit_loss, cost_trace, config_id, scenario_id, config_json, created_at, updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         doc["run_id"],
@@ -72,6 +74,7 @@ class RunRegistryDB:
                         doc["daily_profit_loss"],
                         doc["cost_trace"],
                         doc["config_id"],
+                        doc["scenario_id"],
                         doc["config_json"],
                         doc["created_at"],
                         doc["updated_at"],
@@ -124,6 +127,7 @@ class RunRegistryDB:
         order: str = "desc",
         schema_version: Optional[str] = None,
         config_id: Optional[int] = None,
+        scenario_id: Optional[int] = None,
         detail: bool = False,
     ) -> Dict[str, Any]:
         sort_keys = {"started_at", "duration_ms", "schema_version"}
@@ -138,6 +142,9 @@ class RunRegistryDB:
         if config_id is not None:
             where.append("config_id = ?")
             params.append(config_id)
+        if scenario_id is not None:
+            where.append("scenario_id = ?")
+            params.append(scenario_id)
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
         with _conn() as c:
             total = c.execute(
@@ -146,7 +153,7 @@ class RunRegistryDB:
             cols = (
                 "*"
                 if detail
-                else "run_id, started_at, duration_ms, schema_version, summary, config_id, config_json, created_at, updated_at"
+                else "run_id, started_at, duration_ms, schema_version, summary, config_id, scenario_id, config_json, created_at, updated_at"
             )
             rows = c.execute(
                 f"SELECT {cols} FROM runs{where_sql} ORDER BY {sort} {order}, run_id {order} LIMIT ? OFFSET ?",
@@ -166,6 +173,7 @@ class RunRegistryDB:
                             "schema_version": r["schema_version"],
                             "summary": json.loads(r["summary"] or "{}"),
                             "config_id": r["config_id"],
+                            "scenario_id": r["scenario_id"],
                             "config_json": (
                                 json.loads(r["config_json"])
                                 if r["config_json"]
@@ -189,6 +197,7 @@ class RunRegistryDB:
             "daily_profit_loss": json.loads(row["daily_profit_loss"] or "[]"),
             "cost_trace": json.loads(row["cost_trace"] or "[]"),
             "config_id": row["config_id"],
+            "scenario_id": row.get("scenario_id"),
             "config_json": (
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),

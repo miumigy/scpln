@@ -43,6 +43,7 @@ def init_db() -> None:
                 daily_profit_loss TEXT NOT NULL,
                 cost_trace TEXT NOT NULL,
                 config_id INTEGER,
+                scenario_id INTEGER,
                 config_json TEXT,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
@@ -64,6 +65,17 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_runs_config_id ON runs(config_id)
             """
         )
+        # 追加カラム（既存DBの後方互換）: scenario_id
+        try:
+            c.execute("ALTER TABLE runs ADD COLUMN scenario_id INTEGER")
+        except Exception:
+            pass
+        try:
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runs_scenario_id ON runs(scenario_id)"
+            )
+        except Exception:
+            pass
         # jobs テーブル
         c.execute(
             """
