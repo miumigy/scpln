@@ -15,7 +15,11 @@ def _payload():
         products=[Product(name="P1", sales_price=100.0)],
         nodes=[StoreNode(name="S1", initial_stock={"P1": 0})],
         network=[],
-        customer_demand=[CustomerDemand(store_name="S1", product_name="P1", demand_mean=0, demand_std_dev=0)],
+        customer_demand=[
+            CustomerDemand(
+                store_name="S1", product_name="P1", demand_mean=0, demand_std_dev=0
+            )
+        ],
         random_seed=1,
     )
 
@@ -38,4 +42,3 @@ def test_jobs_simulation_end_to_end():
         time.sleep(0.05)
     assert status == "succeeded"
     assert body.get("run_id")
-

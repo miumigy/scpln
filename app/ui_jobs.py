@@ -10,7 +10,9 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
 @app.get("/ui/jobs", response_class=HTMLResponse)
-def ui_jobs(request: Request, status: str | None = None, offset: int = 0, limit: int = 20):
+def ui_jobs(
+    request: Request, status: str | None = None, offset: int = 0, limit: int = 20
+):
     data = db.list_jobs(status, offset, limit)
     return templates.TemplateResponse(
         "jobs.html",
@@ -35,4 +37,3 @@ def ui_job_detail(request: Request, job_id: str):
         "job_detail.html",
         {"request": request, "job": row, "subtitle": "Jobs"},
     )
-

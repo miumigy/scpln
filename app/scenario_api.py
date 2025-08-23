@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from fastapi import Body, HTTPException
 from app.api import app
 from app import db
@@ -43,4 +43,3 @@ def delete_scenario(sid: int):
         raise HTTPException(status_code=404, detail="scenario not found")
     db.delete_scenario(sid)
     return {"status": "deleted", "id": sid}
-

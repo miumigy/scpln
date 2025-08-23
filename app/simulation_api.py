@@ -1,7 +1,6 @@
 from uuid import uuid4
 import logging
 from fastapi import Query, Request
-from typing import Optional
 import json
 from app import db
 from app.api import app, validate_input, set_last_summary
@@ -14,7 +13,12 @@ from app.run_registry import _BACKEND, _DB_MAX_ROWS  # type: ignore
 
 
 @app.post("/simulation")
-def post_simulation(payload: SimulationInput, include_trace: bool = Query(False), config_id: int | None = Query(None), request: Request = None):
+def post_simulation(
+    payload: SimulationInput,
+    include_trace: bool = Query(False),
+    config_id: int | None = Query(None),
+    request: Request = None,
+):
     validate_input(payload)
     run_id = str(uuid4())
     start = time.time()
@@ -87,7 +91,11 @@ def post_simulation(payload: SimulationInput, include_trace: bool = Query(False)
         pass
     # DB使用時は容量上限で古いRunをクリーンアップ
     try:
-        if _BACKEND == "db" and _DB_MAX_ROWS > 0 and hasattr(REGISTRY, "cleanup_by_capacity"):
+        if (
+            _BACKEND == "db"
+            and _DB_MAX_ROWS > 0
+            and hasattr(REGISTRY, "cleanup_by_capacity")
+        ):
             REGISTRY.cleanup_by_capacity(_DB_MAX_ROWS)
     except Exception:
         pass

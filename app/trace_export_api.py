@@ -43,7 +43,9 @@ def get_trace_csv(run_id: str):
             buf.truncate(0)
 
     headers = {"Content-Disposition": f"attachment; filename=trace_{run_id}.csv"}
-    return StreamingResponse(_iter(), media_type="text/csv; charset=utf-8", headers=headers)
+    return StreamingResponse(
+        _iter(), media_type="text/csv; charset=utf-8", headers=headers
+    )
 
 
 def _flatten(d: Dict[str, Any], parent: str = "", sep: str = ".") -> Dict[str, Any]:
@@ -103,7 +105,9 @@ def get_results_csv(run_id: str):
             buf.truncate(0)
 
     headers = {"Content-Disposition": f"attachment; filename=results_{run_id}.csv"}
-    return StreamingResponse(_iter(), media_type="text/csv; charset=utf-8", headers=headers)
+    return StreamingResponse(
+        _iter(), media_type="text/csv; charset=utf-8", headers=headers
+    )
 
 
 @app.get("/runs/{run_id}/pl.csv")
@@ -143,7 +147,9 @@ def get_pl_csv(run_id: str):
             buf.truncate(0)
 
     headers = {"Content-Disposition": f"attachment; filename=pl_{run_id}.csv"}
-    return StreamingResponse(_iter(), media_type="text/csv; charset=utf-8", headers=headers)
+    return StreamingResponse(
+        _iter(), media_type="text/csv; charset=utf-8", headers=headers
+    )
 
 
 @app.get("/runs/{run_id}/summary.csv")
@@ -159,7 +165,9 @@ def get_summary_csv(run_id: str):
     for k in sorted(flat.keys()):
         w.writerow({"run_id": run_id, "metric": k, "value": flat[k]})
     headers = {"Content-Disposition": f"attachment; filename=summary_{run_id}.csv"}
-    return Response(content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers)
+    return Response(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers
+    )
 
 
 @app.get("/runs/{run_id}/config.json")
@@ -187,10 +195,14 @@ def get_config_csv(run_id: str):
         {
             "run_id": run_id,
             "config_id": rec.get("config_id"),
-            "config_json": json.dumps(rec.get("config_json"), ensure_ascii=False)
-            if rec.get("config_json") is not None
-            else None,
+            "config_json": (
+                json.dumps(rec.get("config_json"), ensure_ascii=False)
+                if rec.get("config_json") is not None
+                else None
+            ),
         }
     )
     headers = {"Content-Disposition": f"attachment; filename=config_{run_id}.csv"}
-    return Response(content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers)
+    return Response(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers
+    )

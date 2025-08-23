@@ -20,4 +20,3 @@ def test_runs_table_has_indexes():
         assert any("idx_runs_config_id" in n for n in names)
     finally:
         con.close()
-

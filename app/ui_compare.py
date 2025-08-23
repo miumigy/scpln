@@ -107,6 +107,7 @@ def ui_compare_metrics_csv(request: Request, run_ids: str, base_id: str | None =
     if base_id and base_id in ids:
         ids = [base_id] + [x for x in ids if x != base_id]
     from app.run_registry import REGISTRY
+
     COMPARE_KEYS = [
         "fill_rate",
         "revenue_total",
@@ -135,6 +136,7 @@ def ui_compare_metrics_csv(request: Request, run_ids: str, base_id: str | None =
     buf = io.StringIO()
     # meta lines
     import datetime as _dt
+
     buf.write(f"# generated_at: {_dt.datetime.utcnow().isoformat()}Z\n")
     if base_id:
         buf.write(f"# base_id: {base_id}\n")
@@ -144,17 +146,26 @@ def ui_compare_metrics_csv(request: Request, run_ids: str, base_id: str | None =
         w.writerow(r)
     headers = {"Content-Disposition": "attachment; filename=compare_metrics.csv"}
     from fastapi import Response
-    return Response(content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers)
+
+    return Response(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers
+    )
 
 
 @app.get("/ui/compare/diffs.csv")
-def ui_compare_diffs_csv(request: Request, run_ids: str, base_id: str | None = None, threshold: float | None = None):
+def ui_compare_diffs_csv(
+    request: Request,
+    run_ids: str,
+    base_id: str | None = None,
+    threshold: float | None = None,
+):
     ids: List[str] = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
     if len(ids) < 2:
         raise HTTPException(status_code=400, detail="Need 2 or more run_ids")
     if base_id and base_id in ids:
         ids = [base_id] + [x for x in ids if x != base_id]
     from app.run_registry import REGISTRY
+
     COMPARE_KEYS = [
         "fill_rate",
         "revenue_total",
@@ -166,6 +177,7 @@ def ui_compare_diffs_csv(request: Request, run_ids: str, base_id: str | None = N
         "store_sales_total",
         "customer_shortage_total",
     ]
+
     def _pick(summary: dict) -> dict:
         out = {}
         for k in COMPARE_KEYS:
@@ -175,6 +187,7 @@ def ui_compare_diffs_csv(request: Request, run_ids: str, base_id: str | None = N
             except Exception:
                 out[k] = None
         return out
+
     rows = []
     for rid in ids:
         r = REGISTRY.get(rid)
@@ -192,18 +205,33 @@ def ui_compare_diffs_csv(request: Request, run_ids: str, base_id: str | None = N
             hit = None
             if threshold is not None and pct is not None:
                 hit = abs(pct) >= threshold
-            diffs.append({"base": base["run_id"], "target": other["run_id"], "metric": k, "abs": d, "pct": pct, "hit": hit})
+            diffs.append(
+                {
+                    "base": base["run_id"],
+                    "target": other["run_id"],
+                    "metric": k,
+                    "abs": d,
+                    "pct": pct,
+                    "hit": hit,
+                }
+            )
     buf = io.StringIO()
     # meta lines
     import datetime as _dt
+
     buf.write(f"# generated_at: {_dt.datetime.utcnow().isoformat()}Z\n")
     buf.write(f"# base_id: {base['run_id']}\n")
     if threshold is not None:
         buf.write(f"# threshold_pct: {threshold}\n")
-    w = csv.DictWriter(buf, fieldnames=["base", "target", "metric", "abs", "pct", "hit"])
+    w = csv.DictWriter(
+        buf, fieldnames=["base", "target", "metric", "abs", "pct", "hit"]
+    )
     w.writeheader()
     for r in diffs:
         w.writerow(r)
     headers = {"Content-Disposition": "attachment; filename=compare_diffs.csv"}
     from fastapi import Response
-    return Response(content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers)
+
+    return Response(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8", headers=headers
+    )

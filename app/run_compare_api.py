@@ -3,7 +3,12 @@ from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
 from app.run_registry import _BACKEND  # type: ignore
-from app.metrics import RUNS_LIST_REQUESTS, RUNS_LIST_RETURNED, COMPARE_REQUESTS, COMPARE_DURATION
+from app.metrics import (
+    RUNS_LIST_REQUESTS,
+    RUNS_LIST_RETURNED,
+    COMPARE_REQUESTS,
+    COMPARE_DURATION,
+)
 import time
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
@@ -98,7 +103,10 @@ def list_runs(
                 "summary": rec.get("summary", {}),
                 "config_id": rec.get("config_id"),
                 "created_at": rec.get("created_at", rec.get("started_at")),
-                "updated_at": rec.get("updated_at", (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0)),
+                "updated_at": rec.get(
+                    "updated_at",
+                    (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
+                ),
             }
         )
     # DBバックエンドはSQLでページング
@@ -179,7 +187,10 @@ def compare_runs(
     if len(rows) >= 2:
         base = rows[0]
         for other in rows[1:]:
-            diff_row: Dict[str, Any] = {"base": base["run_id"], "target": other["run_id"]}
+            diff_row: Dict[str, Any] = {
+                "base": base["run_id"],
+                "target": other["run_id"],
+            }
             for k in use_keys:
                 b = base.get(k, 0.0)
                 t = other.get(k, 0.0)

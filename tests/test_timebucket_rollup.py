@@ -7,7 +7,13 @@ def test_aggregate_by_time_week_basic():
         {"day": 2, "node": "S1", "item": "SKU1", "qty": 2.0},
         {"day": 8, "node": "S1", "item": "SKU1", "qty": 3.0},
     ]
-    out = aggregate_by_time(records, "week", day_field="day", sum_fields=["qty"], group_keys=["node", "item"])
+    out = aggregate_by_time(
+        records,
+        "week",
+        day_field="day",
+        sum_fields=["qty"],
+        group_keys=["node", "item"],
+    )
     assert out == [
         {"period": 1, "node": "S1", "item": "SKU1", "qty": 3.0},
         {"period": 2, "node": "S1", "item": "SKU1", "qty": 3.0},
@@ -21,7 +27,10 @@ def test_rollup_axis_product_location():
         {"period": 1, "node": "S2", "item": "SKU2", "qty": 2.0, "revenue": 20.0},
         {"period": 2, "node": "S1", "item": "SKU1", "qty": 3.0, "revenue": 30.0},
     ]
-    pmap = {"SKU1": {"item": "I1", "category": "C1"}, "SKU2": {"item": "I2", "category": "C2"}}
+    pmap = {
+        "SKU1": {"item": "I1", "category": "C1"},
+        "SKU2": {"item": "I2", "category": "C2"},
+    }
     lmap = {"S1": {"region": "R1"}, "S2": {"region": "R2"}}
     out = rollup_axis(
         records,
@@ -42,12 +51,17 @@ def test_rollup_axis_product_location():
 
 def test_aggregate_by_time_iso_week_and_month_date_based():
     records = [
-        {"date": "2025-01-05", "qty": 1.0},  # ISO week 2025-W01 (assuming week starts Monday)
+        {
+            "date": "2025-01-05",
+            "qty": 1.0,
+        },  # ISO week 2025-W01 (assuming week starts Monday)
         {"date": "2025-01-06", "qty": 2.0},  # next ISO week if 2025-01-06 is Monday
         {"date": "2025-02-01", "qty": 3.0},
     ]
     # ISO week
-    out_w = aggregate_by_time(records, "week", date_field="date", calendar_mode="iso_week", sum_fields=["qty"])
+    out_w = aggregate_by_time(
+        records, "week", date_field="date", calendar_mode="iso_week", sum_fields=["qty"]
+    )
     assert any(r["period"].startswith("2025-W") for r in out_w)
     # Month
     out_m = aggregate_by_time(records, "month", date_field="date", sum_fields=["qty"])

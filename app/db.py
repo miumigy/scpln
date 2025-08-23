@@ -111,7 +111,10 @@ def init_db() -> None:
             """
         )
 
-def create_job(job_id: str, jtype: str, status: str, submitted_at: int, params_json: str | None) -> None:
+
+def create_job(
+    job_id: str, jtype: str, status: str, submitted_at: int, params_json: str | None
+) -> None:
     with _conn() as c:
         c.execute(
             "INSERT INTO jobs(job_id, type, status, submitted_at, params_json) VALUES(?,?,?,?,?)",
@@ -137,15 +140,20 @@ def update_job_status(
         sets = ["status=?"]
         params: list = [status]
         if started_at is not None:
-            sets.append("started_at=?"); params.append(started_at)
+            sets.append("started_at=?")
+            params.append(started_at)
         if finished_at is not None:
-            sets.append("finished_at=?"); params.append(finished_at)
+            sets.append("finished_at=?")
+            params.append(finished_at)
         if run_id is not None:
-            sets.append("run_id=?"); params.append(run_id)
+            sets.append("run_id=?")
+            params.append(run_id)
         if error is not None:
-            sets.append("error=?"); params.append(error)
+            sets.append("error=?")
+            params.append(error)
         if submitted_at is not None:
-            sets.append("submitted_at=?"); params.append(submitted_at)
+            sets.append("submitted_at=?")
+            params.append(submitted_at)
         params.append(job_id)
         c.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE job_id=?", tuple(params))
 
@@ -166,14 +174,22 @@ def list_jobs(status: str | None, offset: int, limit: int) -> Dict[str, Any]:
         where = []
         params: list = []
         if status:
-            where.append("status = ?"); params.append(status)
+            where.append("status = ?")
+            params.append(status)
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
-        total = c.execute(f"SELECT COUNT(*) AS cnt FROM jobs{where_sql}", params).fetchone()["cnt"]
+        total = c.execute(
+            f"SELECT COUNT(*) AS cnt FROM jobs{where_sql}", params
+        ).fetchone()["cnt"]
         rows = c.execute(
             f"SELECT * FROM jobs{where_sql} ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
-        return {"jobs": [dict(r) for r in rows], "total": total, "offset": offset, "limit": limit}
+        return {
+            "jobs": [dict(r) for r in rows],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
 
 
 def set_job_result(job_id: str, result_json: str) -> None:
@@ -193,7 +209,9 @@ def set_product_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
 
 def get_product_hierarchy() -> Dict[str, Dict[str, str]]:
     with _conn() as c:
-        rows = c.execute("SELECT key, item, category, department FROM product_hierarchy").fetchall()
+        rows = c.execute(
+            "SELECT key, item, category, department FROM product_hierarchy"
+        ).fetchall()
         out: Dict[str, Dict[str, str]] = {}
         for r in rows:
             out[r["key"]] = {
@@ -216,7 +234,9 @@ def set_location_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
 
 def get_location_hierarchy() -> Dict[str, Dict[str, str]]:
     with _conn() as c:
-        rows = c.execute("SELECT key, region, country FROM location_hierarchy").fetchall()
+        rows = c.execute(
+            "SELECT key, region, country FROM location_hierarchy"
+        ).fetchall()
         out: Dict[str, Dict[str, str]] = {}
         for r in rows:
             out[r["key"]] = {
@@ -271,6 +291,7 @@ def delete_config(cfg_id: int) -> None:
 # Initialize at import
 init_db()
 
+
 # --- Scenarios (phase2 foundation) ---
 def list_scenarios(limit: int = 200) -> List[Dict[str, Any]]:
     with _conn() as c:
@@ -287,7 +308,13 @@ def get_scenario(sid: int) -> Optional[Dict[str, Any]]:
         return dict(row) if row else None
 
 
-def create_scenario(name: str, parent_id: Optional[int], tag: Optional[str], description: Optional[str], locked: bool = False) -> int:
+def create_scenario(
+    name: str,
+    parent_id: Optional[int],
+    tag: Optional[str],
+    description: Optional[str],
+    locked: bool = False,
+) -> int:
     now = int(time.time() * 1000)
     with _conn() as c:
         cur = c.execute(
@@ -316,7 +343,10 @@ def update_scenario(sid: int, **fields: Any) -> None:
     params.append(int(time.time() * 1000))
     params.append(sid)
     with _conn() as c:
-        c.execute(f"UPDATE scenarios SET {', '.join(sets)}, updated_at=? WHERE id=?", tuple(params))
+        c.execute(
+            f"UPDATE scenarios SET {', '.join(sets)}, updated_at=? WHERE id=?",
+            tuple(params),
+        )
 
 
 def delete_scenario(sid: int) -> None:

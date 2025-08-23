@@ -80,6 +80,7 @@ class RunRegistryDB:
         try:
             # Log what we saved (booleans only, to avoid large payloads)
             import logging
+
             logging.debug(
                 "run_saved",
                 extra={
@@ -139,9 +140,9 @@ class RunRegistryDB:
             params.append(config_id)
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
         with _conn() as c:
-            total = c.execute(f"SELECT COUNT(*) as cnt FROM runs{where_sql}", params).fetchone()[
-                "cnt"
-            ]
+            total = c.execute(
+                f"SELECT COUNT(*) as cnt FROM runs{where_sql}", params
+            ).fetchone()["cnt"]
             cols = (
                 "*"
                 if detail
@@ -166,7 +167,9 @@ class RunRegistryDB:
                             "summary": json.loads(r["summary"] or "{}"),
                             "config_id": r["config_id"],
                             "config_json": (
-                                json.loads(r["config_json"]) if r["config_json"] else None
+                                json.loads(r["config_json"])
+                                if r["config_json"]
+                                else None
                             ),
                             "created_at": r["created_at"],
                             "updated_at": r["updated_at"],
