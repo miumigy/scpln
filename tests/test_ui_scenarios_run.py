@@ -27,7 +27,7 @@ def test_ui_scenarios_run_with_config():
     cfg_id = db.create_config(name="CfgA", json_text=db.json_dumps(cfg_json) if hasattr(db, 'json_dumps') else __import__('json').dumps(cfg_json, ensure_ascii=False))
 
     # 実行: UI経由でRun（ジョブ投入）
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id}, allow_redirects=False)
+    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id})
     assert r.status_code == 303
     # ジョブが作成され、完了までポーリング
     # ジョブ一覧APIを利用
@@ -45,10 +45,10 @@ def test_ui_scenarios_run_bad_requests():
     c = TestClient(app)
     sid = db.create_scenario(name="ScB", parent_id=None, tag=None, description=None)
     # 存在しない config_id
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": 9999}, allow_redirects=False)
+    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": 9999})
     assert r.status_code == 404
     # 不正な config JSON
     cfg_id_bad = db.create_config(name="CfgBad", json_text="invalid-json")
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id_bad}, allow_redirects=False)
+    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id_bad})
     assert r.status_code == 400
 

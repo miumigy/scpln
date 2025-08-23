@@ -11,7 +11,7 @@ importlib.import_module("app.ui_compare")
 
 def test_ui_compare_preset_roundtrip():
     c = TestClient(app)
-    REGISTRY.clear()
+    
     p = {
         "planning_horizon": 2,
         "products": [{"name": "P1", "sales_price": 100}],
@@ -45,7 +45,7 @@ def test_ui_compare_preset_roundtrip():
 
 def test_ui_compare_preset_bad_requests():
     c = TestClient(app)
-    REGISTRY.clear()
+    
     # target_scenarios がない
     r = c.get("/ui/compare/preset?base_scenario=1")
     assert r.status_code == 400

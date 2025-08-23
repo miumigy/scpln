@@ -76,7 +76,7 @@ def test_rbac_blocks_job_actions_without_role(monkeypatch):
     c = TestClient(app)
     # 事前にジョブを作成
     job_id = JOB_MANAGER.submit_simulation({})
-    db.update_job_status(job_id, "failed") # retry可能にする
+    db.update_job_status(job_id, status="failed") # retry可能にする
     r_retry = c.post(f"/jobs/{job_id}/retry")
     assert r_retry.status_code == 403
     r_cancel = c.post(f"/jobs/{job_id}/cancel")
@@ -89,7 +89,7 @@ def test_rbac_allows_job_actions_with_role(monkeypatch):
     headers = {"X-Role": "planner", "X-Org-ID": "org1", "X-Tenant-ID": "t1"}
     # 事前にジョブを作成
     job_id = JOB_MANAGER.submit_simulation({})
-    db.update_job_status(job_id, "failed") # retry可能にする
+    db.update_job_status(job_id, status="failed") # retry可能にする
     r_retry = c.post(f"/jobs/{job_id}/retry", headers=headers)
     assert r_retry.status_code == 200
     # cancelはrunningじゃないと400だが、RBACはパスするはず
@@ -105,7 +105,7 @@ def test_rbac_blocks_delete_run_without_role(monkeypatch):
     # 事前に実行結果を作成
     run_id = "test-run-for-delete"
     from app.run_registry import REGISTRY
-    REGISTRY.add(run_id, {"summary": {}})
+    REGISTRY.put(run_id, {"summary": {}})
     r = c.delete(f"/runs/{run_id}")
     assert r.status_code == 403
     # クリーンアップ
@@ -121,7 +121,7 @@ def test_rbac_allows_delete_run_with_role(monkeypatch):
     # 事前に実行結果を作成
     run_id = "test-run-for-delete-2"
     from app.run_registry import REGISTRY
-    REGISTRY.add(run_id, {"summary": {}})
+    REGISTRY.put(run_id, {"summary": {}})
     r = c.delete(f"/runs/{run_id}", headers=headers)
     assert r.status_code == 204
     # 存在しないことの確認
