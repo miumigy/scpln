@@ -6,6 +6,7 @@ from pathlib import Path
 from app import db
 from app.jobs import JOB_MANAGER
 import json
+import logging
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
@@ -40,6 +41,9 @@ def ui_scenarios_post(
 
 @app.post("/ui/scenarios/{sid}/run")
 def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
+    logging.warning(f"--- DEBUG: ui_scenarios_run called with config_id={config_id}")
+    rec = db.get_config(int(config_id))
+    logging.warning(f"--- DEBUG: db.get_config returned: {rec}")
     # 取得した設定JSONを使ってジョブ実行。scenario_id/config_id を付与。
     rec = db.get_config(int(config_id))
     if not rec:
