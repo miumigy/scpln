@@ -54,11 +54,13 @@
             <a class="nav-link" href="/ui/jobs" title="ジョブ一覧" target="_blank" rel="noopener noreferrer">ジョブ一覧</a>
             <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
             <a class="nav-link" href="/ui/hierarchy" title="階層マスタ" target="_blank" rel="noopener noreferrer">階層マスタ</a>
-            <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
-              API Key
-              <input id="api-key-input" type="password" placeholder="X-API-Key" style="width:12em;" />
-              <button id="api-key-save" class="run-button" style="padding:6px 10px;">保存</button>
-            </label>
+            <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
+              <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
+                API Key
+                <input id="api-key-input" type="password" placeholder="X-API-Key" style="width:12em;" autocomplete="current-password" />
+              </label>
+              <button id="api-key-save" class="run-button" style="padding:6px 10px;" type="button">保存</button>
+            </form>
             <button class="run-button">シミュレーション実行</button>
         </div>
     </div>
@@ -144,7 +146,9 @@
         loadApiKey();
         function loadConfigById(id){
           if (!id) return;
-          fetch(`/configs/${id}`).then(r=>r.ok?r.json():null).then(data=>{
+          const headers = {};
+          try { const k = localStorage.getItem('api_key') || ''; if (k) headers['X-API-Key'] = k; } catch {}
+          fetch(`/configs/${id}`, { headers }).then(r=>r.ok?r.json():null).then(data=>{
             if (!data || !data.json_text) return;
             const el = document.getElementById('simulation-editor');
             if (el) el.value = data.json_text;
@@ -157,7 +161,9 @@
 
         async function refreshConfigs(){
           try{
-            const res = await fetch('/configs');
+            const headers = {};
+            try { const k = localStorage.getItem('api_key') || ''; if (k) headers['X-API-Key'] = k; } catch {}
+            const res = await fetch('/configs', { headers });
             if(!res.ok) return;
             const data = await res.json();
             const sel = document.getElementById('config-select');
