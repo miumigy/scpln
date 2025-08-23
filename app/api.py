@@ -190,7 +190,7 @@ class _RequestIDMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:  # ここに来るのは未ハンドル例外
-            logging.error(
+            logging.exception(
                 "http_exception",
                 extra={
                     "event": "http_exception",
