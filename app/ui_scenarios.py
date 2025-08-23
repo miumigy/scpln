@@ -1,6 +1,6 @@
 from app.api import app
 from fastapi import Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
@@ -47,13 +47,13 @@ def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
     # 取得した設定JSONを使ってジョブ実行。scenario_id/config_id を付与。
     rec = db.get_config(int(config_id))
     if not rec:
-        raise HTTPException(status_code=404, detail="config not found")
+        return PlainTextResponse("config not found", status_code=404)
     try:
         payload = json.loads(rec.get("json_text") or "{}")
     except Exception:
-        raise HTTPException(status_code=400, detail="invalid config json")
+        return PlainTextResponse("invalid config json", status_code=400)
     if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="invalid config json")
+        return PlainTextResponse("invalid config json", status_code=400)
     # 付与（jobs.py 側でpopしRunへ保存される）
     payload["config_id"] = int(config_id)
     payload["scenario_id"] = int(sid)
