@@ -115,8 +115,9 @@ class JobManager:
         try:
             rec = db.get_job(job_id)
             payload = json.loads(rec.get("params_json") or "{}") if rec else {}
-            # extract optional config context
+            # extract optional config/scenario context
             config_id = payload.pop("config_id", None)
+            scenario_id = payload.pop("scenario_id", None)
             cfg_json = None
             try:
                 if config_id is not None:
@@ -153,6 +154,7 @@ class JobManager:
                     "daily_profit_loss": daily_pl,
                     "cost_trace": getattr(sim, "cost_trace", []),
                     "config_id": config_id,
+                    "scenario_id": scenario_id,
                     "config_json": cfg_json,
                 },
             )

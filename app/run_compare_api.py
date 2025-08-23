@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 import json
-from fastapi import Body, HTTPException, Query
+from fastapi import Body, HTTPException, Query, Request
+import os
 from app.api import app
 from app.run_registry import REGISTRY
 from app.run_registry import _BACKEND  # type: ignore
@@ -78,6 +79,7 @@ def list_runs(
     order: str = Query("desc"),
     schema_version: str | None = Query(None),
     config_id: int | None = Query(None),
+    scenario_id: int | None = Query(None),
 ):
     """ラン一覧を返す。
     - detail=false（既定）: 軽量メタ+summary のみ
@@ -108,10 +110,11 @@ def list_runs(
                 order=order,
                 schema_version=schema_version,
                 config_id=config_id,
+                scenario_id=scenario_id,
                 detail=True,
             )
         runs = REGISTRY.list()
-        runs = _filter_and_sort(runs, sort, order, schema_version, config_id)
+        runs = _filter_and_sort(runs, sort, order, schema_version, config_id, scenario_id)
         total = len(runs)
         sliced = runs[offset : offset + limit]
         try:
@@ -140,6 +143,7 @@ def list_runs(
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
                 "config_id": cfg_id,
+                "scenario_id": rec.get("scenario_id"),
                 "created_at": rec.get("created_at", rec.get("started_at")),
                 "updated_at": rec.get(
                     "updated_at",
@@ -148,7 +152,7 @@ def list_runs(
             }
         )
     # DBバックエンドはSQLでページング（ただし config_id 指定時は後方互換のためアプリ側でフィルタリングに切替）
-    if hasattr(REGISTRY, "list_page") and config_id is None:
+    if hasattr(REGISTRY, "list_page") and config_id is None and scenario_id is None:
         resp = REGISTRY.list_page(
             offset=offset,
             limit=limit,
@@ -156,6 +160,7 @@ def list_runs(
             order=order,
             schema_version=schema_version,
             config_id=config_id,
+            scenario_id=scenario_id,
             detail=False,
         )
         # backfill config_id using config_json when missing (DB backend lightweight mode includes config_json)
@@ -175,7 +180,7 @@ def list_runs(
             pass
         return resp
     elif hasattr(REGISTRY, "list_ids"):
-        # 後方互換: DBでも config_id 指定時は全件からアプリ側でフィルタ（config_json を用いた推定を含む）
+        # 後方互換: DBでも config_id / scenario_id 指定時は全件からアプリ側でフィルタ（config_json を用いた推定を含む）
         ids2 = REGISTRY.list_ids()
         rows2: List[Dict[str, Any]] = []
         for rid in ids2:
@@ -194,11 +199,12 @@ def list_runs(
                     "schema_version": rec.get("schema_version"),
                     "summary": rec.get("summary", {}),
                     "config_id": cfg_id2,
+                    "scenario_id": rec.get("scenario_id"),
                     "created_at": rec.get("created_at", rec.get("started_at")),
                     "updated_at": rec.get("updated_at", (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0)),
                 }
             )
-        rows2 = _filter_and_sort(rows2, sort, order, schema_version, config_id)
+        rows2 = _filter_and_sort(rows2, sort, order, schema_version, config_id, scenario_id)
         total2 = len(rows2)
         rows2 = rows2[offset : offset + limit]
         try:
@@ -207,7 +213,7 @@ def list_runs(
         except Exception:
             pass
         return {"runs": rows2, "total": total2, "offset": offset, "limit": limit}
-    out = _filter_and_sort(out, sort, order, schema_version, config_id)
+    out = _filter_and_sort(out, sort, order, schema_version, config_id, scenario_id)
     total = len(out)
     out = out[offset : offset + limit]
     try:
@@ -303,10 +309,20 @@ def compare_runs(
 
 
 @app.delete("/runs/{run_id}")
-def delete_run(run_id: str):
+def delete_run(run_id: str, request: Request):
     r = REGISTRY.get(run_id)
     if not r:
         raise HTTPException(status_code=404, detail="run not found")
+    # RBACライト: 有効時はX-Roleヘッダ（planner/adminなど）を要求
+    if os.getenv("RBAC_ENABLED", "0") == "1" or os.getenv("RBAC_DELETE_ENABLED", "0") == "1":
+        role = request.headers.get("X-Role", "")
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_DELETE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
     # DB/メモリ双方に対応
     if hasattr(REGISTRY, "delete"):
         REGISTRY.delete(run_id)
@@ -319,11 +335,14 @@ def _filter_and_sort(
     order: str,
     schema_version: str | None,
     config_id: int | None,
+    scenario_id: int | None,
 ) -> List[Dict[str, Any]]:
     def f(x: Dict[str, Any]) -> bool:
         if schema_version is not None and x.get("schema_version") != schema_version:
             return False
         if config_id is not None and x.get("config_id") != config_id:
+            return False
+        if scenario_id is not None and x.get("scenario_id") != scenario_id:
             return False
         return True
 

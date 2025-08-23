@@ -89,13 +89,14 @@ bash scripts/stop.sh            # 停止
 - `POST /simulation`
   - クエリ: `include_trace`（bool, 既定 false）
   - クエリ: `config_id`（int｜省略可）選択した設定のID。RunRegistry に保存されます
+  - クエリ: `scenario_id`（int｜省略可）シナリオ文脈。RunRegistry に保存されます
   - レスポンス: `run_id`, `results`, `daily_profit_loss`/`profit_loss`, `summary`, `cost_trace`
   - 実行記録は RunRegistry に保存
 
 - `GET /runs`
   - 既定: 軽量（`run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`）
   - ページング: `?offset=0&limit=50`（`1..100`）をサポート。レスポンスに `total/offset/limit` を含む
-  - ソート/フィルタ: `?sort=started_at|duration_ms|schema_version&order=desc|asc&schema_version=1.0&config_id=123`
+  - ソート/フィルタ: `?sort=started_at|duration_ms|schema_version&order=desc|asc&schema_version=1.0&config_id=123&scenario_id=10`
   - `?detail=true`: フル（`results`/`daily_profit_loss`/`cost_trace`含む、ページング適用）。既定 `limit=10`。`limit>10` は `400 Bad Request`
   - DBバックエンド時はSQLでソート/フィルタ/ページング（`total` は `COUNT(*)`）
 
