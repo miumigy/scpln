@@ -5,10 +5,11 @@ import contextvars
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.exception_handlers import http_exception_handler as _default_http_exc_handler
 from starlette.requests import Request as StarletteRequest
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from starlette.middleware.base import BaseHTTPMiddleware
 import uuid
 import time
@@ -81,7 +82,8 @@ def _configure_logging() -> None:
 _configure_logging()
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+BASE_DIR = Path(__file__).resolve().parents[1]
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 # Cache last summary for GET /summary
 _LAST_SUMMARY = None
@@ -232,7 +234,7 @@ class _AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         # Allow static and health endpoints without auth
         path = request.url.path or ""
-        if path.startswith("/static/") or path == "/healthz":
+        if path.startswith("/static/") or path in ("/healthz", "/", "/index.html", "/__debug/index"):
             return await call_next(request)
         try:
             if _AUTH_MODE == "apikey":
@@ -281,13 +283,58 @@ if _OTEL_ENABLED:
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
+    idx = BASE_DIR / "index.html"
     try:
-        with open("index.html") as f:
-            return f.read()
-    except FileNotFoundError:
-        return HTMLResponse(
-            "<h1>Error</h1><p>index.html not found.</p>", status_code=404
-        )
+        logging.info("index_resolve", extra={"event": "index_resolve", "path": str(idx), "exists": idx.exists()})
+    except Exception:
+        pass
+    if idx.exists():
+        try:
+            return FileResponse(path=str(idx), media_type="text/html; charset=utf-8")
+        except Exception:
+            logging.exception("failed_to_read_index")
+    # fallback to CWD
+    cwd_idx = Path.cwd() / "index.html"
+    if cwd_idx.exists():
+        try:
+            logging.info("index_resolve_cwd", extra={"event": "index_resolve_cwd", "path": str(cwd_idx), "exists": True})
+            return FileResponse(path=str(cwd_idx), media_type="text/html; charset=utf-8")
+        except Exception:
+            logging.exception("failed_to_read_index_cwd")
+    return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+
+@app.get("/index.html", response_class=HTMLResponse)
+async def read_index_alias():
+    idx = BASE_DIR / "index.html"
+    if idx.exists():
+        try:
+            return FileResponse(path=str(idx), media_type="text/html; charset=utf-8")
+        except Exception:
+            logging.exception("failed_to_read_index_alias")
+    cwd_idx = Path.cwd() / "index.html"
+    if cwd_idx.exists():
+        try:
+            logging.info("index_resolve_cwd_alias", extra={"event": "index_resolve_cwd_alias", "path": str(cwd_idx), "exists": True})
+            return FileResponse(path=str(cwd_idx), media_type="text/html; charset=utf-8")
+        except Exception:
+            logging.exception("failed_to_read_index_cwd_alias")
+    return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+
+
+if os.getenv("ENABLE_DEBUG_ENDPOINTS", "0") == "1":
+    @app.get("/__debug/index")
+    async def debug_index_path():
+        base_dir = Path(__file__).resolve().parents[1]
+        idx = base_dir / "index.html"
+        cwd_idx = Path.cwd() / "index.html"
+        return {
+            "base_dir": str(base_dir),
+            "resolved": str(idx),
+            "resolved_exists": idx.exists(),
+            "cwd": str(Path.cwd()),
+            "cwd_resolved": str(cwd_idx),
+            "cwd_exists": cwd_idx.exists(),
+        }
 
 
 @app.get("/healthz")
