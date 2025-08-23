@@ -168,10 +168,26 @@
 
             try {
                 const q = new URLSearchParams({ include_trace: '1' });
-                try { if (window.__currentConfigId) q.set('config_id', String(window.__currentConfigId)); } catch {}
+                try {
+                    // Prefer runtime selected value if present
+                    const sel = document.getElementById('config-select');
+                    const selected = sel && sel.value ? String(sel.value) : '';
+                    const cid = selected || (window.__currentConfigId ? String(window.__currentConfigId) : '');
+                    if (cid) q.set('config_id', cid);
+                } catch {}
                 const response = await fetch(`/simulation?${q.toString()}` , {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: (function(){
+                        const h = { 'Content-Type': 'application/json' };
+                        try {
+                          const sel = document.getElementById('config-select');
+                          const selected = sel && sel.value ? String(sel.value) : '';
+                          const cid = selected || (window.__currentConfigId ? String(window.__currentConfigId) : '');
+                          if (cid) h['X-Config-Id'] = cid;
+                        } catch {}
+                        try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+                        return h;
+                    })(),
                     body: JSON.stringify(requestBody)
                 });
 
