@@ -197,7 +197,7 @@ class RunRegistryDB:
             "daily_profit_loss": json.loads(row["daily_profit_loss"] or "[]"),
             "cost_trace": json.loads(row["cost_trace"] or "[]"),
             "config_id": row["config_id"],
-            "scenario_id": row.get("scenario_id"),
+            "scenario_id": row["scenario_id"],
             "config_json": (
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),

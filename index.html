@@ -77,6 +77,8 @@
             <div class="configs-bar">
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
+              <label for="scenario-id">Scenario ID:</label>
+              <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
               <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
             </div>
             <textarea id="simulation-editor"></textarea>
@@ -129,12 +131,15 @@
         </div>
     </div>
 
-    <script type="module" src="/static/js/main.js?v=1.2.2"></script>
+    <script type="module" src="/static/js/main.js?v=1.2.3"></script>
     <script>
       (function(){
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
         window.__currentConfigId = cid || '';
+        // URLに scenario_id があれば初期表示に反映
+        const sid = params.get('scenario_id');
+        if (sid) { try { const el = document.getElementById('scenario-id'); if (el) el.value = String(sid); } catch{} }
         // API Key persistence
         function loadApiKey(){
           try{ const k = localStorage.getItem('api_key') || ''; const el = document.getElementById('api-key-input'); if (el) el.value = k; }catch{}
