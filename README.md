@@ -113,6 +113,14 @@ bash scripts/stop.sh            # 停止
   - クエリ: `base_id`（省略可）。ベースを指定順に固定
   - レスポンス: `metrics`（runごとの主要KPI）と `diffs`（ベース基準の差分）。`threshold/base_id` を含む場合あり
 
+- `GET /ui/compare/preset`
+  - クエリ: `base_scenario`（int, 必須）ベースとなるシナリオID
+  - クエリ: `target_scenarios`（string, 必須）比較対象のシナリオID（カンマ区切り）
+  - クエリ: `limit`（int, 既定 1）各シナリオから取得する最新Runの数
+  - クエリ: `threshold`（float, 省略可）比較結果の閾値（%）
+  - クエリ: `keys`（string, 省略可）比較するKPI（カンマ区切り）
+  - レスポンス: `compare.html` のHTMLレスポンス（UI表示用）
+
 - `GET /healthz`: ヘルスチェック
 
 - ジョブ（Jobs）
@@ -299,8 +307,10 @@ SIM_LOG_JSON=1 uvicorn main:app \
   - プリセットの共有: Export（JSONファイル）/Import に対応し、チーム内で設定を共有可能
 - 入力支援: 最新Runから `group_keys`/`sum_fields` 候補を自動推測し、datalist へ提示
  - `/ui/scenarios`（フェーズ2の土台）
-   - シナリオ一覧/追加のUI（名前/タグ/親ID/説明）
-   - API: `GET /scenarios`, `GET /scenarios/{id}`, `POST /scenarios`, `PUT /scenarios/{id}`, `DELETE /scenarios/{id}`
+    - シナリオ一覧/追加のUI（名前/タグ/親ID/説明）
+    - API: `GET /scenarios`, `GET /scenarios/{id}`, `POST /scenarios`, `PUT /scenarios/{id}`, `DELETE /scenarios/{id}`
+    - シナリオからのシミュレーション実行: シナリオ一覧から設定を選択し、シミュレーションジョブを投入
+    - シナリオ比較プリセット: ベースシナリオとターゲットシナリオを指定し、最新の実行結果を比較
 
 ## 図解
 
@@ -408,6 +418,7 @@ sequenceDiagram
   participant API as FastAPI
   participant Sim as Simulator
   participant REG as RunRegistry
+  participant JM as JobManager
 
   %% Run 実行
   User->>UI: select config (optional)
@@ -416,6 +427,16 @@ sequenceDiagram
   Sim-->>API: results, PL, summary, trace
   API->>REG: save run (includes config_id, config_json)
   API-->>User: 200 JSON { run_id, ... }
+
+  %% シナリオからの実行
+  User->>UI: select scenario and config
+  UI->>API: POST /ui/scenarios/{sid}/run (config_id)
+  API->>JM: submit_simulation(payload with scenario_id, config_id)
+  JM-->>API: job_id
+  API-->>UI: 303 Redirect to /ui/jobs
+  JM->>Sim: run() (async)
+  Sim-->>JM: results, PL, summary, trace
+  JM->>REG: save run (includes scenario_id, config_id)
 
   %% 履歴一覧
   User->>UI: GET /ui/runs
@@ -437,6 +458,14 @@ sequenceDiagram
   User->>UI: POST /ui/compare
   UI->>REG: read summaries
   UI-->>User: metrics + diffs
+
+  %% シナリオ比較プリセット
+  User->>UI: GET /ui/compare/preset?base_scenario=...&target_scenarios=... 
+  UI->>REG: list latest runs by scenario_id
+  REG-->>UI: run_ids
+  UI->>REG: read summaries for run_ids
+  REG-->>UI: summaries
+  UI-->>User: HTML (compare view)
 ```
 
 ## 入出力スキーマ（詳細）
