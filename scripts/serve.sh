@@ -14,6 +14,16 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
+# Load .env if present (export all variables)
+if [[ -f .env ]]; then
+  echo "[env] loading .env"
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+  echo "[env] AUTH_MODE=${AUTH_MODE:-none} JOBS_BACKEND=${JOBS_BACKEND:-memory} REGISTRY_BACKEND=${REGISTRY_BACKEND:-memory}"
+fi
+
 # Install deps if uvicorn is missing
 # 依存インストール: uvicorn が無い、または requirements.txt が更新、または必須モジュール不足の場合に実行
 REQ_HASH_FILE="$VENV_DIR/requirements.hash"
