@@ -7,6 +7,17 @@
   </header>
 
   <section>
+    <h3>Config</h3>
+    <table>
+      <tbody>
+        <tr><th class="mono">config_id</th><td class="mono">{{ config_id or '' }}</td></tr>
+        <tr><th class="mono">config_json</th><td><pre class="mono" style="max-height:240px; overflow:auto;">{{ config_json_str }}</pre></td></tr>
+        <tr><th class="mono">raw</th><td><a role="button" class="secondary" href="/runs/{{ run_id }}/config.json" target="_blank" rel="noopener noreferrer">/runs/{{ run_id }}/config.json</a></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
     <h3>Summary</h3>
     {% if summary %}
     <table>
