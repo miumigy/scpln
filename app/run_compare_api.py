@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import json
 from fastapi import Body, HTTPException, Query
 from app.api import app
 from app.run_registry import REGISTRY
@@ -10,6 +11,7 @@ from app.metrics import (
     COMPARE_DURATION,
 )
 import time
+from app import db
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [
@@ -35,6 +37,36 @@ def _pick(summary: Dict[str, Any], keys: List[str] | None = None) -> Dict[str, f
         except Exception:
             pass
     return out
+
+
+def _normalize_json(o: Any) -> str:
+    try:
+        if isinstance(o, str):
+            return json.dumps(json.loads(o), ensure_ascii=False, sort_keys=True)
+        return json.dumps(o, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        return ""
+
+
+def _resolve_config_id_from_json(cfg_json: Any) -> int | None:
+    if not cfg_json:
+        return None
+    target = _normalize_json(cfg_json)
+    if not target:
+        return None
+    try:
+        for r in (db.list_configs(limit=500) or []):
+            rid = r.get("id")
+            if not rid:
+                continue
+            rec = db.get_config(int(rid))
+            if not rec or rec.get("json_text") is None:
+                continue
+            if _normalize_json(rec.get("json_text")) == target:
+                return int(rid)
+    except Exception:
+        return None
+    return None
 
 
 @app.get("/runs")
@@ -94,6 +126,12 @@ def list_runs(
         limit = 50
     for rid in ids:
         rec = REGISTRY.get(rid) or {}
+        cfg_id = rec.get("config_id")
+        if cfg_id is None and rec.get("config_json") is not None:
+            try:
+                cfg_id = _resolve_config_id_from_json(rec.get("config_json"))
+            except Exception:
+                cfg_id = None
         out.append(
             {
                 "run_id": rec.get("run_id"),
@@ -101,7 +139,7 @@ def list_runs(
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
-                "config_id": rec.get("config_id"),
+                "config_id": cfg_id,
                 "created_at": rec.get("created_at", rec.get("started_at")),
                 "updated_at": rec.get(
                     "updated_at",
@@ -109,8 +147,8 @@ def list_runs(
                 ),
             }
         )
-    # DBバックエンドはSQLでページング
-    if hasattr(REGISTRY, "list_page"):
+    # DBバックエンドはSQLでページング（ただし config_id 指定時は後方互換のためアプリ側でフィルタリングに切替）
+    if hasattr(REGISTRY, "list_page") and config_id is None:
         resp = REGISTRY.list_page(
             offset=offset,
             limit=limit,
@@ -120,12 +158,55 @@ def list_runs(
             config_id=config_id,
             detail=False,
         )
+        # backfill config_id using config_json when missing (DB backend lightweight mode includes config_json)
+        try:
+            runs_list = resp.get("runs", []) or []
+            for r in runs_list:
+                if r.get("config_id") is None and r.get("config_json") is not None:
+                    rid2 = _resolve_config_id_from_json(r.get("config_json"))
+                    if rid2 is not None:
+                        r["config_id"] = rid2
+        except Exception:
+            pass
         try:
             RUNS_LIST_REQUESTS.labels(detail="false", backend=_BACKEND).inc()
             RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
         except Exception:
             pass
         return resp
+    elif hasattr(REGISTRY, "list_ids"):
+        # 後方互換: DBでも config_id 指定時は全件からアプリ側でフィルタ（config_json を用いた推定を含む）
+        ids2 = REGISTRY.list_ids()
+        rows2: List[Dict[str, Any]] = []
+        for rid in ids2:
+            rec = REGISTRY.get(rid) or {}
+            cfg_id2 = rec.get("config_id")
+            if cfg_id2 is None and rec.get("config_json") is not None:
+                try:
+                    cfg_id2 = _resolve_config_id_from_json(rec.get("config_json"))
+                except Exception:
+                    cfg_id2 = None
+            rows2.append(
+                {
+                    "run_id": rec.get("run_id"),
+                    "started_at": rec.get("started_at"),
+                    "duration_ms": rec.get("duration_ms"),
+                    "schema_version": rec.get("schema_version"),
+                    "summary": rec.get("summary", {}),
+                    "config_id": cfg_id2,
+                    "created_at": rec.get("created_at", rec.get("started_at")),
+                    "updated_at": rec.get("updated_at", (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0)),
+                }
+            )
+        rows2 = _filter_and_sort(rows2, sort, order, schema_version, config_id)
+        total2 = len(rows2)
+        rows2 = rows2[offset : offset + limit]
+        try:
+            RUNS_LIST_REQUESTS.labels(detail="false", backend=_BACKEND).inc()
+            RUNS_LIST_RETURNED.observe(len(rows2))
+        except Exception:
+            pass
+        return {"runs": rows2, "total": total2, "offset": offset, "limit": limit}
     out = _filter_and_sort(out, sort, order, schema_version, config_id)
     total = len(out)
     out = out[offset : offset + limit]

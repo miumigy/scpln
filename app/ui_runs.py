@@ -1,4 +1,5 @@
 from app.api import app
+import json
 from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -44,6 +45,12 @@ def ui_run_detail(request: Request, run_id: str):
         "pl_len": len(rec.get("daily_profit_loss") or []),
         "trace_len": len(rec.get("cost_trace") or []),
     }
+    cfg_id = rec.get("config_id")
+    cfg_json = rec.get("config_json")
+    try:
+        cfg_json_str = json.dumps(cfg_json, ensure_ascii=False, indent=2) if cfg_json is not None else ""
+    except Exception:
+        cfg_json_str = ""
     return templates.TemplateResponse(
         "run_detail.html",
         {
@@ -51,6 +58,8 @@ def ui_run_detail(request: Request, run_id: str):
             "run_id": run_id,
             "summary": summary,
             "counts": counts,
+            "config_id": cfg_id,
+            "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
         },
     )
