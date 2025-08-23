@@ -20,7 +20,7 @@
         const traceDayTo = document.getElementById('trace-day-to');
         const traceEventFilter = document.getElementById('trace-event-filter');
         const traceAccountFilter = document.getElementById('trace-account-filter');
-        const runButton = document.querySelector('.run-button');
+        const runButton = document.getElementById('run-button');
         const tabButtons = document.querySelectorAll('.tab-button');
 
         // This variable will hold the complete simulation results
