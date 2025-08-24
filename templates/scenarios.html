@@ -21,7 +21,15 @@
   <table role="grid">
     <thead>
       <tr>
-        <th>id</th><th>name</th><th>tag</th><th>parent_id</th><th>locked</th><th>updated_at</th><th>Run</th>
+        <th>id</th>
+        <th>name</th>
+        <th>tag</th>
+        <th>parent_id</th>
+        <th>locked</th>
+        <th>updated_at</th>
+        <th style="min-width:240px;">description</th>
+        <th>Run</th>
+        <th>Edit/Delete</th>
       </tr>
     </thead>
     <tbody>
@@ -33,6 +41,7 @@
         <td>{{ r.parent_id or '' }}</td>
         <td>{{ r.locked }}</td>
         <td>{{ r.updated_at }}</td>
+        <td title="{{ r.description or '' }}" style="text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.description or '' }}</td>
         <td>
           <form method="post" action="/ui/scenarios/{{ r.id }}/run" style="display:flex; gap:6px; align-items:center;">
             <label>
@@ -45,6 +54,34 @@
             </label>
             <button type="submit">Run</button>
           </form>
+        </td>
+        <td>
+          <details>
+            <summary>Edit</summary>
+            <form method="post" action="/ui/scenarios/{{ r.id }}/edit" style="display:grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap:6px; align-items:end; margin-top:6px;">
+              <label>Name
+                <input type="text" name="name" value="{{ r.name }}" required />
+              </label>
+              <label>Parent ID
+                <input type="number" name="parent_id" value="{{ r.parent_id or '' }}" min="1" />
+              </label>
+              <label>Tag
+                <input type="text" name="tag" value="{{ r.tag or '' }}" />
+              </label>
+              <label>Locked
+                <input type="checkbox" name="locked" {% if r.locked %}checked{% endif %} />
+              </label>
+              <label style="grid-column:1 / -1;">Description
+                <textarea name="description" rows="3" style="width:100%">{{ r.description or '' }}</textarea>
+              </label>
+              <div style="grid-column:1 / -1; display:flex; gap:6px;">
+                <button type="submit">Update</button>
+              </div>
+            </form>
+            <form method="post" action="/ui/scenarios/{{ r.id }}/delete" onsubmit="return confirm('Delete scenario #{{ r.id }}?');" style="margin-top:6px;">
+              <button type="submit" class="contrast">Delete</button>
+            </form>
+          </details>
         </td>
       </tr>
       {% endfor %}

@@ -60,3 +60,48 @@ def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
     job_id = JOB_MANAGER.submit_simulation(payload)
     # ジョブ一覧へ遷移
     return RedirectResponse(url=f"/ui/jobs", status_code=303)
+
+
+@app.post("/ui/scenarios/{sid}/edit")
+def ui_scenarios_edit(
+    request: Request,
+    sid: int,
+    name: str = Form(""),
+    parent_id: str | None = Form(None),
+    tag: str = Form(""),
+    description: str = Form(""),
+    locked: str | None = Form(None),
+):
+    # 正規化
+    fields: dict = {}
+    if name:
+        fields["name"] = name
+    # parent_id は空なら None
+    try:
+        if parent_id is not None and str(parent_id).strip() != "":
+            fields["parent_id"] = int(parent_id)
+        else:
+            fields["parent_id"] = None
+    except Exception:
+        fields["parent_id"] = None
+    fields["tag"] = (tag or None)
+    fields["description"] = (description or None)
+    # チェックボックス: 値があれば True
+    fields["locked"] = 1 if (locked is not None) else 0
+    try:
+        if not db.get_scenario(sid):
+            return RedirectResponse(url="/ui/scenarios", status_code=303)
+        db.update_scenario(sid, **fields)
+    except Exception:
+        logging.exception("ui_scenarios_edit_failed")
+    return RedirectResponse(url="/ui/scenarios", status_code=303)
+
+
+@app.post("/ui/scenarios/{sid}/delete")
+def ui_scenarios_delete(request: Request, sid: int):
+    try:
+        if db.get_scenario(sid):
+            db.delete_scenario(sid)
+    except Exception:
+        logging.exception("ui_scenarios_delete_failed")
+    return RedirectResponse(url="/ui/scenarios", status_code=303)
