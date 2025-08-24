@@ -183,6 +183,24 @@ bash scripts/stop.sh            # 停止
   - `PUT /configs/{id}`（Form: `name`, `json_text`）: 更新
   - `DELETE /configs/{id}`: 削除
 
+- シナリオ（Scenarios）
+  - `GET /scenarios`
+    - クエリ: `limit` (int, 既定 200)
+    - レスポンス: `{"scenarios": [...]}`
+  - `GET /scenarios/{sid}`
+    - パス: `sid` (int)
+    - レスポンス: シナリオオブジェクト
+  - `POST /scenarios`
+    - ボディ: `name` (str, 必須), `parent_id` (int, 省略可), `tag` (str, 省略可), `description` (str, 省略可), `locked` (bool, 省略可, 既定 False)
+    - レスポンス: `{"id": sid}`
+  - `PUT /scenarios/{sid}`
+    - パス: `sid` (int)
+    - ボディ: 更新するフィールドと値
+    - レスポンス: `{"status": "ok"}`
+  - `DELETE /scenarios/{sid}`
+    - パス: `sid` (int)
+    - レスポンス: `{"status": "deleted", "id": sid}`
+
 ## CSV エクスポート（Runごと）
 
 - `GET /runs/{run_id}/results.csv`: 実行結果
