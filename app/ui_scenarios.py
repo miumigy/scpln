@@ -26,13 +26,17 @@ def ui_scenarios(request: Request):
 def ui_scenarios_post(
     request: Request,
     name: str = Form(""),
-    parent_id: int | None = Form(None),
+    parent_id: str = Form(""),
     tag: str = Form(""),
     description: str = Form(""),
 ):
+    try:
+        pid = int(parent_id) if parent_id else None
+    except (ValueError, TypeError):
+        pid = None
     sid = db.create_scenario(
         name=name or "(no name)",
-        parent_id=parent_id,
+        parent_id=pid,
         tag=(tag or None),
         description=(description or None),
     )
