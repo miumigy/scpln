@@ -77,9 +77,12 @@
             <div class="configs-bar">
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
+              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
+              <label for="scenario-select">シナリオ:</label>
+              <select id="scenario-select"><option value="">（選択）</option></select>
+              <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
               <label for="scenario-id">Scenario ID:</label>
               <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
-              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -188,6 +191,42 @@
         });
         // 初期ロード
         refreshConfigs();
+      })();
+    </script>
+    <script>
+      (function(){
+        function authHeaders(){
+          const h = {};
+          try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+          return h;
+        }
+        async function refreshScenarios(){
+          try{
+            const res = await fetch('/scenarios', { headers: authHeaders() });
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('scenario-select');
+            if(!sel) return;
+            const rows = (data.scenarios||[]);
+            const opts = rows.map(r=>({ value: r.id, label: `#${r.id} ${r.name}${r.tag? ' ['+r.tag+']':''}` }));
+            const cur = (document.getElementById('scenario-id')?.value || '').trim();
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
+          }catch(e){ /* noop */ }
+        }
+        function wireScenarioSelect(){
+          const sel = document.getElementById('scenario-select');
+          const input = document.getElementById('scenario-id');
+          if (!sel || !input) return;
+          sel.addEventListener('change', ()=>{ input.value = sel.value || ''; });
+          input.addEventListener('change', ()=>{
+            const v = (input.value||'').trim();
+            if (!sel.querySelector('option')) return;
+            Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
+          });
+        }
+        document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
+        wireScenarioSelect();
+        refreshScenarios();
       })();
     </script>
 </body>

@@ -92,7 +92,9 @@ bash scripts/stop.sh            # 停止
   - クエリ: `scenario_id`（int｜省略可）シナリオ文脈。RunRegistry に保存されます
   - レスポンス: `run_id`, `results`, `daily_profit_loss`/`profit_loss`, `summary`, `cost_trace`
   - 実行記録は RunRegistry に保存
-  - 備考: トップページ（index.html）の「設定マスタ」横に Scenario ID 入力欄を追加。ここに数値を入れると `/simulation` へ `scenario_id` クエリとして送信され、ラン履歴にも反映されます。
+  - 備考: トップページ（index.html）の「設定マスタ」横に「シナリオ」プルダウンと Scenario ID 入力欄を用意。
+    - 「シナリオ」プルダウンは `/scenarios` から一覧を読み込み、選択で Scenario ID 入力欄に反映されます。
+    - Scenario ID を指定すると `/simulation` へ `scenario_id` クエリとして送信され、ラン履歴にも反映されます。
 
 - `GET /runs`
   - 既定: 軽量（`run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`）
