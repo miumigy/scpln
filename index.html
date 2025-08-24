@@ -208,7 +208,33 @@
             const sel = document.getElementById('scenario-select');
             if(!sel) return;
             const rows = (data.scenarios||[]);
-            const opts = rows.map(r=>({ value: r.id, label: `#${r.id} ${r.name}${r.tag? ' ['+r.tag+']':''}` }));
+            // Build parent map and compute depth for indentation (max depth 8 to avoid cycles)
+            const byId = new Map(rows.map(r=>[String(r.id), r]));
+            const depthCache = new Map();
+            function depthOf(r){
+              const key = String(r.id);
+              if (depthCache.has(key)) return depthCache.get(key);
+              let d = 0; let cur = r; const seen = new Set([key]);
+              while (cur && cur.parent_id) {
+                const pid = String(cur.parent_id);
+                if (seen.has(pid)) { d++; break; }
+                const p = byId.get(pid);
+                if (!p) break;
+                d++; if (d > 8) break; // cap depth
+                seen.add(pid);
+                cur = p;
+              }
+              depthCache.set(key, d);
+              return d;
+            }
+            const opts = rows.map(r=>{
+              const d = depthOf(r);
+              const indent = '—'.repeat(d);
+              const tag = r.tag ? ` [${r.tag}]` : '';
+              const locked = r.locked ? ' (locked)' : '';
+              const label = `#${r.id} ${indent}${indent? ' ': ''}${r.name}${tag}${locked}`;
+              return { value: r.id, label };
+            });
             const cur = (document.getElementById('scenario-id')?.value || '').trim();
             sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
           }catch(e){ /* noop */ }
