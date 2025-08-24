@@ -2,7 +2,6 @@
 import importlib
 from fastapi.testclient import TestClient
 from app.api import app
-from app.run_registry import REGISTRY
 
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.ui_runs")

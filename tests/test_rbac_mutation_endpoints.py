@@ -1,9 +1,7 @@
 import importlib
 import time
 from fastapi.testclient import TestClient
-import os
 from app import db
-from app.jobs import JOB_MANAGER
 
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.jobs_api")

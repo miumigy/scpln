@@ -7,7 +7,6 @@ from pathlib import Path
 import csv
 import io
 from app.run_registry import REGISTRY
-from typing import Optional
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
