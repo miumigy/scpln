@@ -41,10 +41,10 @@
       <li>cost_trace: {{ counts.trace_len }}</li>
       <li style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <span class="mono">CSV:</span>
-        <a role="button" class="secondary" href="/runs/{{ run_id }}/results.csv">results.csv</a>
-        <a role="button" class="secondary" href="/runs/{{ run_id }}/pl.csv">pl.csv</a>
-        <a role="button" class="secondary" href="/runs/{{ run_id }}/summary.csv">summary.csv</a>
-        <a role="button" class="secondary" href="/runs/{{ run_id }}/trace.csv">trace.csv</a>
+        <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/results.csv">results.csv</a>
+        <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/pl.csv">pl.csv</a>
+        <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/summary.csv">summary.csv</a>
+        <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/trace.csv">trace.csv</a>
       </li>
     </ul>
   </section>
@@ -91,6 +91,51 @@
     } catch (e) { console.error(e); alert('Failed to delete run.'); }
   }
   if (delBtn) delBtn.addEventListener('click', del);
+
+  function getHeaders(){
+    const h = {};
+    try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+    return h;
+  }
+
+  function downloadCsv(ev) {
+    ev.preventDefault();
+    const el = ev.target;
+    const url = el.getAttribute('data-url');
+    if (!url) return;
+    const headers = getHeaders();
+    fetch(url, { headers })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const disposition = res.headers.get('content-disposition');
+        let filename = url.split('/').pop();
+        if (disposition && disposition.includes('attachment')) {
+          const m = disposition.match(/filename="?([^;"]+)"?/);
+          if (m && m[1]) filename = m[1];
+        }
+        return res.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      })
+      .catch(e => {
+        console.error('Download failed', e);
+        alert('Download failed. Check API key or server status.');
+      });
+  }
+
+  document.body.addEventListener('click', ev => {
+    if (ev.target.classList.contains('download-csv')) {
+      downloadCsv(ev);
+    }
+  });
+
 })();
 </script>
 {% endblock %}

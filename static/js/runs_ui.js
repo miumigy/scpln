@@ -137,10 +137,10 @@
         <td>
           <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
           <span class="mono" style="margin-left:6px; white-space:nowrap;">
-            <a href="/runs/${r.run_id}/results.csv" title="results.csv">res</a>
-            <a href="/runs/${r.run_id}/pl.csv" title="pl.csv">pl</a>
-            <a href="/runs/${r.run_id}/summary.csv" title="summary.csv">sum</a>
-            <a href="/runs/${r.run_id}/trace.csv" title="trace.csv">trace</a>
+            <a href="#" class="download-csv" data-url="/runs/${r.run_id}/results.csv" title="results.csv">res</a>
+            <a href="#" class="download-csv" data-url="/runs/${r.run_id}/pl.csv" title="pl.csv">pl</a>
+            <a href="#" class="download-csv" data-url="/runs/${r.run_id}/summary.csv" title="summary.csv">sum</a>
+            <a href="#" class="download-csv" data-url="/runs/${r.run_id}/trace.csv" title="trace.csv">trace</a>
           </span>
         </td>
       </tr>
@@ -323,4 +323,43 @@
   function init() { syncFromUrl(); updateSortIndicators(); reloadRuns(); }
   // expose for inline script to trigger initial load
   window.RunsUI = { reloadRuns, init };
+
+  function downloadCsv(ev) {
+    ev.preventDefault();
+    const el = ev.currentTarget;
+    const url = el.getAttribute('data-url');
+    if (!url) return;
+    const headers = getHeaders();
+    fetch(url, { headers })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const disposition = res.headers.get('content-disposition');
+        let filename = url.split('/').pop();
+        if (disposition && disposition.includes('attachment')) {
+          const m = disposition.match(/filename="?([^;"]+)"?/);
+          if (m && m[1]) filename = m[1];
+        }
+        return res.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      })
+      .catch(e => {
+        console.error('Download failed', e);
+        alert('Download failed. Check API key or server status.');
+      });
+  }
+
+  document.body.addEventListener('click', ev => {
+    if (ev.target.classList.contains('download-csv')) {
+      downloadCsv(ev);
+    }
+  });
+
 })();
