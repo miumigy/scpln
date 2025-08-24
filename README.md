@@ -93,7 +93,7 @@ bash scripts/stop.sh            # 停止
   - レスポンス: `run_id`, `results`, `daily_profit_loss`/`profit_loss`, `summary`, `cost_trace`
   - 実行記録は RunRegistry に保存
   - 備考: トップページ（index.html）の「設定マスタ」横に「シナリオ」プルダウンと Scenario ID 入力欄を用意。
-    - 「シナリオ」プルダウンは `/scenarios` から一覧を読み込み、選択で Scenario ID 入力欄に反映されます。
+    - 「シナリオ」プルダウンは `/scenarios` から一覧を読み込み、選択で Scenario ID 入力欄に反映されます（タグ・階層インデント表示対応）。
     - Scenario ID を指定すると `/simulation` へ `scenario_id` クエリとして送信され、ラン履歴にも反映されます。
 
 - `GET /runs`
