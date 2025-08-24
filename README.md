@@ -83,6 +83,10 @@ bash scripts/stop.sh            # 停止
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
   - Base/Threshold: 比較画面でベースRunと閾値(%)を指定可能（閾値超えをハイライト）
   - CSV: metrics.csv / diffs.csv をダウンロード（Base/Thresholdをメタ行として含む）
+- シナリオ一覧: `GET /ui/scenarios`
+  - シナリオの新規作成、編集、削除が可能。
+  - 各シナリオに対して、既存の設定（Config）を選択してシミュレーションを実行できる。
+  - 表示項目: シナリオID、名前、親ID、タグ、説明、ロック状態、作成日時、更新日時。
 
 ## API リファレンス
 
