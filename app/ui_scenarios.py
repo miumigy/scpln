@@ -59,7 +59,7 @@ def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
     payload["scenario_id"] = int(sid)
     job_id = JOB_MANAGER.submit_simulation(payload)
     # ジョブ一覧へ遷移
-    return RedirectResponse(url=f"/ui/jobs", status_code=303)
+    return RedirectResponse(url="/ui/jobs", status_code=303)
 
 
 @app.post("/ui/scenarios/{sid}/edit")
