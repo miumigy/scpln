@@ -50,11 +50,11 @@
     <div class="navbar">
         <h1>サプライチェーンシミュレーション</h1>
         <div class="nav-actions">
-            <a class="nav-link" href="/ui/runs" title="ラン履歴" target="_blank" rel="noopener noreferrer">ラン履歴</a>
-            <a class="nav-link" href="/ui/jobs" title="ジョブ一覧" target="_blank" rel="noopener noreferrer">ジョブ一覧</a>
-            <a class="nav-link" href="/ui/scenarios" title="シナリオ一覧" target="_blank" rel="noopener noreferrer">シナリオ一覧</a>
-            <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
-            <a class="nav-link" href="/ui/hierarchy" title="階層マスタ" target="_blank" rel="noopener noreferrer">階層マスタ</a>
+            <a class="nav-link" href="/ui/runs" title="ラン履歴">ラン履歴</a>
+            <a class="nav-link" href="/ui/scenarios" title="シナリオ一覧">シナリオ一覧</a>
+            <a class="nav-link" href="/ui/configs" title="設定マスタ">設定マスタ</a>
+            <a class="nav-link" href="/ui/jobs" title="ジョブ一覧">ジョブ一覧</a>
+            <a class="nav-link" href="/ui/hierarchy" title="階層マスタ">階層マスタ</a>
             <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
               <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
                 API Key
@@ -78,14 +78,15 @@
             <div class="configs-bar">
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
-              <label for="scenario-id">Scenario ID:</label>
-              <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
               <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
               <label for="scenario-select">シナリオ:</label>
               <select id="scenario-select"><option value="">（選択）</option></select>
               <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
+<<<<<<< HEAD
+=======
               <label for="scenario-id">Scenario ID:</label>
               <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
+>>>>>>> origin/main
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -145,7 +146,7 @@
         window.__currentConfigId = cid || '';
         // URLに scenario_id があれば初期表示に反映
         const sid = params.get('scenario_id');
-        if (sid) { try { const el = document.getElementById('scenario-id'); if (el) el.value = String(sid); } catch{} }
+        window.__currentScenarioId = sid || '';
         // API Key persistence
         function loadApiKey(){
           try{ const k = localStorage.getItem('api_key') || ''; const el = document.getElementById('api-key-input'); if (el) el.value = k; }catch{}
@@ -238,12 +239,20 @@
               const label = `#${r.id} ${indent}${indent? ' ': ''}${r.name}${tag}${locked}`;
               return { value: r.id, label };
             });
+<<<<<<< HEAD
+            const cur = (window.__currentScenarioId || '').trim();
+=======
             const cur = (document.getElementById('scenario-id')?.value || '').trim();
+>>>>>>> origin/main
             sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
           }catch(e){ /* noop */ }
         }
         function wireScenarioSelect(){
           const sel = document.getElementById('scenario-select');
+<<<<<<< HEAD
+          if (!sel) return;
+          sel.addEventListener('change', ()=>{ window.__currentScenarioId = sel.value || ''; });
+=======
           const input = document.getElementById('scenario-id');
           if (!sel || !input) return;
           sel.addEventListener('change', ()=>{ input.value = sel.value || ''; });
@@ -252,6 +261,7 @@
             if (!sel.querySelector('option')) return;
             Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
           });
+>>>>>>> origin/main
         }
         document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
         wireScenarioSelect();
