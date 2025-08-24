@@ -176,8 +176,8 @@
                     if (cid) q.set('config_id', cid);
                 } catch {}
                 try {
-                    const sidEl = document.getElementById('scenario-id');
-                    const sid = sidEl && sidEl.value ? String(sidEl.value) : '';
+                    const sel = document.getElementById('scenario-select');
+                    const sid = sel && sel.value ? String(sel.value) : (window.__currentScenarioId ? String(window.__currentScenarioId) : '');
                     if (sid) q.set('scenario_id', sid);
                 } catch {}
                 const response = await fetch(`/simulation?${q.toString()}` , {

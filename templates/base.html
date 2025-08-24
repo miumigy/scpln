@@ -20,6 +20,12 @@
         <h1>サプライチェーンシミュレーション</h1>
         {% if subtitle %}<p class="mono">{{ subtitle }}</p>{% endif %}
       </hgroup>
+      <nav style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a href="/ui/runs">Runs</a>
+        <a href="/ui/scenarios">Scenarios</a>
+        <a href="/ui/configs">Configs</a>
+        <a href="/ui/jobs">Jobs</a>
+      </nav>
     </header>
     {% block content %}{% endblock %}
   </main>
