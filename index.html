@@ -82,11 +82,6 @@
               <label for="scenario-select">シナリオ:</label>
               <select id="scenario-select"><option value="">（選択）</option></select>
               <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
-<<<<<<< HEAD
-=======
-              <label for="scenario-id">Scenario ID:</label>
-              <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
->>>>>>> origin/main
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -239,29 +234,24 @@
               const label = `#${r.id} ${indent}${indent? ' ': ''}${r.name}${tag}${locked}`;
               return { value: r.id, label };
             });
-<<<<<<< HEAD
-            const cur = (window.__currentScenarioId || '').trim();
-=======
-            const cur = (document.getElementById('scenario-id')?.value || '').trim();
->>>>>>> origin/main
+            const cur = (document.getElementById('scenario-id')?.value || window.__currentScenarioId || '').trim();
             sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
           }catch(e){ /* noop */ }
         }
         function wireScenarioSelect(){
           const sel = document.getElementById('scenario-select');
-<<<<<<< HEAD
-          if (!sel) return;
-          sel.addEventListener('change', ()=>{ window.__currentScenarioId = sel.value || ''; });
-=======
           const input = document.getElementById('scenario-id');
           if (!sel || !input) return;
-          sel.addEventListener('change', ()=>{ input.value = sel.value || ''; });
+          sel.addEventListener('change', ()=>{
+            input.value = sel.value || '';
+            window.__currentScenarioId = sel.value || '';
+          });
           input.addEventListener('change', ()=>{
             const v = (input.value||'').trim();
             if (!sel.querySelector('option')) return;
             Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
+            window.__currentScenarioId = v;
           });
->>>>>>> origin/main
         }
         document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
         wireScenarioSelect();
