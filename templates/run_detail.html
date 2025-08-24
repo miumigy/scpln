@@ -13,7 +13,7 @@
         <tr><th class="mono">config_id</th><td class="mono">{{ config_id or '' }}</td></tr>
         <tr><th class="mono">scenario_id</th><td class="mono">{{ scenario_id or '' }}</td></tr>
         <tr><th class="mono">config_json</th><td><pre class="mono" style="max-height:240px; overflow:auto;">{{ config_json_str }}</pre></td></tr>
-        <tr><th class="mono">raw</th><td><a role="button" class="secondary" href="/runs/{{ run_id }}/config.json" target="_blank" rel="noopener noreferrer">/runs/{{ run_id }}/config.json</a></td></tr>
+        <tr><th class="mono">raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
       </tbody>
     </table>
   </section>
@@ -21,7 +21,7 @@
   <section>
     <h3>Summary</h3>
     {% if summary %}
-    <table>
+    <table id="summary-table">
       <tbody>
         {% for k, v in summary.items() %}
         <tr><th class="mono">{{ k }}</th><td>{{ v }}</td></tr>
@@ -68,10 +68,10 @@
 
   async function refresh() {
     try {
-      const res = await fetch(`/runs/${runId}?detail=false`);
+      const res = await fetch(`/runs/${runId}?detail=false`, { headers: getHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const tbody = document.querySelector('section table tbody');
+      const tbody = document.getElementById('summary-table').querySelector('tbody');
       if (!tbody) return;
       const s = data.summary || {};
       tbody.innerHTML = Object.keys(s).map(k => `<tr><th class="mono">${k}</th><td>${s[k]}</td></tr>`).join('');
@@ -84,7 +84,7 @@
   async function del() {
     if (!confirm('Delete this run? This action cannot be undone.')) return;
     try {
-      const res = await fetch(`/runs/${runId}`, { method: 'DELETE' });
+      const res = await fetch(`/runs/${runId}`, { method: 'DELETE', headers: getHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       alert('Run deleted.');
       location.href = '/ui/runs';
