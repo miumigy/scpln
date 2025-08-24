@@ -58,7 +58,7 @@
         <td>{{ r.tag or '' }}</td>
         <td>{{ r.parent_id or '' }}</td>
         <td>{{ r.locked }}</td>
-        <td>{{ r.updated_at }}</td>
+        <td class="format-datetime">{{ r.updated_at }}</td>
         <td title="{{ r.description or '' }}" style="text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.description or '' }}</td>
         <td>
           <form method="post" action="/ui/scenarios/{{ r.id }}/run" style="display:flex; gap:6px; align-items:center;">
@@ -147,6 +147,22 @@
     document.querySelectorAll('tr[data-tag]').forEach(tr=>{ const v = (tr.getAttribute('data-tag')||'').trim(); if(v) set.add(v); });
     const dl = document.getElementById('tag-list'); if(dl){ dl.innerHTML=''; Array.from(set).sort().forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
   }catch{}
+
+  try {
+    document.querySelectorAll('.format-datetime').forEach(el => {
+      const ts = parseInt(el.textContent.trim(), 10);
+      if (isNaN(ts)) return;
+      const dt = new Date(ts);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      const h = String(dt.getHours()).padStart(2, '0');
+      const min = String(dt.getMinutes()).padStart(2, '0');
+      const sec = String(dt.getSeconds()).padStart(2, '0');
+      el.textContent = `${y}/${m}/${d} ${h}:${min}:${sec}`;
+    });
+  } catch (e) {}
+
 })();
 </script>
 {% endblock %}
