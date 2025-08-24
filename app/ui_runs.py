@@ -1,4 +1,5 @@
 from app.api import app
+import logging
 import json
 from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
@@ -13,26 +14,35 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 @app.get("/ui/runs", response_class=HTMLResponse)
 def ui_runs(request: Request):
-    runs = REGISTRY.list_ids()
-    rows = []
-    for rid in runs:
-        rec = REGISTRY.get(rid) or {}
-        rows.append(
-            {
-                "run_id": rid,
-                "started_at": rec.get("started_at"),
-                "started_at_str": ms_to_jst_str(rec.get("started_at")),
-                "duration_ms": rec.get("duration_ms"),
-                "schema_version": rec.get("schema_version"),
-                "config_id": rec.get("config_id"),
-                "scenario_id": rec.get("scenario_id"),
-                "fill_rate": (rec.get("summary") or {}).get("fill_rate"),
-                "profit_total": (rec.get("summary") or {}).get("profit_total"),
-            }
+    try:
+        runs = REGISTRY.list_ids()
+        rows = []
+        for rid in runs:
+            try:
+                rec = REGISTRY.get(rid) or {}
+                rows.append(
+                    {
+                        "run_id": rid,
+                        "started_at": rec.get("started_at"),
+                        "started_at_str": ms_to_jst_str(rec.get("started_at")),
+                        "duration_ms": rec.get("duration_ms"),
+                        "schema_version": rec.get("schema_version"),
+                        "config_id": rec.get("config_id"),
+                        "scenario_id": rec.get("scenario_id"),
+                        "fill_rate": (rec.get("summary") or {}).get("fill_rate"),
+                        "profit_total": (rec.get("summary") or {}).get("profit_total"),
+                    }
+                )
+            except Exception:
+                logging.exception("ui_runs_row_build_failed", extra={"run_id": rid})
+                continue
+        return templates.TemplateResponse(
+            "runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"}
         )
-    return templates.TemplateResponse(
-        "runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"}
-    )
+    except Exception:
+        logging.exception("ui_runs_render_failed")
+        # 元例外を再送出してミドルウェアでスタックを記録
+        raise
 
 
 @app.get("/ui/runs/{run_id}", response_class=HTMLResponse)

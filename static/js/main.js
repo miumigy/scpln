@@ -175,6 +175,11 @@
                     const cid = selected || (window.__currentConfigId ? String(window.__currentConfigId) : '');
                     if (cid) q.set('config_id', cid);
                 } catch {}
+                try {
+                    const sel = document.getElementById('scenario-select');
+                    const sid = sel && sel.value ? String(sel.value) : (window.__currentScenarioId ? String(window.__currentScenarioId) : '');
+                    if (sid) q.set('scenario_id', sid);
+                } catch {}
                 const response = await fetch(`/simulation?${q.toString()}` , {
                     method: 'POST',
                     headers: (function(){

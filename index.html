@@ -133,12 +133,14 @@
         </div>
     </div>
 
-    <script type="module" src="/static/js/main.js?v=1.2.2"></script>
+    <script type="module" src="/static/js/main.js?v=1.2.3"></script>
     <script>
       (function(){
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
         window.__currentConfigId = cid || '';
+<<<<<<< HEAD
+=======
         const sid = params.get('scenario_id');
         window.__currentScenarioId = sid || '';
         // API Key persistence
@@ -194,14 +196,115 @@
             const depthCache = new Map();
             function depthOf(r){ const key=String(r.id); if(depthCache.has(key)) return depthCache.get(key); let d=0,cur=r; const seen=new Set([key]); while(cur && cur.parent_id){ const pid=String(cur.parent_id); if(seen.has(pid)){ d++; break; } const p=byId.get(pid); if(!p) break; d++; if(d>8) break; seen.add(pid); cur=p; } depthCache.set(key,d); return d; }
             const opts = rows.map(r=>{ const d=depthOf(r); const indent='—'.repeat(d); const tag=r.tag?` [${r.tag}]`:''; const locked=r.locked?' (locked)':''; return { value:r.id, label:`#${r.id} ${indent}${indent?' ':''}${r.name}${tag}${locked}` }; });
-            const cur = (window.__currentScenarioId||'').trim();
+            const cur = (document.getElementById('scenario-id')?.value || window.__currentScenarioId || '').trim();
             sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
           }catch{}
         }
         function wireScenarioSelect(){
           const sel = document.getElementById('scenario-select');
-          if(!sel) return;
-          sel.addEventListener('change', ()=>{ window.__currentScenarioId = sel.value || ''; });
+          const input = document.getElementById('scenario-id');
+          if (!sel || !input) return;
+          sel.addEventListener('change', ()=>{
+            input.value = sel.value || '';
+            window.__currentScenarioId = sel.value || '';
+          });
+          input.addEventListener('change', ()=>{
+            const v = (input.value||'').trim();
+            if (!sel.querySelector('option')) return;
+            Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
+            window.__currentScenarioId = v;
+          });
+        }
+        document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
+        wireScenarioSelect();
+        refreshScenarios();
+        document.getElementById('config-select')?.addEventListener('change', (ev)=>{
+          const sel = ev.target;
+          const id = sel && sel.value;
+          if(!id) return;
+          loadConfigById(id);
+          window.__currentConfigId = String(id);
+        });
+        // 初期ロード
+        refreshConfigs();
+      })();
+    </script>
+</body>
+</html>
+>>>>>>> dad00bfe6a298fb43e4cb05b8b39cd0c29b1427b
+        const sid = params.get('scenario_id');
+        window.__currentScenarioId = sid || '';
+        // API Key persistence
+        function loadApiKey(){
+          try{ const k = localStorage.getItem('api_key') || ''; const el = document.getElementById('api-key-input'); if (el) el.value = k; }catch{}
+        }
+        function saveApiKey(){
+          try{ const el = document.getElementById('api-key-input'); const v = el && el.value || ''; localStorage.setItem('api_key', v); alert('APIキーを保存しました'); }catch{}
+        }
+        document.getElementById('api-key-save')?.addEventListener('click', saveApiKey);
+        loadApiKey();
+        function loadConfigById(id){
+          if (!id) return;
+          const headers = {};
+          try { const k = localStorage.getItem('api_key') || ''; if (k) headers['X-API-Key'] = k; } catch {}
+          fetch(`/configs/${id}`, { headers }).then(r=>r.ok?r.json():null).then(data=>{
+            if (!data || !data.json_text) return;
+            const el = document.getElementById('simulation-editor');
+            if (el) el.value = data.json_text;
+            window.__currentConfigId = String(id);
+          }).catch(()=>{});
+        }
+        if (cid) {
+          loadConfigById(cid);
+        }
+
+        async function refreshConfigs(){
+          try{
+            const headers = {};
+            try { const k = localStorage.getItem('api_key') || ''; if (k) headers['X-API-Key'] = k; } catch {}
+            const res = await fetch('/configs', { headers });
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('config-select');
+            if(!sel) return;
+            const opts = (data.configs||[]).map(r=>({value: r.id, label: `#${r.id} ${r.name}`}));
+            const cur = window.__currentConfigId || '';
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
+          }catch(e){/* noop */}
+        }
+        document.getElementById('configs-refresh')?.addEventListener('click', refreshConfigs);
+        // シナリオ読込・同期
+        function authHeaders(){ const h={}; try{ const k=localStorage.getItem('api_key')||''; if(k) h['X-API-Key']=k; }catch{} return h; }
+        async function refreshScenarios(){
+          try{
+            const res = await fetch('/scenarios', { headers: authHeaders() });
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('scenario-select');
+            if(!sel) return;
+            const rows = (data.scenarios||[]);
+            const byId = new Map(rows.map(r=>[String(r.id), r]));
+            const depthCache = new Map();
+            function depthOf(r){ const key=String(r.id); if(depthCache.has(key)) return depthCache.get(key); let d=0,cur=r; const seen=new Set([key]); while(cur && cur.parent_id){ const pid=String(cur.parent_id); if(seen.has(pid)){ d++; break; } const p=byId.get(pid); if(!p) break; d++; if(d>8) break; seen.add(pid); cur=p; } depthCache.set(key,d); return d; }
+            const opts = rows.map(r=>{ const d=depthOf(r); const indent='—'.repeat(d); const tag=r.tag?` [${r.tag}]`:''; const locked=r.locked?' (locked)':''; return { value:r.id, label:`#${r.id} ${indent}${indent?' ':''}${r.name}${tag}${locked}` }; });
+            const cur = (document.getElementById('scenario-id')?.value || window.__currentScenarioId || '').trim();
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
+          }catch{}
+        }
+        function wireScenarioSelect(){
+          const sel = document.getElementById('scenario-select');
+          const input = document.getElementById('scenario-id');
+          if (!sel || !input) return;
+          sel.addEventListener('change', ()=>{
+            input.value = sel.value || '';
+            window.__currentScenarioId = sel.value || '';
+          });
+          input.addEventListener('change', ()=>{
+            const v = (input.value||'').trim();
+            if (!sel.querySelector('option')) return;
+            Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
+            window.__currentScenarioId = v;
+          });
         }
         document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
         wireScenarioSelect();

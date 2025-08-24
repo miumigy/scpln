@@ -27,7 +27,7 @@ def test_ui_scenarios_run_with_config():
     cfg_id = db.create_config(name="CfgA", json_text=db.json_dumps(cfg_json) if hasattr(db, 'json_dumps') else __import__('json').dumps(cfg_json, ensure_ascii=False))
 
     # 実行: UI経由でRun（ジョブ投入）
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id}, allow_redirects=False)
+    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id}, follow_redirects=False)
     assert r.status_code == 303
     # ジョブが作成され、完了までポーリング
     # ジョブ一覧APIを利用
@@ -41,14 +41,31 @@ def test_ui_scenarios_run_with_config():
     assert done, "job did not finish in time"
 
 
-def test_ui_scenarios_run_bad_requests():
+def test_ui_scenarios_run_nonexistent_config():
+    # 存在しない config_id を使って404が返ることを確認
     c = TestClient(app)
-    sid = db.create_scenario(name="ScB", parent_id=None, tag=None, description=None)
-    # 存在しない config_id
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": 9999}, allow_redirects=False)
-    assert r.status_code == 404
-    # 不正な config JSON
-    cfg_id_bad = db.create_config(name="CfgBad", json_text="invalid-json")
-    r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id_bad}, allow_redirects=False)
-    assert r.status_code == 400
+    sid = db.create_scenario(name="Sc-nonexistent", parent_id=None, tag=None, description=None)
+    # テスト用のIDが他のテストと衝突しないように、また確実に存在しないようにする
+    test_config_id = 99999
+    try:
+        db.delete_config(test_config_id)
+        r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": test_config_id}, follow_redirects=False)
+        assert r.status_code == 404
+    finally:
+        db.delete_scenario(sid)
+
+
+def test_ui_scenarios_run_invalid_config_json():
+    # 不正なJSONを持つconfigで400が返ることを確認
+    c = TestClient(app)
+    sid = db.create_scenario(name="Sc-invalid", parent_id=None, tag=None, description=None)
+    cfg_id_bad = -1
+    try:
+        cfg_id_bad = db.create_config(name="CfgBad", json_text="invalid-json")
+        r = c.post(f"/ui/scenarios/{sid}/run", data={"config_id": cfg_id_bad}, follow_redirects=False)
+        assert r.status_code == 400
+    finally:
+        db.delete_scenario(sid)
+        if cfg_id_bad != -1:
+            db.delete_config(cfg_id_bad)
 
