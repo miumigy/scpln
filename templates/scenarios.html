@@ -2,6 +2,24 @@
 {% block content %}
 <section>
   <h2>Scenarios</h2>
+  <form id="scn-filter" onsubmit="return false;" style="display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin:8px 0;">
+    <label>Search (name/desc)
+      <input type="text" id="f-q" placeholder="keyword" />
+    </label>
+    <label>Tag
+      <input type="text" id="f-tag" list="tag-list" placeholder="tag" />
+      <datalist id="tag-list"></datalist>
+    </label>
+    <label>Locked
+      <select id="f-locked">
+        <option value="">(all)</option>
+        <option value="1">locked</option>
+        <option value="0">unlocked</option>
+      </select>
+    </label>
+    <button type="button" class="secondary" id="f-apply">Apply</button>
+    <button type="button" class="secondary" id="f-clear">Clear</button>
+  </form>
   <form method="post" action="/ui/scenarios" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
     <label>Name
       <input type="text" name="name" placeholder="Scenario name" required />
@@ -34,7 +52,7 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr>
+      <tr data-name="{{ (r.name or '')|e }}" data-tag="{{ (r.tag or '')|e }}" data-locked="{{ 1 if r.locked else 0 }}" data-desc="{{ (r.description or '')|e }}">
         <td>{{ r.id }}</td>
         <td>{{ r.name }}</td>
         <td>{{ r.tag or '' }}</td>
@@ -91,4 +109,45 @@
   <p>No scenarios.</p>
   {% endif %}
 </section>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  const form = document.getElementById('scn-filter'); if(!form) return;
+  const q = document.getElementById('f-q');
+  const tag = document.getElementById('f-tag');
+  const locked = document.getElementById('f-locked');
+  const applyBtn = document.getElementById('f-apply');
+  const clearBtn = document.getElementById('f-clear');
+  const table = document.querySelector('table[role="grid"] tbody');
+  function norm(s){ return String(s||'').toLowerCase(); }
+  function apply(){
+    const qv = norm(q && q.value);
+    const tv = norm(tag && tag.value);
+    const lv = locked && locked.value;
+    if(!table) return;
+    Array.from(table.querySelectorAll('tr')).forEach(tr=>{
+      const name = norm(tr.getAttribute('data-name'));
+      const desc = norm(tr.getAttribute('data-desc'));
+      const tg = norm(tr.getAttribute('data-tag'));
+      const lk = tr.getAttribute('data-locked');
+      let ok = true;
+      if(qv){ ok = ok && (name.includes(qv) || desc.includes(qv)); }
+      if(tv){ ok = ok && tg === tv; }
+      if(lv!=='' && lv!=null){ ok = ok && lk === lv; }
+      tr.style.display = ok ? '' : 'none';
+    });
+  }
+  function clear(){ if(q) q.value=''; if(tag) tag.value=''; if(locked) locked.value=''; apply(); }
+  if(applyBtn) applyBtn.addEventListener('click', apply);
+  if(clearBtn) clearBtn.addEventListener('click', clear);
+  // populate tag datalist from current rows
+  try{
+    const set = new Set();
+    document.querySelectorAll('tr[data-tag]').forEach(tr=>{ const v = (tr.getAttribute('data-tag')||'').trim(); if(v) set.add(v); });
+    const dl = document.getElementById('tag-list'); if(dl){ dl.innerHTML=''; Array.from(set).sort().forEach(v=>{ const o=document.createElement('option'); o.value=v; dl.appendChild(o); }); }
+  }catch{}
+})();
+</script>
+{% endblock %}
 {% endblock %}
