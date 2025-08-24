@@ -52,6 +52,7 @@
         <div class="nav-actions">
             <a class="nav-link" href="/ui/runs" title="ラン履歴" target="_blank" rel="noopener noreferrer">ラン履歴</a>
             <a class="nav-link" href="/ui/jobs" title="ジョブ一覧" target="_blank" rel="noopener noreferrer">ジョブ一覧</a>
+            <a class="nav-link" href="/ui/scenarios" title="シナリオ一覧" target="_blank" rel="noopener noreferrer">シナリオ一覧</a>
             <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
             <a class="nav-link" href="/ui/hierarchy" title="階層マスタ" target="_blank" rel="noopener noreferrer">階層マスタ</a>
             <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
@@ -80,6 +81,11 @@
               <label for="scenario-id">Scenario ID:</label>
               <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
               <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
+              <label for="scenario-select">シナリオ:</label>
+              <select id="scenario-select"><option value="">（選択）</option></select>
+              <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
+              <label for="scenario-id">Scenario ID:</label>
+              <input id="scenario-id" type="number" min="1" placeholder="例: 101" style="width:10em;" />
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -188,6 +194,68 @@
         });
         // 初期ロード
         refreshConfigs();
+      })();
+    </script>
+    <script>
+      (function(){
+        function authHeaders(){
+          const h = {};
+          try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+          return h;
+        }
+        async function refreshScenarios(){
+          try{
+            const res = await fetch('/scenarios', { headers: authHeaders() });
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('scenario-select');
+            if(!sel) return;
+            const rows = (data.scenarios||[]);
+            // Build parent map and compute depth for indentation (max depth 8 to avoid cycles)
+            const byId = new Map(rows.map(r=>[String(r.id), r]));
+            const depthCache = new Map();
+            function depthOf(r){
+              const key = String(r.id);
+              if (depthCache.has(key)) return depthCache.get(key);
+              let d = 0; let cur = r; const seen = new Set([key]);
+              while (cur && cur.parent_id) {
+                const pid = String(cur.parent_id);
+                if (seen.has(pid)) { d++; break; }
+                const p = byId.get(pid);
+                if (!p) break;
+                d++; if (d > 8) break; // cap depth
+                seen.add(pid);
+                cur = p;
+              }
+              depthCache.set(key, d);
+              return d;
+            }
+            const opts = rows.map(r=>{
+              const d = depthOf(r);
+              const indent = '—'.repeat(d);
+              const tag = r.tag ? ` [${r.tag}]` : '';
+              const locked = r.locked ? ' (locked)' : '';
+              const label = `#${r.id} ${indent}${indent? ' ': ''}${r.name}${tag}${locked}`;
+              return { value: r.id, label };
+            });
+            const cur = (document.getElementById('scenario-id')?.value || '').trim();
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
+          }catch(e){ /* noop */ }
+        }
+        function wireScenarioSelect(){
+          const sel = document.getElementById('scenario-select');
+          const input = document.getElementById('scenario-id');
+          if (!sel || !input) return;
+          sel.addEventListener('change', ()=>{ input.value = sel.value || ''; });
+          input.addEventListener('change', ()=>{
+            const v = (input.value||'').trim();
+            if (!sel.querySelector('option')) return;
+            Array.from(sel.options).forEach(opt=>{ opt.selected = (String(opt.value)===String(v)); });
+          });
+        }
+        document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
+        wireScenarioSelect();
+        refreshScenarios();
       })();
     </script>
 </body>
