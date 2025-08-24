@@ -7,7 +7,6 @@ from pathlib import Path
 import csv
 import io
 from app.run_registry import REGISTRY
-from typing import Optional
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
@@ -103,9 +102,12 @@ def ui_compare(
     )
 
 
-def _latest_runs_by_scenarios(base_scenario: int, target_scenarios: List[int], limit: int = 1) -> List[str]:
+def _latest_runs_by_scenarios(
+    base_scenario: int, target_scenarios: List[int], limit: int = 1
+) -> List[str]:
     out: List[str] = []
     limit = max(1, int(limit or 1))
+
     def _latest_for_many(sid: int, n: int) -> List[str]:
         try:
             if hasattr(REGISTRY, "list_page"):
@@ -134,6 +136,7 @@ def _latest_runs_by_scenarios(base_scenario: int, target_scenarios: List[int], l
                 return matched
         except Exception:
             return []
+
     out.extend(_latest_for_many(int(base_scenario), limit))
     for t in target_scenarios:
         out.extend(_latest_for_many(int(t), limit))
@@ -163,7 +166,9 @@ def ui_compare_preset(
         targets = []
     if not targets:
         raise HTTPException(status_code=400, detail="target_scenarios required")
-    ids = _latest_runs_by_scenarios(int(base_scenario), targets, limit=max(1, int(limit or 1)))
+    ids = _latest_runs_by_scenarios(
+        int(base_scenario), targets, limit=max(1, int(limit or 1))
+    )
     if len(ids) < 2:
         raise HTTPException(status_code=404, detail="runs not found for scenarios")
     # reuse ui_compare path by constructing rows/diffs here

@@ -59,7 +59,7 @@ def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
     payload["scenario_id"] = int(sid)
     job_id = JOB_MANAGER.submit_simulation(payload)
     # ジョブ一覧へ遷移
-    return RedirectResponse(url=f"/ui/jobs", status_code=303)
+    return RedirectResponse(url="/ui/jobs", status_code=303)
 
 
 @app.post("/ui/scenarios/{sid}/edit")
@@ -84,8 +84,8 @@ def ui_scenarios_edit(
             fields["parent_id"] = None
     except Exception:
         fields["parent_id"] = None
-    fields["tag"] = (tag or None)
-    fields["description"] = (description or None)
+    fields["tag"] = tag or None
+    fields["description"] = description or None
     # チェックボックス: 値があれば True
     fields["locked"] = 1 if (locked is not None) else 0
     try:

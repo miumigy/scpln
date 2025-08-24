@@ -60,7 +60,11 @@ def ui_run_detail(request: Request, run_id: str):
     cfg_json = rec.get("config_json")
     scenario_id = rec.get("scenario_id")
     try:
-        cfg_json_str = json.dumps(cfg_json, ensure_ascii=False, indent=2) if cfg_json is not None else ""
+        cfg_json_str = (
+            json.dumps(cfg_json, ensure_ascii=False, indent=2)
+            if cfg_json is not None
+            else ""
+        )
     except Exception:
         cfg_json_str = ""
     return templates.TemplateResponse(

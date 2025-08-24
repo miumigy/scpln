@@ -19,7 +19,9 @@ def upgrade() -> None:
             op.add_column("runs", sa.Column("scenario_id", sa.Integer, nullable=True))
         existing_idx = {ix["name"] for ix in insp.get_indexes("runs")}
         if "idx_runs_scenario_id" not in existing_idx:
-            op.create_index("idx_runs_scenario_id", "runs", ["scenario_id"], unique=False)
+            op.create_index(
+                "idx_runs_scenario_id", "runs", ["scenario_id"], unique=False
+            )
 
 
 def downgrade() -> None:
@@ -32,4 +34,3 @@ def downgrade() -> None:
         cols = {c["name"] for c in insp.get_columns("runs")}
         if "scenario_id" in cols:
             op.drop_column("runs", "scenario_id")
-

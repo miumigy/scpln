@@ -16,6 +16,7 @@ except Exception:
 
 try:
     from app import simulation_api as _simulation_api  # noqa: F401
+
     _SIM_LOADED = True
 except Exception:
     _SIM_LOADED = False
@@ -80,8 +81,13 @@ if not globals().get("_SIM_LOADED", False):
     import json as _json
 
     @app.post("/simulation")
-    def _fallback_post_simulation(payload: SimulationInput, include_trace: bool = Query(False), config_id: Optional[int] = Query(None), request: Request = None):
-        rid = str(__import__('uuid').uuid4())
+    def _fallback_post_simulation(
+        payload: SimulationInput,
+        include_trace: bool = Query(False),
+        config_id: Optional[int] = Query(None),
+        request: Request = None,
+    ):
+        rid = str(__import__("uuid").uuid4())
         start = _time.time()
         sim = SupplyChainSimulator(payload)
         results, daily_pl = sim.run()
@@ -115,7 +121,7 @@ if not globals().get("_SIM_LOADED", False):
             {
                 "run_id": rid,
                 "started_at": int(start * 1000),
-                "duration_ms": int((_time.time()-start)*1000),
+                "duration_ms": int((_time.time() - start) * 1000),
                 "schema_version": getattr(payload, "schema_version", "1.0"),
                 "summary": summary,
                 "results": results,
