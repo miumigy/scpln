@@ -50,10 +50,11 @@
     <div class="navbar">
         <h1>サプライチェーンシミュレーション</h1>
         <div class="nav-actions">
-            <a class="nav-link" href="/ui/runs" title="ラン履歴" target="_blank" rel="noopener noreferrer">ラン履歴</a>
-            <a class="nav-link" href="/ui/jobs" title="ジョブ一覧" target="_blank" rel="noopener noreferrer">ジョブ一覧</a>
-            <a class="nav-link" href="/ui/configs" title="設定マスタ" target="_blank" rel="noopener noreferrer">設定マスタ</a>
-            <a class="nav-link" href="/ui/hierarchy" title="階層マスタ" target="_blank" rel="noopener noreferrer">階層マスタ</a>
+            <a class="nav-link" href="/ui/runs" title="ラン履歴">ラン履歴</a>
+            <a class="nav-link" href="/ui/scenarios" title="シナリオ一覧">シナリオ一覧</a>
+            <a class="nav-link" href="/ui/configs" title="設定マスタ">設定マスタ</a>
+            <a class="nav-link" href="/ui/jobs" title="ジョブ一覧">ジョブ一覧</a>
+            <a class="nav-link" href="/ui/hierarchy" title="階層マスタ">階層マスタ</a>
             <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
               <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
                 API Key
@@ -78,6 +79,9 @@
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
               <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
+              <label for="scenario-select">シナリオ:</label>
+              <select id="scenario-select"><option value="">（選択）</option></select>
+              <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -135,6 +139,8 @@
         const params = new URLSearchParams(location.search);
         const cid = params.get('config_id');
         window.__currentConfigId = cid || '';
+        const sid = params.get('scenario_id');
+        window.__currentScenarioId = sid || '';
         // API Key persistence
         function loadApiKey(){
           try{ const k = localStorage.getItem('api_key') || ''; const el = document.getElementById('api-key-input'); if (el) el.value = k; }catch{}
@@ -174,6 +180,32 @@
           }catch(e){/* noop */}
         }
         document.getElementById('configs-refresh')?.addEventListener('click', refreshConfigs);
+        // シナリオ読込・同期
+        function authHeaders(){ const h={}; try{ const k=localStorage.getItem('api_key')||''; if(k) h['X-API-Key']=k; }catch{} return h; }
+        async function refreshScenarios(){
+          try{
+            const res = await fetch('/scenarios', { headers: authHeaders() });
+            if(!res.ok) return;
+            const data = await res.json();
+            const sel = document.getElementById('scenario-select');
+            if(!sel) return;
+            const rows = (data.scenarios||[]);
+            const byId = new Map(rows.map(r=>[String(r.id), r]));
+            const depthCache = new Map();
+            function depthOf(r){ const key=String(r.id); if(depthCache.has(key)) return depthCache.get(key); let d=0,cur=r; const seen=new Set([key]); while(cur && cur.parent_id){ const pid=String(cur.parent_id); if(seen.has(pid)){ d++; break; } const p=byId.get(pid); if(!p) break; d++; if(d>8) break; seen.add(pid); cur=p; } depthCache.set(key,d); return d; }
+            const opts = rows.map(r=>{ const d=depthOf(r); const indent='—'.repeat(d); const tag=r.tag?` [${r.tag}]`:''; const locked=r.locked?' (locked)':''; return { value:r.id, label:`#${r.id} ${indent}${indent?' ':''}${r.name}${tag}${locked}` }; });
+            const cur = (window.__currentScenarioId||'').trim();
+            sel.innerHTML = '<option value="">（選択）</option>' + opts.map(o=>`<option value="${o.value}" ${String(o.value)===String(cur)?'selected':''}>${o.label}</option>`).join('');
+          }catch{}
+        }
+        function wireScenarioSelect(){
+          const sel = document.getElementById('scenario-select');
+          if(!sel) return;
+          sel.addEventListener('change', ()=>{ window.__currentScenarioId = sel.value || ''; });
+        }
+        document.getElementById('scenarios-refresh')?.addEventListener('click', refreshScenarios);
+        wireScenarioSelect();
+        refreshScenarios();
         document.getElementById('config-select')?.addEventListener('change', (ev)=>{
           const sel = ev.target;
           const id = sel && sel.value;
