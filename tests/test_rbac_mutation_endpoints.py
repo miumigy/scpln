@@ -18,7 +18,14 @@ def test_rbac_blocks_simulation_without_role(monkeypatch):
         "products": [{"name": "P1", "sales_price": 1}],
         "nodes": [{"node_type": "store", "name": "S1", "initial_stock": {"P1": 0}}],
         "network": [],
-        "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 0, "demand_std_dev": 0}],
+        "customer_demand": [
+            {
+                "store_name": "S1",
+                "product_name": "P1",
+                "demand_mean": 0,
+                "demand_std_dev": 0,
+            }
+        ],
     }
     r = c.post("/simulation", json=payload)
     assert r.status_code == 403
@@ -33,7 +40,14 @@ def test_rbac_allows_simulation_with_role_and_org_tenant(monkeypatch):
         "products": [{"name": "P1", "sales_price": 1}],
         "nodes": [{"node_type": "store", "name": "S1", "initial_stock": {"P1": 0}}],
         "network": [],
-        "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 0, "demand_std_dev": 0}],
+        "customer_demand": [
+            {
+                "store_name": "S1",
+                "product_name": "P1",
+                "demand_mean": 0,
+                "demand_std_dev": 0,
+            }
+        ],
     }
     r = c.post(
         "/simulation",
@@ -61,7 +75,14 @@ def test_rbac_allows_jobs_with_role_and_org_tenant(monkeypatch):
         "products": [{"name": "P1", "sales_price": 1}],
         "nodes": [{"node_type": "store", "name": "S1", "initial_stock": {"P1": 0}}],
         "network": [],
-        "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 0, "demand_std_dev": 0}],
+        "customer_demand": [
+            {
+                "store_name": "S1",
+                "product_name": "P1",
+                "demand_mean": 0,
+                "demand_std_dev": 0,
+            }
+        ],
     }
     r = c.post(
         "/jobs/simulation",
@@ -69,6 +90,7 @@ def test_rbac_allows_jobs_with_role_and_org_tenant(monkeypatch):
         headers={"X-Role": "admin", "X-Org-ID": "org1", "X-Tenant-ID": "t1"},
     )
     assert r.status_code == 200
+
 
 def test_rbac_blocks_job_actions_without_role(monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
@@ -82,6 +104,7 @@ def test_rbac_blocks_job_actions_without_role(monkeypatch):
     db.create_job(job_id_2, "simulation", "queued", int(time.time() * 1000), "{}")
     r_cancel = c.post(f"/jobs/{job_id_2}/cancel")
     assert r_cancel.status_code == 403
+
 
 def test_rbac_allows_job_actions_with_role(monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
@@ -106,6 +129,7 @@ def test_rbac_blocks_delete_run_without_role(monkeypatch):
     # 事前に実行結果を作成
     run_id = "test-run-for-delete"
     from app.run_registry import REGISTRY
+
     REGISTRY.put(run_id, {"summary": {}})
     r = c.delete(f"/runs/{run_id}")
     assert r.status_code == 403
@@ -122,10 +146,10 @@ def test_rbac_allows_delete_run_with_role(monkeypatch):
     # 事前に実行結果を作成
     run_id = "test-run-for-delete-2"
     from app.run_registry import REGISTRY
+
     REGISTRY.put(run_id, {"summary": {}})
     r = c.delete(f"/runs/{run_id}", headers=headers)
     assert r.status_code == 200
     # 存在しないことの確認
     assert REGISTRY.get(run_id) == {}
     monkeypatch.setenv("RBAC_DELETE_ENABLED", "0")
-

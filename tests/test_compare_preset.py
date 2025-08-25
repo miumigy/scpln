@@ -53,4 +53,3 @@ def test_compare_preset_by_scenarios():
     assert "Compare" in body
     # ランIDが2つ含まれる（粗い確認）
     assert "Metrics" in body or "Diffs" in body or "run_id" in body
-
