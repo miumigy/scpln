@@ -88,8 +88,8 @@ def ui_scenarios_edit(
             fields["parent_id"] = None
     except Exception:
         fields["parent_id"] = None
-    fields["tag"] = (tag or None)
-    fields["description"] = (description or None)
+    fields["tag"] = tag or None
+    fields["description"] = description or None
     # チェックボックス: 値があれば True
     fields["locked"] = 1 if (locked is not None) else 0
     try:

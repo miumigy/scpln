@@ -22,6 +22,7 @@ def post_simulation(
 ):
     # RBAC（ライト）: 変更系のためロール/テナント必須（有効化時）
     import os
+
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None

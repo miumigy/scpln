@@ -18,6 +18,7 @@ import io
 @app.post("/jobs/simulation")
 def post_job_simulation(request: Request, body: Dict[str, Any] = Body(...)):
     import os
+
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None
@@ -56,8 +57,11 @@ def list_jobs(
 
 
 @app.post("/jobs/{job_id}/retry")
-def post_job_retry(request: Request, job_id: str, body: Dict[str, Any] | None = Body(None)):
+def post_job_retry(
+    request: Request, job_id: str, body: Dict[str, Any] | None = Body(None)
+):
     import os
+
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None
@@ -97,6 +101,7 @@ def post_job_retry(request: Request, job_id: str, body: Dict[str, Any] | None = 
 @app.post("/jobs/{job_id}/cancel")
 def post_job_cancel(request: Request, job_id: str):
     import os
+
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None
@@ -123,6 +128,7 @@ def post_job_cancel(request: Request, job_id: str):
 @app.post("/jobs/aggregate")
 def post_job_aggregate(request: Request, body: Dict[str, Any] = Body(...)):
     import os
+
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None

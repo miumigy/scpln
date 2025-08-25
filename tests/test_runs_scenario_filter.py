@@ -56,5 +56,8 @@ def test_runs_filter_by_scenario_id():
     assert lr_101.status_code == 200
     runs_101 = lr_101.json()["runs"]
     # 全件のうち、scenario_id=101 のみが含まれる
-    assert all((x.get("scenario_id") == 101) for x in runs_101 if x.get("scenario_id") is not None)
-
+    assert all(
+        (x.get("scenario_id") == 101)
+        for x in runs_101
+        if x.get("scenario_id") is not None
+    )

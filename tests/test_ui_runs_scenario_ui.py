@@ -62,4 +62,3 @@ def test_ui_run_detail_shows_scenario_id():
     assert detail.status_code == 200
     assert "scenario_id" in detail.text
     assert str(sid) in detail.text
-
