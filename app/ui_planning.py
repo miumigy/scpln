@@ -51,6 +51,8 @@ def ui_planning(request: Request, dir: str | None = Query(None)):
             "out_dir": str(out) if out else "",
             "aggregate": agg,
             "plan": plan,
+            "sku": sku,
+            "mrp": mrp,
             "report_path": report,
             "error": err,
         },

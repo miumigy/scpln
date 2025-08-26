@@ -24,6 +24,12 @@
     </p>
     {% endif %}
   </section>
+  {% if job.type == 'planning' and job.status == 'succeeded' and result and result.out_dir %}
+  <section>
+    <a role="button" href="/ui/planning?dir={{ result.out_dir }}">Open Planning Output</a>
+    <span class="mono">({{ result.out_dir }})</span>
+  </section>
+  {% endif %}
   <footer>
     <a role="button" href="/ui/jobs">← Back to jobs</a>
   </footer>

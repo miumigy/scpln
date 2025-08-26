@@ -33,7 +33,14 @@ def ui_job_detail(request: Request, job_id: str):
     row = db.get_job(job_id)
     if not row:
         raise HTTPException(status_code=404, detail="job not found")
+    # Parse planning result if exists
+    result = None
+    try:
+        if row.get("result_json"):
+            result = json.loads(row.get("result_json"))
+    except Exception:
+        result = None
     return templates.TemplateResponse(
         "job_detail.html",
-        {"request": request, "job": row, "subtitle": "Jobs"},
+        {"request": request, "job": row, "result": result, "subtitle": "Jobs"},
     )
