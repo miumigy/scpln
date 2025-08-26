@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>粗密計画パイプライン（UI検証）</h2>
+  <form method="post" action="/planning/run">
+    <div class="grid">
+      <label>入力ディレクトリ
+        <input type="text" name="input_dir" value="samples/planning">
+      </label>
+      <label>出力ディレクトリ（任意）
+        <input type="text" name="out_dir" placeholder="out/ui_planning_...">
+      </label>
+    </div>
+    <div class="grid">
+      <label>週数
+        <input type="number" name="weeks" min="1" value="4">
+      </label>
+      <label>丸め
+        <select name="round_mode">
+          <option value="none">none</option>
+          <option value="int" selected>int</option>
+          <option value="dec1">dec1</option>
+          <option value="dec2">dec2</option>
+        </select>
+      </label>
+      <label>LT単位
+        <select name="lt_unit">
+          <option value="day" selected>day</option>
+          <option value="week">week</option>
+        </select>
+      </label>
+    </div>
+    <button type="submit">パイプライン実行</button>
+  </form>
+</section>
+
+{% if error %}
+<article>
+  <mark>エラー</mark>
+  <pre class="mono">{{ error }}</pre>
+{% endif %}
+
+{% if out_dir %}
+<section>
+  <h3>出力（{{ out_dir }}）</h3>
+  <details open>
+    <summary>Aggregate（family×period）</summary>
+    {% if aggregate and aggregate.rows %}
+    <table>
+      <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
+      <tbody>
+        {% for r in aggregate.rows %}
+        <tr>
+          <td>{{ r.period }}</td><td>{{ r.family }}</td>
+          <td class="mono">{{ r.demand }}</td>
+          <td class="mono">{{ r.supply }}</td>
+          <td class="mono">{{ r.backlog }}</td>
+          <td class="mono">{{ r.capacity_total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>データなし</p>
+    {% endif %}
+  </details>
+
+  <details open>
+    <summary>能力サマリ（weekly_summary）</summary>
+    {% if plan and plan.weekly_summary %}
+    <table>
+      <thead><tr><th>week</th><th>capacity</th><th>original</th><th>adjusted</th><th>spill_in</th><th>spill_out</th></tr></thead>
+      <tbody>
+        {% for r in plan.weekly_summary %}
+        <tr>
+          <td>{{ r.week }}</td>
+          <td class="mono">{{ r.capacity }}</td>
+          <td class="mono">{{ r.original_load }}</td>
+          <td class="mono">{{ r.adjusted_load }}</td>
+          <td class="mono">{{ r.spill_in }}</td>
+          <td class="mono">{{ r.spill_out }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p>データなし</p>{% endif %}
+  </details>
+
+  {% if report_path %}
+  <p><a href="/{{ report_path }}" download>report.csv をダウンロード</a></p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+
