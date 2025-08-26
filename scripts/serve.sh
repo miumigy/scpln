@@ -24,6 +24,12 @@ if [[ -f .env ]]; then
   echo "[env] AUTH_MODE=${AUTH_MODE:-none} JOBS_BACKEND=${JOBS_BACKEND:-memory} REGISTRY_BACKEND=${REGISTRY_BACKEND:-memory}"
 fi
 
+# Default to DB-backed RunRegistry if not specified
+if [[ -z "${REGISTRY_BACKEND:-}" ]]; then
+  export REGISTRY_BACKEND=db
+  echo "[env] REGISTRY_BACKEND not set; defaulting to 'db'"
+fi
+
 # Install deps if uvicorn is missing
 # 依存インストール: uvicorn が無い、または requirements.txt が更新、または必須モジュール不足の場合に実行
 REQ_HASH_FILE="$VENV_DIR/requirements.hash"
