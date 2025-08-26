@@ -1,4 +1,3 @@
-
 import importlib
 from fastapi.testclient import TestClient
 from app.api import app
@@ -10,7 +9,7 @@ importlib.import_module("app.ui_compare")
 
 def test_ui_compare_preset_roundtrip():
     c = TestClient(app)
-    
+
     p = {
         "planning_horizon": 2,
         "products": [{"name": "P1", "sales_price": 100}],
@@ -42,9 +41,10 @@ def test_ui_compare_preset_roundtrip():
     assert id2 in r.text
     assert id3 in r.text
 
+
 def test_ui_compare_preset_bad_requests():
     c = TestClient(app)
-    
+
     # target_scenarios がない
     r = c.get("/ui/compare/preset?base_scenario=1")
     assert r.status_code == 422

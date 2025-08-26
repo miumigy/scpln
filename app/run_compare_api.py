@@ -56,7 +56,7 @@ def _resolve_config_id_from_json(cfg_json: Any) -> int | None:
     if not target:
         return None
     try:
-        for r in (db.list_configs(limit=500) or []):
+        for r in db.list_configs(limit=500) or []:
             rid = r.get("id")
             if not rid:
                 continue
@@ -114,7 +114,9 @@ def list_runs(
                 detail=True,
             )
         runs = REGISTRY.list()
-        runs = _filter_and_sort(runs, sort, order, schema_version, config_id, scenario_id)
+        runs = _filter_and_sort(
+            runs, sort, order, schema_version, config_id, scenario_id
+        )
         total = len(runs)
         sliced = runs[offset : offset + limit]
         try:
@@ -201,10 +203,15 @@ def list_runs(
                     "config_id": cfg_id2,
                     "scenario_id": rec.get("scenario_id"),
                     "created_at": rec.get("created_at", rec.get("started_at")),
-                    "updated_at": rec.get("updated_at", (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0)),
+                    "updated_at": rec.get(
+                        "updated_at",
+                        (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
+                    ),
                 }
             )
-        rows2 = _filter_and_sort(rows2, sort, order, schema_version, config_id, scenario_id)
+        rows2 = _filter_and_sort(
+            rows2, sort, order, schema_version, config_id, scenario_id
+        )
         total2 = len(rows2)
         rows2 = rows2[offset : offset + limit]
         try:
@@ -314,7 +321,10 @@ def delete_run(run_id: str, request: Request):
     if not r:
         raise HTTPException(status_code=404, detail="run not found")
     # RBACライト: 有効時はX-Roleヘッダ（planner/adminなど）を要求
-    if os.getenv("RBAC_ENABLED", "0") == "1" or os.getenv("RBAC_DELETE_ENABLED", "0") == "1":
+    if (
+        os.getenv("RBAC_ENABLED", "0") == "1"
+        or os.getenv("RBAC_DELETE_ENABLED", "0") == "1"
+    ):
         role = request.headers.get("X-Role", "")
         allowed = {
             x.strip()
