@@ -5,7 +5,33 @@ from typing import Any, Dict, Iterable, List, Set
 from fastapi import HTTPException, Response
 from starlette.responses import StreamingResponse
 from app.api import app
-from app.run_registry import REGISTRY
+def _get_registry():
+    from app.run_registry import REGISTRY  # type: ignore
+    return REGISTRY
+from app import db as _db
+
+def _get_rec(run_id: str):
+    rec = _get_registry().get(run_id)
+    if rec:
+        return rec
+    # fallback to DB
+    try:
+        with _db._conn() as c:  # type: ignore[attr-defined]
+            row = c.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if not row:
+                return None
+            import json as _json
+            return {
+                "run_id": row["run_id"],
+                "summary": _json.loads(row["summary"] or "{}"),
+                "results": _json.loads(row["results"] or "[]"),
+                "daily_profit_loss": _json.loads(row["daily_profit_loss"] or "[]"),
+                "cost_trace": _json.loads(row["cost_trace"] or "[]"),
+                "config_id": row.get("config_id") if hasattr(row, "get") else row["config_id"],
+                "scenario_id": row.get("scenario_id") if hasattr(row, "get") else row["scenario_id"],
+            }
+    except Exception:
+        return None
 
 FIELDS = [
     "run_id",
@@ -22,7 +48,7 @@ FIELDS = [
 
 @app.get("/runs/{run_id}/trace.csv")
 def get_trace_csv(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     trace = rec.get("cost_trace") or []
@@ -70,7 +96,7 @@ def _collect_fieldnames(rows: Iterable[Dict[str, Any]]) -> List[str]:
 
 @app.get("/runs/{run_id}/results.csv")
 def get_results_csv(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     results = rec.get("results") or []
@@ -112,7 +138,7 @@ def get_results_csv(run_id: str):
 
 @app.get("/runs/{run_id}/pl.csv")
 def get_pl_csv(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     pl = rec.get("daily_profit_loss") or []
@@ -154,7 +180,7 @@ def get_pl_csv(run_id: str):
 
 @app.get("/runs/{run_id}/summary.csv")
 def get_summary_csv(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     summary = rec.get("summary") or {}
@@ -172,7 +198,7 @@ def get_summary_csv(run_id: str):
 
 @app.get("/runs/{run_id}/config.json")
 def get_config_json(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     cfg = {
