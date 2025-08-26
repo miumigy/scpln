@@ -511,7 +511,8 @@ sequenceDiagram
 
 ## 粗密計画パイプライン（PR1: スタブ）
 
-粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→製販物整合→レポート、の実行パイプラインの骨組みを追加しました（ロジックは後続PRで実装）。
+粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→製販物整合→レポート、の実行パイプラインを段階導入中です。
+PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、比例配分）を実装しました。
 
 - 前提データ（サンプル）: `samples/planning/`
   - `demand_family.csv`: `family, period, demand`
@@ -520,6 +521,7 @@ sequenceDiagram
   - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
 - CLI（現状は入出力I/F検証と雛形出力のみ）
   - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
+    - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
   - 按分スタブ: `python scripts/allocate.py -i out/aggregate.json -o out/sku_week.json`
   - MRPスタブ: `python scripts/mrp.py -i out/sku_week.json -o out/mrp.json`
   - 整合スタブ: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -o out/plan_final.json`

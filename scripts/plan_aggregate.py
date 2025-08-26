@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-粗粒度S&OP（ファミリ×月次）入力のバリデーションと雛形出力を行うCLIスタブ。
+粗粒度S&OP（ファミリ×月次）: 需要と能力から供給/残需要（バックログ）を算出する簡易ヒューリスティク。
 
-PR1の目的: スキーマ/I-F/サンプルの土台を整える（ロジックは後続PR）。
+PR2の範囲: periodごとの総需要に対し、能力が不足する場合は各familyへ比例配分で供給。
+  - 入力: demand_family.csv, capacity.csv（複数workcenterはperiod合算）
+  - 出力: rows: [{family, period, demand, supply, backlog, capacity_total}]
 
 使い方:
   python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json
@@ -15,7 +17,7 @@ import argparse
 import csv
 import json
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple, DefaultDict
 # 注意: PR1 のスタブは外部依存を避けるため、pydantic等の導入は行わない
 # 将来PRで planning.schemas を参照し厳格化する
 
@@ -81,6 +83,54 @@ def load_inputs(
     }
 
 
+def _aggregate_plan(demand_rows: List[Dict[str, Any]], capacity_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    # period別の総能力
+    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    for r in capacity_rows:
+        p = str(r.get("period"))
+        cap_by_period[p] += _coerce_float(r, "capacity")
+
+    # (family, period)別の需要と period総需要
+    dem_by_fp: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
+    dem_sum_by_p: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    families: set[str] = set()
+    periods: set[str] = set()
+    for r in demand_rows:
+        fam = str(r.get("family"))
+        per = str(r.get("period"))
+        d = _coerce_float(r, "demand")
+        dem_by_fp[(fam, per)] += d
+        dem_sum_by_p[per] += d
+        families.add(fam)
+        periods.add(per)
+
+    # 供給（不足時は比例配分）
+    rows: List[Dict[str, Any]] = []
+    for fam, per in sorted(dem_by_fp.keys()):
+        demand = dem_by_fp[(fam, per)]
+        total_dem = dem_sum_by_p[per]
+        total_cap = cap_by_period.get(per, 0.0)
+        if total_dem <= 0:
+            supply = 0.0
+        elif total_cap >= total_dem:
+            supply = demand
+        else:
+            ratio = total_cap / total_dem if total_dem > 0 else 0.0
+            supply = demand * ratio
+        backlog = max(0.0, demand - supply)
+        rows.append(
+            {
+                "family": fam,
+                "period": per,
+                "demand": round(demand, 6),
+                "supply": round(supply, 6),
+                "backlog": round(backlog, 6),
+                "capacity_total": round(total_cap, 6),
+            }
+        )
+    return rows
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="粗粒度S&OP入力の検証と雛形出力（PR1スタブ）")
     ap.add_argument("-i", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（demand_family.csv/capacity.csv/mix_share.csv）")
@@ -92,17 +142,19 @@ def main() -> None:
 
     ds = load_inputs(args.input_dir, args.demand, args.capacity, args.mix)
 
+    rows = _aggregate_plan(ds["demand_rows"], ds["capacity_rows"]) if ds else []
+
     payload = {
         "schema_version": "agg-1.0",
         "note": (
-            "PR1スタブ: 入力の整合性を確認し、次段の最適化/ヒューリスティク実装に備えた空の計画を出力。"
+            "PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。"
         ),
         "inputs_summary": {
             "demand_rows": len(ds["demand_rows"]),
             "capacity_rows": len(ds["capacity_rows"]),
             "mix_rows": len(ds["mix_rows"]),
         },
-        "rows": [],
+        "rows": rows,
     }
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)

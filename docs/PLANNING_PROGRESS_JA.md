@@ -8,7 +8,7 @@
   - PR1: スキーマ/サンプル/CLIスタブ 追加（完了）
     - 追加: `planning/schemas.py`（雛形）、`samples/planning/*`、`scripts/*.py`（スタブ）
     - READMEに利用手順を追記
-  - PR2: 粗粒度S&OP（ヒューリスティク） 実装（未着手）
+  - PR2: 粗粒度S&OP（ヒューリスティク） 実装（完了）
   - PR3: 按分（family→SKU、月→週）＋丸め（未着手）
   - PR4: MRPライト（LT/ロット/MOQ）実装（未着手）
   - PR5: 能力整合（CRPライト）実装（未着手）
@@ -18,6 +18,7 @@
 ## 実行手順（再現性）
 - 粗粒度計画（雛形出力）:
   - `PYTHONPATH=. python3 scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
+  - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
 - 按分スタブ:
   - `PYTHONPATH=. python3 scripts/allocate.py -i out/aggregate.json -o out/sku_week.json`
 - MRPスタブ:
@@ -34,11 +35,11 @@
 - スキーマ厳格化: 将来PRで `planning/schemas.py` をCLIに接続し、pydanticで入出力を厳格化。
 - データI/F: CSV（サンプル）→JSON（中間成果物）を採用。将来はDB/APIも視野。
 
-## 次アクション（PR2の仕様メモ）
-- 入力: `demand_family.csv`, `capacity.csv`
-- 出力: `rows: [{family, period, demand, supply, backlog}]`
-- ロジック: 需要に対し能力上限内で供給（在庫/外注を簡略的に無視するv0）。不足は `backlog` に形状化。
-- テスト: 総量確認（供給≦需要、能力超過なし）、例外時の行生成。
+## 次アクション（PR3以降の仕様メモ）
+- PR3 按分: family→SKU、月→週の比例配分＋丸め/誤差吸収。
+- PR4 MRP: LT/ロット/MOQ考慮の子展開、ネット要件算出。
+- PR5 能力整合: 工程能力に基づく自動調整（前倒し/繰越/外注）。
+- PR6 整合ループ+KPI: 反復収束とKPI算出/シナリオ比較。
 
 ## 合意事項・未決事項
 - 合意: パイプライン段階導入、PR1はI/F整備に留める。
@@ -46,4 +47,3 @@
 
 ## 変更履歴（抜粋）
 - 2025-08-26: PR1 完了、ドキュメント作成。
-
