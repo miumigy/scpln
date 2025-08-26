@@ -519,10 +519,11 @@ PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、�
   - `capacity.csv`: `workcenter, period, capacity`
   - `mix_share.csv`: `family, sku, share`
   - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
-- CLI（現状は入出力I/F検証と雛形出力のみ）
+- CLI（段階導入中）
   - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
     - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
-  - 按分スタブ: `python scripts/allocate.py -i out/aggregate.json -o out/sku_week.json`
+  - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
+    - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
   - MRPスタブ: `python scripts/mrp.py -i out/sku_week.json -o out/mrp.json`
   - 整合スタブ: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -o out/plan_final.json`
   - レポート: `python scripts/report.py -i out/plan_final.json -o out/report.csv`

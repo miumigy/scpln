@@ -9,7 +9,7 @@
     - 追加: `planning/schemas.py`（雛形）、`samples/planning/*`、`scripts/*.py`（スタブ）
     - READMEに利用手順を追記
   - PR2: 粗粒度S&OP（ヒューリスティク） 実装（完了）
-  - PR3: 按分（family→SKU、月→週）＋丸め（未着手）
+  - PR3: 按分（family→SKU、月→週）＋丸め（完了）
   - PR4: MRPライト（LT/ロット/MOQ）実装（未着手）
   - PR5: 能力整合（CRPライト）実装（未着手）
   - PR6: 整合ループ＋KPI/シナリオ（未着手）
@@ -20,7 +20,9 @@
   - `PYTHONPATH=. python3 scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
   - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
 - 按分スタブ:
-  - `PYTHONPATH=. python3 scripts/allocate.py -i out/aggregate.json -o out/sku_week.json`
+  - `PYTHONPATH=. python3 scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
+  - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
+  - オプション: `--weeks`（週数, 既定4）、`--round none|int|dec1|dec2`（丸め）。丸め後の総量差は最終週に吸収。
 - MRPスタブ:
   - `PYTHONPATH=. python3 scripts/mrp.py -i out/sku_week.json -o out/mrp.json`
 - 製販物整合スタブ:
