@@ -73,6 +73,12 @@ try:
 except Exception:
     pass
 
+# planning UI（粗密計画）
+try:
+    from app import ui_planning as _ui_planning  # noqa: F401
+except Exception:
+    pass
+
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 # Fallback: define /simulation route here when import failed (to avoid 404)

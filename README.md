@@ -558,3 +558,6 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 本プロジェクトをIBP/S&OPを含むエンタープライズ対応へ段階的に拡張するための戦略は、以下のドキュメントにまとめています。
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
+- 粗密計画UI: `GET /ui/planning`
+  - フォームから `samples/planning` のデータでパイプライン実行（集約→按分→MRP→整合→KPI）
+  - Aggregate表と能力サマリ（weekly_summary）を画面表示、`report.csv` ダウンロードリンクを提供
