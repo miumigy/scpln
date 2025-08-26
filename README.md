@@ -538,3 +538,4 @@ sequenceDiagram
 本プロジェクトをIBP/S&OPを含むエンタープライズ対応へ段階的に拡張するための戦略は、以下のドキュメントにまとめています。
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
+  - 進捗・再開手順の記録: [docs/PLANNING_PROGRESS_JA.md](docs/PLANNING_PROGRESS_JA.md)
