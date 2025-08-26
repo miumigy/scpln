@@ -509,6 +509,24 @@ sequenceDiagram
 }
 ```
 
+## 粗密計画パイプライン（PR1: スタブ）
+
+粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→製販物整合→レポート、の実行パイプラインの骨組みを追加しました（ロジックは後続PRで実装）。
+
+- 前提データ（サンプル）: `samples/planning/`
+  - `demand_family.csv`: `family, period, demand`
+  - `capacity.csv`: `workcenter, period, capacity`
+  - `mix_share.csv`: `family, sku, share`
+  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
+- CLI（現状は入出力I/F検証と雛形出力のみ）
+  - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
+  - 按分スタブ: `python scripts/allocate.py -i out/aggregate.json -o out/sku_week.json`
+  - MRPスタブ: `python scripts/mrp.py -i out/sku_week.json -o out/mrp.json`
+  - 整合スタブ: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -o out/plan_final.json`
+  - レポート: `python scripts/report.py -i out/plan_final.json -o out/report.csv`
+
+将来PRで、粗粒度S&OPのヒューリスティク/最適化、按分ロジック、MRP・能力整合、KPI算出を段階的に追加します。
+
 ## コストトレース仕様（概要）
 
 - 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
