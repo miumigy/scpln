@@ -1,6 +1,6 @@
 # サプライチェーン計画シミュレーション
 
-[![CI](https://github.com/miumigy/scpln/actions/workflows/ci.yml/badge.svg)](https://github.com/miumigy/scpln/actions/workflows/ci.yml)
+[![CI](https://github.com/miumigy/scpln/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/miumigy/scpln/actions/workflows/ci.yml)
 
 サプライチェーン（店舗/倉庫/工場/資材）をノード/リンクで記述し、需要伝播・在庫/生産・コスト計上を日次でシミュレートします。RunRegistry に実行履歴を保持し、UI から履歴参照・比較・CSVエクスポートが可能です。
 
