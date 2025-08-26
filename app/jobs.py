@@ -95,6 +95,8 @@ class JobManager:
                 self._run_simulation(job_id)
             elif jtype == "aggregate":
                 self._run_aggregate(job_id)
+            elif jtype == "planning":
+                self._run_planning(job_id)
             else:
                 # unknown type: mark failed
                 db.update_job_status(
@@ -302,6 +304,61 @@ class JobManager:
             )
             try:
                 JOBS_FAILED.labels(type="aggregate").inc()
+            except Exception:
+                pass
+
+    def submit_planning(self, params: Dict[str, Any]) -> str:
+        if not self._threads:
+            self.start()
+        job_id = uuid4().hex
+        now = int(time.time() * 1000)
+        db.create_job(job_id, "planning", "queued", now, json.dumps(params, ensure_ascii=False))
+        self.q.put({"job_id": job_id, "type": "planning"})
+        try:
+            JOBS_ENQUEUED.labels(type="planning").inc()
+        except Exception:
+            pass
+        return job_id
+
+    def _run_planning(self, job_id: str):
+        started = int(time.time() * 1000)
+        db.update_job_status(job_id, status="running", started_at=started)
+        t0 = time.monotonic()
+        try:
+            import subprocess, os
+            from pathlib import Path
+            rec = db.get_job(job_id)
+            cfg = json.loads(rec.get("params_json") or "{}") if rec else {}
+            base = Path(__file__).resolve().parents[1]
+            out_dir = Path(cfg.get("out_dir") or (base / "out" / f"job_planning_{job_id}"))
+            out_dir.mkdir(parents=True, exist_ok=True)
+            input_dir = cfg.get("input_dir") or "samples/planning"
+            weeks = str(cfg.get("weeks") or 4)
+            round_mode = cfg.get("round_mode") or "int"
+            lt_unit = cfg.get("lt_unit") or "day"
+            env = os.environ.copy()
+            env.setdefault("PYTHONPATH", str(base))
+            def runpy(args: list[str]):
+                subprocess.run(["python3", *args], cwd=str(base), env=env, check=True)
+            runpy(["scripts/plan_aggregate.py", "-i", input_dir, "-o", str(out_dir/"aggregate.json")])
+            runpy(["scripts/allocate.py", "-i", str(out_dir/"aggregate.json"), "-I", input_dir, "-o", str(out_dir/"sku_week.json"), "--weeks", weeks, "--round", round_mode])
+            runpy(["scripts/mrp.py", "-i", str(out_dir/"sku_week.json"), "-I", input_dir, "-o", str(out_dir/"mrp.json"), "--lt-unit", lt_unit, "--weeks", weeks])
+            runpy(["scripts/reconcile.py", "-i", str(out_dir/"sku_week.json"), str(out_dir/"mrp.json"), "-I", input_dir, "-o", str(out_dir/"plan_final.json"), "--weeks", weeks])
+            runpy(["scripts/report.py", "-i", str(out_dir/"plan_final.json"), "-I", input_dir, "-o", str(out_dir/"report.csv")])
+            result = {"out_dir": str(out_dir.relative_to(base)), "files": ["aggregate.json","sku_week.json","mrp.json","plan_final.json","report.csv"]}
+            db.set_job_result(job_id, json.dumps(result, ensure_ascii=False))
+            finished = int(time.time() * 1000)
+            db.update_job_status(job_id, status="succeeded", finished_at=finished)
+            try:
+                JOBS_COMPLETED.labels(type="planning").inc()
+                JOBS_DURATION.labels(type="planning").observe(time.monotonic() - t0)
+            except Exception:
+                pass
+        except Exception as e:
+            finished = int(time.time() * 1000)
+            db.update_job_status(job_id, status="failed", finished_at=finished, error=str(e))
+            try:
+                JOBS_FAILED.labels(type="planning").inc()
             except Exception:
                 pass
 
