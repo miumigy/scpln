@@ -129,3 +129,86 @@ def test_reconcile_capacity_respected_and_report(tmp_path: Path):
     fill = float(last[-1])
     assert fill >= 0.0
 
+
+def test_reconcile_spill_propagation_and_utilization(tmp_path: Path):
+    out = tmp_path
+    agg = out / "aggregate.json"
+    sku = out / "sku_week.json"
+    mrp = out / "mrp.json"
+    plan = out / "plan_final.json"
+    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
+    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "int"])
+    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
+    run([sys.executable, str(SCRIPTS / "reconcile.py"), "-i", str(sku), str(mrp), "-I", str(SAMPLES), "-o", str(plan), "--weeks", "4"])
+
+    p = json.loads(plan.read_text(encoding="utf-8"))
+    ws = p.get("weekly_summary", [])
+    # spillの伝播: 次週のspill_in ≒ 当週のspill_out
+    for i in range(len(ws) - 1):
+        spill_out = float(ws[i].get("spill_out", 0) or 0)
+        spill_in_next = float(ws[i + 1].get("spill_in", 0) or 0)
+        assert abs(spill_out - spill_in_next) < 1e-6
+        # 稼働率が1.0を超えない
+        cap = float(ws[i].get("capacity", 0) or 0)
+        adj = float(ws[i].get("adjusted_load", 0) or 0)
+        util = (adj / cap) if cap > 0 else 0.0
+        assert util <= 1.0 + 1e-6
+
+
+def test_fill_rate_bounds(tmp_path: Path):
+    out = tmp_path
+    agg = out / "aggregate.json"
+    sku = out / "sku_week.json"
+    mrp = out / "mrp.json"
+    plan = out / "plan_final.json"
+    rep = out / "report.csv"
+    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
+    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "none"])
+    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
+    run([sys.executable, str(SCRIPTS / "reconcile.py"), "-i", str(sku), str(mrp), "-I", str(SAMPLES), "-o", str(plan), "--weeks", "4"])
+    run([sys.executable, str(SCRIPTS / "report.py"), "-i", str(plan), "-I", str(SAMPLES), "-o", str(rep)])
+    content = rep.read_text(encoding="utf-8").splitlines()
+    # 2行目以降がデータ
+    for line in content[1:]:
+        parts = line.split(",")
+        if not parts or parts[0] != "service":
+            continue
+        # service: week,,,,,,,demand,supply_plan,fill_rate
+        try:
+            demand = float(parts[-3])
+            fill = float(parts[-1])
+        except Exception:
+            continue
+        assert 0.0 <= fill <= 1.0 + 1e-9
+        if demand == 0:
+            assert abs(fill - 1.0) < 1e-9
+
+
+def test_round_modes_and_weeks_variation_mass_balance(tmp_path: Path):
+    out = tmp_path
+    weeks_cases = [3, 4, 5]
+    round_modes = ["none", "int", "dec1", "dec2"]
+    agg = out / "aggregate.json"
+    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
+    adata = json.loads(agg.read_text(encoding="utf-8"))
+    arows = {(r["family"], r["period"]): r for r in adata.get("rows", [])}
+
+    for w in weeks_cases:
+        for rm in round_modes:
+            sku = out / f"sku_week_w{w}_{rm}.json"
+            run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", str(w), "--round", rm])
+            sdata = json.loads(sku.read_text(encoding="utf-8"))
+            rows = sdata.get("rows", [])
+            from collections import defaultdict
+            dem = defaultdict(float)
+            sup = defaultdict(float)
+            bac = defaultdict(float)
+            for r in rows:
+                key = (r["family"], r["period"])
+                dem[key] += float(r["demand"])  # 週×SKU合計
+                sup[key] += float(r["supply"])  # 週×SKU合計
+                bac[key] += float(r["backlog"])  # 週×SKU合計
+            for key, a in arows.items():
+                assert abs(dem[key] - float(a["demand"])) < 1e-6
+                assert abs(sup[key] - float(a["supply"])) < 1e-6
+                assert abs(bac[key] - float(a["backlog"])) < 1e-6
