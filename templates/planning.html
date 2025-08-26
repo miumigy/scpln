@@ -111,6 +111,29 @@
     {% else %}<p>データなし</p>{% endif %}
   </details>
 
+  <details>
+    <summary>MRP分解（先頭50行）</summary>
+    {% if mrp and mrp.rows %}
+    <table>
+      <thead><tr><th>item</th><th>week</th><th>gross</th><th>on_hand_start</th><th>sched_rcpt</th><th>net_req</th><th>PORcpt</th><th>POLrel</th></tr></thead>
+      <tbody>
+        {% for r in mrp.rows[:50] %}
+        <tr>
+          <td class="mono">{{ r.item }}</td>
+          <td>{{ r.week }}</td>
+          <td class="mono">{{ r.gross_req }}</td>
+          <td class="mono">{{ r.on_hand_start }}</td>
+          <td class="mono">{{ r.scheduled_receipts }}</td>
+          <td class="mono">{{ r.net_req }}</td>
+          <td class="mono">{{ r.planned_order_receipt }}</td>
+          <td class="mono">{{ r.planned_order_release }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p>データなし</p>{% endif %}
+  </details>
+
   {% if report_path %}
   <p><a href="/{{ report_path }}" download>report.csv をダウンロード</a></p>
   {% endif %}
@@ -120,6 +143,7 @@
   <h3>可視化</h3>
   <canvas id="chartCapacity" height="100"></canvas>
   <canvas id="chartService" height="100" style="margin-top:16px"></canvas>
+  <canvas id="chartSkuWeek" height="120" style="margin-top:16px"></canvas>
 </section>
 {% endif %}
 {% endblock %}
@@ -128,6 +152,7 @@
 <script>
   (function(){
     const plan = {{ plan | tojson | safe if plan else 'null' }};
+    const sku = {{ sku | tojson | safe if sku else 'null' }};
     const reportPath = {{ ('"/' ~ report_path ~ '"') if report_path else 'null' }};
     function makeCapacityChart(){
       if(!plan || !plan.weekly_summary) return;
@@ -161,8 +186,31 @@
         ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
       }catch(e){ console.warn(e); }
     }
+    function makeSkuWeekChart(){
+      if(!sku || !sku.rows) return;
+      // Derive weeks and skus
+      const rows = sku.rows;
+      const weeksSet = new Set();
+      const skusSet = new Set();
+      rows.forEach(r=>{ weeksSet.add(r.week); skusSet.add(r.sku); });
+      const weeks = Array.from(weeksSet).sort();
+      const skus = Array.from(skusSet).sort();
+      // Build dataset for demand by SKU per week (stacked)
+      const colors = ['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc949','#af7aa1','#ff9da7','#9c755f','#bab0ab'];
+      const datasets = skus.map((s, i)=>{
+        const data = weeks.map(w=>{
+          const rec = rows.find(r=>r.sku===s && r.week===w);
+          return rec ? Number(rec.demand||0) : 0;
+        });
+        const c = colors[i % colors.length];
+        return {label:s, data, backgroundColor:c, stack:'demand'};
+      });
+      const ctx = document.getElementById('chartSkuWeek');
+      new Chart(ctx, {type:'bar', data:{labels:weeks, datasets}, options:{responsive:true, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}}}});
+    }
     makeCapacityChart();
     makeServiceChart();
+    makeSkuWeekChart();
   })();
 </script>
 {% endblock %}
