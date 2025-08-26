@@ -221,9 +221,7 @@ def ui_compare_preset(
     rows = []
     for rid in ids:
         rec = _get_rec(rid)
-        if not rec:
-            continue
-        s = rec.get("summary") or {}
+        s = (rec.get("summary") or {}) if rec else {}
         row = {"run_id": rid}
         for k in use_keys:
             try:
