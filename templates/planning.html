@@ -3,6 +3,21 @@
 <section>
   <h2>粗密計画パイプライン（UI検証）</h2>
   <form method="post" action="/planning/run">
+    <details>
+      <summary>CSVアップロード（任意）</summary>
+      <div class="grid">
+        <label>demand_family.csv<input type="file" name="demand_family" accept=".csv"></label>
+        <label>capacity.csv<input type="file" name="capacity" accept=".csv"></label>
+        <label>mix_share.csv<input type="file" name="mix_share" accept=".csv"></label>
+      </div>
+      <div class="grid">
+        <label>item.csv<input type="file" name="item" accept=".csv"></label>
+        <label>inventory.csv<input type="file" name="inventory" accept=".csv"></label>
+        <label>open_po.csv<input type="file" name="open_po" accept=".csv"></label>
+        <label>bom.csv<input type="file" name="bom" accept=".csv"></label>
+      </div>
+      <p class="mono">アップロードがある場合は `input_dir` よりアップロードを優先します。</p>
+    </details>
     <div class="grid">
       <label>入力ディレクトリ
         <input type="text" name="input_dir" value="samples/planning">
@@ -31,6 +46,16 @@
       </label>
     </div>
     <button type="submit">パイプライン実行</button>
+  </form>
+</section>
+
+<section>
+  <form method="post" action="/planning/run_job">
+    <input type="hidden" name="input_dir" value="samples/planning" />
+    <input type="hidden" name="weeks" value="4" />
+    <input type="hidden" name="round_mode" value="int" />
+    <input type="hidden" name="lt_unit" value="day" />
+    <button type="submit" class="secondary">ジョブとして実行（/ui/jobsで監視）</button>
   </form>
 </section>
 
@@ -90,6 +115,54 @@
   <p><a href="/{{ report_path }}" download>report.csv をダウンロード</a></p>
   {% endif %}
 </section>
+
+<section>
+  <h3>可視化</h3>
+  <canvas id="chartCapacity" height="100"></canvas>
+  <canvas id="chartService" height="100" style="margin-top:16px"></canvas>
+</section>
 {% endif %}
 {% endblock %}
-
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+    const plan = {{ plan | tojson | safe if plan else 'null' }};
+    const reportPath = {{ ('"/' ~ report_path ~ '"') if report_path else 'null' }};
+    function makeCapacityChart(){
+      if(!plan || !plan.weekly_summary) return;
+      const weeks = plan.weekly_summary.map(r=>r.week);
+      const cap = plan.weekly_summary.map(r=>r.capacity);
+      const adj = plan.weekly_summary.map(r=>r.adjusted_load);
+      const ctx = document.getElementById('chartCapacity');
+      new Chart(ctx, {type:'bar', data:{labels:weeks, datasets:[
+        {label:'capacity', data:cap, backgroundColor:'rgba(54, 162, 235, 0.5)'},
+        {label:'adjusted_load', data:adj, backgroundColor:'rgba(255, 159, 64, 0.5)'}
+      ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+    }
+    async function makeServiceChart(){
+      if(!reportPath) return;
+      try{
+        const res = await fetch(reportPath);
+        const txt = await res.text();
+        const lines = txt.trim().split(/\r?\n/).slice(1);
+        const weeks=[], demand=[], supply=[];
+        for(const line of lines){
+          if(!line.startsWith('service,')) continue;
+          const parts = line.split(',');
+          weeks.push(parts[1]);
+          demand.push(parseFloat(parts[parts.length-3]||'0'));
+          supply.push(parseFloat(parts[parts.length-2]||'0'));
+        }
+        const ctx = document.getElementById('chartService');
+        new Chart(ctx, {type:'line', data:{labels:weeks, datasets:[
+          {label:'demand(FG)', data:demand, borderColor:'#888', backgroundColor:'rgba(136,136,136,0.2)'},
+          {label:'supply_plan(FG)', data:supply, borderColor:'#2a7', backgroundColor:'rgba(34,170,119,0.2)'}
+        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      }catch(e){ console.warn(e); }
+    }
+    makeCapacityChart();
+    makeServiceChart();
+  })();
+</script>
+{% endblock %}

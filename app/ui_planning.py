@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from app.api import app
-from fastapi import Request, Form, Query
+from fastapi import Request, Form, Query, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from app.jobs import JOB_MANAGER
 import os
 import json
 import subprocess
@@ -64,10 +65,38 @@ def planning_run(
     weeks: int = Form(4),
     round_mode: str = Form("int"),
     lt_unit: str = Form("day"),
+    demand_family: UploadFile | None = File(None),
+    capacity: UploadFile | None = File(None),
+    mix_share: UploadFile | None = File(None),
+    item: UploadFile | None = File(None),
+    inventory: UploadFile | None = File(None),
+    open_po: UploadFile | None = File(None),
+    bom: UploadFile | None = File(None),
 ):
     ts = int(time.time())
     out_base = Path(out_dir) if out_dir else (_BASE_DIR / "out" / f"ui_planning_{ts}")
     out_base.mkdir(parents=True, exist_ok=True)
+    # optional: uploaded CSVs → override input_dir into temp folder
+    upload_files = {
+        "demand_family.csv": demand_family,
+        "capacity.csv": capacity,
+        "mix_share.csv": mix_share,
+        "item.csv": item,
+        "inventory.csv": inventory,
+        "open_po.csv": open_po,
+        "bom.csv": bom,
+    }
+    has_upload = any(f is not None for f in upload_files.values())
+    if has_upload:
+        tmp_in = out_base / "input"
+        tmp_in.mkdir(parents=True, exist_ok=True)
+        for name, uf in upload_files.items():
+            if uf is None:
+                continue
+            content = uf.file.read()
+            (tmp_in / name).write_bytes(content)
+        input_dir = str(tmp_in)
+
     # 1) aggregate
     _run_py(["scripts/plan_aggregate.py", "-i", input_dir, "-o", str(out_base / "aggregate.json")])
     # 2) allocate
@@ -124,3 +153,21 @@ def planning_run(
     rel = str(out_base.relative_to(_BASE_DIR))
     return RedirectResponse(url=f"/ui/planning?dir={rel}", status_code=303)
 
+
+@app.post("/planning/run_job")
+def planning_run_job(
+    input_dir: str = Form("samples/planning"),
+    out_dir: str | None = Form(None),
+    weeks: int = Form(4),
+    round_mode: str = Form("int"),
+    lt_unit: str = Form("day"),
+):
+    params = {
+        "input_dir": input_dir,
+        "out_dir": out_dir,
+        "weeks": weeks,
+        "round_mode": round_mode,
+        "lt_unit": lt_unit,
+    }
+    job_id = JOB_MANAGER.submit_planning(params)
+    return RedirectResponse(url="/ui/jobs", status_code=303)
