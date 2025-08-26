@@ -6,9 +6,33 @@ from typing import List
 from pathlib import Path
 import csv
 import io
+from app import db as _db
 def _get_registry():
     from app.run_registry import REGISTRY  # type: ignore
     return REGISTRY
+
+def _get_rec(run_id: str):
+    rec = _get_registry().get(run_id)
+    if rec:
+        return rec
+    # fallback to DB
+    try:
+        with _db._conn() as c:  # type: ignore[attr-defined]
+            row = c.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if not row:
+                return None
+            import json as _json
+            return {
+                "run_id": row["run_id"],
+                "summary": _json.loads(row["summary"] or "{}"),
+                "results": _json.loads(row["results"] or "[]"),
+                "daily_profit_loss": _json.loads(row["daily_profit_loss"] or "[]"),
+                "cost_trace": _json.loads(row["cost_trace"] or "[]"),
+                "config_id": row["config_id"],
+                "scenario_id": row["scenario_id"],
+            }
+    except Exception:
+        return None
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
@@ -55,7 +79,7 @@ def ui_compare(
 
     rows = []
     for rid in ids:
-        rec = _get_registry().get(rid)
+        rec = _get_rec(rid)
         if not rec:
             raise HTTPException(status_code=404, detail=f"run not found: {rid}")
         s = rec.get("summary") or {}
@@ -194,7 +218,7 @@ def ui_compare_preset(
             use_keys = filt
     rows = []
     for rid in ids:
-        rec = _get_registry().get(rid)
+        rec = _get_rec(rid)
         if not rec:
             continue
         s = rec.get("summary") or {}
