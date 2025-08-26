@@ -136,7 +136,9 @@ def _latest_runs_by_scenarios(
 
     def _latest_for_many(sid: int, n: int) -> List[str]:
         try:
+            REGISTRY = _get_registry()
             if hasattr(REGISTRY, "list_page"):
+                # DBバックエンド：シナリオIDで直接ページング取得
                 resp = REGISTRY.list_page(
                     offset=0,
                     limit=n,
@@ -154,7 +156,7 @@ def _latest_runs_by_scenarios(
                 ids = getattr(REGISTRY, "list_ids", lambda: [])()
                 matched = []
                 for rid in ids:
-                    rec = REGISTRY.get(rid) or {}
+                    rec = _get_rec(rid) or {}
                     if rec.get("scenario_id") == sid:
                         matched.append(rid)
                         if len(matched) >= n:
