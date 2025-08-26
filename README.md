@@ -44,6 +44,8 @@
 - 収支（固定/変動費）・キャパシティ超過コスト
 - UI: タブ表示、フィルタ、CSV ダウンロード
 - RunRegistry: 実行履歴の保持・比較・CSV
+  - バックエンド: 既定でDB永続化（SQLite `data/scpln.db`）。環境変数 `REGISTRY_BACKEND=memory|db` で切替可能（`scripts/serve.sh`は未指定時にdbへフォールバック）
+  - 容量上限: `RUNS_DB_MAX_ROWS` を指定すると古いRunを自動クリーンアップ（DBのみ）
 
 ## クイックスタート（起動・停止）
 
@@ -54,6 +56,7 @@ bash scripts/stop.sh            # 停止
 ```
 
 アクセス: `http://localhost:8000`（ヘッダ右「ラン履歴」「設定マスタ」は別タブ遷移）
+永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
 ## Web UI ガイド
 

@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import Any, Dict, List, Optional
 
@@ -93,6 +94,13 @@ class RunRegistryDB:
                     "config_json_present": bool(payload.get("config_json")),
                 },
             )
+        except Exception:
+            pass
+        # オプション: 容量上限制御（古いRunのクリーンアップ）
+        try:
+            max_rows = int(os.getenv("RUNS_DB_MAX_ROWS", "0") or 0)
+            if max_rows > 0:
+                self.cleanup_by_capacity(max_rows)
         except Exception:
             pass
 
