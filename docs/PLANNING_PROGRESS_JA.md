@@ -28,7 +28,9 @@
   - 入力CSV: `item.csv`, `inventory.csv`, `open_po.csv`, 任意で `bom.csv`
   - 出力: `[{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
 - 製販物整合スタブ:
-  - `PYTHONPATH=. python3 scripts/reconcile.py -i out/sku_week.json out/mrp.json -o out/plan_final.json`
+  - `PYTHONPATH=. python3 scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
+  - 入力CSV: `capacity.csv`, `mix_share.csv`
+  - 出力: `weekly_summary`（cap/load/adjusted/spill/slack）と `rows`（mrp行+`planned_order_release_adj`）
 - レポート出力（雛形CSV）:
   - `PYTHONPATH=. python3 scripts/report.py -i out/plan_final.json -o out/report.csv`
 
