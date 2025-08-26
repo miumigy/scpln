@@ -1,12 +1,12 @@
 {
   "schema": "scpln-planning-progress-1.0",
   "updated_at": "2025-08-26",
-  "current_step": "PR3-completed",
+  "current_step": "PR4-completed",
   "steps": [
     {"id": "PR1", "title": "スキーマ/サンプル/CLIスタブ", "status": "done"},
     {"id": "PR2", "title": "粗粒度S&OP（ヒューリスティク）", "status": "done"},
     {"id": "PR3", "title": "按分（family→SKU, 月→週）＋丸め", "status": "done"},
-    {"id": "PR4", "title": "MRPライト（LT/ロット/MOQ）", "status": "pending"},
+    {"id": "PR4", "title": "MRPライト（LT/ロット/MOQ/BOM）", "status": "done"},
     {"id": "PR5", "title": "能力整合（CRPライト）", "status": "pending"},
     {"id": "PR6", "title": "整合ループ＋KPI/シナリオ", "status": "pending"},
     {"id": "PR7", "title": "CLI配線・ドキュメント更新", "status": "pending"}

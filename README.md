@@ -524,7 +524,9 @@ PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、�
     - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
   - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
     - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
-  - MRPスタブ: `python scripts/mrp.py -i out/sku_week.json -o out/mrp.json`
+  - MRPライト: `python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4`
+    - 入力CSV: `item.csv`, `inventory.csv`, `open_po.csv`, 任意で `bom.csv`
+    - 出力: `rows: [{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
   - 整合スタブ: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -o out/plan_final.json`
   - レポート: `python scripts/report.py -i out/plan_final.json -o out/report.csv`
 
