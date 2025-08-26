@@ -249,7 +249,8 @@ def ui_compare_preset(
             "rows": rows,
             "diffs": diffs,
             "keys": use_keys,
-            "run_ids_str": ",".join([r["run_id"] for r in rows]),
+            # rowsが空でも run_ids は表示できるよう、ids を直接連結
+            "run_ids_str": ",".join(ids),
             "base_id": rows[0]["run_id"] if rows else None,
             "threshold": threshold,
             "keys_str": ",".join(use_keys),
