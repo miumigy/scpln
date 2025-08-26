@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.1 (2025-08-27)
+
+- feat(ui/planning): 粗密計画UIを強化
+  - CSVアップロード対応（demand_family/capacity/mix_share/item/inventory/open_po/bom）
+  - 可視化（Chart.js）: 週次能力vs調整負荷、FG需要vs供給計画、SKU×週スタックバー
+  - MRP分解テーブル（先頭50行）を追加
+  - ジョブ実行（planning）を追加し、/ui/jobs から監視・ジョブ詳細からプレビュー遷移
+- feat(runs): RunRegistryのDB永続化を既定化（REGISTRY_BACKEND未設定時にdb）し、RUNS_DB_MAX_ROWSで自動クリーンアップ
+- test: 粗密計画の整合テスト追加（spill/稼働率/FillRate/丸め×週数）、DBバックエンドのE2E（永続化・クリーンアップ）
+
 ## v0.4.0 (2025-08-26)
 
 - feat(planning): 粗密計画パイプラインを実装（aggregate→allocate→mrp→reconcile→report）

@@ -559,5 +559,7 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
 - 粗密計画UI: `GET /ui/planning`
-  - フォームから `samples/planning` のデータでパイプライン実行（集約→按分→MRP→整合→KPI）
-  - Aggregate表と能力サマリ（weekly_summary）を画面表示、`report.csv` ダウンロードリンクを提供
+  - パイプライン実行: フォームから `samples/planning` もしくはCSVアップロードで、集約→按分→MRP→整合→KPI を一括実行
+  - 可視化: 週次能力vs調整負荷のバー、FG需要vs供給計画のライン、SKU×週の需要スタックバー
+  - 出力: Aggregate表・能力サマリ（weekly_summary）表示、`report.csv` ダウンロード
+  - ジョブ実行: 「ジョブとして実行」ボタンで非同期化し、`/ui/jobs` から進捗閲覧（完了後はジョブ詳細にプレビューリンク表示）
