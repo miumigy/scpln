@@ -6,7 +6,9 @@ from typing import List
 from pathlib import Path
 import csv
 import io
-from app.run_registry import REGISTRY
+def _get_registry():
+    from app.run_registry import REGISTRY  # type: ignore
+    return REGISTRY
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
@@ -29,7 +31,7 @@ def ui_compare(
         ids = [base_id] + [x for x in ids if x != base_id]
 
     # 簡易実装: REGISTRY から横並び & 差分（先頭基準）
-    from app.run_registry import REGISTRY
+    REGISTRY = _get_registry()
 
     COMPARE_KEYS = [
         "fill_rate",
@@ -53,7 +55,7 @@ def ui_compare(
 
     rows = []
     for rid in ids:
-        rec = REGISTRY.get(rid)
+        rec = _get_registry().get(rid)
         if not rec:
             raise HTTPException(status_code=404, detail=f"run not found: {rid}")
         s = rec.get("summary") or {}
@@ -192,7 +194,7 @@ def ui_compare_preset(
             use_keys = filt
     rows = []
     for rid in ids:
-        rec = REGISTRY.get(rid)
+        rec = _get_registry().get(rid)
         if not rec:
             continue
         s = rec.get("summary") or {}
