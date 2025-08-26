@@ -3,8 +3,11 @@ import json
 from fastapi import Body, HTTPException, Query, Request
 import os
 from app.api import app
-from app.run_registry import REGISTRY
-from app.run_registry import _BACKEND  # type: ignore
+
+def _get_registry():
+    # 動的取得（テスト環境での再ロード・環境切替に対応）
+    from app.run_registry import REGISTRY, _BACKEND  # type: ignore
+    return REGISTRY, _BACKEND
 from app.metrics import (
     RUNS_LIST_REQUESTS,
     RUNS_LIST_RETURNED,
@@ -86,6 +89,7 @@ def list_runs(
     - detail=true: フル（results/daily_profit_loss/cost_trace 含む）
     """
     # サニタイズと limit 既定
+    REGISTRY, _BACKEND = _get_registry()
     sort_keys = {"started_at", "duration_ms", "schema_version"}
     if sort not in sort_keys:
         sort = "started_at"
@@ -125,6 +129,15 @@ def list_runs(
         except Exception:
             pass
         return {"runs": sliced, "total": total, "offset": offset, "limit": limit}
+    REGISTRY, _BACKEND = _get_registry()
+    # DBバックエンド時は上限に応じたクリーンアップを実施（テスト・運用の安定化）
+    try:
+        import os as _os
+        max_rows = int(_os.getenv("RUNS_DB_MAX_ROWS", "0") or 0)
+        if max_rows > 0 and hasattr(REGISTRY, "cleanup_by_capacity"):
+            REGISTRY.cleanup_by_capacity(max_rows)
+    except Exception:
+        pass
     ids = REGISTRY.list_ids()
     out = []
     if limit is None:
@@ -233,6 +246,7 @@ def list_runs(
 
 @app.get("/runs/{run_id}")
 def get_run(run_id: str, detail: bool = Query(False)):
+    REGISTRY, _ = _get_registry()
     r = REGISTRY.get(run_id)
     if not r:
         raise HTTPException(status_code=404, detail="run not found")
@@ -255,6 +269,7 @@ def compare_runs(
     keys: str | None = Query(None),
 ):
     _t0 = time.monotonic()
+    REGISTRY, _ = _get_registry()
     ids: List[str] = body.get("run_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
@@ -317,6 +332,7 @@ def compare_runs(
 
 @app.delete("/runs/{run_id}")
 def delete_run(run_id: str, request: Request):
+    REGISTRY, _ = _get_registry()
     r = REGISTRY.get(run_id)
     if not r:
         raise HTTPException(status_code=404, detail="run not found")

@@ -102,6 +102,25 @@ def init_db() -> None:
             c.execute("ALTER TABLE jobs ADD COLUMN result_json TEXT")
         except Exception:
             pass
+        # scenarios テーブル（存在しない環境への後方互換）
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scenarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                parent_id INTEGER,
+                tag TEXT,
+                description TEXT,
+                locked INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """
+        )
+        try:
+            c.execute("CREATE INDEX IF NOT EXISTS idx_scenarios_parent ON scenarios(parent_id)")
+        except Exception:
+            pass
         # hierarchy master tables
         c.execute(
             """
