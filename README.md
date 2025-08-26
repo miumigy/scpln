@@ -530,7 +530,8 @@ PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、�
   - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
     - 入力CSV: `capacity.csv`, `mix_share.csv`
     - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` を付与）
-  - レポート: `python scripts/report.py -i out/plan_final.json -o out/report.csv`
+  - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
+    - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
 
 将来PRで、粗粒度S&OPのヒューリスティク/最適化、按分ロジック、MRP・能力整合、KPI算出を段階的に追加します。
 

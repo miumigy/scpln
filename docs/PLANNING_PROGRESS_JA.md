@@ -12,7 +12,7 @@
   - PR3: 按分（family→SKU、月→週）＋丸め（完了）
   - PR4: MRPライト（LT/ロット/MOQ/BOM）実装（完了）
   - PR5: 能力整合（CRPライト）実装（未着手）
-  - PR6: 整合ループ＋KPI/シナリオ（未着手）
+  - PR6: 整合ループ（受入再配分）＋KPI出力（完了）
   - PR7: CLI配線強化/ドキュメント（未着手）
 
 ## 実行手順（再現性）
@@ -32,7 +32,9 @@
   - 入力CSV: `capacity.csv`, `mix_share.csv`
   - 出力: `weekly_summary`（cap/load/adjusted/spill/slack）と `rows`（mrp行+`planned_order_release_adj`）
 - レポート出力（雛形CSV）:
-  - `PYTHONPATH=. python3 scripts/report.py -i out/plan_final.json -o out/report.csv`
+  - `PYTHONPATH=. python3 scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
+  - CSV列: `type(capacity|service), week, capacity, original_load, adjusted_load, utilization, demand, supply_plan, fill_rate, ...`
+  - 備考: serviceはFGのみ集計。供給=scheduled_receipts + planned_order_receipt_adj（近似）。
 
 出力は `out/` に生成されます。スタブ段階のため、`rows` は空配列です（今後のPRで計算結果が入ります）。
 

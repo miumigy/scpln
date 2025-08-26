@@ -138,8 +138,9 @@ def main() -> None:
 
     adj_by_week, week_report = _adjust_by_capacity(weeks, load_by_week, cap_w)
 
-    # 週別係数を用いてFGの解放をスケーリング
+    # 週別係数を用いてFGの解放をスケーリング + 受入の再配分（lt_weeksでシフト）
     rows_out: List[Dict[str, Any]] = []
+    receipt_adj: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
     for r in mrp.get("rows", []):
         it = str(r.get("item"))
         w = str(r.get("week"))
@@ -149,10 +150,23 @@ def main() -> None:
             target = adj_by_week.get(w, base)
             factor = (target / base) if base > 0 else 1.0
             adj_rel = por * factor
+            # 受入週（w + lt_weeks）へシフト
+            try:
+                lt_w = int(r.get("lt_weeks", 0) or 0)
+            except Exception:
+                lt_w = 0
+            try:
+                idx = weeks.index(w)
+            except ValueError:
+                idx = 0
+            rec_idx = min(len(weeks) - 1, idx + max(0, lt_w))
+            receipt_adj[(it, weeks[rec_idx])] += adj_rel
         else:
             adj_rel = por
         r2 = dict(r)
         r2["planned_order_release_adj"] = round(adj_rel, 6)
+        # 受入の調整値（FGのみ）
+        r2["planned_order_receipt_adj"] = round(receipt_adj.get((it, w), 0.0), 6)
         rows_out.append(r2)
 
     payload = {
