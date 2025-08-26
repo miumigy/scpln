@@ -533,6 +533,16 @@ PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、�
   - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
     - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
 
+### 一括実行（PR7）
+
+パイプライン全体を一括実行するスクリプトを追加しています。
+
+```bash
+bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --round int --lt-unit day
+```
+
+出力は `out/` 配下に `aggregate.json` `sku_week.json` `mrp.json` `plan_final.json` `report.csv` を生成します。
+
 将来PRで、粗粒度S&OPのヒューリスティク/最適化、按分ロジック、MRP・能力整合、KPI算出を段階的に追加します。
 
 ## コストトレース仕様（概要）
