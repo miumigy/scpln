@@ -509,17 +509,16 @@ sequenceDiagram
 }
 ```
 
-## 粗密計画パイプライン（PR1: スタブ）
+## 粗密計画パイプライン
 
-粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→製販物整合→レポート、の実行パイプラインを段階導入中です。
-PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、比例配分）を実装しました。
+粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
 
 - 前提データ（サンプル）: `samples/planning/`
   - `demand_family.csv`: `family, period, demand`
   - `capacity.csv`: `workcenter, period, capacity`
   - `mix_share.csv`: `family, sku, share`
   - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
-- CLI（段階導入中）
+- CLI（ステップ毎）
   - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
     - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
   - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
@@ -529,11 +528,11 @@ PR2にて、粗粒度S&OPの簡易ヒューリスティク（需要×能力、�
     - 出力: `rows: [{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
   - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
     - 入力CSV: `capacity.csv`, `mix_share.csv`
-    - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` を付与）
+    - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` と `planned_order_receipt_adj` を付与）
   - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
     - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
 
-### 一括実行（PR7）
+### 一括実行
 
 パイプライン全体を一括実行するスクリプトを追加しています。
 
@@ -543,7 +542,7 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 
 出力は `out/` 配下に `aggregate.json` `sku_week.json` `mrp.json` `plan_final.json` `report.csv` を生成します。
 
-将来PRで、粗粒度S&OPのヒューリスティク/最適化、按分ロジック、MRP・能力整合、KPI算出を段階的に追加します。
+備考: 本パイプラインはヒューリスティク中心の最小実装です。工程別能力・在庫時系列の厳密再計算・外注コスト最適化等は今後の拡張余地です。
 
 ## コストトレース仕様（概要）
 

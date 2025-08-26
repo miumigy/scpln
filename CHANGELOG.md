@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.0 (2025-08-26)
+
+- feat(planning): 粗密計画パイプラインを実装（aggregate→allocate→mrp→reconcile→report）
+  - PR2: 粗粒度S&OPヒューリスティク（需要×能力の比例配分）
+  - PR3: family→SKU, 月→週の按分（丸め/誤差吸収）
+  - PR4: MRPライト（LT/ロット/MOQ、在庫/入荷、任意BOM）
+  - PR5: 能力整合（CRPライト）週次能力に合わせ解放を調整
+  - PR6: 受入再配分＋KPI（稼働率/Fill Rate）CSV出力
+  - PR7: 一括実行スクリプト `scripts/run_planning_pipeline.sh` 追加、README整備
+- chore(docs): 進捗ドキュメント/進行JSONを削除しREADMEへ集約
 
 ## v0.3.7 (2025-08-23)
 
