@@ -20,7 +20,9 @@ def _read_csv(path: str) -> List[Dict[str, Any]]:
         return list(csv.DictReader(f))
 
 
-def _load_mix(input_dir: str | None, mix_path: str | None, *, normalize: bool = True) -> Dict[str, List[Tuple[str, float]]]:
+def _load_mix(
+    input_dir: str | None, mix_path: str | None, *, normalize: bool = True
+) -> Dict[str, List[Tuple[str, float]]]:
     path = mix_path or (os.path.join(input_dir, "mix_share.csv") if input_dir else None)
     mix: Dict[str, List[Tuple[str, float]]] = {}
     if path and os.path.exists(path):
@@ -79,10 +81,22 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="按分（family→SKU、月→週）")
     ap.add_argument("-i", "--input", required=True, help="plan_aggregateの出力JSON")
     ap.add_argument("-o", "--output", required=True, help="出力JSON（SKU×週）")
-    ap.add_argument("-I", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（mix_share.csv）")
+    ap.add_argument(
+        "-I",
+        "--input-dir",
+        dest="input_dir",
+        default=None,
+        help="CSVフォルダ（mix_share.csv）",
+    )
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv のパス")
     ap.add_argument("--weeks", type=int, default=4, help="1期間あたりの週数（既定4）")
-    ap.add_argument("--round", dest="round_mode", default="none", choices=["none", "int", "dec1", "dec2"], help="丸め方法")
+    ap.add_argument(
+        "--round",
+        dest="round_mode",
+        default="none",
+        choices=["none", "int", "dec1", "dec2"],
+        help="丸め方法",
+    )
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:

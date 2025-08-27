@@ -35,12 +35,18 @@ def ui_planning(request: Request, dir: str | None = Query(None)):
             if not out.is_absolute():
                 out = _BASE_DIR / out
             agg = json.loads((out / "aggregate.json").read_text(encoding="utf-8"))
-            plan_json = json.loads((out / "plan_final.json").read_text(encoding="utf-8"))
+            plan_json = json.loads(
+                (out / "plan_final.json").read_text(encoding="utf-8")
+            )
             report_path = out / "report.csv"
             sku = json.loads((out / "sku_week.json").read_text(encoding="utf-8"))
             mrp = json.loads((out / "mrp.json").read_text(encoding="utf-8"))
             plan = plan_json
-            report = str(report_path.relative_to(_BASE_DIR)) if report_path.exists() else None
+            report = (
+                str(report_path.relative_to(_BASE_DIR))
+                if report_path.exists()
+                else None
+            )
         except Exception as e:
             err = str(e)
     return templates.TemplateResponse(
@@ -100,58 +106,74 @@ def planning_run(
         input_dir = str(tmp_in)
 
     # 1) aggregate
-    _run_py(["scripts/plan_aggregate.py", "-i", input_dir, "-o", str(out_base / "aggregate.json")])
+    _run_py(
+        [
+            "scripts/plan_aggregate.py",
+            "-i",
+            input_dir,
+            "-o",
+            str(out_base / "aggregate.json"),
+        ]
+    )
     # 2) allocate
-    _run_py([
-        "scripts/allocate.py",
-        "-i",
-        str(out_base / "aggregate.json"),
-        "-I",
-        input_dir,
-        "-o",
-        str(out_base / "sku_week.json"),
-        "--weeks",
-        str(weeks),
-        "--round",
-        round_mode,
-    ])
+    _run_py(
+        [
+            "scripts/allocate.py",
+            "-i",
+            str(out_base / "aggregate.json"),
+            "-I",
+            input_dir,
+            "-o",
+            str(out_base / "sku_week.json"),
+            "--weeks",
+            str(weeks),
+            "--round",
+            round_mode,
+        ]
+    )
     # 3) mrp
-    _run_py([
-        "scripts/mrp.py",
-        "-i",
-        str(out_base / "sku_week.json"),
-        "-I",
-        input_dir,
-        "-o",
-        str(out_base / "mrp.json"),
-        "--lt-unit",
-        lt_unit,
-        "--weeks",
-        str(weeks),
-    ])
+    _run_py(
+        [
+            "scripts/mrp.py",
+            "-i",
+            str(out_base / "sku_week.json"),
+            "-I",
+            input_dir,
+            "-o",
+            str(out_base / "mrp.json"),
+            "--lt-unit",
+            lt_unit,
+            "--weeks",
+            str(weeks),
+        ]
+    )
     # 4) reconcile
-    _run_py([
-        "scripts/reconcile.py",
-        "-i",
-        str(out_base / "sku_week.json"),
-        str(out_base / "mrp.json"),
-        "-I",
-        input_dir,
-        "-o",
-        str(out_base / "plan_final.json"),
-        "--weeks",
-        str(weeks),
-    ])
+    _run_py(
+        [
+            "scripts/reconcile.py",
+            "-i",
+            str(out_base / "sku_week.json"),
+            str(out_base / "mrp.json"),
+            "-I",
+            input_dir,
+            "-o",
+            str(out_base / "plan_final.json"),
+            "--weeks",
+            str(weeks),
+        ]
+    )
     # 5) report
-    _run_py([
-        "scripts/report.py",
-        "-i",
-        str(out_base / "plan_final.json"),
-        "-I",
-        input_dir,
-        "-o",
-        str(out_base / "report.csv"),
-    ])
+    _run_py(
+        [
+            "scripts/report.py",
+            "-i",
+            str(out_base / "plan_final.json"),
+            "-I",
+            input_dir,
+            "-o",
+            str(out_base / "report.csv"),
+        ]
+    )
     rel = str(out_base.relative_to(_BASE_DIR))
     return RedirectResponse(url=f"/ui/planning?dir={rel}", status_code=303)
 

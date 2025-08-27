@@ -4,9 +4,14 @@ import json
 from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+
+
 def _get_registry():
     from app.run_registry import REGISTRY  # type: ignore
+
     return REGISTRY
+
+
 from app.utils import ms_to_jst_str
 from pathlib import Path
 
@@ -22,7 +27,16 @@ def ui_runs(request: Request):
         rows = []
         if hasattr(REGISTRY, "list_page"):
             try:
-                resp = REGISTRY.list_page(offset=0, limit=100, sort="started_at", order="desc", schema_version=None, config_id=None, scenario_id=None, detail=False)
+                resp = REGISTRY.list_page(
+                    offset=0,
+                    limit=100,
+                    sort="started_at",
+                    order="desc",
+                    schema_version=None,
+                    config_id=None,
+                    scenario_id=None,
+                    detail=False,
+                )
                 rows = resp.get("runs") or []
             except Exception:
                 rows = []
@@ -68,15 +82,21 @@ def ui_run_detail(request: Request, run_id: str):
         # fallback to DB
         try:
             from app import db as _db
+
             with _db._conn() as c:  # type: ignore[attr-defined]
-                row = c.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
+                row = c.execute(
+                    "SELECT * FROM runs WHERE run_id=?", (run_id,)
+                ).fetchone()
                 if row:
                     import json as _json
+
                     rec = {
                         "run_id": row["run_id"],
                         "summary": _json.loads(row["summary"] or "{}"),
                         "results": _json.loads(row["results"] or "[]"),
-                        "daily_profit_loss": _json.loads(row["daily_profit_loss"] or "[]"),
+                        "daily_profit_loss": _json.loads(
+                            row["daily_profit_loss"] or "[]"
+                        ),
                         "cost_trace": _json.loads(row["cost_trace"] or "[]"),
                         "config_id": row["config_id"],
                         "scenario_id": row["scenario_id"],

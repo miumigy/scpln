@@ -67,8 +67,12 @@ def _periods_from_alloc(alloc: Dict[str, Any]) -> List[str]:
     return sorted(seen)
 
 
-def _load_open_po(path: str | None, *, weeks: List[str]) -> Dict[Tuple[str, str], float]:
-    rec: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
+def _load_open_po(
+    path: str | None, *, weeks: List[str]
+) -> Dict[Tuple[str, str], float]:
+    rec: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(
+        float
+    )
     if not path or not os.path.exists(path):
         return dict(rec)
 
@@ -143,14 +147,40 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="MRPライト（LT/ロット/MOQ対応、任意BOM）")
     ap.add_argument("-i", "--input", required=True, help="allocateの出力JSON（SKU×週）")
     ap.add_argument("-o", "--output", required=True, help="出力JSON（MRP計画）")
-    ap.add_argument("-I", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（item/inventory/open_po/bom）")
+    ap.add_argument(
+        "-I",
+        "--input-dir",
+        dest="input_dir",
+        default=None,
+        help="CSVフォルダ（item/inventory/open_po/bom）",
+    )
     ap.add_argument("--item", dest="item", default=None, help="item.csv")
     ap.add_argument("--inventory", dest="inventory", default=None, help="inventory.csv")
     ap.add_argument("--open-po", dest="open_po", default=None, help="open_po.csv")
-    ap.add_argument("--bom", dest="bom", default=None, help="bom.csv（parent,child,qty）")
-    ap.add_argument("--lt-unit", dest="lt_unit", default="day", choices=["day", "week"], help="LTの単位")
-    ap.add_argument("--week-days", dest="week_days", type=int, default=7, help="週の日数（day→week換算）")
-    ap.add_argument("--weeks", dest="weeks_per_period", type=int, default=4, help="1期間あたりの週数（マッピング補助）")
+    ap.add_argument(
+        "--bom", dest="bom", default=None, help="bom.csv（parent,child,qty）"
+    )
+    ap.add_argument(
+        "--lt-unit",
+        dest="lt_unit",
+        default="day",
+        choices=["day", "week"],
+        help="LTの単位",
+    )
+    ap.add_argument(
+        "--week-days",
+        dest="week_days",
+        type=int,
+        default=7,
+        help="週の日数（day→week換算）",
+    )
+    ap.add_argument(
+        "--weeks",
+        dest="weeks_per_period",
+        type=int,
+        default=4,
+        help="1期間あたりの週数（マッピング補助）",
+    )
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:
@@ -169,7 +199,9 @@ def main() -> None:
     bom = _load_bom(bom_path)
 
     # SKU週の要求を集約（gross: demand, backlogは無視 or 参考。ここでは demand を採用）
-    gross_by_item_week: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
+    gross_by_item_week: DefaultDict[Tuple[str, str], float] = __import__(
+        "collections"
+    ).defaultdict(float)
     for r in alloc.get("rows", []):
         it = str(r.get("sku"))
         w = str(r.get("week"))
@@ -193,10 +225,15 @@ def main() -> None:
             return default
 
     rows_out: List[Dict[str, Any]] = []
-    on_hand_by_item: Dict[str, float] = {it: inv.get(it, 0.0) for it in set(k[0] for k in gross_by_item_week.keys()) | set(inv.keys())}
+    on_hand_by_item: Dict[str, float] = {
+        it: inv.get(it, 0.0)
+        for it in set(k[0] for k in gross_by_item_week.keys()) | set(inv.keys())
+    }
 
     for it in sorted(on_hand_by_item.keys()):
-        lt_w = _lt_weeks(get(it, "lt", 0.0), lt_unit=args.lt_unit, week_days=args.week_days)
+        lt_w = _lt_weeks(
+            get(it, "lt", 0.0), lt_unit=args.lt_unit, week_days=args.week_days
+        )
         lot = max(1.0, get(it, "lot", 1.0))
         moq = max(0.0, get(it, "moq", 0.0))
         on_hand = on_hand_by_item.get(it, 0.0)
@@ -218,7 +255,9 @@ def main() -> None:
                 # 解放タイミング（受入よりLT前、境界は0）
                 rel_idx = _roll_weeks(weeks, wi, lt_w)
                 planned_receipts[w] = planned_receipts.get(w, 0.0) + por
-                planned_releases[weeks[rel_idx]] = planned_releases.get(weeks[rel_idx], 0.0) + por
+                planned_releases[weeks[rel_idx]] = (
+                    planned_releases.get(weeks[rel_idx], 0.0) + por
+                )
             else:
                 # 受入なし、在庫更新
                 on_hand = available - gross

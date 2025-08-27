@@ -15,14 +15,25 @@ def run(cmd, cwd=None, env=None):
     e.setdefault("PYTHONPATH", str(ROOT))
     if env:
         e.update(env)
-    res = subprocess.run(cmd, cwd=cwd or ROOT, env=e, check=True, capture_output=True, text=True)
+    res = subprocess.run(
+        cmd, cwd=cwd or ROOT, env=e, check=True, capture_output=True, text=True
+    )
     return res
 
 
 def test_aggregate_supply_backlog(tmp_path: Path):
     out = tmp_path
     agg = out / "aggregate.json"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
     data = json.loads(agg.read_text(encoding="utf-8"))
     rows = data.get("rows", [])
     assert rows, "aggregate rows should not be empty"
@@ -42,8 +53,32 @@ def test_allocate_mass_balance(tmp_path: Path):
     agg = out / "aggregate.json"
     sku = out / "sku_week.json"
     # round=none で丸め誤差を避ける
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
-    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "none"])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "none",
+        ]
+    )
     sdata = json.loads(sku.read_text(encoding="utf-8"))
     rows = sdata.get("rows", [])
     assert rows, "allocate rows should not be empty"
@@ -75,9 +110,48 @@ def test_mrp_basic_properties(tmp_path: Path):
     agg = out / "aggregate.json"
     sku = out / "sku_week.json"
     mrp = out / "mrp.json"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
-    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "none"])
-    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "none",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "mrp.py"),
+            "-i",
+            str(sku),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(mrp),
+            "--lt-unit",
+            "day",
+            "--weeks",
+            "4",
+        ]
+    )
     m = json.loads(mrp.read_text(encoding="utf-8"))
     rows = m.get("rows", [])
     assert rows, "mrp rows should not be empty"
@@ -102,10 +176,63 @@ def test_reconcile_capacity_respected_and_report(tmp_path: Path):
     mrp = out / "mrp.json"
     plan = out / "plan_final.json"
     rep = out / "report.csv"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
-    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "int"])
-    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
-    run([sys.executable, str(SCRIPTS / "reconcile.py"), "-i", str(sku), str(mrp), "-I", str(SAMPLES), "-o", str(plan), "--weeks", "4"])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "int",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "mrp.py"),
+            "-i",
+            str(sku),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(mrp),
+            "--lt-unit",
+            "day",
+            "--weeks",
+            "4",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "reconcile.py"),
+            "-i",
+            str(sku),
+            str(mrp),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(plan),
+            "--weeks",
+            "4",
+        ]
+    )
 
     p = json.loads(plan.read_text(encoding="utf-8"))
     ws = p.get("weekly_summary", [])
@@ -118,7 +245,18 @@ def test_reconcile_capacity_respected_and_report(tmp_path: Path):
         assert adj <= cap + slack_in + 1e-6
 
     # KPI レポート生成と基本検証
-    run([sys.executable, str(SCRIPTS / "report.py"), "-i", str(plan), "-I", str(SAMPLES), "-o", str(rep)])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "report.py"),
+            "-i",
+            str(plan),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(rep),
+        ]
+    )
     content = rep.read_text(encoding="utf-8").splitlines()
     assert content and content[0].startswith("type,week"), "CSV header present"
     # サービス行に 2025-01-W2 の供給>0 を期待（LTシフトの受入）
@@ -136,10 +274,63 @@ def test_reconcile_spill_propagation_and_utilization(tmp_path: Path):
     sku = out / "sku_week.json"
     mrp = out / "mrp.json"
     plan = out / "plan_final.json"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
-    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "int"])
-    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
-    run([sys.executable, str(SCRIPTS / "reconcile.py"), "-i", str(sku), str(mrp), "-I", str(SAMPLES), "-o", str(plan), "--weeks", "4"])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "int",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "mrp.py"),
+            "-i",
+            str(sku),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(mrp),
+            "--lt-unit",
+            "day",
+            "--weeks",
+            "4",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "reconcile.py"),
+            "-i",
+            str(sku),
+            str(mrp),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(plan),
+            "--weeks",
+            "4",
+        ]
+    )
 
     p = json.loads(plan.read_text(encoding="utf-8"))
     ws = p.get("weekly_summary", [])
@@ -162,11 +353,75 @@ def test_fill_rate_bounds(tmp_path: Path):
     mrp = out / "mrp.json"
     plan = out / "plan_final.json"
     rep = out / "report.csv"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
-    run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", "4", "--round", "none"])
-    run([sys.executable, str(SCRIPTS / "mrp.py"), "-i", str(sku), "-I", str(SAMPLES), "-o", str(mrp), "--lt-unit", "day", "--weeks", "4"])
-    run([sys.executable, str(SCRIPTS / "reconcile.py"), "-i", str(sku), str(mrp), "-I", str(SAMPLES), "-o", str(plan), "--weeks", "4"])
-    run([sys.executable, str(SCRIPTS / "report.py"), "-i", str(plan), "-I", str(SAMPLES), "-o", str(rep)])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "none",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "mrp.py"),
+            "-i",
+            str(sku),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(mrp),
+            "--lt-unit",
+            "day",
+            "--weeks",
+            "4",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "reconcile.py"),
+            "-i",
+            str(sku),
+            str(mrp),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(plan),
+            "--weeks",
+            "4",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "report.py"),
+            "-i",
+            str(plan),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(rep),
+        ]
+    )
     content = rep.read_text(encoding="utf-8").splitlines()
     # 2行目以降がデータ
     for line in content[1:]:
@@ -189,17 +444,42 @@ def test_round_modes_and_weeks_variation_mass_balance(tmp_path: Path):
     weeks_cases = [3, 4, 5]
     round_modes = ["none", "int", "dec1", "dec2"]
     agg = out / "aggregate.json"
-    run([sys.executable, str(SCRIPTS / "plan_aggregate.py"), "-i", str(SAMPLES), "-o", str(agg)])
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
     adata = json.loads(agg.read_text(encoding="utf-8"))
     arows = {(r["family"], r["period"]): r for r in adata.get("rows", [])}
 
     for w in weeks_cases:
         for rm in round_modes:
             sku = out / f"sku_week_w{w}_{rm}.json"
-            run([sys.executable, str(SCRIPTS / "allocate.py"), "-i", str(agg), "-I", str(SAMPLES), "-o", str(sku), "--weeks", str(w), "--round", rm])
+            run(
+                [
+                    sys.executable,
+                    str(SCRIPTS / "allocate.py"),
+                    "-i",
+                    str(agg),
+                    "-I",
+                    str(SAMPLES),
+                    "-o",
+                    str(sku),
+                    "--weeks",
+                    str(w),
+                    "--round",
+                    rm,
+                ]
+            )
             sdata = json.loads(sku.read_text(encoding="utf-8"))
             rows = sdata.get("rows", [])
             from collections import defaultdict
+
             dem = defaultdict(float)
             sup = defaultdict(float)
             bac = defaultdict(float)

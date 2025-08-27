@@ -118,7 +118,9 @@ def init_db() -> None:
             """
         )
         try:
-            c.execute("CREATE INDEX IF NOT EXISTS idx_scenarios_parent ON scenarios(parent_id)")
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scenarios_parent ON scenarios(parent_id)"
+            )
         except Exception:
             pass
         # hierarchy master tables

@@ -9,8 +9,10 @@ from engine.simulator import SupplyChainSimulator
 import time
 from app.metrics import RUNS_TOTAL, SIM_DURATION
 
+
 def _get_registry():
     from app.run_registry import REGISTRY, _BACKEND, _DB_MAX_ROWS  # type: ignore
+
     return REGISTRY, _BACKEND, _DB_MAX_ROWS
 
 
@@ -112,7 +114,11 @@ def post_simulation(
         pass
     # DB使用時は容量上限で古いRunをクリーンアップ
     try:
-        if (_BACKEND == "db") and (_DB_MAX_ROWS > 0) and hasattr(REGISTRY, "cleanup_by_capacity"):
+        if (
+            (_BACKEND == "db")
+            and (_DB_MAX_ROWS > 0)
+            and hasattr(REGISTRY, "cleanup_by_capacity")
+        ):
             REGISTRY.cleanup_by_capacity(_DB_MAX_ROWS)
     except Exception:
         pass
