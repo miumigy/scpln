@@ -8,6 +8,7 @@ from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import time
 from app.metrics import RUNS_TOTAL, SIM_DURATION
+from app import run_latest as _run_latest
 
 
 def _get_registry():
@@ -99,6 +100,10 @@ def post_simulation(
             "config_json": cfg_json,
         },
     )
+    try:
+        _run_latest.record(scenario_id, run_id)
+    except Exception:
+        pass
     try:
         logging.debug(
             "config_saved",

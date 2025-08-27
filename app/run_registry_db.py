@@ -110,7 +110,9 @@ class RunRegistryDB:
                 "SELECT * FROM runs WHERE run_id=?",
                 (run_id,),
             ).fetchone()
-            return self._row_to_rec(row) if row else None
+            # 後方互換: メモリ実装は見つからない場合に {} を返すコードパスがあるため、
+            # DB実装でも {} を返して同等に扱えるようにする
+            return self._row_to_rec(row) if row else {}
 
     def list_ids(self) -> List[str]:
         with _conn() as c:

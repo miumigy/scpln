@@ -225,6 +225,15 @@ bash scripts/stop.sh            # 停止
 - 保存内容（主な項目）: `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`, `results`, `daily_profit_loss`, `cost_trace`, `config_id`, `config_json`
 - 参照API: `/runs`, `/runs/{id}`（上記参照）
 
+## 推奨設定（CI/ローカル）
+
+- REGISTRY_BACKEND=db: ラン履歴の永続化を有効化（SQLite `data/scpln.db`）。
+- RUNS_DB_MAX_ROWS=1000 以上: 直近のラン履歴を十分保持（クリーンアップの干渉を回避）。
+- SCPLN_DB=data/scpln.db: 既定DBパス（環境に合わせて変更可）。
+- AUTH_MODE=none（CI）: 認証を無効化してAPI/UIテストを簡素化。
+
+CIワークフロー（.github/workflows/ci.yml）には上記の既定を反映済みです。テスト内で個別に環境を上書きするケース（例: RUNS_DB_MAX_ROWS=2）とは独立して動作します。
+
 ## 運用コマンド / 環境変数
 
 - コマンド: `serve.sh`, `stop.sh`, `status.sh`, `health.sh`

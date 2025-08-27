@@ -207,47 +207,94 @@ def ui_compare_preset(
     want = [int(base_scenario), *targets]
     ids: List[str] = []
 
-    def _latest_for_sid(sid: int) -> str | None:
-        # DBバックエンドのときはAPIで絞り込み
+    # まず最新マップ（run_latest）から引く（各シナリオの直近Run）
+    try:
+        from app import run_latest as _run_latest
+
+        for sid in want:
+            picks = _run_latest.latest(int(sid), limit=1)
+            if picks:
+                ids.append(picks[0])
+    except Exception:
+        pass
+
+    # 近傍のRunを広く集めてから、シナリオごとの最新を選ぶ（順序は新しい→古い）
+    recent: List[dict] = []
+    try:
+        # 1) REGISTRY.list()（メモリ/DB双方で有用）
+        recent.extend(getattr(REGISTRY, "list", lambda: [])() or [])
+    except Exception:
+        pass
+    try:
+        # 1.5) メモリREGISTRYの内部（_runs）を直接参照（順序は started_at で後段整列）
+        if hasattr(REGISTRY, "_runs"):
+            vals = list(getattr(REGISTRY, "_runs").values())
+            recent.extend(vals)
+    except Exception:
+        pass
+    try:
+        # 2) REGISTRY.list_page（DBバックエンドの軽量メタ）
         if hasattr(REGISTRY, "list_page"):
-            try:
-                resp = REGISTRY.list_page(
-                    offset=0,
-                    limit=1 if limit is None else max(1, int(limit or 1)),
-                    sort="started_at",
-                    order="desc",
-                    schema_version=None,
-                    config_id=None,
-                    scenario_id=sid,
-                    detail=False,
+            resp = REGISTRY.list_page(
+                offset=0,
+                limit=200,
+                sort="started_at",
+                order="desc",
+                schema_version=None,
+                config_id=None,
+                scenario_id=None,
+                detail=False,
+            )
+            recent.extend(resp.get("runs") or [])
+    except Exception:
+        pass
+    try:
+        # 3) SQLite直クエリ（最後の保険）
+        with _db._conn() as c:  # type: ignore[attr-defined]
+            rows = c.execute(
+                "SELECT run_id, scenario_id, started_at FROM runs ORDER BY started_at DESC, run_id DESC LIMIT 200"
+            ).fetchall()
+            for r in rows:
+                recent.append(
+                    {
+                        "run_id": r["run_id"],
+                        "scenario_id": r["scenario_id"],
+                        "started_at": r.get("started_at") if hasattr(r, "get") else r["started_at"],
+                    }
                 )
-                rows = resp.get("runs") or []
-                if rows:
-                    return rows[0].get("run_id")
-            except Exception:
-                pass
-        # メモリ実装/後方互換: list_ids を走査
-        try:
-            for rid in getattr(REGISTRY, "list_ids", lambda: [])():
-                rec = REGISTRY.get(rid) or {}
-                try:
-                    rec_sid = rec.get("scenario_id")
-                    if rec_sid is None:
-                        continue
-                    if int(rec_sid) == int(sid):
-                        return rid
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        return None
+    except Exception:
+        pass
+    # 重複除去（最新優先）
+    seen = set()
+    dedup: List[dict] = []
+    # started_at の降順に整列（欠損は後回し）
+    recent_sorted = sorted(
+        (recent or []), key=lambda r: (r.get("started_at") is None, r.get("started_at") or 0), reverse=True
+    )
+    for rec in recent_sorted:
+        rid = (rec or {}).get("run_id")
+        if not rid or rid in seen:
+            continue
+        seen.add(rid)
+        dedup.append(rec)
 
     for sid in want:
-        rid = _latest_for_sid(int(sid))
-        if not rid:
-            raise HTTPException(status_code=404, detail="runs not found for scenarios")
-        if rid not in ids:
-            ids.append(rid)
+        chosen: str | None = None
+        for rec in dedup:
+            try:
+                if rec.get("scenario_id") is None:
+                    continue
+                if int(rec.get("scenario_id")) == int(sid):
+                    chosen = rec.get("run_id")
+                    break
+            except Exception:
+                continue
+        if chosen and chosen not in ids:
+            ids.append(chosen)
+
+    if len(ids) < len(want):
+        # 指定された全シナリオについてRunが見つからない場合は404
+        raise HTTPException(status_code=404, detail="runs not found for scenarios")
     # reuse ui_compare path by constructing rows/diffs here
     # keys filter
     COMPARE_KEYS = [
