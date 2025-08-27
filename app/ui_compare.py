@@ -188,22 +188,54 @@ def ui_compare_preset(
     threshold: float | None = None,
     keys: str | None = None,
 ):
+    # 入力の正規化
     try:
         targets = [int(x) for x in (target_scenarios or "").split(",") if x.strip()]
     except Exception:
         targets = []
     if not targets:
         raise HTTPException(status_code=400, detail="target_scenarios required")
-    # 厳格版: 各シナリオごとに最新Runを取得（全シナリオで1件以上見つからなければ404）
+
+    # REGISTRY からシナリオごとの最新Runを厳密に取得（メモリ/DBのいずれでも動作）
+    REGISTRY = _get_registry()
+    want = [int(base_scenario), *targets]
     ids: List[str] = []
-    scen_list = [int(base_scenario)] + [int(x) for x in targets]
-    for sid in scen_list:
-        got = _latest_runs_by_scenarios(sid, [], limit=1)
-        if not got:
+
+    def _latest_for_sid(sid: int) -> str | None:
+        # DBバックエンドのときはAPIで絞り込み
+        if hasattr(REGISTRY, "list_page"):
+            try:
+                resp = REGISTRY.list_page(
+                    offset=0,
+                    limit=1 if limit is None else max(1, int(limit or 1)),
+                    sort="started_at",
+                    order="desc",
+                    schema_version=None,
+                    config_id=None,
+                    scenario_id=sid,
+                    detail=False,
+                )
+                rows = resp.get("runs") or []
+                if rows:
+                    return rows[0].get("run_id")
+            except Exception:
+                pass
+        # メモリ実装/後方互換: list_ids を走査
+        try:
+            for rid in getattr(REGISTRY, "list_ids", lambda: [])():
+                rec = REGISTRY.get(rid) or {}
+                if rec.get("scenario_id") == sid:
+                    return rid
+        except Exception:
+            pass
+        return None
+
+    for sid in want:
+        rid = _latest_for_sid(int(sid))
+        if not rid:
             raise HTTPException(status_code=404, detail="runs not found for scenarios")
-        for rid in got:
-            if rid not in ids:
-                ids.append(rid)
+        if rid not in ids:
+            ids.append(rid)
     # reuse ui_compare path by constructing rows/diffs here
     # keys filter
     COMPARE_KEYS = [
