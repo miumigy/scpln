@@ -234,6 +234,17 @@ def ui_compare_preset(
                     continue
         except Exception:
             pass
+        # 直接DBへフォールバック（メモリ/DBどちらでも利用可能）
+        try:
+            with _db._conn() as c:  # type: ignore[attr-defined]
+                row = c.execute(
+                    "SELECT run_id FROM runs WHERE scenario_id=? ORDER BY started_at DESC, run_id DESC LIMIT 1",
+                    (int(sid),),
+                ).fetchone()
+                if row and row["run_id"]:
+                    return row["run_id"]
+        except Exception:
+            pass
         return None
 
     for sid in want:
