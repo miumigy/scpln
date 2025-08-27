@@ -194,29 +194,16 @@ def ui_compare_preset(
         targets = []
     if not targets:
         raise HTTPException(status_code=400, detail="target_scenarios required")
-    ids = _latest_runs_by_scenarios(
-        int(base_scenario), targets, limit=max(1, int(limit or 1))
-    )
-    # フォールバック: シナリオ抽出が不安定な環境では、直近のRunから補完（最新順）
-    need = 1 + len(targets)
-    if len(ids) < need:
-        try:
-            REGISTRY = _get_registry()
-            recent = []
-            if hasattr(REGISTRY, "list_ids"):
-                recent = getattr(REGISTRY, "list_ids", lambda: [])()
-            if not recent and hasattr(REGISTRY, "list_page"):
-                resp = REGISTRY.list_page(offset=0, limit=need, sort="started_at", order="desc", schema_version=None, config_id=None, scenario_id=None, detail=False)
-                recent = [r.get("run_id") for r in (resp.get("runs") or []) if r.get("run_id")]
-            for rid in recent:
-                if rid not in ids:
-                    ids.append(rid)
-                if len(ids) >= need:
-                    break
-        except Exception:
-            pass
-    if len(ids) < 2:
-        raise HTTPException(status_code=404, detail="runs not found for scenarios")
+    # 厳格版: 各シナリオごとに最新Runを取得（全シナリオで1件以上見つからなければ404）
+    ids: List[str] = []
+    scen_list = [int(base_scenario)] + [int(x) for x in targets]
+    for sid in scen_list:
+        got = _latest_runs_by_scenarios(sid, [], limit=1)
+        if not got:
+            raise HTTPException(status_code=404, detail="runs not found for scenarios")
+        for rid in got:
+            if rid not in ids:
+                ids.append(rid)
     # reuse ui_compare path by constructing rows/diffs here
     # keys filter
     COMPARE_KEYS = [
