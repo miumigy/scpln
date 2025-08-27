@@ -12,6 +12,9 @@ permissions:
 jobs:
   mypy:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY_BACKEND: db
+      RUNS_DB_MAX_ROWS: 1000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,4 +35,3 @@ jobs:
           mypy --ignore-missing-imports .
           echo "exit_code=$?" >> $GITHUB_OUTPUT
           set -e
-

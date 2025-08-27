@@ -13,6 +13,9 @@ permissions:
 jobs:
   autofix:
     runs-on: ubuntu-latest
+    env:
+      REGISTRY_BACKEND: db
+      RUNS_DB_MAX_ROWS: 1000
     steps:
       - name: Checkout
       
