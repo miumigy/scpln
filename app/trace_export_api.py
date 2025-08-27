@@ -211,7 +211,7 @@ def get_config_json(run_id: str):
 
 @app.get("/runs/{run_id}/config.csv")
 def get_config_csv(run_id: str):
-    rec = REGISTRY.get(run_id)
+    rec = _get_rec(run_id)
     if not rec:
         raise HTTPException(status_code=404, detail="run not found")
     buf = io.StringIO()
