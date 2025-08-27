@@ -1,0 +1,58 @@
+name: deny-env-commits
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check-dotenv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Ensure .env is not tracked
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo '::error file=.env,line=1::.env をリポジトリに含めないでください。configs/env.example を使用してください。'
+            exit 1
+          fi
+          echo "OK: .env は追跡されていません"
+      - name: Detect secret-like assignments in diffs
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 判定範囲: PRは base..HEAD、通常pushは HEAD~1..HEAD（初回コミットは全スキップ）
+          RANGE=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+            RANGE="origin/${{ github.base_ref }}..HEAD"
+          else
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              RANGE="HEAD~1..HEAD"
+            fi
+          fi
+
+          if [ -n "$RANGE" ]; then
+            git diff --no-color -U0 "$RANGE" \
+            | awk '/^\+\+\+ b\//{file=substr($0,7);next} /^\+[^+]/{print file"\t"substr($0,2)}' \
+            | while IFS=$'\t' read -r file line; do
+                # 除外: サンプルenv / コメント
+                [ "$file" = "configs/env.example" ] && continue
+                echo "$line" | grep -Eq '^\s*#' && continue
+                if echo "$line" | grep -Eq '(API_KEY_VALUE|BASIC_PASS)\s*='; then
+                  masked=$(echo "$line" | sed -E 's/(API_KEY_VALUE|BASIC_PASS)\s*=.*/\1=***REDACTED***/')
+                  echo "$file:$masked" >> /tmp/ci_secret_hits
+                fi
+              done || true
+          fi
+
+          if [ -s /tmp/ci_secret_hits ]; then
+            echo "以下の差分に秘匿値と思われる直書きを検出しました:" >&2
+            sort -u /tmp/ci_secret_hits >&2 || true
+            echo '::error::秘匿値は .env（Git管理外）またはシークレットストアで管理してください。' >&2
+            exit 1
+          else
+            echo "OK: 差分に秘匿値の直書きは検出されませんでした"
+          fi

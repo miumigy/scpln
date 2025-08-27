@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 目的: .env の誤コミットおよび秘匿値の直書き混入をブロック
+
+STAGED_FILES=$(git diff --cached --name-only)
+
+# 1) .env のコミットを禁止
+if echo "$STAGED_FILES" | grep -Fxq ".env"; then
+  echo "[error] .env をコミットできません。configs/env.example を使用し、.env はGit管理外にしてください。" >&2
+  exit 1
+fi
+
+# 2) 追加行に秘匿値の直書きがないか検知（API_KEY_VALUE, BASIC_PASS）
+#    - コメント行(+#...)は対象外
+#    - configs/env.example は対象外
+
+git diff --cached -U0 --no-color \
+ | awk '
+   /^\+\+\+ b\//{file=substr($0,7); next}
+   /^\+[^+]/ {print file "\t" substr($0,2)}
+ ' \
+ | while IFS=$'\t' read -r file line; do
+     # 除外: サンプルenv（例示のための記述）
+     if [ "$file" = "configs/env.example" ]; then
+       continue
+     fi
+     # 除外: コメント行
+     if echo "$line" | grep -Eq '^\s*#'; then
+       continue
+     fi
+     if echo "$line" | grep -Eq '(API_KEY_VALUE|BASIC_PASS)\s*='; then
+       # 値をマスク
+       masked=$(echo "$line" | sed -E 's/(API_KEY_VALUE|BASIC_PASS)\s*=.*/\1=***REDACTED***/')
+       echo "$file:$masked" >> /tmp/precommit_secret_hits
+     fi
+   done || true
+
+if [ -s /tmp/precommit_secret_hits ]; then
+  echo "[error] 秘匿値と思われる設定の直書きを検出しました（値はマスク済み）。" >&2
+  sort -u /tmp/precommit_secret_hits >&2 || true
+  echo "[hint] configs/env.example を例に、実値は .env（Git管理外）またはシークレットストアで管理してください。" >&2
+  exit 1
+fi
+
+exit 0
+
