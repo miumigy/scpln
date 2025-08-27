@@ -63,4 +63,3 @@ class AggregatePlanOutput(BaseModel):
     schema_version: str = Field(default="agg-1.0")
     rows: List[AggregatePlanRow] = Field(default_factory=list)
     note: Optional[str] = None
-

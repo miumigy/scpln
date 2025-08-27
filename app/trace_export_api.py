@@ -5,10 +5,16 @@ from typing import Any, Dict, Iterable, List, Set
 from fastapi import HTTPException, Response
 from starlette.responses import StreamingResponse
 from app.api import app
+
+
 def _get_registry():
     from app.run_registry import REGISTRY  # type: ignore
+
     return REGISTRY
+
+
 from app import db as _db
+
 
 def _get_rec(run_id: str):
     rec = _get_registry().get(run_id)
@@ -21,17 +27,25 @@ def _get_rec(run_id: str):
             if not row:
                 return None
             import json as _json
+
             return {
                 "run_id": row["run_id"],
                 "summary": _json.loads(row["summary"] or "{}"),
                 "results": _json.loads(row["results"] or "[]"),
                 "daily_profit_loss": _json.loads(row["daily_profit_loss"] or "[]"),
                 "cost_trace": _json.loads(row["cost_trace"] or "[]"),
-                "config_id": row.get("config_id") if hasattr(row, "get") else row["config_id"],
-                "scenario_id": row.get("scenario_id") if hasattr(row, "get") else row["scenario_id"],
+                "config_id": (
+                    row.get("config_id") if hasattr(row, "get") else row["config_id"]
+                ),
+                "scenario_id": (
+                    row.get("scenario_id")
+                    if hasattr(row, "get")
+                    else row["scenario_id"]
+                ),
             }
     except Exception:
         return None
+
 
 FIELDS = [
     "run_id",

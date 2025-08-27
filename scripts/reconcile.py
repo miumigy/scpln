@@ -50,9 +50,19 @@ def _weeks_from(alloc: Dict[str, Any], mrp: Dict[str, Any]) -> List[str]:
     return sorted(seen)
 
 
-def _weekly_capacity(input_dir: str | None, capacity_path: str | None, *, weeks_per_period: int, weeks: List[str]) -> Dict[str, float]:
-    path = capacity_path or (os.path.join(input_dir, "capacity.csv") if input_dir else None)
-    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+def _weekly_capacity(
+    input_dir: str | None,
+    capacity_path: str | None,
+    *,
+    weeks_per_period: int,
+    weeks: List[str],
+) -> Dict[str, float]:
+    path = capacity_path or (
+        os.path.join(input_dir, "capacity.csv") if input_dir else None
+    )
+    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(
+        float
+    )
     if path and os.path.exists(path):
         for r in _read_csv(path):
             per = str(r.get("period"))
@@ -65,13 +75,15 @@ def _weekly_capacity(input_dir: str | None, capacity_path: str | None, *, weeks_
     out: Dict[str, float] = {}
     for w in weeks:
         # 期待形式 'YYYY-MM-Wk' → 'YYYY-MM'
-        per = w[:7] if len(w) >= 7 and w[4] == '-' else w
+        per = w[:7] if len(w) >= 7 and w[4] == "-" else w
         monthly = cap_by_period.get(per, 0.0)
         out[w] = monthly / max(1, weeks_per_period)
     return out
 
 
-def _adjust_by_capacity(weeks: List[str], load_by_week: Dict[str, float], cap_by_week: Dict[str, float]) -> Tuple[Dict[str, float], List[Dict[str, Any]]]:
+def _adjust_by_capacity(
+    weeks: List[str], load_by_week: Dict[str, float], cap_by_week: Dict[str, float]
+) -> Tuple[Dict[str, float], List[Dict[str, Any]]]:
     adj: Dict[str, float] = {}
     report: List[Dict[str, Any]] = []
     slack_carry = 0.0
@@ -89,27 +101,43 @@ def _adjust_by_capacity(weeks: List[str], load_by_week: Dict[str, float], cap_by
             spill_made = demand - effective
             slack_carry = 0.0
         spill_next = spill_made
-        report.append({
-            "week": w,
-            "capacity": cap,
-            "original_load": float(load_by_week.get(w, 0.0)),
-            "carried_slack_in": round(effective - cap, 6),
-            "spill_in": round(demand - float(load_by_week.get(w, 0.0)), 6),
-            "adjusted_load": adj[w],
-            "spill_out": spill_made,
-            "slack_carry_out": slack_carry,
-        })
+        report.append(
+            {
+                "week": w,
+                "capacity": cap,
+                "original_load": float(load_by_week.get(w, 0.0)),
+                "carried_slack_in": round(effective - cap, 6),
+                "spill_in": round(demand - float(load_by_week.get(w, 0.0)), 6),
+                "adjusted_load": adj[w],
+                "spill_out": spill_made,
+                "slack_carry_out": slack_carry,
+            }
+        )
     return adj, report
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="製販物整合（CRPライト）")
-    ap.add_argument("-i", "--inputs", nargs=2, required=True, help="allocate.json と mrp.json のパス（順不同可）")
+    ap.add_argument(
+        "-i",
+        "--inputs",
+        nargs=2,
+        required=True,
+        help="allocate.json と mrp.json のパス（順不同可）",
+    )
     ap.add_argument("-o", "--output", required=True, help="整合後の計画JSON")
-    ap.add_argument("-I", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（capacity.csv, mix_share.csv）")
+    ap.add_argument(
+        "-I",
+        "--input-dir",
+        dest="input_dir",
+        default=None,
+        help="CSVフォルダ（capacity.csv, mix_share.csv）",
+    )
     ap.add_argument("--capacity", dest="capacity", default=None, help="capacity.csv")
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv（FG判定）")
-    ap.add_argument("--weeks", dest="weeks_per_period", type=int, default=4, help="1期間の週数")
+    ap.add_argument(
+        "--weeks", dest="weeks_per_period", type=int, default=4, help="1期間の週数"
+    )
     args = ap.parse_args()
 
     # 入力を識別
@@ -124,7 +152,12 @@ def main() -> None:
 
     weeks = _weeks_from(alloc, mrp)
     fg_skus = set(_load_mix(args.input_dir, args.mix))
-    cap_w = _weekly_capacity(args.input_dir, args.capacity, weeks_per_period=args.weeks_per_period, weeks=weeks)
+    cap_w = _weekly_capacity(
+        args.input_dir,
+        args.capacity,
+        weeks_per_period=args.weeks_per_period,
+        weeks=weeks,
+    )
 
     # 週別のFG解放ロード
     load_by_week: DefaultDict[str, float] = __import__("collections").defaultdict(float)
@@ -140,7 +173,9 @@ def main() -> None:
 
     # 週別係数を用いてFGの解放をスケーリング + 受入の再配分（lt_weeksでシフト）
     rows_out: List[Dict[str, Any]] = []
-    receipt_adj: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
+    receipt_adj: DefaultDict[Tuple[str, str], float] = __import__(
+        "collections"
+    ).defaultdict(float)
     for r in mrp.get("rows", []):
         it = str(r.get("item"))
         w = str(r.get("week"))

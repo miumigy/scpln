@@ -74,4 +74,3 @@ def test_runs_cleanup_capacity(tmp_path: Path):
     assert ids[0] not in got_ids
     # newest two present (order may be desc)
     assert set(ids[1:]) <= set(got_ids)
-

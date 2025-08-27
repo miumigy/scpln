@@ -18,6 +18,7 @@ import csv
 import json
 import os
 from typing import Dict, Any, List, Tuple, DefaultDict
+
 # 注意: PR1 のスタブは外部依存を避けるため、pydantic等の導入は行わない
 # 将来PRで planning.schemas を参照し厳格化する
 
@@ -83,15 +84,21 @@ def load_inputs(
     }
 
 
-def _aggregate_plan(demand_rows: List[Dict[str, Any]], capacity_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _aggregate_plan(
+    demand_rows: List[Dict[str, Any]], capacity_rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     # period別の総能力
-    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(
+        float
+    )
     for r in capacity_rows:
         p = str(r.get("period"))
         cap_by_period[p] += _coerce_float(r, "capacity")
 
     # (family, period)別の需要と period総需要
-    dem_by_fp: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(float)
+    dem_by_fp: DefaultDict[Tuple[str, str], float] = __import__(
+        "collections"
+    ).defaultdict(float)
     dem_sum_by_p: DefaultDict[str, float] = __import__("collections").defaultdict(float)
     families: set[str] = set()
     periods: set[str] = set()
@@ -132,12 +139,22 @@ def _aggregate_plan(demand_rows: List[Dict[str, Any]], capacity_rows: List[Dict[
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="粗粒度S&OP入力の検証と雛形出力（PR1スタブ）")
-    ap.add_argument("-i", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（demand_family.csv/capacity.csv/mix_share.csv）")
+    ap = argparse.ArgumentParser(
+        description="粗粒度S&OP入力の検証と雛形出力（PR1スタブ）"
+    )
+    ap.add_argument(
+        "-i",
+        "--input-dir",
+        dest="input_dir",
+        default=None,
+        help="CSVフォルダ（demand_family.csv/capacity.csv/mix_share.csv）",
+    )
     ap.add_argument("--demand", dest="demand", default=None, help="demand_family.csv")
     ap.add_argument("--capacity", dest="capacity", default=None, help="capacity.csv")
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv")
-    ap.add_argument("-o", "--output", dest="output", required=True, help="出力JSONパス（雛形）")
+    ap.add_argument(
+        "-o", "--output", dest="output", required=True, help="出力JSONパス（雛形）"
+    )
     args = ap.parse_args()
 
     ds = load_inputs(args.input_dir, args.demand, args.capacity, args.mix)
@@ -146,9 +163,7 @@ def main() -> None:
 
     payload = {
         "schema_version": "agg-1.0",
-        "note": (
-            "PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。"
-        ),
+        "note": ("PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。"),
         "inputs_summary": {
             "demand_rows": len(ds["demand_rows"]),
             "capacity_rows": len(ds["capacity_rows"]),

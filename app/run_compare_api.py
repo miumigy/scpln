@@ -4,10 +4,14 @@ from fastapi import Body, HTTPException, Query, Request
 import os
 from app.api import app
 
+
 def _get_registry():
     # 動的取得（テスト環境での再ロード・環境切替に対応）
     from app.run_registry import REGISTRY, _BACKEND  # type: ignore
+
     return REGISTRY, _BACKEND
+
+
 from app.metrics import (
     RUNS_LIST_REQUESTS,
     RUNS_LIST_RETURNED,
@@ -133,6 +137,7 @@ def list_runs(
     # DBバックエンド時は上限に応じたクリーンアップを実施（テスト・運用の安定化）
     try:
         import os as _os
+
         max_rows = int(_os.getenv("RUNS_DB_MAX_ROWS", "0") or 0)
         if max_rows > 0 and hasattr(REGISTRY, "cleanup_by_capacity"):
             REGISTRY.cleanup_by_capacity(max_rows)

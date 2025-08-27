@@ -16,7 +16,7 @@ import argparse
 import csv
 import json
 import os
-from typing import Dict, Any, List, Tuple, DefaultDict
+from typing import Dict, Any, List, DefaultDict
 
 
 def _read_csv(path: str) -> List[Dict[str, Any]]:
@@ -35,7 +35,13 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="KPI/レポート出力")
     ap.add_argument("-i", "--input", required=True, help="reconcileの出力JSON")
     ap.add_argument("-o", "--output", required=True, help="CSV出力パス")
-    ap.add_argument("-I", "--input-dir", dest="input_dir", default=None, help="CSVフォルダ（mix_share.csv）")
+    ap.add_argument(
+        "-I",
+        "--input-dir",
+        dest="input_dir",
+        default=None,
+        help="CSVフォルダ（mix_share.csv）",
+    )
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv（FG抽出）")
     args = ap.parse_args()
 
@@ -54,41 +60,49 @@ def main() -> None:
         except Exception:
             cap, adj = 0.0, 0.0
         util = (adj / cap) if cap > 0 else 0.0
-        cap_rows.append({
-            "type": "capacity",
-            "week": r.get("week"),
-            "capacity": round(cap, 6),
-            "original_load": round(float(r.get("original_load", 0) or 0), 6),
-            "adjusted_load": round(adj, 6),
-            "utilization": round(util, 6),
-            "spill_in": round(float(r.get("spill_in", 0) or 0), 6),
-            "spill_out": round(float(r.get("spill_out", 0) or 0), 6),
-        })
+        cap_rows.append(
+            {
+                "type": "capacity",
+                "week": r.get("week"),
+                "capacity": round(cap, 6),
+                "original_load": round(float(r.get("original_load", 0) or 0), 6),
+                "adjusted_load": round(adj, 6),
+                "utilization": round(util, 6),
+                "spill_in": round(float(r.get("spill_in", 0) or 0), 6),
+                "spill_out": round(float(r.get("spill_out", 0) or 0), 6),
+            }
+        )
 
     # serviceセクション（FGのみ集計）
     svc_rows = []
-    by_week: DefaultDict[str, Dict[str, float]] = __import__("collections").defaultdict(lambda: {"demand": 0.0, "supply": 0.0})
+    by_week: DefaultDict[str, Dict[str, float]] = __import__("collections").defaultdict(
+        lambda: {"demand": 0.0, "supply": 0.0}
+    )
     for r in rows:
         it = str(r.get("item"))
         if it not in fg_skus:
             continue
         w = str(r.get("week"))
         demand = float(r.get("gross_req", 0) or 0)
-        supply_plan = float(r.get("scheduled_receipts", 0) or 0) + float(r.get("planned_order_receipt_adj", 0) or 0)
+        supply_plan = float(r.get("scheduled_receipts", 0) or 0) + float(
+            r.get("planned_order_receipt_adj", 0) or 0
+        )
         by_week[w]["demand"] += demand
         by_week[w]["supply"] += supply_plan
 
-    for w in (weeks or sorted(by_week.keys())):
+    for w in weeks or sorted(by_week.keys()):
         d = by_week[w]["demand"]
         s = by_week[w]["supply"]
         fill = (s / d) if d > 0 else 1.0
-        svc_rows.append({
-            "type": "service",
-            "week": w,
-            "demand": round(d, 6),
-            "supply_plan": round(s, 6),
-            "fill_rate": round(min(1.0, fill), 6),
-        })
+        svc_rows.append(
+            {
+                "type": "service",
+                "week": w,
+                "demand": round(d, 6),
+                "supply_plan": round(s, 6),
+                "fill_rate": round(min(1.0, fill), 6),
+            }
+        )
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
     with open(args.output, "w", newline="", encoding="utf-8") as f:
