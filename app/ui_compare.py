@@ -201,6 +201,17 @@ def ui_compare_preset(
     want = [int(base_scenario), *targets]
     ids: List[str] = []
 
+    # まず最新マップ（run_latest）から引く（各シナリオの直近Run）
+    try:
+        from app import run_latest as _run_latest
+
+        for sid in want:
+            picks = _run_latest.latest(int(sid), limit=1)
+            if picks:
+                ids.append(picks[0])
+    except Exception:
+        pass
+
     # 近傍のRunを広く集めてから、シナリオごとの最新を選ぶ（順序は新しい→古い）
     recent: List[dict] = []
     try:
