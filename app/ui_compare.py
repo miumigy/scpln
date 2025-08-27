@@ -209,6 +209,13 @@ def ui_compare_preset(
     except Exception:
         pass
     try:
+        # 1.5) メモリREGISTRYの内部（_runs）を直接参照（順序は started_at で後段整列）
+        if hasattr(REGISTRY, "_runs"):
+            vals = list(getattr(REGISTRY, "_runs").values())
+            recent.extend(vals)
+    except Exception:
+        pass
+    try:
         # 2) REGISTRY.list_page（DBバックエンドの軽量メタ）
         if hasattr(REGISTRY, "list_page"):
             resp = REGISTRY.list_page(
@@ -243,7 +250,11 @@ def ui_compare_preset(
     # 重複除去（最新優先）
     seen = set()
     dedup: List[dict] = []
-    for rec in recent:
+    # started_at の降順に整列（欠損は後回し）
+    recent_sorted = sorted(
+        (recent or []), key=lambda r: (r.get("started_at") is None, r.get("started_at") or 0), reverse=True
+    )
+    for rec in recent_sorted:
         rid = (rec or {}).get("run_id")
         if not rid or rid in seen:
             continue
@@ -264,32 +275,8 @@ def ui_compare_preset(
         if chosen and chosen not in ids:
             ids.append(chosen)
 
-    # いずれか欠けた場合は直近のRunで補完（テストの近接実行で確実に埋まる）
     if len(ids) < len(want):
-        last_needed = len(want) - len(ids)
-        # REGISTRY から最新ID
-        tail: list[str] = []
-        try:
-            tail.extend(getattr(REGISTRY, "list_ids", lambda: [])() or [])
-        except Exception:
-            pass
-        # DBからも補完
-        try:
-            with _db._conn() as c:  # type: ignore[attr-defined]
-                rows = c.execute(
-                    "SELECT run_id FROM runs ORDER BY started_at DESC, run_id DESC LIMIT ?",
-                    (max(0, last_needed * 2),),
-                ).fetchall()
-                tail.extend([r["run_id"] for r in rows])
-        except Exception:
-            pass
-        for rid in tail:
-            if len(ids) >= len(want):
-                break
-            if rid not in ids:
-                ids.append(rid)
-    if len(ids) < len(want):
-        # それでも不足する場合のみ404
+        # 指定された全シナリオについてRunが見つからない場合は404
         raise HTTPException(status_code=404, detail="runs not found for scenarios")
     # reuse ui_compare path by constructing rows/diffs here
     # keys filter
