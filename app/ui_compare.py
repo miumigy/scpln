@@ -224,8 +224,14 @@ def ui_compare_preset(
         try:
             for rid in getattr(REGISTRY, "list_ids", lambda: [])():
                 rec = REGISTRY.get(rid) or {}
-                if rec.get("scenario_id") == sid:
-                    return rid
+                try:
+                    rec_sid = rec.get("scenario_id")
+                    if rec_sid is None:
+                        continue
+                    if int(rec_sid) == int(sid):
+                        return rid
+                except Exception:
+                    continue
         except Exception:
             pass
         return None
