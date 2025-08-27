@@ -58,6 +58,20 @@ bash scripts/stop.sh            # 停止
 アクセス: `http://localhost:8000`（ヘッダ右「ラン履歴」「設定マスタ」は別タブ遷移）
 永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
+### 環境変数とシークレットの扱い（重要）
+
+- `.env` はGitにコミットしないでください（機密方針）。
+- 初期設定は `configs/env.example` をコピーしてローカルに `.env` を作成し、必要に応じて値を編集してください。
+  - 例: `cp configs/env.example .env`
+- 認証キー等のシークレット値（例: `API_KEY_VALUE`）は必ず各自の環境で固有値に変更してください。
+- 既に公開履歴に含まれてしまったシークレットは失効・ローテーションしてください。
+
+### 開発用フック（.env の混入防止）
+
+- ローカルで Git フックを有効化すると、`.env` の誤コミットをブロックします。
+  - 有効化: `bash scripts/enable_hooks.sh`
+  - 解除: `git config --unset core.hooksPath`（必要時）
+
 ## Web UI ガイド
 
 - メイン画面（index.html）: 入力JSON編集、結果/PL/サマリの表示とCSVダウンロード
