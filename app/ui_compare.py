@@ -220,7 +220,22 @@ def ui_compare_preset(
                     return rows[0].get("run_id")
             except Exception:
                 pass
-        # メモリ実装/後方互換: list_ids を走査
+        # メモリ実装/後方互換: まず list() を新しい順で走査（メタ一括取得）
+        try:
+            for rec in getattr(REGISTRY, "list", lambda: [])():
+                try:
+                    rec_sid = rec.get("scenario_id")
+                    if rec_sid is None:
+                        continue
+                    if int(rec_sid) == int(sid):
+                        rid = rec.get("run_id")
+                        if rid:
+                            return rid
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        # 次に list_ids() + get() を走査
         try:
             for rid in getattr(REGISTRY, "list_ids", lambda: [])():
                 rec = REGISTRY.get(rid) or {}
