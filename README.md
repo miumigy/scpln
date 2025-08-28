@@ -482,6 +482,10 @@ graph TD;
   %% UI routes
   B -->|/ui/configs| A;
   B -->|/ui/runs| A;
+  B -->|/ui/jobs| A;
+  B -->|/ui/scenarios| A;
+  B -->|/ui/compare| A;
+  B -->|/ui/planning| A;
 ```
 
 ### クラス図（主要要素）
@@ -561,6 +565,8 @@ classDiagram
   class Config {+id: int; +name: str; +json_text: str; +created_at: int; +updated_at: int}
   class RunRecord {+run_id: str; +started_at: int; +duration_ms: int; +schema_version: str; +summary: dict; +results: list; +daily_profit_loss: list; +cost_trace: list; +config_id: int; +config_json: dict}
   RunRecord "*" o-- "1" Config : optional
+  class Scenario {+id: int; +name: str; +parent_id: int; +tag: str; +description: str; +locked: bool}
+  RunRecord "*" o-- "0..1" Scenario : optional
 ```
 
 ### 時系列フロー（シーケンス）
@@ -620,6 +626,12 @@ sequenceDiagram
   UI->>REG: read summaries for run_ids
   REG-->>UI: summaries
   UI-->>User: HTML (compare view)
+
+  %% 集約/詳細計画 UI（パイプライン実行）
+  User->>UI: GET /ui/planning
+  UI->>JM: submit_planning_pipeline_job(params)
+  JM-->>UI: job_id
+  UI-->>User: 303 Redirect to /ui/jobs
 ```
 
 ## 拡張戦略（エンタープライズ対応）
