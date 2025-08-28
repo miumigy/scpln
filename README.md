@@ -471,101 +471,148 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 ### 簡易アーキテクチャ
 
 ```mermaid
-graph TD;
-  B[Browser] --> A[FastAPI];
-  B --> S[Static files];
-  A --> E[SupplyChainSimulator];
-  A <--> D[(SQLite DB)];
-  E --> M[Pydantic Models];
-  A --> H[Healthz endpoint];
-  E --> L[simulation.log];
+graph TD
+  B[Browser] --> A[FastAPI]
+  B --> S[Static files]
+  A --> E[SupplyChainSimulator]
+  A <--> D[(SQLite DB)]
+  E --> M[Pydantic Models]
+  A --> H[Healthz endpoint]
+  E --> L[simulation.log]
   %% UI routes
-  B -->|/ui/configs| A;
-  B -->|/ui/runs| A;
-  B -->|/ui/jobs| A;
-  B -->|/ui/scenarios| A;
-  B -->|/ui/compare| A;
-  B -->|/ui/planning| A;
+  B -->|/ui/configs| A
+  B -->|/ui/runs| A
+  B -->|/ui/jobs| A
+  B -->|/ui/scenarios| A
+  B -->|/ui/compare| A
+  B -->|/ui/planning| A
 ```
 
 ### クラス図（主要要素）
 
 ```mermaid
 classDiagram
-  class BomItem {+item_name: str; +quantity_per: float}
-  class Product {+name: str; +sales_price: float; +assembly_bom: List~BomItem~}
+  class BomItem {
+    +item_name
+    +quantity_per
+  }
+  class Product {
+    +name
+    +sales_price
+    +assembly_bom
+  }
   Product "1" o-- "*" BomItem
 
   class NetworkLink {
-    +from_node: str
-    +to_node: str
-    +transportation_cost_fixed: float
-    +transportation_cost_variable: float
-    +lead_time: int
-    +capacity_per_day: float
-    +allow_over_capacity: bool
-    +over_capacity_fixed_cost: float
-    +over_capacity_variable_cost: float
-    +moq: Dict~str,float~
-    +order_multiple: Dict~str,float~
+    +from_node
+    +to_node
+    +transportation_cost_fixed
+    +transportation_cost_variable
+    +lead_time
+    +capacity_per_day
+    +allow_over_capacity
+    +over_capacity_fixed_cost
+    +over_capacity_variable_cost
+    +moq
+    +order_multiple
   }
 
   class BaseNode {
-    +name: str
-    +initial_stock: Dict~str,float~
-    +lead_time: int
-    +storage_cost_fixed: float
-    +storage_cost_variable: Dict~str,float~
-    +backorder_enabled: bool
-    +lost_sales: bool
-    +review_period_days: int
-    +stockout_cost_per_unit: float
-    +backorder_cost_per_unit_per_day: float
-    +storage_capacity: float
-    +allow_storage_over_capacity: bool
-    +storage_over_capacity_fixed_cost: float
-    +storage_over_capacity_variable_cost: float
+    +name
+    +initial_stock
+    +lead_time
+    +storage_cost_fixed
+    +storage_cost_variable
+    +backorder_enabled
+    +lost_sales
+    +review_period_days
+    +stockout_cost_per_unit
+    +backorder_cost_per_unit_per_day
+    +storage_capacity
+    +allow_storage_over_capacity
+    +storage_over_capacity_fixed_cost
+    +storage_over_capacity_variable_cost
   }
-  class StoreNode {+service_level: float; +moq; +order_multiple}
-  class WarehouseNode {+service_level: float; +moq; +order_multiple}
+  class StoreNode {
+    +service_level
+    +moq
+    +order_multiple
+  }
+  class WarehouseNode {
+    +service_level
+    +moq
+    +order_multiple
+  }
   class FactoryNode {
-    +producible_products: List~str~
-    +service_level: float
-    +production_capacity: float
-    +production_cost_fixed: float
-    +production_cost_variable: float
-    +allow_production_over_capacity: bool
-    +production_over_capacity_fixed_cost: float
-    +production_over_capacity_variable_cost: float
-    +reorder_point: Dict~str,float~
-    +order_up_to_level: Dict~str,float~
-    +moq: Dict~str,float~
-    +order_multiple: Dict~str,float~
+    +producible_products
+    +service_level
+    +production_capacity
+    +production_cost_fixed
+    +production_cost_variable
+    +allow_production_over_capacity
+    +production_over_capacity_fixed_cost
+    +production_over_capacity_variable_cost
+    +reorder_point
+    +order_up_to_level
+    +moq
+    +order_multiple
   }
-  class MaterialNode {+material_cost: Dict~str,float~}
+  class MaterialNode {
+    +material_cost
+  }
 
   BaseNode <|-- StoreNode
   BaseNode <|-- WarehouseNode
   BaseNode <|-- FactoryNode
   BaseNode <|-- MaterialNode
 
-  class CustomerDemand {+store_name: str; +product_name: str; +demand_mean: float; +demand_std_dev: float}
+  class CustomerDemand {
+    +store_name
+    +product_name
+    +demand_mean
+    +demand_std_dev
+  }
 
   class SimulationInput {
-    +planning_horizon: int
-    +products: List~Product~
-    +nodes: List~BaseNode-subtypes~
-    +network: List~NetworkLink~
-    +customer_demand: List~CustomerDemand~
+    +planning_horizon
+    +products
+    +nodes
+    +network
+    +customer_demand
   }
   SimulationInput "1" o-- "*" Product
   SimulationInput "1" o-- "*" NetworkLink
   SimulationInput "1" o-- "*" CustomerDemand
-  %% --- Persistence / Registry (概念モデル) ---
-  class Config {+id: int; +name: str; +json_text: str; +created_at: int; +updated_at: int}
-  class RunRecord {+run_id: str; +started_at: int; +duration_ms: int; +schema_version: str; +summary: dict; +results: list; +daily_profit_loss: list; +cost_trace: list; +config_id: int; +config_json: dict}
+
+  class Config {
+    +id
+    +name
+    +json_text
+    +created_at
+    +updated_at
+  }
+  class RunRecord {
+    +run_id
+    +started_at
+    +duration_ms
+    +schema_version
+    +summary
+    +results
+    +daily_profit_loss
+    +cost_trace
+    +config_id
+    +config_json
+    +scenario_id
+  }
   RunRecord "*" o-- "1" Config : optional
-  class Scenario {+id: int; +name: str; +parent_id: int; +tag: str; +description: str; +locked: bool}
+  class Scenario {
+    +id
+    +name
+    +parent_id
+    +tag
+    +description
+    +locked
+  }
   RunRecord "*" o-- "0..1" Scenario : optional
 ```
 
