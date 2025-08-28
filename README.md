@@ -22,6 +22,7 @@
   - [Web UI 詳細（抜粋）](#web-ui-詳細抜粋)
 - [API リファレンス](#api-リファレンス)
 - [CSV エクスポート（Runごと）](#csv-エクスポートrunごと)
+- [コストトレース仕様（概要）](#コストトレース仕様概要)
 - [RunRegistry の仕様](#runregistry-の仕様)
 - [階層マスタの適用](#階層マスタの適用)
 - [入出力スキーマ（詳細）](#入出力スキーマ詳細)
@@ -32,7 +33,6 @@
   - [簡易アーキテクチャ](#簡易アーキテクチャ)
   - [クラス図（主要要素）](#クラス図主要要素)
   - [時系列フロー（シーケンス）](#時系列フローシーケンス)
-- [コストトレース仕様（概要）](#コストトレース仕様概要)
 - [拡張戦略（エンタープライズ対応）](#拡張戦略エンタープライズ対応)
 
 ## 概要
@@ -260,6 +260,12 @@ bash scripts/stop.sh            # 停止
 - 配列は JSON 文字列として埋め込み
 - レコードが空でもヘッダは返却
 - CSVは `Content-Disposition` を付与し、`text/csv; charset=utf-8` で配信
+
+## コストトレース仕様（概要）
+
+- 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
+- レコード: `{day, node, item, event, qty, unit_cost, amount, account}`（day は 1-based）
+- 例: 材料購入、輸送、保管、工場生産（固定/変動）などを発生日に計上し、PL へ集約。
 
 ## RunRegistry の仕様
 
@@ -613,12 +619,6 @@ sequenceDiagram
   REG-->>UI: summaries
   UI-->>User: HTML (compare view)
 ```
-
-## コストトレース仕様（概要）
-
-- 形式: `SupplyChainSimulator.cost_trace` は日次のコストイベント配列。
-- レコード: `{day, node, item, event, qty, unit_cost, amount, account}`（day は 1-based）
-- 例: 材料購入、輸送、保管、工場生産（固定/変動）などを発生日に計上し、PL へ集約。
 
 ## 拡張戦略（エンタープライズ対応）
 
