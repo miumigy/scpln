@@ -124,6 +124,9 @@ bash scripts/stop.sh            # 停止
 
 ## API リファレンス
 
+### Simulation
+- 概要: シミュレーションを同期実行し、RunRegistryへ記録します。
+
 - `POST /simulation`
   - クエリ: `include_trace`（bool, 既定 false）
   - クエリ: `config_id`（int｜省略可）選択した設定のID。RunRegistry に保存されます
@@ -132,6 +135,9 @@ bash scripts/stop.sh            # 停止
   - 実行記録は RunRegistry に保存
   - 備考: トップページ（index.html）の「設定マスタ」横に「シナリオ」プルダウンを用意。
     - 「シナリオ」プルダウンは `/scenarios` から一覧を読み込み、選択されたシナリオの ID を `/simulation` へ `scenario_id` クエリとして送信（タグ・階層インデント表示対応）。
+
+### Runs
+- 概要: 実行履歴の一覧取得・詳細参照・削除を提供します。
 
 - `GET /runs`
   - 既定: 軽量（`run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`）
@@ -143,9 +149,12 @@ bash scripts/stop.sh            # 停止
 - `GET /runs/{run_id}`
   - 既定: 軽量メタ＋`summary`
   - `?detail=true`: フル（サイズ注意）
-  
+
 - `DELETE /runs/{run_id}`
   - 指定したRunを削除（メモリ/DBいずれも対応）。運用注意（認可未実装）
+
+### Compare
+- 概要: 実行結果のKPI比較やプリセット比較UIを提供します。
 
 - `POST /compare`
   - ボディ: `{ "run_ids": ["<id1>", "<id2>", ...] }`
@@ -160,8 +169,8 @@ bash scripts/stop.sh            # 停止
   - クエリ: `threshold`（float, 省略可）比較結果の閾値（%）
   - クエリ: `keys`（string, 省略可）比較するKPI（カンマ区切り）
   - レスポンス: `compare.html` のHTMLレスポンス（UI表示用）
-
-- ジョブ（Jobs）
+### Jobs
+- 概要: シミュレーションや集計を非同期ジョブとして実行・監視します。
   - `POST /jobs/simulation`: シミュレーションをジョブとして投入。ボディは `SimulationInput`、レスポンス `{ job_id }`
   - `GET /jobs/{job_id}`: ジョブの状態を取得（`status=queued|running|succeeded|failed`, `run_id`, `error`, `submitted_at/started_at/finished_at`）
   - `GET /jobs?status=&offset=&limit=`: ジョブ一覧（ページング）。`status` フィルタ対応
@@ -207,15 +216,15 @@ bash scripts/stop.sh            # 停止
         - レコードに `day` と日付の両方がある場合は日付優先
     - レスポンス: `{ "job_id": "..." }`
   - `GET /jobs/{job_id}/result.json` / `GET /jobs/{job_id}/result.csv`: 集計結果の取得（成功時）
-
-- 設定マスタ（Configs）
+### Configs
+- 概要: 設定マスタ（シミュレーション入力テンプレート）のCRUDを提供します。
   - `GET /configs`: 一覧（id, name, created_at/updated_at）
   - `GET /configs/{id}`: 詳細（name, json_text, config(JSON)）
   - `POST /configs`（Form: `name`, `json_text`）: 追加
   - `PUT /configs/{id}`（Form: `name`, `json_text`）: 更新
   - `DELETE /configs/{id}`: 削除
-
-- シナリオ（Scenarios）
+### Scenarios
+- 概要: シナリオ（設定の論理グループ）の管理と実行連携を提供します。
   - `GET /scenarios`
     - クエリ: `limit` (int, 既定 200)
     - レスポンス: `{"scenarios": [...]}`
@@ -232,7 +241,8 @@ bash scripts/stop.sh            # 停止
 - `DELETE /scenarios/{sid}`
   - パス: `sid` (int)
   - レスポンス: `{"status": "deleted", "id": sid}`
-
+### Health
+- 概要: ライフネス/可用性の確認。
 - `GET /healthz`: ヘルスチェック
 
 ## CSV エクスポート（Runごと）
