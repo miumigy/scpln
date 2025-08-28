@@ -35,4 +35,3 @@ def latest(scenario_id: int, limit: int = 1) -> List[str]:
         if limit <= 0:
             return []
         return list(arr[:limit])
-

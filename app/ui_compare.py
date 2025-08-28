@@ -259,7 +259,11 @@ def ui_compare_preset(
                     {
                         "run_id": r["run_id"],
                         "scenario_id": r["scenario_id"],
-                        "started_at": r.get("started_at") if hasattr(r, "get") else r["started_at"],
+                        "started_at": (
+                            r.get("started_at")
+                            if hasattr(r, "get")
+                            else r["started_at"]
+                        ),
                     }
                 )
     except Exception:
@@ -269,7 +273,9 @@ def ui_compare_preset(
     dedup: List[dict] = []
     # started_at の降順に整列（欠損は後回し）
     recent_sorted = sorted(
-        (recent or []), key=lambda r: (r.get("started_at") is None, r.get("started_at") or 0), reverse=True
+        (recent or []),
+        key=lambda r: (r.get("started_at") is None, r.get("started_at") or 0),
+        reverse=True,
     )
     for rec in recent_sorted:
         rid = (rec or {}).get("run_id")
