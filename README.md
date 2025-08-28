@@ -21,11 +21,11 @@
 - [Web UI ガイド](#web-ui-ガイド)
   - [Web UI 詳細（抜粋）](#web-ui-詳細抜粋)
 - [API リファレンス](#api-リファレンス)
+- [入力スキーマ（SimulationInput）](#入力スキーマsimulationinput)
 - [CSV エクスポート（Runごと）](#csv-エクスポートrunごと)
 - [コストトレース仕様（概要）](#コストトレース仕様概要)
 - [RunRegistry の仕様](#runregistry-の仕様)
 - [階層マスタの適用](#階層マスタの適用)
-- [入出力スキーマ（詳細）](#入出力スキーマ詳細)
 - [集約計画/詳細計画パイプライン](#集約計画詳細計画パイプライン)
   - [一括実行](#一括実行)
   - [Web UI（集約計画/詳細計画）](#web-ui集約計画詳細計画)
@@ -246,6 +246,23 @@ bash scripts/stop.sh            # 停止
 - 概要: ライフネス/可用性の確認。
 - `GET /healthz`: ヘルスチェック
 
+## 入力スキーマ（SimulationInput）
+
+入力のサンプル（UIのデフォルトは `static/default_input.json`）。
+
+```json
+{
+  "planning_horizon": 2,
+  "products": [{"name": "P1", "sales_price": 100.0}],
+  "nodes": [
+    {"name": "S1", "node_type": "store", "initial_stock": {"P1": 1}, "service_level": 0.0, "backorder_enabled": true}
+  ],
+  "network": [],
+  "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}],
+  "random_seed": 1
+}
+```
+
 ## CSV エクスポート（Runごと）
 
 - `GET /runs/{run_id}/results.csv`: 実行結果
@@ -404,22 +421,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 
 <!-- 図解セクションはパイプライン説明の後方へ移動しました -->
 
-## 入出力スキーマ（詳細）
-
-入力（SimulationInput）のサンプル（UIのデフォルトサンプルは `static/default_input.json`）。
-
-```json
-{
-  "planning_horizon": 2,
-  "products": [{"name": "P1", "sales_price": 100.0}],
-  "nodes": [
-    {"name": "S1", "node_type": "store", "initial_stock": {"P1": 1}, "service_level": 0.0, "backorder_enabled": true}
-  ],
-  "network": [],
-  "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}],
-  "random_seed": 1
-}
-```
+ 
 
 ## 集約計画/詳細計画パイプライン
 
