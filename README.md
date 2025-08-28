@@ -6,20 +6,37 @@
 
 ## 目次
 
-- 概要 / 構成
-- 主な機能
-- クイックスタート（起動・停止）
-- Web UI ガイド
-- API リファレンス（/simulation, /runs, /compare, /jobs, /healthz）
-- CSV エクスポート
-- RunRegistry の仕様
-- 運用コマンド / 環境変数
-- 図解（アーキテクチャ / クラス / 時系列）
-- 入出力スキーマ（詳細）
-- コストトレース仕様（概要）
- - [拡張戦略（エンタープライズ対応）](#拡張戦略エンタープライズ対応)
+- [概要](#概要)
+- [システム構成](#システム構成)
+- [主な機能](#主な機能)
+- [クイックスタート（起動・停止）](#クイックスタート起動停止)
+  - [環境変数とシークレットの扱い（重要）](#環境変数とシークレットの扱い重要)
+  - [開発用フック（.env の混入防止）](#開発用フックenv-の混入防止)
+- [設定と運用](#設定と運用)
+  - [推奨設定（CI/ローカル）](#推奨設定cilocal)
+  - [運用コマンド / 環境変数](#運用コマンド--環境変数)
+  - [DBバックアップ/復元](#dbバックアップ復元)
+  - [マイグレーション（Alembic）](#マイグレーションalembic)
+  - [観測性（ログ/メトリクス/OTel）](#観測性ログメトリクスotel)
+- [Web UI ガイド](#web-ui-ガイド)
+  - [Web UI 詳細（抜粋）](#web-ui-詳細抜粋)
+- [API リファレンス](#api-リファレンス)
+- [CSV エクスポート（Runごと）](#csv-エクスポートrunごと)
+- [RunRegistry の仕様](#runregistry-の仕様)
+- [階層マスタの適用](#階層マスタの適用)
+- [入出力スキーマ（詳細）](#入出力スキーマ詳細)
+- [粗密計画パイプライン](#粗密計画パイプライン)
+  - [一括実行](#一括実行)
+- [図解](#図解)
+  - [簡易アーキテクチャ](#簡易アーキテクチャ)
+  - [クラス図（主要要素）](#クラス図主要要素)
+  - [時系列フロー（シーケンス）](#時系列フローシーケンス)
+- [コストトレース仕様（概要）](#コストトレース仕様概要)
+- [拡張戦略（エンタープライズ対応）](#拡張戦略エンタープライズ対応)
 
-## 概要 / 構成
+## 概要
+
+### システム構成
 
 ```
 .
@@ -144,8 +161,6 @@ bash scripts/stop.sh            # 停止
   - クエリ: `keys`（string, 省略可）比較するKPI（カンマ区切り）
   - レスポンス: `compare.html` のHTMLレスポンス（UI表示用）
 
-- `GET /healthz`: ヘルスチェック
-
 - ジョブ（Jobs）
   - `POST /jobs/simulation`: シミュレーションをジョブとして投入。ボディは `SimulationInput`、レスポンス `{ job_id }`
   - `GET /jobs/{job_id}`: ジョブの状態を取得（`status=queued|running|succeeded|failed`, `run_id`, `error`, `submitted_at/started_at/finished_at`）
@@ -214,9 +229,11 @@ bash scripts/stop.sh            # 停止
     - パス: `sid` (int)
     - ボディ: 更新するフィールドと値
     - レスポンス: `{"status": "ok"}`
-  - `DELETE /scenarios/{sid}`
-    - パス: `sid` (int)
-    - レスポンス: `{"status": "deleted", "id": sid}`
+- `DELETE /scenarios/{sid}`
+  - パス: `sid` (int)
+  - レスポンス: `{"status": "deleted", "id": sid}`
+
+- `GET /healthz`: ヘルスチェック
 
 ## CSV エクスポート（Runごと）
 
@@ -239,7 +256,9 @@ bash scripts/stop.sh            # 停止
 - 保存内容（主な項目）: `run_id`, `started_at`(ms), `duration_ms`, `schema_version`, `summary`, `results`, `daily_profit_loss`, `cost_trace`, `config_id`, `config_json`
 - 参照API: `/runs`, `/runs/{id}`（上記参照）
 
-## 推奨設定（CI/ローカル）
+## 設定と運用
+
+### 推奨設定（CI/ローカル）
 
 - REGISTRY_BACKEND=db: ラン履歴の永続化を有効化（SQLite `data/scpln.db`）。
 - RUNS_DB_MAX_ROWS=1000 以上: 直近のラン履歴を十分保持（クリーンアップの干渉を回避）。
@@ -248,7 +267,7 @@ bash scripts/stop.sh            # 停止
 
 CIワークフロー（.github/workflows/ci.yml）には上記の既定を反映済みです。テスト内で個別に環境を上書きするケース（例: RUNS_DB_MAX_ROWS=2）とは独立して動作します。
 
-## 運用コマンド / 環境変数
+### 運用コマンド / 環境変数
 
 - コマンド: `serve.sh`, `stop.sh`, `status.sh`, `health.sh`
 - `SIM_LOG_LEVEL`（既定 INFO）、`SIM_LOG_TO_FILE=1`（ファイル出力）
@@ -287,7 +306,9 @@ CIワークフロー（.github/workflows/ci.yml）には上記の既定を反映
   - 新規生成: `alembic revision -m "msg"` → `alembic upgrade head`
   - 備考: 既存の `app.db.init_db()` は後方互換のために残置（IF NOT EXISTS）。運用ではAlembicを優先
 
-メトリクス（Prometheus）
+## 観測性（ログ/メトリクス/OTel）
+
+### メトリクス（Prometheus）
 - `runs_total`（Counter）: シミュレーション実行回数
 - `simulation_duration_ms`（Histogram）: 実行時間（ms）
 - `http_requests_total{method,path,status}`（Counter）: HTTPリクエスト数
@@ -326,6 +347,8 @@ Uvicorn ログもJSONに揃える（オプション）
 - アプリ内のミドルウェアで `http_request_*` ログを出すため、最も簡単なのはUvicornのログ設定は既定のまま（またはアクセスログを抑制）にし、アプリ側のJSONログへ統一する方法です。
 - もしくは `--log-config` を使って Uvicorn の logger/handler をJSON構成にします（サンプルを同梱）。
 
+### ログ設定（JSON出力）
+
 コマンド例（UvicornのloggerもJSONで出力）
 ```bash
 SIM_LOG_JSON=1 uvicorn main:app \
@@ -344,7 +367,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - 取得: `bash scripts/backup_db.sh`（`SCPLN_DB`が指すDBを`backup/`へコピー）
 - 復元: `bash scripts/restore_db.sh backup/scpln_YYYYmmdd_HHMMSS.db`
 
-## UIの使い方（抜粋）
+## Web UI 詳細（抜粋）
 
 - `/ui/runs`
   - ページャ: First/Prev/Next/Last とページ番号ジャンプ（Page x/y）。`limit`/`sort`/`order`/`schema_version`/`config_id` は localStorage に保存・復元
@@ -361,6 +384,60 @@ SIM_LOG_JSON=1 uvicorn main:app \
     - API: `GET /scenarios`, `GET /scenarios/{id}`, `POST /scenarios`, `PUT /scenarios/{id}`, `DELETE /scenarios/{id}`
     - シナリオからのシミュレーション実行: シナリオ一覧から設定を選択し、シミュレーションジョブを投入
     - シナリオ比較プリセット: ベースシナリオとターゲットシナリオを指定し、最新の実行結果を比較
+
+<!-- 図解セクションはパイプライン説明の後方へ移動しました -->
+
+## 入出力スキーマ（詳細）
+
+入力（SimulationInput）のサンプル（UIのデフォルトサンプルは `static/default_input.json`）。
+
+```json
+{
+  "planning_horizon": 2,
+  "products": [{"name": "P1", "sales_price": 100.0}],
+  "nodes": [
+    {"name": "S1", "node_type": "store", "initial_stock": {"P1": 1}, "service_level": 0.0, "backorder_enabled": true}
+  ],
+  "network": [],
+  "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}],
+  "random_seed": 1
+}
+```
+
+## 粗密計画パイプライン
+
+粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
+
+- 前提データ（サンプル）: `samples/planning/`
+  - `demand_family.csv`: `family, period, demand`
+  - `capacity.csv`: `workcenter, period, capacity`
+  - `mix_share.csv`: `family, sku, share`
+  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
+- CLI（ステップ毎）
+  - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
+    - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
+  - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
+    - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
+  - MRPライト: `python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4`
+    - 入力CSV: `item.csv`, `inventory.csv`, `open_po.csv`, 任意で `bom.csv`
+    - 出力: `rows: [{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
+  - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
+    - 入力CSV: `capacity.csv`, `mix_share.csv`
+    - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` と `planned_order_receipt_adj` を付与）
+  - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
+    - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
+
+### 一括実行
+
+パイプライン全体を一括実行するスクリプトを追加しています。
+
+```bash
+bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --round int --lt-unit day
+```
+
+出力は `out/` 配下に `aggregate.json` `sku_week.json` `mrp.json` `plan_final.json` `report.csv` を生成します。
+
+備考: 本パイプラインはヒューリスティク中心の最小実装です。工程別能力・在庫時系列の厳密再計算・外注コスト最適化等は今後の拡張余地です。
 
 ## 図解
 
@@ -517,58 +594,6 @@ sequenceDiagram
   REG-->>UI: summaries
   UI-->>User: HTML (compare view)
 ```
-
-## 入出力スキーマ（詳細）
-
-入力（SimulationInput）のサンプル（UIのデフォルトサンプルは `static/default_input.json`）。
-
-```json
-{
-  "planning_horizon": 2,
-  "products": [{"name": "P1", "sales_price": 100.0}],
-  "nodes": [
-    {"name": "S1", "node_type": "store", "initial_stock": {"P1": 1}, "service_level": 0.0, "backorder_enabled": true}
-  ],
-  "network": [],
-  "customer_demand": [{"store_name": "S1", "product_name": "P1", "demand_mean": 1, "demand_std_dev": 0}],
-  "random_seed": 1
-}
-```
-
-## 粗密計画パイプライン
-
-粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
-
-- 前提データ（サンプル）: `samples/planning/`
-  - `demand_family.csv`: `family, period, demand`
-  - `capacity.csv`: `workcenter, period, capacity`
-  - `mix_share.csv`: `family, sku, share`
-  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
-- CLI（ステップ毎）
-  - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
-    - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
-  - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
-    - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
-  - MRPライト: `python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4`
-    - 入力CSV: `item.csv`, `inventory.csv`, `open_po.csv`, 任意で `bom.csv`
-    - 出力: `rows: [{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
-  - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
-    - 入力CSV: `capacity.csv`, `mix_share.csv`
-    - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` と `planned_order_receipt_adj` を付与）
-  - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
-    - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
-
-### 一括実行
-
-パイプライン全体を一括実行するスクリプトを追加しています。
-
-```bash
-bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --round int --lt-unit day
-```
-
-出力は `out/` 配下に `aggregate.json` `sku_week.json` `mrp.json` `plan_final.json` `report.csv` を生成します。
-
-備考: 本パイプラインはヒューリスティク中心の最小実装です。工程別能力・在庫時系列の厳密再計算・外注コスト最適化等は今後の拡張余地です。
 
 ## コストトレース仕様（概要）
 
