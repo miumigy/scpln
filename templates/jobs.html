@@ -94,7 +94,7 @@
         <th>submitted_at</th>
         <th>started_at</th>
         <th>finished_at</th>
-        <th>run_id</th>
+        <th>run_id / output</th>
         <th></th>
         <th></th>
       </tr>
@@ -108,7 +108,15 @@
         <td class="ts-ms" data-ms="{{ r.submitted_at }}">{{ r.submitted_at }}</td>
         <td class="ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at or '' }}</td>
         <td class="ts-ms" data-ms="{{ r.finished_at or '' }}">{{ r.finished_at or '' }}</td>
-        <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id or '' }}</td>
+        <td class="mono truncate" title="{{ r.run_id or r.out_dir or '' }}">
+          {% if r.run_id %}
+            {{ r.run_id }}
+          {% elif r.type == 'planning' and r.out_dir %}
+            <a href="/ui/planning?dir={{ r.out_dir }}">{{ r.out_dir }}</a>
+          {% else %}
+            
+          {% endif %}
+        </td>
         <td>
           {% if r.job_id %}
           <a role="button" href="/ui/jobs/{{ r.job_id }}">Detail</a>
