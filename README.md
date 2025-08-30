@@ -73,7 +73,9 @@ bash scripts/status.sh          # 状態確認（PID/ヘルス/ログ）
 bash scripts/stop.sh            # 停止
 ```
 
-アクセス: `http://localhost:8000`（ヘッダ右「ラン履歴」「設定マスタ」は別タブ遷移）
+アクセス: `http://localhost:8000`
+- ヘッダ右のナビ: 「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
+  - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
 永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
 ### 環境変数とシークレットの扱い（重要）
@@ -461,6 +463,7 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 ### Web UI（集約計画/詳細計画）
 
 - エンドポイント: `GET /ui/planning`
+- 導線: トップページ（Home）のナビバーから「集約/詳細計画」で遷移可能
 - パイプライン実行: フォームから `samples/planning` もしくはCSVアップロードで、集約→按分→MRP→整合→KPI を一括実行
 - 可視化: 週次能力vs調整負荷のバー、FG需要vs供給計画のライン、SKU×週の需要スタックバー
 - 出力: Aggregate表・能力サマリ（weekly_summary）表示、`report.csv` ダウンロード
