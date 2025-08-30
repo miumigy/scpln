@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-  <h2>粗密計画パイプライン（UI検証）</h2>
-  <form method="post" action="/planning/run">
+  <h2>集約計画/詳細計画 パイプライン（UI検証）</h2>
+  <form method="post" action="/planning/run" enctype="multipart/form-data">
     <details>
       <summary>CSVアップロード（任意）</summary>
       <div class="grid">

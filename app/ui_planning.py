@@ -53,7 +53,7 @@ def ui_planning(request: Request, dir: str | None = Query(None)):
         "planning.html",
         {
             "request": request,
-            "subtitle": "Planning Pipeline",
+            "subtitle": "集約/詳細計画",
             "out_dir": str(out) if out else "",
             "aggregate": agg,
             "plan": plan,
