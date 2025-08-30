@@ -28,27 +28,56 @@ def _run_py(args: list[str], env: dict | None = None) -> None:
 def ui_planning(request: Request, dir: str | None = Query(None)):
     out = None
     agg = sku = mrp = plan = report = None
-    err = None
+    err_msgs: list[str] = []
     if dir:
         out = Path(dir)
+        if not out.is_absolute():
+            out = _BASE_DIR / out
+        # 読み込みは個別に行い、部分的に表示可能にする
         try:
-            if not out.is_absolute():
-                out = _BASE_DIR / out
-            agg = json.loads((out / "aggregate.json").read_text(encoding="utf-8"))
-            plan_json = json.loads(
-                (out / "plan_final.json").read_text(encoding="utf-8")
-            )
-            report_path = out / "report.csv"
-            sku = json.loads((out / "sku_week.json").read_text(encoding="utf-8"))
-            mrp = json.loads((out / "mrp.json").read_text(encoding="utf-8"))
-            plan = plan_json
-            report = (
-                str(report_path.relative_to(_BASE_DIR))
-                if report_path.exists()
-                else None
+            p = out / "aggregate.json"
+            if p.exists():
+                agg = json.loads(p.read_text(encoding="utf-8"))
+            else:
+                err_msgs.append(f"missing: {p}")
+        except Exception as e:
+            err_msgs.append(f"aggregate.json: {e}")
+        try:
+            p = out / "sku_week.json"
+            if p.exists():
+                sku = json.loads(p.read_text(encoding="utf-8"))
+            else:
+                err_msgs.append(f"missing: {p}")
+        except Exception as e:
+            err_msgs.append(f"sku_week.json: {e}")
+        try:
+            p = out / "mrp.json"
+            if p.exists():
+                mrp = json.loads(p.read_text(encoding="utf-8"))
+            else:
+                err_msgs.append(f"missing: {p}")
+        except Exception as e:
+            err_msgs.append(f"mrp.json: {e}")
+        try:
+            p = out / "plan_final.json"
+            if p.exists():
+                plan = json.loads(p.read_text(encoding="utf-8"))
+            else:
+                err_msgs.append(f"missing: {p}")
+        except Exception as e:
+            err_msgs.append(f"plan_final.json: {e}")
+        # report.csv は存在しなくてもリンクを示せるように相対パスを構築
+        try:
+            rel_dir = str(out.relative_to(_BASE_DIR))
+            rp = _BASE_DIR / rel_dir / "report.csv"
+            report = str((rp).relative_to(_BASE_DIR)) if rp.exists() else str(
+                Path(rel_dir) / "report.csv"
             )
         except Exception as e:
-            err = str(e)
+            # out が _BASE_DIR 配下でない場合など
+            rp = out / "report.csv"
+            report = str(rp)
+            err_msgs.append(f"report.csv: {e}")
     return templates.TemplateResponse(
         "planning.html",
         {
@@ -60,7 +89,7 @@ def ui_planning(request: Request, dir: str | None = Query(None)):
             "sku": sku,
             "mrp": mrp,
             "report_path": report,
-            "error": err,
+            "error": "\n".join(err_msgs) if err_msgs else None,
         },
     )
 
