@@ -90,6 +90,8 @@ _configure_logging()
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parents[1]
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# Planning出力（/out 配下）を静的配信
+app.mount("/out", StaticFiles(directory=str(BASE_DIR / "out")), name="out")
 
 # Cache last summary for GET /summary
 _LAST_SUMMARY = None
@@ -256,6 +258,7 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path or ""
         if (
             path.startswith("/static/")
+            or path.startswith("/out/")
             or path.startswith("/ui/")
             or path
             in ("/healthz", "/", "/index.html", "/__debug/index", "/openapi.json")
