@@ -105,9 +105,9 @@
         <td class="mono truncate" title="{{ r.job_id }}">{{ r.job_id }}</td>
         <td>{{ r.type }}</td>
         <td>{{ r.status }}</td>
-        <td>{{ r.submitted_at }}</td>
-        <td>{{ r.started_at or '' }}</td>
-        <td>{{ r.finished_at or '' }}</td>
+        <td class="ts-ms" data-ms="{{ r.submitted_at }}">{{ r.submitted_at }}</td>
+        <td class="ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at or '' }}</td>
+        <td class="ts-ms" data-ms="{{ r.finished_at or '' }}">{{ r.finished_at or '' }}</td>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id or '' }}</td>
         <td>
           {% if r.job_id %}
@@ -139,6 +139,27 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// JSTフォーマット（ms epoch → YYYY/MM/DD HH:mm:ss）
+function fmtJst(ms){
+  var n = Number(ms);
+  if (!Number.isFinite(n)) return '';
+  var t = new Date(n + 9*3600*1000);
+  var y = t.getUTCFullYear();
+  var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+  var d = String(t.getUTCDate()).padStart(2,'0');
+  var h = String(t.getUTCHours()).padStart(2,'0');
+  var mi = String(t.getUTCMinutes()).padStart(2,'0');
+  var s = String(t.getUTCSeconds()).padStart(2,'0');
+  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('td.ts-ms').forEach(function(td){
+    var ms = td.getAttribute('data-ms');
+    var txt = fmtJst(ms);
+    if (txt) td.textContent = txt;
+  });
+});
+
 async function submitAggregateJob(e){
   e.preventDefault();
   const run_id = document.getElementById('agg-run-id').value.trim();

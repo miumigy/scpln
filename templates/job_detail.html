@@ -10,9 +10,9 @@
       <tbody>
         <tr><th>type</th><td>{{ job.type }}</td></tr>
         <tr><th>status</th><td>{{ job.status }}</td></tr>
-        <tr><th>submitted_at</th><td>{{ job.submitted_at }}</td></tr>
-        <tr><th>started_at</th><td>{{ job.started_at or '' }}</td></tr>
-        <tr><th>finished_at</th><td>{{ job.finished_at or '' }}</td></tr>
+        <tr><th>submitted_at</th><td class="ts-ms" data-ms="{{ job.submitted_at }}">{{ job.submitted_at }}</td></tr>
+        <tr><th>started_at</th><td class="ts-ms" data-ms="{{ job.started_at or '' }}">{{ job.started_at or '' }}</td></tr>
+        <tr><th>finished_at</th><td class="ts-ms" data-ms="{{ job.finished_at or '' }}">{{ job.finished_at or '' }}</td></tr>
         <tr><th>run_id</th><td class="mono">{% if job.run_id %}<a href="/ui/runs/{{ job.run_id }}">{{ job.run_id }}</a>{% endif %}</td></tr>
         <tr><th>error</th><td><pre>{{ job.error or '' }}</pre></td></tr>
       </tbody>
@@ -34,4 +34,27 @@
     <a role="button" href="/ui/jobs">← Back to jobs</a>
   </footer>
 </article>
+{% endblock %}
+{% block scripts %}
+<script>
+function fmtJst(ms){
+  var n = Number(ms);
+  if (!Number.isFinite(n)) return '';
+  var t = new Date(n + 9*3600*1000);
+  var y = t.getUTCFullYear();
+  var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+  var d = String(t.getUTCDate()).padStart(2,'0');
+  var h = String(t.getUTCHours()).padStart(2,'0');
+  var mi = String(t.getUTCMinutes()).padStart(2,'0');
+  var s = String(t.getUTCSeconds()).padStart(2,'0');
+  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.ts-ms').forEach(function(el){
+    var ms = el.getAttribute('data-ms');
+    var txt = fmtJst(ms);
+    if (txt) el.textContent = txt;
+  });
+});
+</script>
 {% endblock %}
