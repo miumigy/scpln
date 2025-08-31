@@ -13,6 +13,10 @@ jobs:
   ping:
     name: (curl)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: keepalive-curl
+      cancel-in-progress: false
     steps:
       - name: Resolve target URL
         id: resolve
@@ -41,7 +45,7 @@ jobs:
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Keep alive loop (1min x 6)
+      - name: Keep alive loop (1min x 20)
         if: steps.resolve.outputs.configured == 'true'
         env:
           BASE_URL: ${{ steps.resolve.outputs.base_url }}
@@ -52,7 +56,7 @@ jobs:
           SLEEP_BIN="$(command -v sleep || echo /bin/sleep)"
           CURL_BIN="$(command -v curl || echo /usr/bin/curl)"
           echo "Using bins: date=${DATE_BIN} sleep=${SLEEP_BIN} curl=${CURL_BIN}"
-          for i in $(seq 1 6); do
+          for i in $(seq 1 20); do
             TS=$($DATE_BIN +%s)
             for PATH in "/healthz" "/"; do
               # クエリでキャッシュ回避
@@ -71,7 +75,7 @@ jobs:
               fi
             done
             # 最終回以外は60秒待機
-            if [ "$i" -lt 6 ]; then $SLEEP_BIN 60; fi
+            if [ "$i" -lt 20 ]; then $SLEEP_BIN 60; fi
           done
           echo "Keep-alive loop completed."
 
