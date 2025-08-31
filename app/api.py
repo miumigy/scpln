@@ -89,6 +89,9 @@ _configure_logging()
 
 app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parents[1]
+# 静的配信ディレクトリの存在を保証
+(BASE_DIR / "static").mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "out").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 # Planning出力（/out 配下）を静的配信
 app.mount("/out", StaticFiles(directory=str(BASE_DIR / "out")), name="out")
