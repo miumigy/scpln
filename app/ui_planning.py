@@ -123,15 +123,26 @@ def planning_run(
         "open_po.csv": open_po,
         "bom.csv": bom,
     }
-    has_upload = any(f is not None for f in upload_files.values())
-    if has_upload:
-        tmp_in = out_base / "input"
-        tmp_in.mkdir(parents=True, exist_ok=True)
-        for name, uf in upload_files.items():
+    # 実際にファイルが与えられたか（filenameが非空、かつ内容が非空）で判定
+    tmp_in = out_base / "input"
+    wrote_any = False
+    for name, uf in upload_files.items():
+        try:
             if uf is None:
                 continue
-            content = uf.file.read()
+            fname = getattr(uf, "filename", None) or ""
+            if not fname.strip():
+                continue
+            content = uf.file.read() or b""
+            if len(content) == 0:
+                continue
+            tmp_in.mkdir(parents=True, exist_ok=True)
             (tmp_in / name).write_bytes(content)
+            wrote_any = True
+        except Exception:
+            # 個別の失敗は無視（他の入力にフォールバック）
+            continue
+    if wrote_any:
         input_dir = str(tmp_in)
 
     # 1) aggregate
