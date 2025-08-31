@@ -1,6 +1,9 @@
 name: Keep Render Awake (curl)
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # 5分おきに起動し、ジョブ内で毎分ping（1分x6回）
     - cron: '*/5 * * * *'
