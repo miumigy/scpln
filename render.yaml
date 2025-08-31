@@ -22,7 +22,3 @@ services:
         value: "1"
       - key: JOBS_WORKERS
         value: "2"
-    disk:
-      name: data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
