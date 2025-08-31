@@ -89,7 +89,8 @@ bash scripts/stop.sh            # 停止
    - Web Service: `uvicorn main:app --host 0.0.0.0 --port $PORT`
    - Health Check: `/healthz`
    - 環境変数: `REGISTRY_BACKEND=db`, `RUNS_DB_MAX_ROWS=1000`, `AUTH_MODE=none`, `SCPLN_DB=/opt/render/project/src/data/scpln.db`, `JOBS_ENABLED=1`, `JOBS_WORKERS=2`
-   - 永続ディスク: `/opt/render/project/src/data`（SQLite DB）, `/opt/render/project/src/out`（UI出力/レポート） 各1GB
+   - 永続ディスク: `/opt/render/project/src/data`（SQLite DB） 1GB
+     - 備考: `/out` はコンテナのローカルに生成されます（Freeプランでは永続化されません）。成果物を永続化したい場合は、アプリを`/opt/render/project/src/data/out`を使うよう拡張するか、ダウンロード運用をご検討ください。
 
 3) デプロイ完了後、表示されたURLにアクセス（例: `https://scpln-web.onrender.com`）。ホーム画面が表示されます。
 
