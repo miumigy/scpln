@@ -120,11 +120,18 @@ bash scripts/stop.sh            # 停止
 
 ### Render Freeプランのスリープ対策（任意）
 
-Render Freeでは一定時間アクセスがないとスピンダウンされ、非永続領域の内容が失われます。暫定策として、GitHub Actionsで定期Pingを行うワークフロー（`.github/workflows/ping-render.yml`）を追加しています。
+Render Freeでは一定時間アクセスがないとスピンダウンされます。ICMPによる`ping`は効果がないため、HTTPリクエストを定期的に送る必要があります。本リポジトリには、curlで `/healthz`（なければ`/`）を叩く keep-alive ワークフロー（`.github/workflows/curl-render.yml`、ワークフロー名: Keep Render Awake (curl)）を同梱しています。
 
 設定手順:
-- GitHub Secrets に `RENDER_PING_URL` を追加（例: `https://scpln-web.onrender.com`）
-- 既定のスケジュールは10分間隔（cron: `*/10 * * * *`）。必要に応じて変更してください
+- GitHub の Repository Secrets または Variables に以下のいずれかを設定
+  - 推奨: `RENDER_PING_URL`（例: `https://scpln-web.onrender.com`）
+  - 代替: `RENDER_SERVICE_URL`（同上）
+- ワークフローは上記を自動解決し、`GET /healthz` → `GET /` の順でリトライ付きで実行します。
+- 既定のスケジュールは5分間隔（cron: `*/5 * * * *`）。Render Freeの15分スリープを回避するため、10分→5分に短縮しています。
+
+よくある躓き:
+- 環境別（Environment）シークレットにのみ設定した場合、ジョブで `environment:` を指定していないと参照できません。Repository Secrets/Variables 側に設定してください。
+- URL末尾のスラッシュ有無に依存しないよう、ワークフロー側で正規化しています。
 
 注意:
 - 無料枠の制限やRenderの利用規約に留意してください。恒常運用は有料プラン＋永続ディスクの利用を推奨します
