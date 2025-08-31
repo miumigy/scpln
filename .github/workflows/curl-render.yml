@@ -2,8 +2,12 @@ name: Keep Render Awake (curl)
 
 on:
   schedule:
-    # 5分おき（Render Freeの15分スリープ回避のため余裕を持って実行）
-    - cron: '*/5 * * * *'
+    # 毎分実行（GitHubの最小間隔5分をオフセット多重化で回避）
+    - cron: '*/5 * * * *'      # minute % 5 == 0
+    - cron: '1-59/5 * * * *'   # minute % 5 == 1
+    - cron: '2-59/5 * * * *'   # minute % 5 == 2
+    - cron: '3-59/5 * * * *'   # minute % 5 == 3
+    - cron: '4-59/5 * * * *'   # minute % 5 == 4
   workflow_dispatch:
 
 jobs:
