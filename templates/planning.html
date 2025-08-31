@@ -153,7 +153,8 @@
   (function(){
     const plan = {{ plan | tojson | safe if plan else 'null' }};
     const sku = {{ sku | tojson | safe if sku else 'null' }};
-    const reportPath = {{ ('"/' ~ report_path ~ '"') if report_path else 'null' }};
+    // reportPath はJSの文字列リテラルとして安全に埋め込む（&quot;等のHTMLエスケープを防止）
+    const reportPath = {{ ('/' ~ report_path) | tojson | safe if report_path else 'null' }};
     function fallbackNote(){
       const msg = document.createElement('p');
       msg.className = 'mono';
