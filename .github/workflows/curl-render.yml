@@ -45,13 +45,17 @@ jobs:
         run: |
           set -euo pipefail
           echo "Target: $BASE_URL"
+          DATE_BIN="$(command -v date || echo /bin/date)"
+          SLEEP_BIN="$(command -v sleep || echo /bin/sleep)"
+          CURL_BIN="$(command -v curl || echo /usr/bin/curl)"
+          echo "Using bins: date=${DATE_BIN} sleep=${SLEEP_BIN} curl=${CURL_BIN}"
           for i in $(seq 1 6); do
-            TS=$(date +%s)
+            TS=$($DATE_BIN +%s)
             for PATH in "/healthz" "/"; do
               # クエリでキャッシュ回避
               URL="${BASE_URL%/}${PATH}?_keepalive=${TS}"
-              echo "[$(date -u +%FT%TZ)] GET ${URL}"
-              HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+              echo "[$($DATE_BIN -u +%FT%TZ)] GET ${URL}"
+              HTTP_CODE=$($CURL_BIN -sS -o /dev/null -w "%{http_code}" \
                 --max-time 20 \
                 --retry 2 --retry-delay 2 --retry-all-errors \
                 -H 'Cache-Control: no-cache' \
@@ -64,7 +68,7 @@ jobs:
               fi
             done
             # 最終回以外は60秒待機
-            if [ "$i" -lt 6 ]; then sleep 60; fi
+            if [ "$i" -lt 6 ]; then $SLEEP_BIN 60; fi
           done
           echo "Keep-alive loop completed."
 
