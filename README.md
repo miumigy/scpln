@@ -117,6 +117,17 @@ bash scripts/stop.sh            # 停止
 
 注意:
 - Deploy Hookはサービス設定のブランチ最新をデプロイします（タグ固定は不可）。特定タグのデプロイが必要な場合は、Render APIの高度な設定をご利用ください。
+
+### Render Freeプランのスリープ対策（任意）
+
+Render Freeでは一定時間アクセスがないとスピンダウンされ、非永続領域の内容が失われます。暫定策として、GitHub Actionsで定期Pingを行うワークフロー（`.github/workflows/ping-render.yml`）を追加しています。
+
+設定手順:
+- GitHub Secrets に `RENDER_PING_URL` を追加（例: `https://scpln-web.onrender.com`）
+- 既定のスケジュールは10分間隔（cron: `*/10 * * * *`）。必要に応じて変更してください
+
+注意:
+- 無料枠の制限やRenderの利用規約に留意してください。恒常運用は有料プラン＋永続ディスクの利用を推奨します
 永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
 ### 環境変数とシークレットの扱い（重要）

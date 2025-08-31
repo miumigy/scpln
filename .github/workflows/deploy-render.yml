@@ -9,12 +9,13 @@ jobs:
   deploy:
     name: Trigger Render Deployment
     runs-on: ubuntu-latest
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     steps:
       - name: Trigger via Render API (preferred)
-        if: ${{ secrets.RENDER_API_KEY && secrets.RENDER_SERVICE_ID }}
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        if: ${{ env.RENDER_API_KEY != '' && env.RENDER_SERVICE_ID != '' }}
         run: |
           set -euo pipefail
           echo "Triggering deploy for service $RENDER_SERVICE_ID via Render API"
@@ -26,9 +27,7 @@ jobs:
             -d '{"clearCache":false}'
 
       - name: Trigger via Deploy Hook (fallback)
-        if: ${{ !secrets.RENDER_API_KEY || !secrets.RENDER_SERVICE_ID }}
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        if: ${{ env.RENDER_API_KEY == '' || env.RENDER_SERVICE_ID == '' }}
         run: |
           set -euo pipefail
           if [ -z "${RENDER_DEPLOY_HOOK_URL:-}" ]; then
@@ -37,4 +36,3 @@ jobs:
           fi
           echo "Triggering deploy via Deploy Hook"
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
-

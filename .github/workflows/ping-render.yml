@@ -1,0 +1,24 @@
+name: Keep Render Awake (ping)
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping service URL
+        env:
+          PING_URL: ${{ secrets.RENDER_PING_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PING_URL:-}" ]; then
+            echo "RENDER_PING_URL secret is not set. Skipping."; exit 0
+          fi
+          echo "Pinging: ${PING_URL}/healthz"
+          curl -fsS "${PING_URL}/healthz" || curl -fsS "${PING_URL}" || true
+      - name: Summary
+        run: echo "Pinged Render URL (if configured) to reduce spin-down."
+
