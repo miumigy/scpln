@@ -34,8 +34,7 @@
         }
 
         /* ボタン色を他画面と統一（Picoのプライマリ相当） */
-        .run-button { background-color: #0d6efd; color: white; border: none; border-radius: 5px; padding: 10px 20px; font-size: 1em; cursor: pointer; transition: background-color 0.2s ease; }
-        .run-button:hover { background-color: #0b5ed7; }
+        /* Home固有のボタン色指定は廃止（PicoCSSの既定に統一） */
         .nav-actions { display:flex; align-items:center; gap:12px; }
         .nav-link { color:#007bff; text-decoration:none; font-weight:600; }
         .nav-link:hover { text-decoration:underline; }
@@ -73,7 +72,7 @@
             </label>
             <button id="api-key-save" class="secondary" style="padding:6px 10px;" type="button">保存</button>
           </form>
-          <button id="run-button" class="run-button">シミュレーション実行</button>
+          <button id="run-button">シミュレーション実行</button>
         </div>
       </header>
     </main>
@@ -90,10 +89,10 @@
             <div class="configs-bar">
               <label for="config-select">設定マスタ:</label>
               <select id="config-select"><option value="">（選択）</option></select>
-              <button id="configs-refresh" class="run-button" style="padding:6px 12px;">設定マスタ読込</button>
+              <button id="configs-refresh" class="secondary" style="padding:6px 12px;">設定マスタ読込</button>
               <label for="scenario-select">シナリオ:</label>
               <select id="scenario-select"><option value="">（選択）</option></select>
-              <button id="scenarios-refresh" class="run-button" style="padding:6px 12px;">シナリオ読込</button>
+              <button id="scenarios-refresh" class="secondary" style="padding:6px 12px;">シナリオ読込</button>
             </div>
             <textarea id="simulation-editor"></textarea>
         </div>
@@ -108,7 +107,7 @@
                 <input id="day-from" type="number" min="1" value="1" style="width:80px;">
                 <span>〜</span>
                 <input id="day-to" type="number" min="1" value="1" style="width:80px;">
-                <button id="download-results-csv" class="run-button" style="margin-left:auto;">結果CSV</button>
+                <button id="download-results-csv" class="secondary" style="margin-left:auto;">結果CSV</button>
             </div>
             <div id="results-output"></div>
         </div>
@@ -117,7 +116,7 @@
             <!-- 見出しと収支CSV（同一行・右寄せ固定） -->
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                 <h3 style="margin: 0;">日別収支表</h3>
-                <button id="download-pl-csv" class="run-button" style="margin-left:auto;">収支CSV</button>
+                <button id="download-pl-csv" class="secondary" style="margin-left:auto;">収支CSV</button>
             </div>
 
             <!-- トレース（cost_trace）ツールバー：フィルタ/ボタンを全て右寄せ -->
@@ -131,7 +130,7 @@
                 <select id="trace-event-filter"></select>
                 <label for="trace-account-filter">Account:</label>
                 <select id="trace-account-filter"></select>
-                <button id="download-trace-csv" class="run-button">トレースCSV</button>
+                <button id="download-trace-csv" class="secondary">トレースCSV</button>
             </div>
             <div id="profit-loss-output"></div>
         </div>
@@ -139,7 +138,7 @@
         <div id="summary" class="tab-content">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
                 <span id="summary-kpis-title" style="font-size: 1.17em; font-weight: bold;"></span>
-                <button id="download-summary-csv" class="run-button" style="margin-left:auto;">サマリCSV</button>
+                <button id="download-summary-csv" class="secondary" style="margin-left:auto;">サマリCSV</button>
             </div>
             <div id="summary-output"></div>
         </div>
