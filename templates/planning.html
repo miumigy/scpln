@@ -154,16 +154,78 @@
     const plan = {{ plan | tojson | safe if plan else 'null' }};
     const sku = {{ sku | tojson | safe if sku else 'null' }};
     const reportPath = {{ ('"/' ~ report_path ~ '"') if report_path else 'null' }};
+    function fallbackNote(){
+      const msg = document.createElement('p');
+      msg.className = 'mono';
+      msg.textContent = '注: オフラインモード（簡易可視化）。Chart.js未ロードのため簡易描画で表示しています。';
+      const h3 = Array.from(document.querySelectorAll('h3')).find(x=>x.textContent.includes('可視化'));
+      if (h3 && h3.parentElement) h3.parentElement.insertBefore(msg, h3.nextSibling);
+    }
+    function drawBarsSimple(canvas, labels, series){
+      if(!canvas || !labels || !labels.length) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width = canvas.clientWidth || 600;
+      const H = canvas.height = canvas.clientHeight || 200;
+      ctx.clearRect(0,0,W,H);
+      const pad = 30; const innerW = W - pad*2; const innerH = H - pad*2;
+      const n = labels.length; const barGap = 6; const setCount = series.length;
+      const groupW = innerW / n; const barW = Math.max(2, (groupW - barGap*(setCount+1)) / Math.max(1,setCount));
+      let maxV = 0; series.forEach(s=>s.data.forEach(v=>{ if(v>maxV) maxV=v; }));
+      if(maxV<=0){ ctx.fillText('データなし', pad, H/2); return; }
+      // axes
+      ctx.strokeStyle = '#999'; ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, H-pad); ctx.lineTo(W-pad, H-pad); ctx.stroke();
+      // bars
+      const colors = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6'];
+      labels.forEach((lb, i)=>{
+        const x0 = pad + i*groupW + barGap;
+        series.forEach((s, si)=>{
+          const v = Number(s.data[i]||0); const h = innerH * (v/maxV);
+          const x = x0 + si*(barW+barGap); const y = H-pad-h;
+          ctx.fillStyle = s.color || colors[si%colors.length];
+          ctx.fillRect(x, y, barW, h);
+        });
+      });
+    }
+    function drawLinesSimple(canvas, labels, series){
+      if(!canvas || !labels || !labels.length) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width = canvas.clientWidth || 600;
+      const H = canvas.height = canvas.clientHeight || 200;
+      ctx.clearRect(0,0,W,H);
+      const pad = 30; const innerW = W - pad*2; const innerH = H - pad*2;
+      let maxV = 0; series.forEach(s=>s.data.forEach(v=>{ if(v>maxV) maxV=v; }));
+      if(maxV<=0){ ctx.fillText('データなし', pad, H/2); return; }
+      ctx.strokeStyle = '#999'; ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, H-pad); ctx.lineTo(W-pad, H-pad); ctx.stroke();
+      const colors = ['#666','#2a7'];
+      series.forEach((s, si)=>{
+        ctx.strokeStyle = s.color || colors[si%colors.length];
+        ctx.beginPath();
+        labels.forEach((_, i)=>{
+          const x = pad + innerW*(i/Math.max(1,labels.length-1));
+          const y = H - pad - innerH*(Number(s.data[i]||0)/maxV);
+          if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        });
+        ctx.stroke();
+      });
+    }
     function makeCapacityChart(){
       if(!plan || !plan.weekly_summary) return;
       const weeks = plan.weekly_summary.map(r=>r.week);
       const cap = plan.weekly_summary.map(r=>r.capacity);
       const adj = plan.weekly_summary.map(r=>r.adjusted_load);
       const ctx = document.getElementById('chartCapacity');
-      new Chart(ctx, {type:'bar', data:{labels:weeks, datasets:[
-        {label:'capacity', data:cap, backgroundColor:'rgba(54, 162, 235, 0.5)'},
-        {label:'adjusted_load', data:adj, backgroundColor:'rgba(255, 159, 64, 0.5)'}
-      ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      if (typeof Chart !== 'undefined'){
+        new Chart(ctx, {type:'bar', data:{labels:weeks, datasets:[
+          {label:'capacity', data:cap, backgroundColor:'rgba(54, 162, 235, 0.5)'},
+          {label:'adjusted_load', data:adj, backgroundColor:'rgba(255, 159, 64, 0.5)'}
+        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      } else {
+        fallbackNote();
+        drawBarsSimple(ctx, weeks, [
+          {name:'capacity', data:cap, color:'#4e79a7'},
+          {name:'adjusted_load', data:adj, color:'#f28e2b'}
+        ]);
+      }
     }
     async function makeServiceChart(){
       if(!reportPath) return;
@@ -180,10 +242,18 @@
           supply.push(parseFloat(parts[parts.length-2]||'0'));
         }
         const ctx = document.getElementById('chartService');
-        new Chart(ctx, {type:'line', data:{labels:weeks, datasets:[
-          {label:'demand(FG)', data:demand, borderColor:'#888', backgroundColor:'rgba(136,136,136,0.2)'},
-          {label:'supply_plan(FG)', data:supply, borderColor:'#2a7', backgroundColor:'rgba(34,170,119,0.2)'}
-        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+        if (typeof Chart !== 'undefined'){
+          new Chart(ctx, {type:'line', data:{labels:weeks, datasets:[
+            {label:'demand(FG)', data:demand, borderColor:'#888', backgroundColor:'rgba(136,136,136,0.2)'},
+            {label:'supply_plan(FG)', data:supply, borderColor:'#2a7', backgroundColor:'rgba(34,170,119,0.2)'}
+          ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+        } else {
+          fallbackNote();
+          drawLinesSimple(ctx, weeks, [
+            {name:'demand', data:demand, color:'#666'},
+            {name:'supply', data:supply, color:'#2a7'}
+          ]);
+        }
       }catch(e){ console.warn(e); }
     }
     function makeSkuWeekChart(){
@@ -206,7 +276,14 @@
         return {label:s, data, backgroundColor:c, stack:'demand'};
       });
       const ctx = document.getElementById('chartSkuWeek');
-      new Chart(ctx, {type:'bar', data:{labels:weeks, datasets}, options:{responsive:true, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}}}});
+      if (typeof Chart !== 'undefined'){
+        new Chart(ctx, {type:'bar', data:{labels:weeks, datasets}, options:{responsive:true, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}}}});
+      } else {
+        // 簡易: 週合計需要で棒グラフ
+        fallbackNote();
+        const totals = weeks.map((w)=> rows.filter(r=>r.week===w).reduce((a,b)=>a+Number(b.demand||0),0));
+        drawBarsSimple(ctx, weeks, [{name:'demand_total', data:totals, color:'#4e79a7'}]);
+      }
     }
     makeCapacityChart();
     makeServiceChart();
