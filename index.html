@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>サプライチェーンシミュレーション (拡張版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
         .navbar { background-color: #fff; color: #333; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -47,27 +49,35 @@
     </style>
 </head>
 <body>
-    <div class="navbar">
-        <h1>サプライチェーンシミュレーション</h1>
-        <div class="nav-actions">
-            <a class="nav-link" href="/ui/runs" title="ラン履歴">ラン履歴</a>
-            <a class="nav-link" href="/ui/scenarios" title="シナリオ一覧">シナリオ一覧</a>
-            <a class="nav-link" href="/ui/configs" title="設定マスタ">設定マスタ</a>
-            <a class="nav-link" href="/ui/jobs" title="ジョブ一覧">ジョブ一覧</a>
-            <a class="nav-link" href="/ui/hierarchy" title="階層マスタ">階層マスタ</a>
-            <a class="nav-link" href="/ui/planning" title="集約/詳細計画">集約/詳細計画</a>
-            <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
-              <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
-                API Key
-                <input id="api-key-input" type="password" placeholder="X-API-Key" style="width:12em;" autocomplete="current-password" />
-              </label>
-              <button id="api-key-save" class="secondary" style="padding:6px 10px;" type="button">保存</button>
-            </form>
-            <button id="run-button" class="run-button">シミュレーション実行</button>
+    <main class="container">
+      <header>
+        <hgroup>
+          <h1>サプライチェーンシミュレーション</h1>
+          <p class="mono">Home</p>
+        </hgroup>
+        <nav style="display:flex; gap:10px; flex-wrap:wrap;">
+          <a href="/">Home</a>
+          <a href="/ui/runs">ラン履歴</a>
+          <a href="/ui/scenarios">シナリオ一覧</a>
+          <a href="/ui/configs">設定マスタ</a>
+          <a href="/ui/jobs">ジョブ一覧</a>
+          <a href="/ui/hierarchy">階層マスタ</a>
+          <a href="/ui/planning">集約/詳細計画</a>
+        </nav>
+        <div class="nav-actions" style="display:flex; align-items:center; gap:12px;">
+          <form id="api-key-form" style="display:flex; align-items:center; gap:6px; font-weight:normal; margin:0;" onsubmit="return false;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:normal;">
+              API Key
+              <input id="api-key-input" type="password" placeholder="X-API-Key" style="width:12em;" autocomplete="current-password" />
+            </label>
+            <button id="api-key-save" class="secondary" style="padding:6px 10px;" type="button">保存</button>
+          </form>
+          <button id="run-button" class="run-button">シミュレーション実行</button>
         </div>
-    </div>
+      </header>
+    </main>
 
-    <div class="main-container">
+    <div class="main-container container">
         <div class="tab-bar">
             <button class="tab-button active" data-tab="config">設定JSON</button>
             <button class="tab-button" data-tab="results">実行結果</button>
