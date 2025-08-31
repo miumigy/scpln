@@ -19,12 +19,15 @@ jobs:
           S2: ${{ secrets.RENDER_SERVICE_URL }}
           V1: ${{ vars.RENDER_PING_URL }}
           V2: ${{ vars.RENDER_SERVICE_URL }}
+          # 最終フォールバック（未設定時にこのURLへアクセス）
+          D1: https://scpln-web.onrender.com
         run: |
           set -euo pipefail
           URL="${S1:-}"
           [ -z "$URL" ] && URL="${S2:-}"
           [ -z "$URL" ] && URL="${V1:-}"
           [ -z "$URL" ] && URL="${V2:-}"
+          [ -z "$URL" ] && URL="${D1:-}"
           if [ -z "$URL" ]; then
             echo "::warning::RENDER_PING_URL/RENDER_SERVICE_URL が未設定のためスキップします。" \
               && echo "configured=false" >> "$GITHUB_OUTPUT"
