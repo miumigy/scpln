@@ -18,6 +18,7 @@ def ui_jobs(
     rows = data.get("jobs", [])
     # planningの結果(out_dir)を抽出し、テンプレートで使いやすくする
     import json as _json
+
     for r in rows:
         try:
             if r.get("type") == "planning" and r.get("result_json"):
