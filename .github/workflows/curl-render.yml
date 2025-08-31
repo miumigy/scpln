@@ -2,12 +2,8 @@ name: Keep Render Awake (curl)
 
 on:
   schedule:
-    # 毎分実行（GitHubの最小間隔5分をオフセット多重化で回避）
-    - cron: '*/5 * * * *'      # minute % 5 == 0
-    - cron: '1-59/5 * * * *'   # minute % 5 == 1
-    - cron: '2-59/5 * * * *'   # minute % 5 == 2
-    - cron: '3-59/5 * * * *'   # minute % 5 == 3
-    - cron: '4-59/5 * * * *'   # minute % 5 == 4
+    # 5分おきに起動し、ジョブ内で毎分ping（1分x6回）
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -39,27 +35,35 @@ jobs:
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Keep alive via HTTP GET
+      - name: Keep alive loop (1min x 6)
         if: steps.resolve.outputs.configured == 'true'
         env:
           BASE_URL: ${{ steps.resolve.outputs.base_url }}
         run: |
           set -euo pipefail
           echo "Target: $BASE_URL"
-          # ヘルスチェック優先、ダメならルート。リトライ付きで頑健化。
-          for PATH in "/healthz" "/"; do
-            echo "GET ${BASE_URL}${PATH}"
-            if curl -fsS \
-                 --max-time 20 \
-                 --retry 2 --retry-delay 2 --retry-all-errors \
-                 -H 'Cache-Control: no-cache' \
-                 -A 'GitHubActionsKeepAlive/1.0' \
-                 "${BASE_URL}${PATH}" >/dev/null; then
-              echo "OK: ${BASE_URL}${PATH}"
-              exit 0
-            fi
+          for i in $(seq 1 6); do
+            TS=$(date +%s)
+            for PATH in "/healthz" "/"; do
+              # クエリでキャッシュ回避
+              URL="${BASE_URL%/}${PATH}?_keepalive=${TS}"
+              echo "[$(date -u +%FT%TZ)] GET ${URL}"
+              HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+                --max-time 20 \
+                --retry 2 --retry-delay 2 --retry-all-errors \
+                -H 'Cache-Control: no-cache' \
+                -A 'GitHubActionsKeepAlive/1.1' \
+                "${URL}" || echo "000")
+              echo "HTTP ${HTTP_CODE} for ${URL}"
+              # いずれの応答でも1回は到達と見なす
+              if [ "${HTTP_CODE}" != "000" ]; then
+                break
+              fi
+            done
+            # 最終回以外は60秒待機
+            if [ "$i" -lt 6 ]; then sleep 60; fi
           done
-          echo "::warning::Keep-alive HTTPリクエストに失敗しました（サービスが停止中の可能性）。" && exit 0
+          echo "Keep-alive loop completed."
 
       - name: Summary
         run: |

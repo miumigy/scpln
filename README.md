@@ -127,7 +127,7 @@ Render Freeでは一定時間アクセスがないとスピンダウンされま
   - 推奨: `RENDER_PING_URL`（例: `https://scpln-web.onrender.com`）
   - 代替: `RENDER_SERVICE_URL`（同上）
 - ワークフローは上記を自動解決し、`GET /healthz` → `GET /` の順でリトライ付きで実行します。
-- 既定のスケジュールは毎分相当（cronを5本に分割: `*/5 * * * *`, `1-59/5 * * * *`, `2-59/5 * * * *`, `3-59/5 * * * *`, `4-59/5 * * * *`）。GitHub Actionsの最小間隔5分をオフセットで補い、Render Freeのスリープを抑止します。
+- 既定のスケジュールは5分間隔で起動し、ジョブ内で1分ごとに6回HTTPアクセス（ループ）します。GitHub Actionsのスケジュールばらつきの影響を最小化し、Render Freeのスリープを抑止します。
 
 よくある躓き:
 - 環境別（Environment）シークレットにのみ設定した場合、ジョブで `environment:` を指定していないと参照できません。Repository Secrets/Variables 側に設定してください。
