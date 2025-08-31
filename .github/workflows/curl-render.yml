@@ -1,0 +1,62 @@
+name: Keep Render Awake (curl)
+
+on:
+  schedule:
+    # 5分おき（Render Freeの15分スリープ回避のため余裕を持って実行）
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: (curl)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target URL
+        id: resolve
+        env:
+          # 優先順位: repo secrets -> repo vars（どちらも未設定なら空）
+          S1: ${{ secrets.RENDER_PING_URL }}
+          S2: ${{ secrets.RENDER_SERVICE_URL }}
+          V1: ${{ vars.RENDER_PING_URL }}
+          V2: ${{ vars.RENDER_SERVICE_URL }}
+        run: |
+          set -euo pipefail
+          URL="${S1:-}"
+          [ -z "$URL" ] && URL="${S2:-}"
+          [ -z "$URL" ] && URL="${V1:-}"
+          [ -z "$URL" ] && URL="${V2:-}"
+          if [ -z "$URL" ]; then
+            echo "::warning::RENDER_PING_URL/RENDER_SERVICE_URL が未設定のためスキップします。" \
+              && echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            # 末尾スラッシュは除去（/healthzの結合を安定化）
+            URL="${URL%/}"
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "base_url=$URL" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Keep alive via HTTP GET
+        if: steps.resolve.outputs.configured == 'true'
+        env:
+          BASE_URL: ${{ steps.resolve.outputs.base_url }}
+        run: |
+          set -euo pipefail
+          echo "Target: $BASE_URL"
+          # ヘルスチェック優先、ダメならルート。リトライ付きで頑健化。
+          for PATH in "/healthz" "/"; do
+            echo "GET ${BASE_URL}${PATH}"
+            if curl -fsS \
+                 --max-time 20 \
+                 --retry 2 --retry-delay 2 --retry-all-errors \
+                 -H 'Cache-Control: no-cache' \
+                 -A 'GitHubActionsKeepAlive/1.0' \
+                 "${BASE_URL}${PATH}" >/dev/null; then
+              echo "OK: ${BASE_URL}${PATH}"
+              exit 0
+            fi
+          done
+          echo "::warning::Keep-alive HTTPリクエストに失敗しました（サービスが停止中の可能性）。" && exit 0
+
+      - name: Summary
+        run: |
+          echo "Keep-aliveジョブ完了。URL設定の有無に応じてHTTPリクエストを送信しました。"
