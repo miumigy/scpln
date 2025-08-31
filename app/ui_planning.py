@@ -70,8 +70,10 @@ def ui_planning(request: Request, dir: str | None = Query(None)):
         try:
             rel_dir = str(out.relative_to(_BASE_DIR))
             rp = _BASE_DIR / rel_dir / "report.csv"
-            report = str((rp).relative_to(_BASE_DIR)) if rp.exists() else str(
-                Path(rel_dir) / "report.csv"
+            report = (
+                str((rp).relative_to(_BASE_DIR))
+                if rp.exists()
+                else str(Path(rel_dir) / "report.csv")
             )
         except Exception as e:
             # out が _BASE_DIR 配下でない場合など
