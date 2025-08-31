@@ -99,6 +99,24 @@ bash scripts/stop.sh            # 停止
 - Freeプランではスリープやビルド時間制限があります。スリープ復帰時の初回応答が遅くなることがあります。
 - ディスク容量は用途に応じて調整してください。`/out` に可視化用CSV（`report.csv`）や`/ui/planning`の生成物が保存されます。
 - 認証は既定で無効（`AUTH_MODE=none`）です。公開環境では `AUTH_MODE=apikey|basic` とシークレットを設定してください。
+
+### GitHubリリース作成で自動デプロイ
+
+リリース公開（Release published）をトリガにRenderへデプロイを行うGitHub Actionsを追加しています（`.github/workflows/deploy-render.yml`）。
+
+事前準備（GitHub Secrets いずれか）:
+- 推奨: `RENDER_API_KEY` と `RENDER_SERVICE_ID`（Render APIでDeployを作成）
+  - API Key: Renderダッシュボード → Account → API Keys で作成
+  - Service ID: 対象サービスの詳細ページURLに含まれる `srv-...`
+- 代替: `RENDER_DEPLOY_HOOK_URL`（Deploy Hookで再デプロイ）
+  - サービス詳細 → Deploy hooks → 生成したURLをSecretに設定
+
+動作:
+- Release published または 手動実行（workflow_dispatch）で起動
+- `RENDER_API_KEY`/`RENDER_SERVICE_ID` があればAPI経由でデプロイ、無ければ `RENDER_DEPLOY_HOOK_URL` にPOSTします
+
+注意:
+- Deploy Hookはサービス設定のブランチ最新をデプロイします（タグ固定は不可）。特定タグのデプロイが必要な場合は、Render APIの高度な設定をご利用ください。
 永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
 ### 環境変数とシークレットの扱い（重要）
