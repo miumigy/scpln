@@ -76,6 +76,27 @@ bash scripts/stop.sh            # 停止
 アクセス: `http://localhost:8000`
 - ヘッダ右のナビ: 「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
   - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
+
+### Render へのデプロイ（Blueprint）
+
+「Deploy to Render」ボタンから、本リポジトリをRenderにそのままデプロイできます（Web Service / Python）。
+
+1) 以下ボタンをクリックし、RenderにGitHub連携でログイン（または連携済みアカウントでログイン）
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/miumigy/scpln)
+
+2) Blueprintの内容を確認し「Deploy」。既定では以下設定です:
+   - Web Service: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - Health Check: `/healthz`
+   - 環境変数: `REGISTRY_BACKEND=db`, `RUNS_DB_MAX_ROWS=1000`, `AUTH_MODE=none`, `SCPLN_DB=/opt/render/project/src/data/scpln.db`, `JOBS_ENABLED=1`, `JOBS_WORKERS=2`
+   - 永続ディスク: `/opt/render/project/src/data`（SQLite DB）, `/opt/render/project/src/out`（UI出力/レポート） 各1GB
+
+3) デプロイ完了後、表示されたURLにアクセス（例: `https://scpln-web.onrender.com`）。ホーム画面が表示されます。
+
+注意:
+- Freeプランではスリープやビルド時間制限があります。スリープ復帰時の初回応答が遅くなることがあります。
+- ディスク容量は用途に応じて調整してください。`/out` に可視化用CSV（`report.csv`）や`/ui/planning`の生成物が保存されます。
+- 認証は既定で無効（`AUTH_MODE=none`）です。公開環境では `AUTH_MODE=apikey|basic` とシークレットを設定してください。
 永続化: `.env` に `SCPLN_DB=data/scpln.db` や `RUNS_DB_MAX_ROWS=1000` を設定可能。未設定でも `scripts/serve.sh` によりRunRegistryはDBバックエンド（REGISTRY_BACKEND=db）で起動します。
 
 ### 環境変数とシークレットの扱い（重要）
