@@ -487,6 +487,8 @@ SIM_LOG_JSON=1 uvicorn main:app \
 
 ## 集約計画/詳細計画パイプライン
 
+設計ドキュメント: `docs/AGG_DET_RECONCILIATION_JA.md`（集約↔詳細の統合・整合の方針）
+
 粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
 
 - 前提データ（サンプル）: `samples/planning/`
