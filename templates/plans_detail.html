@@ -76,12 +76,20 @@
     {% if weekly_summary %}
     <details>
       <summary>能力サマリ（weekly_summary）</summary>
+      {% if boundary_summary %}
+        <p class="mono">boundary: period={{ boundary_summary.period }} ｜ weeks={{ boundary_summary.weeks }} ｜ pre={{ boundary_summary.pre_weeks }} ｜ post={{ boundary_summary.post_weeks }} ｜ policy={{ boundary_summary.anchor_policy or '(none)' }} ｜ window={{ boundary_summary.window_days or 0 }} days</p>
+      {% endif %}
       <table>
-        <thead><tr><th>week</th><th>capacity</th><th>original_load</th><th>adjusted_load</th><th>spill_in</th><th>spill_out</th></tr></thead>
+        <thead><tr><th>week</th><th>zone</th><th>b_idx</th><th>b_size</th><th>in_pre</th><th>in_post</th><th>capacity</th><th>original_load</th><th>adjusted_load</th><th>spill_in</th><th>spill_out</th></tr></thead>
         <tbody>
           {% for r in weekly_summary %}
           <tr>
             <td>{{ r.week }}</td>
+            <td class="mono">{{ r.zone or '' }}</td>
+            <td class="mono">{{ r.boundary_index or '' }}</td>
+            <td class="mono">{{ r.boundary_size or '' }}</td>
+            <td class="mono">{{ r.in_window_pre or '' }}</td>
+            <td class="mono">{{ r.in_window_post or '' }}</td>
             <td class="mono">{{ r.capacity }}</td>
             <td class="mono">{{ r.original_load }}</td>
             <td class="mono">{{ r.adjusted_load }}</td>

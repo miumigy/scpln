@@ -26,8 +26,32 @@ BLEND_SPLIT_NEXT=""
 BLEND_WEIGHT_MODE=""
 PRESET=""
 
+usage() {
+  cat <<USAGE
+Usage: $0 -I <input_dir> -o <out_dir> [options]
+
+Options:
+  --weeks N                期間の週数（例: 4）
+  --round MODE             丸め（none|int|dec1|dec2）
+  --lt-unit UNIT           LT単位（day|week）
+  --cutover-date YYYY-MM-DD  cutover日
+  --recon-window-days N    境界ウィンドウ日数
+  --anchor-policy P        DET_near|AGG_far|blend
+  --blend-split-next R     blend時のpost比率(0..1)
+  --blend-weight-mode M    tri|lin|quad（近接重み）
+  --apply-adjusted         anchor_adjust適用後にMRP/CRP再計算
+  --preset NAME            det_near | agg_far | blend（未指定項目のみ上書き）
+
+Presets:
+  det_near: ANCHOR_POLICY=DET_near, RECON_WINDOW_DAYS=7
+  agg_far : ANCHOR_POLICY=AGG_far,  RECON_WINDOW_DAYS=7
+  blend   : ANCHOR_POLICY=blend,    RECON_WINDOW_DAYS=14, BLEND_WEIGHT_MODE=tri
+USAGE
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -h|--help) usage; exit 0;;
     -I|--input-dir) INPUT_DIR="$2"; shift 2;;
     -o|--out) OUT_DIR="$2"; shift 2;;
     --weeks) WEEKS="$2"; shift 2;;
@@ -47,7 +71,7 @@ while [[ $# -gt 0 ]]; do
     --blend-split-next) BLEND_SPLIT_NEXT="$2"; shift 2;;
     --blend-weight-mode) BLEND_WEIGHT_MODE="$2"; shift 2;;
     --preset) PRESET="$2"; shift 2;;
-    *) echo "[warn] unknown arg: $1"; shift;;
+  *) echo "[warn] unknown arg: $1"; shift;;
   esac
 done
 

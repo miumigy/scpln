@@ -55,6 +55,7 @@ def ui_plan_detail(version_id: str, request):
             "recon": recon,
             "recon_adj": recon_adj,
             "weekly_summary": plan_final.get("weekly_summary"),
+            "boundary_summary": plan_final.get("boundary_summary"),
             "deltas": deltas,
             "deltas_adj": deltas_adj,
         },
