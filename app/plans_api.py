@@ -404,6 +404,8 @@ def get_plan_compare(
     elif sort == "abs_asc":
         deltas.sort(key=_absmax)
     return {"version_id": version_id, "rows": deltas[: max(0, int(limit))]}
+
+
 @app.get("/plans/{version_id}/compare.csv", response_class=PlainTextResponse)
 def get_plan_compare_csv(
     version_id: str,
