@@ -138,6 +138,10 @@ def main() -> None:
     ap.add_argument(
         "--weeks", dest="weeks_per_period", type=int, default=4, help="1期間の週数"
     )
+    # v2 入口（受け口のみ。ロジックへの反映は今後のPR）
+    ap.add_argument("--cutover-date", dest="cutover_date", default=None, help="境界日 YYYY-MM-DD（任意）")
+    ap.add_argument("--recon-window-days", dest="recon_window_days", type=int, default=None, help="整合ウィンドウ日数（任意）")
+    ap.add_argument("--anchor-policy", dest="anchor_policy", default=None, help="anchorポリシー（DET_near|AGG_far|blend 等、任意）")
     args = ap.parse_args()
 
     # 入力を識別
@@ -212,6 +216,11 @@ def main() -> None:
             "mrp_rows": len(mrp.get("rows", [])),
             "weeks": len(weeks),
             "fg_skus": len(fg_skus),
+        },
+        "reconcile_params": {
+            "cutover_date": args.cutover_date,
+            "recon_window_days": args.recon_window_days,
+            "anchor_policy": args.anchor_policy,
         },
         "weekly_summary": week_report,
         "rows": rows_out,
