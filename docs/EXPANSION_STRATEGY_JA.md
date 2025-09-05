@@ -1,127 +1,35 @@
-# SC計画/IBP 向け拡張戦略（エンタープライズ対応）
+# SC計画/IBP 向け拡張戦略（残課題のみ）
 
-本ドキュメントは、本リポジトリ（FastAPI + エンジン + UI + テスト）を起点に、エンタープライズユースのサプライチェーン計画（S&OP/IBP）アプリへ段階的に拡張するための方針を示します。範囲は機能・非機能・運用を含みます。
+本ドキュメントは、対応済み領域（AGG/DET整合v2最小、Run永続化、ジョブ/可視化/CI）を除外し、残る拡張テーマに絞って記載します。
 
-## 現状サマリ
-- 構成: FastAPI（API/UI）、`engine/simulator.py`（日次離散シミュレーション）、`domain/models.py`（Pydantic）、`app/*`（API/UI/CSV/RunRegistry）、`data/scpln.db`（Configs用SQLite）、Docker/CIあり
-- 機能: 需要伝播、在庫補充、リードタイム、PL/コスト、コストトレース、実行履歴（メモリ）、設定マスタ永続化（SQLite）、比較UI/CSV、テスト多数
-- 運用: `scripts/serve.sh`/`status.sh`/`stop.sh`、ヘルスチェック、ログ出力（ファイル/コンソール）
+最終更新: 2025-09-06
 
-## 主なギャップ（IBP/エンタープライズ）
-- 永続化: RunRegistryがメモリ（監査/容量に弱い）
-- 多ユーザー: 認証/認可（SSO/OIDC, RBAC）、テナント分離、監査証跡
-- 計画階層: 日次のみ（週次/月次の粗密バケットが必要）
-- 最適化: 発注/生産/配分の最適化（MILP/CP/ヒューリスティク）
-- 需要予測: 統計/MLと合意形成（Consensus）
-- シナリオ管理: 親子/バージョン/承認フロー、比較の体系化
-- 拡張性: ポリシー/コスト/制約のプラガブル化、後方互換の型/スキーマ管理
-- 性能/スケール: 大規模データ処理、非同期/ジョブ、水平スケール
-- 統合: ERP/WMS/MES/MDM/外部予測基盤との連携
-- 運用: 可観測性、バックアップ/DR、構成/セキュリティ、SLA
+## 残る拡張テーマ（要点）
+- 認証/認可・テナント: OIDC/OAuth2、RBAC、テナント分離、監査証跡
+- 需要予測と合意: 統計/MLプラグイン、学習/評価/凍結、合意フロー
+- 最適化（OR）: 補充（MEIO近似）/輸送/生産のLP、有限能力（CP/ヒューリスティク）
+- 階層/多軸集計: 商品/場所階層、列指向DWH連携、ロールアップAPI
+- 外部統合: ERP/WMS/MES/MDM/予測基盤コネクタ、CDC/ETL、データ品質
+- SRE/セキュリティ: 行レベル制御、PII保護、SLA/DR/監視、コスト最適化
 
-## ロードマップ（4フェーズ）
-### フェーズ1: 基盤強化（データ/運用/セキュリティ）
-- Run永続化: RunRegistryをDB化（SQLite→PostgreSQL）。`app/db.py`/`app/run_registry.py`拡張、`runs`表（メタ+成果物）と索引、ページング
-- スキーマ管理: `schema_version`の厳格化とマイグレーション（Alembic）、後方互換レイヤ
-- 認証/認可: OIDC/OAuth2、`TenantID`/`OrgID`/`Role`（Planner/Approver/Viewer）
-- ジョブ管理: 非同期実行（RQ/Celery/BackgroundTasks）、状態（queued/running/succeeded/failed）
-- 観測性: 構造化ログ、OpenTelemetry、基本メトリクス（実行時間/失敗率/キュー滞留）
-
-### フェーズ2: 層別計画とスケール
-- 時間バケット: `TimeBucketStrategy`（day/week/month）で粗密可変、集計/分配ユーティリティ
-  - 多軸集約: 時間軸に加え、商品軸（SKU→Item→Category→Department 等）、場所軸（Store→Region→Country 等）でもロールアップ可能な汎用集約を提供
-  - v0 方針: エンジン出力（day ベースの results/trace など）に対し、ユーティリティ（engine/aggregation.py）で
-    - 時間集約: 週次/⽉次へグループ化
-    - 軸ロールアップ: 与えられたマッピング（例: SKU→Category, Store→Region）で上位レベルへ合算
-  - v1 方針: マスタに階層（商品/場所）を持ち、クエリ/ジョブで任意のレベル・粒度へ集計（PostgreSQL/列指向DWHも視野）
-- シナリオ管理: `scenarios`（親子/タグ/バージョン/ロック）、差分保存（JSON-Patch）、比較UI強化
-- 性能: ベクトル化（NumPy）/差分実行/ストリーミングCSV/メモリ削減
-- ジョブ分散: 複数ワーカー、優先度キュー、長時間計算の再開/中断、成果物アーカイブ
-
-### フェーズ3: 需要予測・最適化（OR）・S&OP/IBP
-- 予測: ETS/ARIMA/Prophet + ML（XGBoost/LSTM）をプラグイン。`/forecast` API、学習/評価/フリーズ
-- 補充最適化: サービスレベル下の在庫最適化（安全在庫/MEIO近似、MOQ/発注倍数）
-- 生産/配分: MPS/MRP/有限能力（MILP/CP/ヒューリスティク選択式）、供給配分優先順位
-- IBP: 財務ブリッジ（Volume→Value）、KPI（収益/在庫投資/OTIF）、合意ワークフロー（草案→レビュー→承認）
-
-### フェーズ4: 統合・ガバナンス・SRE
-- 統合: ERP/WMS/MES/MDMコネクタ（バッチ/API/SFTP）、CDC/ETL、データ品質ルール
-- セキュリティ: 行レベル制御、PII保護、監査証跡、コンプライアンス
-- SRE: オートスケール、RTO/RPO、障害注入、コスト最適化（外部DWH/湖活用）
-
-## 実装ガイド（リポジトリ対応）
-- Run永続化:
-  - `app/db.py`: RDB接続（SQLite/PostgreSQL切替）、セッション/DAO
-  - `app/run_registry.py`: DB-backed 実装（insert/update/status, artifacts参照）、メモリ実装はフォールバック
-  - `app/run_list_api.py`/`app/ui_runs.py`: ページング/フィルタ/ソート、`detail=false`既定、最大サイズガード
-  - `tests/`: ページング/E2E/CSV整合
-- スキーマ/互換:
-  - `domain/models.py`: `schema_version`/アップグレード関数
-  - `tests/test_schema_version.py`: 互換性テスト強化
-- 時間バケット:
-  - `engine/`: `TimeBucketStrategy`（day/week/month）層と集計関数
-  - `tests/`: 週次/月次サマリの検証
-- 非同期実行:
-  - `app/simulation_api.py`: ジョブ起動API（job_id返却）、`/runs/{id}`でポーリング
-  - `jobs`: シミュレーション/集計/比較等をジョブ化し、キュー/再試行/キャンセル/メトリクスを提供（M2: 連鎖ジョブ、優先度）
-  - `scripts/serve.sh`/`status.sh`: ワーカー起動/キュー可視化
-- シナリオ管理:
-  - `app/config_api.py`: `scenario` エンティティ（親子/タグ/説明/ロック）、差分保存
-  - `app/ui_compare.py`: KPI差分の閾値ハイライト
-- セキュリティ/RBAC:
-  - `app/api.py`: OIDC保護、スコープ→Role、`TenantID`/`OrgID`コンテキスト
-  - `tests/`: 認可ポリシーテスト
-
-## 非機能（運用）
-- 可観測性: OpenTelemetry導入、リクエストID/RunID相関、基本メトリクス
-- 構成管理: `.env`/Vault、`SIM_LOG_LEVEL` 等のドキュメント整備
-- データ運用: 古いRunのアーカイブ、オブジェクトストレージ退避、バックアップ/復元
-- CI/CD: マイグレーション自動適用、スキーマ差分チェック、負荷スモーク
-
-## OR/最適化の実装順
-1. 安全在庫・補充点の再設計（MEIO近似、需要分散/サービスレベル）
-2. 輸送/生産のLP定式化（容量/リードタイム制約 + コスト最小化）
-3. 有限能力の段階導入（CP/ヒューリスティク）
-- 切替可能なソルバ層（`PuLP`/`OR-Tools`）＋ヒューリスティクのフォールバック
-
-## 短期アクション（M1フォーカス）
-- Run永続化の土台（`runs`テーブル、DAO、ページング）
-- `/runs` API堅牢化（`detail=false`既定、サイズ上限、ソート）
-- 非同期化（ジョブ管理、状態/ログ分離保存）
-- `schema_version`厳格化 + 互換テスト強化
-- 観測性（構造化ログ、基本メトリクス）
-- README更新（データ保持/互換ポリシー、サイジング、SLA初期値）
-
-## 次の一歩（実装/運用の具体）
-- 運用切替: RunRegistry を DB バックエンドに切替（既存機能は後方互換）
-  - 設定例: `configs/env.example` を参照し `.env` を作成
-    - `REGISTRY_BACKEND=db`
-    - `RUNS_DB_MAX_ROWS=1000`（保持上限。超過分を自動クリーンアップ）
-    - `SCPLN_DB=data/scpln.db`
-  - 起動: `env $(cat .env | xargs) uvicorn main:app --host 0.0.0.0 --port 8000`
-  - 期待効果: ラン履歴の永続化・ページング・フィルタ/ソートが DB で安定動作
-- ドキュメント: README の環境変数に DB バックエンドの手順を明示（リンク済）
-- 検証: E2E（/simulation→/runs detail=false/true、/runs?schema_version=）が 100 レコード規模で応答時間<200ms（ローカル）
-
-次の次の一歩（提案）
-- UI: `/ui/runs` に Schema/Config フィルタの保持と pager 改善（既存 localStorage を整理）
-- ジョブUI: 集計ジョブに `date_field/tz/calendar_mode` 入力（README準拠）
-
-## マイルストーン
-- M1（2–3週）: Run永続化、ページング、観測性、スキーマ版管理
-- M2（3–4週）: 非同期実行、シナリオ管理1.0、週次バケット
-- M3（4–6週）: 需要予測β、補充最適化LP、IBP KPIと比較UI強化
-- M4（継続）: 多テナント/RBAC、Postgres本番、外部連携、SRE/DR
+## ロードマップ（簡素）
+- R1（短期）
+  - 認証/認可（OIDC/RBAC）
+  - 需要予測プラグイン（ETS/ARIMA/Prophet）と `/forecast` API（学習/推論/評価）
+  - OR層スケルトン（PuLP/OR-Tools 抽象化）
+- R2（中期）
+  - 補充/輸送/生産LPのPoC と KPI連携
+  - 階層/多軸集計（DWH接続）
+  - 外部コネクタ（MDM/ERP）/データ品質
+- R3（長期）
+  - 有限能力（CP/ヒューリスティク）
+  - IBP KPI/合意ワークフロー、財務ブリッジ
+  - SRE/セキュリティ強化（SLA/DR、コスト/可観測性）
 
 ## 成功指標（抜粋）
-- 機能: KPI差分検知精度、IBP指標（収益/在庫投資/OTIF）可視化カバレッジ
-- 性能: 代表ケースのP95実行時間/メモリ、同時実行のスループット
-- 運用: SLO達成率、障害復旧時間、データ保持/監査網羅率
-
-## リスクと緩和
-- 大規模データでの性能劣化 → ベクトル化/差分実行/分散ワーカーで緩和
-- スキーマ破壊的変更 → バージョン/移行関数と互換テストで回避
-- 外部統合の不確実性 → コネクタ層を抽象化し段階導入
+- 機能: 予測MAPE、LPのコスト改善率、IBPダッシュボードのカバレッジ
+- 性能: 代表ケースのP95実行時間、DWH連携のレイテンシ
+- 運用: 認可エラー率、SLO、復旧時間、データ品質スコア
 
 ---
-本ドキュメントは継続的に更新し、READMEからリンクします。実装順は上記マイルストーンを基準に、利用現場の優先要件（規模/連携/SLA）に応じて調整します。
+注: 完了済みのAGG/DET整合やRun永続化の詳細は README と該当ガイドを参照してください。
