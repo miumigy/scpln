@@ -57,6 +57,7 @@
           <input type="date" name="cutover_date" placeholder="YYYY-MM-DD">
         </label>
         <label>recon_window_days（予約）
+          <a class="secondary" href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#パラメタ早見主要" target="_blank" title="ヘルプ">?</a>
           <input type="number" name="recon_window_days" min="0" placeholder="7">
         </label>
         <label>tol_abs（予約）
@@ -69,7 +70,7 @@
           <input type="number" name="max_adjust_ratio" min="0" max="1" step="0.05" placeholder="例: 0.2">
         </label>
         <label title="DET_near: cutover前を保護しpostへ寄せる / AGG_far: cutover後を保護しpreへ戻す / blend: 近接重みで分割">
-          anchor_policy（予約）
+          anchor_policy（予約） <a class="secondary" href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#パラメタ早見主要" target="_blank" title="ヘルプ">?</a>
           <select name="anchor_policy">
             <option value="">(未指定)</option>
             <option value="DET_near">DET_near</option>
@@ -77,7 +78,7 @@
             <option value="blend">blend</option>
           </select>
         </label>
-        <label>blend_weight_mode（予約）
+        <label>blend_weight_mode（予約） <a class="secondary" href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#blend-重みイメージ簡易" target="_blank" title="ヘルプ">?</a>
           <select name="blend_weight_mode">
             <option value="">(既定: tri)</option>
             <option value="tri">tri（三角）</option>
@@ -85,7 +86,7 @@
             <option value="quad">quad（二次）</option>
           </select>
         </label>
-        <label>blend_split_next（予約, 0..1）
+        <label>blend_split_next（予約, 0..1） <a class="secondary" href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#パラメタ早見主要" target="_blank" title="ヘルプ">?</a>
           <input type="number" name="blend_split_next" min="0" max="1" step="0.05" placeholder="例: 0.5">
         </label>
         <label title="cutover週の推定方法（simple: 月内等分, iso: ISO週）">

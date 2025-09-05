@@ -325,6 +325,33 @@ graph TD;
   - プリセット（pipelineの `--preset`）は「未指定の項目のみ」上書き。明示した値が優先。
   - `apply_adjusted=false` の場合、`mrp_adjusted.json` を生成せず、`plan_final_adjusted.json` も生成しない（整合は before のみ）。
 
+#### 一覧（簡易表）
+
+| パラメタ | CLI(主) | APIキー | UIフォーム | Jobs | 既定 | 備考 |
+|---|---|---|---|---|---|---|
+| cutover_date | reconcile.py `--cutover-date` | cutover_date | planning: 高度設定 | submit_planning | なし | 指定時のみ v2 有効 |
+| recon_window_days | reconcile.py `--recon-window-days` | recon_window_days | planning: 高度設定 | submit_planning | 実装既定 | in_window/重み計算に影響 |
+| anchor_policy | reconcile.py `--anchor-policy` | anchor_policy | planning: 高度設定 | submit_planning | なし | DET_near/AGG_far/blend |
+| blend_split_next | reconcile.py `--blend-split-next` | blend_split_next | planning: 高度設定 | submit_planning | 動的算定 | blend時のpost比率(0..1) |
+| blend_weight_mode | reconcile.py `--blend-weight-mode` | blend_weight_mode | planning: 高度設定 | submit_planning | tri | tri/lin/quad |
+| apply_adjusted | — | apply_adjusted | planning: チェック | submit_planning | false | trueで adjusted MRP/CRP 実行 |
+
+補足: /plans/integrated/run は上記を scripts に委譲し、成果物をDBに保存（/plans API で参照）。
+
+### blend 重みイメージ（簡易）
+
+```
+win_w = ceil(recon_window_days / 7)
+for at週のインデックス i (0..n_at-1):
+  d_prev = i, d_next = n_at-1-i
+  base_prev = max(0, win_w - d_prev)
+  base_next = max(0, win_w - d_next)
+  if mode==quad: w = base^2 else: w = base
+share_next = sum(spill*w_next) / (sum(spill*w_prev)+sum(spill*w_next))
+```
+
+三角（tri/lin）は線形、quad は近接を強く評価。share_next を用いて spill を pre/post に分割する。
+
 ## 最小サンプル（before/after）
 
 ### reconciliation_log.json（before, 抜粋）
