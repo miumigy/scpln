@@ -1,0 +1,10 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。",
+  "inputs_summary": {
+    "demand_rows": 0,
+    "capacity_rows": 0,
+    "mix_rows": 0
+  },
+  "rows": []
+}

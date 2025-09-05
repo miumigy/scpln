@@ -1,0 +1,1 @@
+type,week,capacity,original_load,adjusted_load,utilization,spill_in,spill_out,demand,supply_plan,fill_rate

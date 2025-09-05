@@ -33,7 +33,7 @@
   - [簡易アーキテクチャ](#簡易アーキテクチャ)
   - [クラス図（主要要素）](#クラス図主要要素)
   - [時系列フロー（シーケンス）](#時系列フローシーケンス)
-- [拡張戦略（エンタープライズ対応）](#拡張戦略エンタープライズ対応)
+- [拡張戦略（残る拡張のみ）](#拡張戦略残る拡張のみ)
 
 ## 概要
 
@@ -488,7 +488,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 ## 集約計画/詳細計画パイプライン
 
 設計ドキュメント: [集約↔詳細の統合・整合の方針](docs/AGG_DET_RECONCILIATION_JA.md)
-  - 参照: v2擬似コード／パラメタ早見／FAQ／最小サンプル（before/after）
+  - 参照: v2擬似コード／パラメタ早見（CLI/API/UI/Jobs）／FAQ／最小サンプル
 
 粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
 
@@ -791,10 +791,8 @@ sequenceDiagram
   UI-->>User: 303 Redirect to /ui/jobs
 ```
 
-## 拡張戦略（エンタープライズ対応）
+## 拡張戦略（残る拡張のみ）
 
-本プロジェクトをIBP/S&OPを含むエンタープライズ対応へ段階的に拡張するための戦略は、以下のドキュメントにまとめています。
+今後の拡張項目（認証/予測/最適化/外部統合/SRE など）は、下記ドキュメントに「残る拡張のみ」を絞って掲載しています。
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
-- スモークチェック: `python scripts/spill_smoke.py -i out/plan_final.json`
-  - 出力: zone別の `spill_in/spill_out` 合計、boundary要約。

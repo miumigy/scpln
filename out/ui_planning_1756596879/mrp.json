@@ -1,0 +1,19 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR4: MRPライト（LT/ロット/MOQ、任意BOM）",
+  "inputs_summary": {
+    "demand_rows": 0,
+    "capacity_rows": 0,
+    "mix_rows": 0,
+    "aggregate_rows": 0,
+    "mix_families": 0,
+    "weeks_per_period": 4,
+    "round_mode": "int",
+    "items": 0,
+    "open_po": 0,
+    "bom_links": 0,
+    "weeks": 0,
+    "lt_unit": "day"
+  },
+  "rows": []
+}

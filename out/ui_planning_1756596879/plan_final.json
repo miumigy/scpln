@@ -1,0 +1,12 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR5: CRPライト（週次能力に合わせて解放を前倒し/繰越で調整）",
+  "inputs_summary": {
+    "allocate_rows": 0,
+    "mrp_rows": 0,
+    "weeks": 0,
+    "fg_skus": 0
+  },
+  "weekly_summary": [],
+  "rows": []
+}

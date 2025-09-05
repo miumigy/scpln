@@ -1,0 +1,35 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。",
+  "inputs_summary": {
+    "demand_rows": 3,
+    "capacity_rows": 2,
+    "mix_rows": 3
+  },
+  "rows": [
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "demand": 100.0,
+      "supply": 83.333333,
+      "backlog": 16.666667,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "demand": 120.0,
+      "supply": 120.0,
+      "backlog": 0.0,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "demand": 80.0,
+      "supply": 66.666667,
+      "backlog": 13.333333,
+      "capacity_total": 150.0
+    }
+  ]
+}
