@@ -31,7 +31,6 @@ def ui_plans(request):
         },
     )
 
-
 @app.get("/ui/plans/{version_id}", response_class=HTMLResponse)
 def ui_plan_detail(version_id: str, request):
     ver = db.get_plan_version(version_id)
@@ -97,3 +96,4 @@ def ui_plan_reconcile(version_id: str, request,
         pass
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+ 
