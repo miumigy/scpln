@@ -43,6 +43,9 @@ def ui_plan_detail(version_id: str, request):
     recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
     recon_adj = db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    # truncate deltas for display
+    deltas = list((recon.get("deltas") or [])[:50]) if recon else []
+    deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
     return templates.TemplateResponse(
         "plans_detail.html",
         {
@@ -53,6 +56,8 @@ def ui_plan_detail(version_id: str, request):
             "recon": recon,
             "recon_adj": recon_adj,
             "weekly_summary": plan_final.get("weekly_summary"),
+            "deltas": deltas,
+            "deltas_adj": deltas_adj,
         },
     )
 

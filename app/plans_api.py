@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import Body, Query
+from fastapi.responses import PlainTextResponse
 from fastapi.responses import JSONResponse
 
 from app.api import app
@@ -404,3 +405,72 @@ def get_plan_compare(
     elif sort == "abs_asc":
         deltas.sort(key=_absmax)
     return {"version_id": version_id, "rows": deltas[: max(0, int(limit))]}
+
+
+@app.get("/plans/{version_id}/compare.csv", response_class=PlainTextResponse)
+def get_plan_compare_csv(
+    version_id: str,
+    violations_only: bool = Query(False),
+    sort: str = Query("rel_desc"),
+    limit: int = Query(1000),
+):
+    data = get_plan_compare(version_id, violations_only, sort, limit)
+    rows = data.get("rows") or []
+    header = [
+        "family",
+        "period",
+        "agg_demand",
+        "det_demand",
+        "delta_demand",
+        "rel_demand",
+        "ok_demand",
+        "agg_supply",
+        "det_supply",
+        "delta_supply",
+        "rel_supply",
+        "ok_supply",
+        "agg_backlog",
+        "det_backlog",
+        "delta_backlog",
+        "rel_backlog",
+        "ok_backlog",
+        "ok",
+    ]
+    import io, csv
+
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=header)
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: r.get(k) for k in header})
+    return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
+
+
+@app.get("/plans/{version_id}/carryover.csv", response_class=PlainTextResponse)
+def get_plan_carryover_csv(version_id: str):
+    adj = db.get_plan_artifact(version_id, "sku_week_adjusted.json") or {}
+    cov = list(adj.get("carryover") or [])
+    header = ["family", "from_period", "to_period", "delta_demand", "delta_supply", "delta_backlog", "cap_norm", "headroom_prev", "headroom_next", "cap_norm_prev", "cap_norm_next"]
+    import io, csv
+
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=header)
+    w.writeheader()
+    for r in cov:
+        m = r.get("metrics") or {}
+        w.writerow(
+            {
+                "family": r.get("family"),
+                "from_period": r.get("from_period"),
+                "to_period": r.get("to_period"),
+                "delta_demand": m.get("demand"),
+                "delta_supply": m.get("supply"),
+                "delta_backlog": m.get("backlog"),
+                "cap_norm": r.get("cap_norm"),
+                "headroom_prev": r.get("headroom_prev"),
+                "headroom_next": r.get("headroom_next"),
+                "cap_norm_prev": r.get("cap_norm_prev"),
+                "cap_norm_next": r.get("cap_norm_next"),
+            }
+        )
+    return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")

@@ -93,6 +93,50 @@
       </table>
     </details>
     {% endif %}
+
+    {% if deltas %}
+    <details open>
+      <summary>before 差分（先頭50件）</summary>
+      <p class="mono"><a href="/plans/{{ version_id }}/compare.csv?sort=rel_desc&limit=1000" download>compare.csv</a> ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>violations_only.csv</a></p>
+      <table>
+        <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
+        <tbody>
+          {% for r in deltas %}
+          <tr {% if not r.ok %}style="background:#fff5f5"{% endif %}>
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.delta_demand }}</td>
+            <td class="mono">{{ r.delta_supply }}</td>
+            <td class="mono">{{ r.delta_backlog }}</td>
+            <td class="mono">{{ r.ok }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
+
+    {% if deltas_adj %}
+    <details>
+      <summary>after 差分（先頭50件）</summary>
+      <p class="mono"><a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a></p>
+      <table>
+        <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
+        <tbody>
+          {% for r in deltas_adj %}
+          <tr {% if not r.ok %}style="background:#fff5f5"{% endif %}>
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.delta_demand }}</td>
+            <td class="mono">{{ r.delta_supply }}</td>
+            <td class="mono">{{ r.delta_backlog }}</td>
+            <td class="mono">{{ r.ok }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}
