@@ -296,15 +296,25 @@ def main() -> None:
                 cur[m] += float(rr.get(m, 0) or 0)
         # deltas to apply to DET (so that DET == AGG)
         delta = {m: target[m] - cur[m] for m in metrics}
-        # スキップ判定（abs/relのいずれかを満たす指標が全て）
+        # スキップ判定（abs/relのいずれかを満たす指標が全て）。
+        # 相対判定の分母は demand/supply の代表値を使用（backlogが小さい場合の過大判定を避ける）。
         if args.tol_abs or args.tol_rel:
+            base_denom = max(
+                abs(float(target.get("demand", 0) or 0)),
+                abs(float(cur.get("demand", 0) or 0)),
+                abs(float(target.get("supply", 0) or 0)),
+                abs(float(cur.get("supply", 0) or 0)),
+                1.0,
+            )
             all_ok = True
             for m in metrics:
                 av = float(target[m])
                 dv = float(cur[m])
                 d = float(delta[m])
-                denom = max(abs(av), abs(dv), 1.0)
-                ok = (abs(d) <= float(args.tol_abs or 0.0)) or ((abs(d) / denom) <= float(args.tol_rel or 0.0))
+                # backlog などの小さな値に引きずられないよう、共通の base_denom を使用
+                ok = (abs(d) <= float(args.tol_abs or 0.0)) or (
+                    (abs(d) / base_denom) <= float(args.tol_rel or 0.0)
+                )
                 if not ok:
                     all_ok = False
                     break

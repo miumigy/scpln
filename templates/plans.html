@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>プランバージョン一覧</h2>
+  {% if plans and plans|length > 0 %}
+  <table>
+    <thead>
+      <tr>
+        <th>version_id</th>
+        <th>status</th>
+        <th>cutover</th>
+        <th>window</th>
+        <th>created_at</th>
+        <th>violations</th>
+        <th>max|Δ| (d/s/b)</th>
+        <th>API</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in plans %}
+      <tr>
+        <td class="mono">{{ p.version_id }}</td>
+        <td>{{ p.status or '' }}</td>
+        <td class="mono">{{ p.cutover_date or '' }}</td>
+        <td class="mono">{{ p.recon_window_days or '' }}</td>
+        <td class="mono">{{ p.created_at }}</td>
+        <td class="mono">{{ (p.recon_summary.violations or p.recon_summary.tol_violations) if p.recon_summary else '' }}</td>
+        <td class="mono">
+          {% if p.recon_summary and p.recon_summary.max_abs_delta %}
+            ({{ p.recon_summary.max_abs_delta.demand }}, {{ p.recon_summary.max_abs_delta.supply }}, {{ p.recon_summary.max_abs_delta.backlog }})
+          {% endif %}
+        </td>
+        <td>
+          <a class="secondary" href="/plans/{{ p.version_id }}/summary" target="_blank">summary</a>
+          <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">compare</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>まだプランがありません。/ui/planning から実行するか、/plans/integrated/run を呼び出してください。</p>
+  {% endif %}
+</section>
+{% endblock %}
