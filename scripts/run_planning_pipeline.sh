@@ -14,6 +14,7 @@ LT_UNIT="day"  # day|week
 WEEK_DAYS=7
 ANCHOR_POLICY=""
 CUTOVER_DATE=""
+RECON_WINDOW_DAYS=""
 APPLY_ADJUST=0
 CALENDAR_MODE="simple"
 MAX_ADJUST_RATIO=""
@@ -21,6 +22,9 @@ CARRYOVER=""
 TOL_ABS=""
 TOL_REL=""
 CARRYOVER_SPLIT=""
+BLEND_SPLIT_NEXT=""
+BLEND_WEIGHT_MODE=""
+PRESET=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +36,7 @@ while [[ $# -gt 0 ]]; do
     --week-days) WEEK_DAYS="$2"; shift 2;;
     --anchor-policy) ANCHOR_POLICY="$2"; shift 2;;
     --cutover-date) CUTOVER_DATE="$2"; shift 2;;
+    --recon-window-days) RECON_WINDOW_DAYS="$2"; shift 2;;
     --apply-adjusted) APPLY_ADJUST=1; shift 1;;
     --calendar-mode) CALENDAR_MODE="$2"; shift 2;;
     --max-adjust-ratio) MAX_ADJUST_RATIO="$2"; shift 2;;
@@ -39,9 +44,29 @@ while [[ $# -gt 0 ]]; do
     --tol-abs) TOL_ABS="$2"; shift 2;;
     --tol-rel) TOL_REL="$2"; shift 2;;
     --carryover-split) CARRYOVER_SPLIT="$2"; shift 2;;
+    --blend-split-next) BLEND_SPLIT_NEXT="$2"; shift 2;;
+    --blend-weight-mode) BLEND_WEIGHT_MODE="$2"; shift 2;;
+    --preset) PRESET="$2"; shift 2;;
     *) echo "[warn] unknown arg: $1"; shift;;
   esac
 done
+
+# プリセット適用（未指定の値に限り上書き）
+case "$PRESET" in
+  det_near)
+    [[ -z "$ANCHOR_POLICY" ]] && ANCHOR_POLICY="DET_near"
+    [[ -z "$RECON_WINDOW_DAYS" ]] && RECON_WINDOW_DAYS="7"
+    ;;
+  agg_far)
+    [[ -z "$ANCHOR_POLICY" ]] && ANCHOR_POLICY="AGG_far"
+    [[ -z "$RECON_WINDOW_DAYS" ]] && RECON_WINDOW_DAYS="7"
+    ;;
+  blend)
+    [[ -z "$ANCHOR_POLICY" ]] && ANCHOR_POLICY="blend"
+    [[ -z "$RECON_WINDOW_DAYS" ]] && RECON_WINDOW_DAYS="14"
+    [[ -z "$BLEND_WEIGHT_MODE" ]] && BLEND_WEIGHT_MODE="tri"
+    ;;
+esac
 
 mkdir -p "$OUT_DIR"
 
@@ -58,7 +83,12 @@ PYTHONPATH=. python3 scripts/mrp.py -i "$OUT_DIR/sku_week.json" -I "$INPUT_DIR" 
 
 echo "[4/6] reconcile (CRPライト)"
 PYTHONPATH=. python3 scripts/reconcile.py -i "$OUT_DIR/sku_week.json" "$OUT_DIR/mrp.json" -I "$INPUT_DIR" \
-  -o "$OUT_DIR/plan_final.json" --weeks "$WEEKS"
+  -o "$OUT_DIR/plan_final.json" --weeks "$WEEKS" \
+  ${CUTOVER_DATE:+--cutover-date "$CUTOVER_DATE"} \
+  ${RECON_WINDOW_DAYS:+--recon-window-days "$RECON_WINDOW_DAYS"} \
+  ${ANCHOR_POLICY:+--anchor-policy "$ANCHOR_POLICY"} \
+  ${BLEND_SPLIT_NEXT:+--blend-split-next "$BLEND_SPLIT_NEXT"} \
+  ${BLEND_WEIGHT_MODE:+--blend-weight-mode "$BLEND_WEIGHT_MODE"}
 echo "[5/6] reconcile-levels (AGG↔DET 差分ログ)"
 PYTHONPATH=. python3 scripts/reconcile_levels.py -i "$OUT_DIR/aggregate.json" "$OUT_DIR/sku_week.json" \
   -o "$OUT_DIR/reconciliation_log.json" --version pipeline --tol-abs 1e-6 --tol-rel 1e-6 \
@@ -73,7 +103,7 @@ if [[ -n "$ANCHOR_POLICY" && -n "$CUTOVER_DATE" ]]; then
   echo "[5b] anchor-adjust (DET_near)"
   PYTHONPATH=. python3 scripts/anchor_adjust.py -i "$OUT_DIR/aggregate.json" "$OUT_DIR/sku_week.json" \
     -o "$OUT_DIR/sku_week_adjusted.json" --cutover-date "$CUTOVER_DATE" --anchor-policy "$ANCHOR_POLICY" \
-    --recon-window-days 7 --weeks "$WEEKS" --calendar-mode "$CALENDAR_MODE" \
+    ${RECON_WINDOW_DAYS:+--recon-window-days "$RECON_WINDOW_DAYS"} --weeks "$WEEKS" --calendar-mode "$CALENDAR_MODE" \
     ${MAX_ADJUST_RATIO:+--max-adjust-ratio "$MAX_ADJUST_RATIO"} ${CARRYOVER:+--carryover "$CARRYOVER"} \
     ${TOL_ABS:+--tol-abs "$TOL_ABS"} ${TOL_REL:+--tol-rel "$TOL_REL"} \
     ${CARRYOVER_SPLIT:+--carryover-split "$CARRYOVER_SPLIT"} -I "$INPUT_DIR"
@@ -96,8 +126,12 @@ if [[ -n "$ANCHOR_POLICY" && -n "$CUTOVER_DATE" ]]; then
       -o "$OUT_DIR/mrp_adjusted.json" --lt-unit "$LT_UNIT" --weeks "$WEEKS" --week-days "$WEEK_DAYS"
     echo "[5e] reconcile (adjusted)"
     PYTHONPATH=. python3 scripts/reconcile.py -i "$OUT_DIR/sku_week_adjusted.json" "$OUT_DIR/mrp_adjusted.json" -I "$INPUT_DIR" \
-      -o "$OUT_DIR/plan_final_adjusted.json" --weeks "$WEEKS" ${CUTOVER_DATE:+--cutover-date "$CUTOVER_DATE"} \
-      ${ANCHOR_POLICY:+--anchor-policy "$ANCHOR_POLICY"}
+      -o "$OUT_DIR/plan_final_adjusted.json" --weeks "$WEEKS" \
+      ${CUTOVER_DATE:+--cutover-date "$CUTOVER_DATE"} \
+      ${RECON_WINDOW_DAYS:+--recon-window-days "$RECON_WINDOW_DAYS"} \
+      ${ANCHOR_POLICY:+--anchor-policy "$ANCHOR_POLICY"} \
+      ${BLEND_SPLIT_NEXT:+--blend-split-next "$BLEND_SPLIT_NEXT"} \
+      ${BLEND_WEIGHT_MODE:+--blend-weight-mode "$BLEND_WEIGHT_MODE"}
     echo "[5f] report (adjusted)"
     PYTHONPATH=. python3 scripts/report.py -i "$OUT_DIR/plan_final_adjusted.json" -I "$INPUT_DIR" \
       -o "$OUT_DIR/report_adjusted.csv"

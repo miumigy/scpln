@@ -495,7 +495,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
   - `demand_family.csv`: `family, period, demand`
   - `capacity.csv`: `workcenter, period, capacity`
   - `mix_share.csv`: `family, sku, share`
-  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`
+  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`, `period_score.csv`, `period_cost.csv`
 - CLI（ステップ毎）
   - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
     - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
@@ -507,6 +507,10 @@ SIM_LOG_JSON=1 uvicorn main:app \
   - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
     - 入力CSV: `capacity.csv`, `mix_share.csv`
     - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` と `planned_order_receipt_adj` を付与）
+    - v2最小（任意）: `--cutover-date YYYY-MM-DD --anchor-policy {DET_near|AGG_far|blend}`
+      - DET_near: cutover月内のスピルを区間外（post）へ送る（pre/at/post分割）
+      - AGG_far: cutover月内のスピルを区間外（pre）へ戻す（preを再計算）
+      - blend: cutover月内スピルを pre/post に分割（`--blend-weight-mode tri|lin|quad` と `--recon-window-days` で近接重み。`--blend-split-next` 指定時は固定比）
 - 整合ログ（AGG↔DET）: `python scripts/reconcile_levels.py -i out/aggregate.json out/sku_week.json -o out/reconciliation_log.json --version v1 --tol-abs 1e-6 --tol-rel 1e-6`
   - 役割: DET（SKU×週）を family×period にロールアップし、AGG（family×period）との差分を可視化
   - 出力: `reconciliation_log.json`（`deltas[]` に {family, period, agg_x, det_x, delta_x, ok}）
@@ -520,7 +524,8 @@ SIM_LOG_JSON=1 uvicorn main:app \
     - 週中心: `--calendar-mode iso` でcutover週の中心推定をISO近似に変更（既定: simple=7日割り）
     - 持ち越し: `--carryover (none|prev|next|auto)` で period 残差を隣接periodへ均等配分（上限比率内・2周目再配分あり）。`auto` は `DET_near/blend→next`, `AGG_far→prev`
     - 余地バイアス(POC): `-I <input_dir>` または `--capacity <path>` を指定すると、隣接periodの余地評価に `capacity.csv` のperiod容量をバイアスとして加味（`--headroom-capacity-weight` 係数、既定0.5）。容量が大きいperiodを優先しやすくなります。さらに `--open-po <path>` または `-I <input_dir>` で `open_po.csv` を読み込み、`--headroom-inbound-weight` で入荷量バイアスを付与可能（入荷の多いperiodを優先）。
-    - 余地バイアス拡張(POC): `--period-score <csv>` で任意の periodスコア（例: 販促/優先度）を読み込み `--headroom-score-weight` で加点、`--pl-cost <csv>` でperiodコストを読み込み `--headroom-cost-weight` で抑制（高コストperiodを避ける）。CSVは `period,score|cost` を想定。
+  - 余地バイアス拡張(POC): `--period-score <csv>` で任意の periodスコア（例: 販促/優先度）を読み込み `--headroom-score-weight` で加点、`--pl-cost <csv>` でperiodコストを読み込み `--headroom-cost-weight` で抑制（高コストperiodを避ける）。CSVは `period,score|cost` を想定。
+    - サンプル: `samples/planning/period_score.csv`, `samples/planning/period_cost.csv`
   - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
     - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
 
@@ -539,6 +544,24 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --rou
 アンカー適用時は `sku_week_adjusted.json` `reconciliation_log_adjusted.json`、`--apply-adjusted` 指定時は `mrp_adjusted.json` `plan_final_adjusted.json` `report_adjusted.csv` を生成します。
 
 備考: 本パイプラインはヒューリスティク中心の最小実装です。工程別能力・在庫時系列の厳密再計算・外注コスト最適化等は今後の拡張余地です。
+
+プリセット（簡易指定）
+
+```bash
+# det_near: cutover前保護（postへ寄せる）
+bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
+  --preset det_near --cutover-date 2025-09-01
+
+# agg_far: cutover後保護（preへ戻す）
+bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
+  --preset agg_far --cutover-date 2025-09-01
+
+# blend: 近接重みで分割（window=14, 重み=tri）
+bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
+  --preset blend --cutover-date 2025-09-01
+```
+
+注: プリセットは未指定の値にのみ適用されます。明示した `--anchor-policy` 等があればそちらを優先します。
 
 ### Web UI（集約計画/詳細計画）
 
@@ -771,3 +794,5 @@ sequenceDiagram
 本プロジェクトをIBP/S&OPを含むエンタープライズ対応へ段階的に拡張するための戦略は、以下のドキュメントにまとめています。
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
+- スモークチェック: `python scripts/spill_smoke.py -i out/plan_final.json`
+  - 出力: zone別の `spill_in/spill_out` 合計、boundary要約。

@@ -67,7 +67,8 @@
         <label>max_adjust_ratio（予約）
           <input type="number" name="max_adjust_ratio" min="0" max="1" step="0.05" placeholder="例: 0.2">
         </label>
-        <label>anchor_policy（予約）
+        <label title="DET_near: cutover前を保護しpostへ寄せる / AGG_far: cutover後を保護しpreへ戻す / blend: 近接重みで分割">
+          anchor_policy（予約）
           <select name="anchor_policy">
             <option value="">(未指定)</option>
             <option value="DET_near">DET_near</option>
@@ -75,13 +76,26 @@
             <option value="blend">blend</option>
           </select>
         </label>
-        <label>calendar_mode（予約）
+        <label>blend_weight_mode（予約）
+          <select name="blend_weight_mode">
+            <option value="">(既定: tri)</option>
+            <option value="tri">tri（三角）</option>
+            <option value="lin">lin（線形）</option>
+            <option value="quad">quad（二次）</option>
+          </select>
+        </label>
+        <label>blend_split_next（予約, 0..1）
+          <input type="number" name="blend_split_next" min="0" max="1" step="0.05" placeholder="例: 0.5">
+        </label>
+        <label title="cutover週の推定方法（simple: 月内等分, iso: ISO週）">
+          calendar_mode（予約）
           <select name="calendar_mode">
             <option value="simple" selected>simple</option>
             <option value="iso">iso</option>
           </select>
         </label>
-        <label>carryover（予約）
+        <label title="anchor_adjust時の残差の隣接periodへの持ち越し先">
+          carryover（予約）
           <select name="carryover">
             <option value="none" selected>none</option>
             <option value="auto">auto</option>
@@ -118,13 +132,25 @@
       <label>version_id（任意）<input type="text" name="version_id" placeholder="例: job-<id>"></label>
       <label>cutover_date（任意）<input type="date" name="cutover_date" placeholder="YYYY-MM-DD"></label>
       <label>recon_window_days（任意）<input type="number" name="recon_window_days" min="0" placeholder="7"></label>
-      <label>anchor_policy（任意）
+      <label title="DET_near: cutover前を保護しpostへ寄せる / AGG_far: cutover後を保護しpreへ戻す / blend: 近接重みで分割">
+        anchor_policy（任意）
         <select name="anchor_policy">
           <option value="">(未指定)</option>
           <option value="DET_near">DET_near</option>
           <option value="AGG_far">AGG_far</option>
           <option value="blend">blend</option>
         </select>
+      </label>
+      <label>blend_weight_mode（任意）
+        <select name="blend_weight_mode">
+          <option value="">(既定: tri)</option>
+          <option value="tri">tri（三角）</option>
+          <option value="lin">lin（線形）</option>
+          <option value="quad">quad（二次）</option>
+        </select>
+      </label>
+      <label>blend_split_next（任意, 0..1）
+        <input type="number" name="blend_split_next" min="0" max="1" step="0.05" placeholder="例: 0.5">
       </label>
       <label>max_adjust_ratio（任意）
         <input type="number" name="max_adjust_ratio" min="0" max="1" step="0.05" placeholder="例: 0.2">
@@ -192,12 +218,20 @@
   <details open>
     <summary>能力サマリ（weekly_summary）</summary>
     {% if plan and plan.weekly_summary %}
+    {% if plan.boundary_summary %}
+      <p class="mono">boundary: period={{ plan.boundary_summary.period }} ｜ weeks={{ plan.boundary_summary.weeks }} ｜ pre={{ plan.boundary_summary.pre_weeks }} ｜ post={{ plan.boundary_summary.post_weeks }} ｜ policy={{ plan.boundary_summary.anchor_policy or '(none)' }} ｜ window={{ plan.boundary_summary.window_days or 0 }} days</p>
+    {% endif %}
     <table>
-      <thead><tr><th>week</th><th>capacity</th><th>original</th><th>adjusted</th><th>spill_in</th><th>spill_out</th></tr></thead>
+      <thead><tr><th>week</th><th>zone</th><th>b_idx</th><th>b_size</th><th>in_pre</th><th>in_post</th><th>capacity</th><th>original</th><th>adjusted</th><th>spill_in</th><th>spill_out</th></tr></thead>
       <tbody>
         {% for r in plan.weekly_summary %}
         <tr>
           <td>{{ r.week }}</td>
+          <td class="mono">{{ r.zone or '' }}</td>
+          <td class="mono">{{ r.boundary_index or '' }}</td>
+          <td class="mono">{{ r.boundary_size or '' }}</td>
+          <td class="mono">{{ r.in_window_pre or '' }}</td>
+          <td class="mono">{{ r.in_window_post or '' }}</td>
           <td class="mono">{{ r.capacity }}</td>
           <td class="mono">{{ r.original_load }}</td>
           <td class="mono">{{ r.adjusted_load }}</td>
@@ -213,12 +247,20 @@
   {% if plan_adj and plan_adj.weekly_summary %}
   <details open>
     <summary>能力サマリ（調整後・weekly_summary）</summary>
+    {% if plan_adj.boundary_summary %}
+      <p class="mono">boundary: period={{ plan_adj.boundary_summary.period }} ｜ weeks={{ plan_adj.boundary_summary.weeks }} ｜ pre={{ plan_adj.boundary_summary.pre_weeks }} ｜ post={{ plan_adj.boundary_summary.post_weeks }} ｜ policy={{ plan_adj.boundary_summary.anchor_policy or '(none)' }} ｜ window={{ plan_adj.boundary_summary.window_days or 0 }} days</p>
+    {% endif %}
     <table>
-      <thead><tr><th>week</th><th>capacity</th><th>original</th><th>adjusted</th><th>spill_in</th><th>spill_out</th></tr></thead>
+      <thead><tr><th>week</th><th>zone</th><th>b_idx</th><th>b_size</th><th>in_pre</th><th>in_post</th><th>capacity</th><th>original</th><th>adjusted</th><th>spill_in</th><th>spill_out</th></tr></thead>
       <tbody>
         {% for r in plan_adj.weekly_summary %}
         <tr>
           <td>{{ r.week }}</td>
+          <td class="mono">{{ r.zone or '' }}</td>
+          <td class="mono">{{ r.boundary_index or '' }}</td>
+          <td class="mono">{{ r.boundary_size or '' }}</td>
+          <td class="mono">{{ r.in_window_pre or '' }}</td>
+          <td class="mono">{{ r.in_window_post or '' }}</td>
           <td class="mono">{{ r.capacity }}</td>
           <td class="mono">{{ r.original_load }}</td>
           <td class="mono">{{ r.adjusted_load }}</td>
@@ -564,6 +606,7 @@
   <canvas id="chartCapacity" height="100"></canvas>
   <canvas id="chartService" height="100" style="margin-top:16px"></canvas>
   <canvas id="chartSkuWeek" height="120" style="margin-top:16px"></canvas>
+  <canvas id="chartSpillZone" height="100" style="margin-top:16px"></canvas>
 </section>
 {% endif %}
 {% endblock %}
@@ -707,9 +750,37 @@
         drawBarsSimple(ctx, weeks, [{name:'demand_total', data:totals, color:'#4e79a7'}]);
       }
     }
+    function makeSpillZoneChart(){
+      if(!plan || !plan.weekly_summary) return;
+      const zones = ['pre','at','post'];
+      const sums = {pre:{in:0,out:0}, at:{in:0,out:0}, post:{in:0,out:0}};
+      plan.weekly_summary.forEach(r=>{
+        const z = (r.zone||'').toLowerCase();
+        if(!sums[z]) return;
+        sums[z].in += Number(r.spill_in||0);
+        sums[z].out += Number(r.spill_out||0);
+      });
+      const labels = zones;
+      const inData = labels.map(z=>sums[z].in);
+      const outData = labels.map(z=>sums[z].out);
+      const ctx = document.getElementById('chartSpillZone');
+      if (typeof Chart !== 'undefined'){
+        new Chart(ctx, {type:'bar', data:{labels, datasets:[
+          {label:'spill_in', data:inData, backgroundColor:'rgba(99, 102, 241, 0.6)'},
+          {label:'spill_out', data:outData, backgroundColor:'rgba(239, 68, 68, 0.6)'}
+        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      } else {
+        fallbackNote();
+        drawBarsSimple(ctx, labels, [
+          {name:'spill_in', data:inData, color:'#6366f1'},
+          {name:'spill_out', data:outData, color:'#ef4444'}
+        ]);
+      }
+    }
     makeCapacityChart();
     makeServiceChart();
     makeSkuWeekChart();
+    makeSpillZoneChart();
   })();
 </script>
 {% endblock %}

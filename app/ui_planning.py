@@ -234,6 +234,8 @@ def planning_run(
     calendar_mode: str | None = Form(None),
     carryover: str | None = Form(None),
     carryover_split: float | None = Form(None),
+    blend_split_next: float | None = Form(None),
+    blend_weight_mode: str | None = Form(None),
     max_adjust_ratio: float | None = Form(None),
     tol_abs: float | None = Form(None),
     tol_rel: float | None = Form(None),
@@ -336,6 +338,11 @@ def planning_run(
             str(out_base / "plan_final.json"),
             "--weeks",
             str(weeks),
+            *(["--cutover-date", cutover_date] if cutover_date else []),
+            *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
+            *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+            *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
+            *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
         ]
     )
     # 4.5) reconcile-levels (AGG↔DET 差分ログ)
@@ -497,6 +504,8 @@ def planning_run(
                     *(["--cutover-date", cutover_date] if cutover_date else []),
                     *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
                     *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+                    *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
+                    *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
                 ]
             )
             _run_py(
@@ -541,6 +550,8 @@ def planning_run_job(
     carryover: str | None = Form(None),
     carryover_split: float | None = Form(None),
     max_adjust_ratio: float | None = Form(None),
+    blend_split_next: float | None = Form(None),
+    blend_weight_mode: str | None = Form(None),
     tol_abs: float | None = Form(None),
     tol_rel: float | None = Form(None),
     apply_adjusted: int | None = Form(None),
@@ -562,6 +573,8 @@ def planning_run_job(
         "apply_adjusted": bool(apply_adjusted),
         "tol_abs": tol_abs,
         "tol_rel": tol_rel,
+        "blend_split_next": blend_split_next,
+        "blend_weight_mode": blend_weight_mode,
     }
     job_id = JOB_MANAGER.submit_planning(params)
     return RedirectResponse(url="/ui/jobs", status_code=303)

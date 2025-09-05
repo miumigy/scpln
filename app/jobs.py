@@ -346,6 +346,8 @@ class JobManager:
             cutover_date = cfg.get("cutover_date") or None
             recon_window_days = cfg.get("recon_window_days")
             anchor_policy = cfg.get("anchor_policy") or None
+            blend_split_next = cfg.get("blend_split_next")
+            blend_weight_mode = cfg.get("blend_weight_mode") or None
             calendar_mode = cfg.get("calendar_mode") or None
             max_adjust_ratio = cfg.get("max_adjust_ratio")
             carryover = cfg.get("carryover") or None
@@ -397,20 +399,29 @@ class JobManager:
                     weeks,
                 ]
             )
-            runpy(
-                [
-                    "scripts/reconcile.py",
-                    "-i",
-                    str(out_dir / "sku_week.json"),
-                    str(out_dir / "mrp.json"),
-                    "-I",
-                    input_dir,
-                    "-o",
-                    str(out_dir / "plan_final.json"),
-                    "--weeks",
-                    weeks,
-                ]
-            )
+            args_recon = [
+                "scripts/reconcile.py",
+                "-i",
+                str(out_dir / "sku_week.json"),
+                str(out_dir / "mrp.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "plan_final.json"),
+                "--weeks",
+                weeks,
+            ]
+            if cutover_date:
+                args_recon += ["--cutover-date", str(cutover_date)]
+            if recon_window_days is not None:
+                args_recon += ["--recon-window-days", str(recon_window_days)]
+            if anchor_policy:
+                args_recon += ["--anchor-policy", str(anchor_policy)]
+            if blend_split_next is not None:
+                args_recon += ["--blend-split-next", str(blend_split_next)]
+            if blend_weight_mode:
+                args_recon += ["--blend-weight-mode", str(blend_weight_mode)]
+            runpy(args_recon)
             # reconcile-levels (AGG↔DET 差分ログ)
             args_rl = [
                 "scripts/reconcile_levels.py",
@@ -512,23 +523,29 @@ class JobManager:
                             weeks,
                         ]
                     )
-                    runpy(
-                        [
-                            "scripts/reconcile.py",
-                            "-i",
-                            str(out_dir / "sku_week_adjusted.json"),
-                            str(out_dir / "mrp_adjusted.json"),
-                            "-I",
-                            input_dir,
-                            "-o",
-                            str(out_dir / "plan_final_adjusted.json"),
-                            "--weeks",
-                            weeks,
-                            *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-                            *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
-                            *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-                        ]
-                    )
+                    args_recon_adj = [
+                        "scripts/reconcile.py",
+                        "-i",
+                        str(out_dir / "sku_week_adjusted.json"),
+                        str(out_dir / "mrp_adjusted.json"),
+                        "-I",
+                        input_dir,
+                        "-o",
+                        str(out_dir / "plan_final_adjusted.json"),
+                        "--weeks",
+                        weeks,
+                    ]
+                    if cutover_date:
+                        args_recon_adj += ["--cutover-date", str(cutover_date)]
+                    if recon_window_days is not None:
+                        args_recon_adj += ["--recon-window-days", str(recon_window_days)]
+                    if anchor_policy:
+                        args_recon_adj += ["--anchor-policy", str(anchor_policy)]
+                    if blend_split_next is not None:
+                        args_recon_adj += ["--blend-split-next", str(blend_split_next)]
+                    if blend_weight_mode:
+                        args_recon_adj += ["--blend-weight-mode", str(blend_weight_mode)]
+                    runpy(args_recon_adj)
                     runpy(
                         [
                             "scripts/report.py",
