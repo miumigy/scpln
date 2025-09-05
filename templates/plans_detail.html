@@ -98,11 +98,16 @@
     <details open>
       <summary>before 差分（先頭50件）</summary>
       <p class="mono"><a href="/plans/{{ version_id }}/compare.csv?sort=rel_desc&limit=1000" download>compare.csv</a> ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>violations_only.csv</a></p>
-      <table>
+      <div class="grid" style="align-items:end;">
+        <label>tol_abs<input id="tolAbsB" type="number" step="0.000001" value="{{ recon.tolerance.abs if recon and recon.tolerance else 0.000001 }}"></label>
+        <label>tol_rel<input id="tolRelB" type="number" step="0.000001" value="{{ recon.tolerance.rel if recon and recon.tolerance else 0.000001 }}"></label>
+        <label><input type="checkbox" id="violOnlyB"> 違反のみ表示</label>
+      </div>
+      <table id="tblBefore">
         <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
         <tbody>
           {% for r in deltas %}
-          <tr {% if not r.ok %}style="background:#fff5f5"{% endif %}>
+          <tr data-ok="{{ '1' if r.ok else '0' }}" data-reld="{{ r.rel_demand if r.rel_demand is defined else 0 }}" data-rels="{{ r.rel_supply if r.rel_supply is defined else 0 }}" data-relb="{{ r.rel_backlog if r.rel_backlog is defined else 0 }}">
             <td>{{ r.period }}</td>
             <td>{{ r.family }}</td>
             <td class="mono">{{ r.delta_demand }}</td>
@@ -113,6 +118,38 @@
           {% endfor %}
         </tbody>
       </table>
+      <script>
+      (function(){
+        function num(x){ var v = parseFloat(x); return isNaN(v)?0:v; }
+        var ta = document.getElementById('tolAbsB');
+        var tr = document.getElementById('tolRelB');
+        var cb = document.getElementById('violOnlyB');
+        function apply(){
+          var _ta = num(ta && ta.value);
+          var _tr = num(tr && tr.value);
+          document.querySelectorAll('#tblBefore tbody tr').forEach(function(trEl){
+            var tds = trEl.querySelectorAll('td');
+            var d = Math.abs(num(tds[2] && tds[2].textContent));
+            var s = Math.abs(num(tds[3] && tds[3].textContent));
+            var b = Math.abs(num(tds[4] && tds[4].textContent));
+            var rd = Math.abs(num(trEl.getAttribute('data-reld')));
+            var rs = Math.abs(num(trEl.getAttribute('data-rels')));
+            var rb = Math.abs(num(trEl.getAttribute('data-relb')));
+            var okd = (d <= _ta) || (rd <= _tr);
+            var oks = (s <= _ta) || (rs <= _tr);
+            var okb = (b <= _ta) || (rb <= _tr);
+            [okd,oks,okb].forEach(function(ok,i){ var td = tds[2+i]; if(td) td.style.background = ok? '': '#fff0f0'; });
+            var rowOk = okd && oks && okb;
+            trEl.setAttribute('data-ok', rowOk ? '1':'0');
+            trEl.style.display = (cb && cb.checked && rowOk) ? 'none' : '';
+          });
+        }
+        if (ta) ta.addEventListener('change', apply);
+        if (tr) tr.addEventListener('change', apply);
+        if (cb) cb.addEventListener('change', apply);
+        apply();
+      })();
+      </script>
     </details>
     {% endif %}
 
@@ -120,11 +157,16 @@
     <details>
       <summary>after 差分（先頭50件）</summary>
       <p class="mono"><a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a></p>
-      <table>
+      <div class="grid" style="align-items:end;">
+        <label>tol_abs<input id="tolAbsA" type="number" step="0.000001" value="{{ recon_adj.tolerance.abs if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
+        <label>tol_rel<input id="tolRelA" type="number" step="0.000001" value="{{ recon_adj.tolerance.rel if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
+        <label><input type="checkbox" id="violOnlyA"> 違反のみ表示</label>
+      </div>
+      <table id="tblAfter">
         <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
         <tbody>
           {% for r in deltas_adj %}
-          <tr {% if not r.ok %}style="background:#fff5f5"{% endif %}>
+          <tr data-ok="{{ '1' if r.ok else '0' }}" data-reld="{{ r.rel_demand if r.rel_demand is defined else 0 }}" data-rels="{{ r.rel_supply if r.rel_supply is defined else 0 }}" data-relb="{{ r.rel_backlog if r.rel_backlog is defined else 0 }}">
             <td>{{ r.period }}</td>
             <td>{{ r.family }}</td>
             <td class="mono">{{ r.delta_demand }}</td>
@@ -135,6 +177,38 @@
           {% endfor %}
         </tbody>
       </table>
+      <script>
+      (function(){
+        function num(x){ var v = parseFloat(x); return isNaN(v)?0:v; }
+        var ta = document.getElementById('tolAbsA');
+        var tr = document.getElementById('tolRelA');
+        var cb = document.getElementById('violOnlyA');
+        function apply(){
+          var _ta = num(ta && ta.value);
+          var _tr = num(tr && tr.value);
+          document.querySelectorAll('#tblAfter tbody tr').forEach(function(trEl){
+            var tds = trEl.querySelectorAll('td');
+            var d = Math.abs(num(tds[2] && tds[2].textContent));
+            var s = Math.abs(num(tds[3] && tds[3].textContent));
+            var b = Math.abs(num(tds[4] && tds[4].textContent));
+            var rd = Math.abs(num(trEl.getAttribute('data-reld')));
+            var rs = Math.abs(num(trEl.getAttribute('data-rels')));
+            var rb = Math.abs(num(trEl.getAttribute('data-relb')));
+            var okd = (d <= _ta) || (rd <= _tr);
+            var oks = (s <= _ta) || (rs <= _tr);
+            var okb = (b <= _ta) || (rb <= _tr);
+            [okd,oks,okb].forEach(function(ok,i){ var td = tds[2+i]; if(td) td.style.background = ok? '': '#fff0f0'; });
+            var rowOk = okd && oks && okb;
+            trEl.setAttribute('data-ok', rowOk ? '1':'0');
+            trEl.style.display = (cb && cb.checked && rowOk) ? 'none' : '';
+          });
+        }
+        if (ta) ta.addEventListener('change', apply);
+        if (tr) tr.addEventListener('change', apply);
+        if (cb) cb.addEventListener('change', apply);
+        apply();
+      })();
+      </script>
     </details>
     {% endif %}
   {% endif %}
