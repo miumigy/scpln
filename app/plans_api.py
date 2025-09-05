@@ -333,7 +333,6 @@ def post_plan_reconcile(
         ])
         db.upsert_plan_artifact(version_id, "sku_week_adjusted.json", (out_dir / "sku_week_adjusted.json").read_text(encoding="utf-8"))
         db.upsert_plan_artifact(version_id, "reconciliation_log_adjusted.json", (out_dir / "reconciliation_log_adjusted.json").read_text(encoding="utf-8"))
-<<<<<<< HEAD
         if apply_adjusted:
             # recompute mrp/reconcile adjusted
             _run_py([
