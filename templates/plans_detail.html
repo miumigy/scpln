@@ -221,4 +221,58 @@
     {% endif %}
   {% endif %}
 </section>
+<section>
+  <h3>可視化</h3>
+  <canvas id="chartSpillZonePlan" height="100"></canvas>
+  <canvas id="chartCapacityPlan" height="100" style="margin-top:16px"></canvas>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function(){
+    const weekly = {{ weekly_summary | tojson | safe if weekly_summary else 'null' }};
+    if(!weekly) return;
+    function sumByZone(rows){
+      const zones = ['pre','at','post'];
+      const sums = {pre:{in:0,out:0}, at:{in:0,out:0}, post:{in:0,out:0}};
+      rows.forEach(r=>{
+        const z = (r.zone||'').toLowerCase();
+        if(!sums[z]) return;
+        sums[z].in += Number(r.spill_in||0);
+        sums[z].out += Number(r.spill_out||0);
+      });
+      return {labels: zones, inData: zones.map(z=>sums[z].in), outData: zones.map(z=>sums[z].out)};
+    }
+    function makeSpill(){
+      const ctx = document.getElementById('chartSpillZonePlan');
+      const agg = sumByZone(weekly);
+      if (typeof Chart !== 'undefined'){
+        new Chart(ctx, {type:'bar', data:{labels:agg.labels, datasets:[
+          {label:'spill_in', data:agg.inData, backgroundColor:'rgba(99,102,241,0.6)'},
+          {label:'spill_out', data:agg.outData, backgroundColor:'rgba(239,68,68,0.6)'}
+        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      } else {
+        // fallback: simple bars
+        const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
+      }
+    }
+    function makeCapacity(){
+      const ctx = document.getElementById('chartCapacityPlan');
+      const weeks = weekly.map(r=>r.week);
+      const cap = weekly.map(r=>r.capacity);
+      const adj = weekly.map(r=>r.adjusted_load);
+      if (typeof Chart !== 'undefined'){
+        new Chart(ctx, {type:'bar', data:{labels:weeks, datasets:[
+          {label:'capacity', data:cap, backgroundColor:'rgba(54,162,235,0.5)'},
+          {label:'adjusted_load', data:adj, backgroundColor:'rgba(255,159,64,0.5)'}
+        ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
+      } else {
+        const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
+      }
+    }
+    makeSpill();
+    makeCapacity();
+  })();
+</script>
 {% endblock %}
