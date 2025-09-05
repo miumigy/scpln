@@ -166,23 +166,23 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 "--weeks",
                 weeks,
             ])
-        _run_py([
-            "scripts/reconcile.py",
-                "-i",
-                str(out_dir / "sku_week_adjusted.json"),
-                str(out_dir / "mrp_adjusted.json"),
-                "-I",
-                input_dir,
-                "-o",
-                str(out_dir / "plan_final_adjusted.json"),
-                "--weeks",
-                weeks,
-                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-                *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
-                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-                *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
-                *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
-            ])
+            _run_py([
+                "scripts/reconcile.py",
+                    "-i",
+                    str(out_dir / "sku_week_adjusted.json"),
+                    str(out_dir / "mrp_adjusted.json"),
+                    "-I",
+                    input_dir,
+                    "-o",
+                    str(out_dir / "plan_final_adjusted.json"),
+                    "--weeks",
+                    weeks,
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                    *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
+                    *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
+                ])
     # persist to DB
     db.create_plan_version(
         version_id,
