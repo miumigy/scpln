@@ -19,7 +19,7 @@
     <tbody>
       {% for p in plans %}
       <tr>
-        <td class="mono">{{ p.version_id }}</td>
+        <td class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a></td>
         <td>{{ p.status or '' }}</td>
         <td class="mono">{{ p.cutover_date or '' }}</td>
         <td class="mono">{{ p.recon_window_days or '' }}</td>

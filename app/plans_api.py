@@ -293,6 +293,7 @@ def post_plan_reconcile(
     ])
     db.upsert_plan_artifact(version_id, "reconciliation_log.json", (out_dir / "reconciliation_log.json").read_text(encoding="utf-8"))
     # optional: adjusted reconcile
+    apply_adjusted = bool(body.get("apply_adjusted") or False)
     if anchor_policy and cutover_date:
         _run_py([
             "scripts/anchor_adjust.py",
@@ -332,6 +333,38 @@ def post_plan_reconcile(
         ])
         db.upsert_plan_artifact(version_id, "sku_week_adjusted.json", (out_dir / "sku_week_adjusted.json").read_text(encoding="utf-8"))
         db.upsert_plan_artifact(version_id, "reconciliation_log_adjusted.json", (out_dir / "reconciliation_log_adjusted.json").read_text(encoding="utf-8"))
+        if apply_adjusted:
+            # recompute mrp/reconcile adjusted
+            _run_py([
+                "scripts/mrp.py",
+                "-i",
+                str(out_dir / "sku_week_adjusted.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "mrp_adjusted.json"),
+                "--lt-unit",
+                body.get("lt_unit") or "day",
+                "--weeks",
+                str(body.get("weeks") or 4),
+            ])
+            _run_py([
+                "scripts/reconcile.py",
+                "-i",
+                str(out_dir / "sku_week_adjusted.json"),
+                str(out_dir / "mrp_adjusted.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "plan_final_adjusted.json"),
+                "--weeks",
+                str(body.get("weeks") or 4),
+                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+            ])
+            db.upsert_plan_artifact(version_id, "mrp_adjusted.json", (out_dir / "mrp_adjusted.json").read_text(encoding="utf-8"))
+            db.upsert_plan_artifact(version_id, "plan_final_adjusted.json", (out_dir / "plan_final_adjusted.json").read_text(encoding="utf-8"))
     # respond with summaries
     recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
     recon_adj = db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}

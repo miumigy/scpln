@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>プラン詳細</h2>
+  {% if error %}
+    <article><mark>エラー</mark><pre class="mono">{{ error }}</pre></article>
+  {% else %}
+    <p class="mono">version_id={{ version_id }}</p>
+    <details open>
+      <summary>再整合（パラメータ指定）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/reconcile">
+        <div class="grid">
+          <label>cutover_date<input type="date" name="cutover_date" value="{{ version.cutover_date or '' }}"></label>
+          <label>recon_window_days<input type="number" name="recon_window_days" min="0" value="{{ version.recon_window_days or '' }}"></label>
+          <label>anchor_policy
+            <select name="anchor_policy">
+              <option value="">(未指定)</option>
+              <option value="DET_near">DET_near</option>
+              <option value="AGG_far">AGG_far</option>
+              <option value="blend">blend</option>
+            </select>
+          </label>
+          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+          <label>calendar_mode
+            <select name="calendar_mode">
+              <option value="">(未指定)</option>
+              <option value="simple">simple</option>
+              <option value="iso">iso</option>
+            </select>
+          </label>
+          <label>carryover
+            <select name="carryover">
+              <option value="">(未指定)</option>
+              <option value="auto">auto</option>
+              <option value="prev">prev</option>
+              <option value="next">next</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
+          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
+          <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+          <label>lt_unit
+            <select name="lt_unit">
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit">再整合を実行</button>
+      </form>
+    </details>
+
+    <details open>
+      <summary>要約</summary>
+      <table>
+        <thead><tr><th>項目</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
+          <tr><td>cutover_date</td><td class="mono">{{ version.cutover_date or '' }}</td></tr>
+          <tr><td>recon_window_days</td><td class="mono">{{ version.recon_window_days or '' }}</td></tr>
+          {% if recon and recon.summary %}
+            <tr><td>violations(before)</td><td class="mono">{{ recon.summary.tol_violations }}</td></tr>
+            <tr><td>max|Δ| (before)</td><td class="mono">({{ recon.summary.max_abs_delta.demand }}, {{ recon.summary.max_abs_delta.supply }}, {{ recon.summary.max_abs_delta.backlog }})</td></tr>
+          {% endif %}
+          {% if recon_adj and recon_adj.summary %}
+            <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
+            <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </details>
+
+    {% if weekly_summary %}
+    <details>
+      <summary>能力サマリ（weekly_summary）</summary>
+      <table>
+        <thead><tr><th>week</th><th>capacity</th><th>original_load</th><th>adjusted_load</th><th>spill_in</th><th>spill_out</th></tr></thead>
+        <tbody>
+          {% for r in weekly_summary %}
+          <tr>
+            <td>{{ r.week }}</td>
+            <td class="mono">{{ r.capacity }}</td>
+            <td class="mono">{{ r.original_load }}</td>
+            <td class="mono">{{ r.adjusted_load }}</td>
+            <td class="mono">{{ r.spill_in }}</td>
+            <td class="mono">{{ r.spill_out }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
