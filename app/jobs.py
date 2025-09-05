@@ -342,6 +342,16 @@ class JobManager:
             weeks = str(cfg.get("weeks") or 4)
             round_mode = cfg.get("round_mode") or "int"
             lt_unit = cfg.get("lt_unit") or "day"
+            version_id = cfg.get("version_id") or f"job-{job_id[:8]}"
+            cutover_date = cfg.get("cutover_date") or None
+            recon_window_days = cfg.get("recon_window_days")
+            anchor_policy = cfg.get("anchor_policy") or None
+            calendar_mode = cfg.get("calendar_mode") or None
+            max_adjust_ratio = cfg.get("max_adjust_ratio")
+            carryover = cfg.get("carryover") or None
+            carryover_split = cfg.get("carryover_split")
+            tol_abs = cfg.get("tol_abs")
+            tol_rel = cfg.get("tol_rel")
             env = os.environ.copy()
             env.setdefault("PYTHONPATH", str(base))
 
@@ -401,6 +411,28 @@ class JobManager:
                     weeks,
                 ]
             )
+            # reconcile-levels (AGG↔DET 差分ログ)
+            args_rl = [
+                "scripts/reconcile_levels.py",
+                "-i",
+                str(out_dir / "aggregate.json"),
+                str(out_dir / "sku_week.json"),
+                "-o",
+                str(out_dir / "reconciliation_log.json"),
+                "--version",
+                version_id,
+                "--tol-abs",
+                "1e-6",
+                "--tol-rel",
+                "1e-6",
+            ]
+            if cutover_date:
+                args_rl += ["--cutover-date", str(cutover_date)]
+            if recon_window_days is not None:
+                args_rl += ["--recon-window-days", str(recon_window_days)]
+            if anchor_policy:
+                args_rl += ["--anchor-policy", str(anchor_policy)]
+            runpy(args_rl)
             runpy(
                 [
                     "scripts/report.py",
@@ -412,6 +444,103 @@ class JobManager:
                     str(out_dir / "report.csv"),
                 ]
             )
+            # optional: anchor adjust and adjusted recalculation
+            if anchor_policy and cutover_date:
+                args_anchor = [
+                    "scripts/anchor_adjust.py",
+                    "-i",
+                    str(out_dir / "aggregate.json"),
+                    str(out_dir / "sku_week.json"),
+                    "-o",
+                    str(out_dir / "sku_week_adjusted.json"),
+                    "--cutover-date",
+                    str(cutover_date),
+                    "--anchor-policy",
+                    str(anchor_policy),
+                ]
+                if recon_window_days is not None:
+                    args_anchor += ["--recon-window-days", str(recon_window_days)]
+                if calendar_mode:
+                    args_anchor += ["--calendar-mode", str(calendar_mode)]
+                if max_adjust_ratio is not None:
+                    args_anchor += ["--max-adjust-ratio", str(max_adjust_ratio)]
+                if carryover:
+                    args_anchor += ["--carryover", str(carryover)]
+                if tol_abs is not None:
+                    args_anchor += ["--tol-abs", str(tol_abs)]
+                if tol_rel is not None:
+                    args_anchor += ["--tol-rel", str(tol_rel)]
+                if carryover_split is not None:
+                    args_anchor += ["--carryover-split", str(carryover_split)]
+                runpy(args_anchor)
+
+                args_rl_adj = [
+                    "scripts/reconcile_levels.py",
+                    "-i",
+                    str(out_dir / "aggregate.json"),
+                    str(out_dir / "sku_week_adjusted.json"),
+                    "-o",
+                    str(out_dir / "reconciliation_log_adjusted.json"),
+                    "--version",
+                    f"{version_id}-adjusted",
+                    "--tol-abs",
+                    "1e-6",
+                    "--tol-rel",
+                    "1e-6",
+                ]
+                if cutover_date:
+                    args_rl_adj += ["--cutover-date", str(cutover_date)]
+                if recon_window_days is not None:
+                    args_rl_adj += ["--recon-window-days", str(recon_window_days)]
+                if anchor_policy:
+                    args_rl_adj += ["--anchor-policy", str(anchor_policy)]
+                runpy(args_rl_adj)
+
+                if bool(cfg.get("apply_adjusted") or False):
+                    runpy(
+                        [
+                            "scripts/mrp.py",
+                            "-i",
+                            str(out_dir / "sku_week_adjusted.json"),
+                            "-I",
+                            input_dir,
+                            "-o",
+                            str(out_dir / "mrp_adjusted.json"),
+                            "--lt-unit",
+                            lt_unit,
+                            "--weeks",
+                            weeks,
+                        ]
+                    )
+                    runpy(
+                        [
+                            "scripts/reconcile.py",
+                            "-i",
+                            str(out_dir / "sku_week_adjusted.json"),
+                            str(out_dir / "mrp_adjusted.json"),
+                            "-I",
+                            input_dir,
+                            "-o",
+                            str(out_dir / "plan_final_adjusted.json"),
+                            "--weeks",
+                            weeks,
+                            *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                            *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
+                            *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                        ]
+                    )
+                    runpy(
+                        [
+                            "scripts/report.py",
+                            "-i",
+                            str(out_dir / "plan_final_adjusted.json"),
+                            "-I",
+                            input_dir,
+                            "-o",
+                            str(out_dir / "report_adjusted.csv"),
+                        ]
+                    )
+
             result = {
                 "out_dir": str(out_dir.relative_to(base)),
                 "files": [
@@ -419,8 +548,13 @@ class JobManager:
                     "sku_week.json",
                     "mrp.json",
                     "plan_final.json",
+                    "reconciliation_log.json",
+                    # optional adjusted artifacts
+                    *(["sku_week_adjusted.json", "reconciliation_log_adjusted.json"] if (anchor_policy and cutover_date) else []),
+                    *(["mrp_adjusted.json", "plan_final_adjusted.json", "report_adjusted.csv"] if (anchor_policy and cutover_date and bool(cfg.get("apply_adjusted") or False)) else []),
                     "report.csv",
                 ],
+                "version_id": version_id,
             }
             db.set_job_result(job_id, json.dumps(result, ensure_ascii=False))
             finished = int(time.time() * 1000)
