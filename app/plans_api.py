@@ -405,9 +405,6 @@ def get_plan_compare(
     elif sort == "abs_asc":
         deltas.sort(key=_absmax)
     return {"version_id": version_id, "rows": deltas[: max(0, int(limit))]}
-<<<<<<< HEAD
-
-
 @app.get("/plans/{version_id}/compare.csv", response_class=PlainTextResponse)
 def get_plan_compare_csv(
     version_id: str,
@@ -475,5 +472,3 @@ def get_plan_carryover_csv(version_id: str):
             }
         )
     return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
-=======
->>>>>>> origin/main
