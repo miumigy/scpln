@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>プラン詳細</h2>
+  {% if error %}
+    <article><mark>エラー</mark><pre class="mono">{{ error }}</pre></article>
+  {% else %}
+    <p class="mono">version_id={{ version_id }}</p>
+    <details open>
+      <summary>再整合（パラメータ指定）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/reconcile">
+        <div class="grid">
+          <label>cutover_date<input type="date" name="cutover_date" value="{{ version.cutover_date or '' }}"></label>
+          <label>recon_window_days<input type="number" name="recon_window_days" min="0" value="{{ version.recon_window_days or '' }}"></label>
+          <label>anchor_policy
+            <select name="anchor_policy">
+              <option value="">(未指定)</option>
+              <option value="DET_near">DET_near</option>
+              <option value="AGG_far">AGG_far</option>
+              <option value="blend">blend</option>
+            </select>
+          </label>
+          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+          <label>calendar_mode
+            <select name="calendar_mode">
+              <option value="">(未指定)</option>
+              <option value="simple">simple</option>
+              <option value="iso">iso</option>
+            </select>
+          </label>
+          <label>carryover
+            <select name="carryover">
+              <option value="">(未指定)</option>
+              <option value="auto">auto</option>
+              <option value="prev">prev</option>
+              <option value="next">next</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
+          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
+          <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+          <label>lt_unit
+            <select name="lt_unit">
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit">再整合を実行</button>
+      </form>
+    </details>
+
+    <details open>
+      <summary>要約</summary>
+      <table>
+        <thead><tr><th>項目</th><th>値</th></tr></thead>
+        <tbody>
+          <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
+          <tr><td>cutover_date</td><td class="mono">{{ version.cutover_date or '' }}</td></tr>
+          <tr><td>recon_window_days</td><td class="mono">{{ version.recon_window_days or '' }}</td></tr>
+          {% if recon and recon.summary %}
+            <tr><td>violations(before)</td><td class="mono">{{ recon.summary.tol_violations }}</td></tr>
+            <tr><td>max|Δ| (before)</td><td class="mono">({{ recon.summary.max_abs_delta.demand }}, {{ recon.summary.max_abs_delta.supply }}, {{ recon.summary.max_abs_delta.backlog }})</td></tr>
+          {% endif %}
+          {% if recon_adj and recon_adj.summary %}
+            <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
+            <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </details>
+
+    {% if weekly_summary %}
+    <details>
+      <summary>能力サマリ（weekly_summary）</summary>
+      <table>
+        <thead><tr><th>week</th><th>capacity</th><th>original_load</th><th>adjusted_load</th><th>spill_in</th><th>spill_out</th></tr></thead>
+        <tbody>
+          {% for r in weekly_summary %}
+          <tr>
+            <td>{{ r.week }}</td>
+            <td class="mono">{{ r.capacity }}</td>
+            <td class="mono">{{ r.original_load }}</td>
+            <td class="mono">{{ r.adjusted_load }}</td>
+            <td class="mono">{{ r.spill_in }}</td>
+            <td class="mono">{{ r.spill_out }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
+
+    {% if deltas %}
+    <details open>
+      <summary>before 差分（先頭50件）</summary>
+      <p class="mono"><a href="/plans/{{ version_id }}/compare.csv?sort=rel_desc&limit=1000" download>compare.csv</a> ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>violations_only.csv</a></p>
+      <div class="grid" style="align-items:end;">
+        <label>tol_abs<input id="tolAbsB" type="number" step="0.000001" value="{{ recon.tolerance.abs if recon and recon.tolerance else 0.000001 }}"></label>
+        <label>tol_rel<input id="tolRelB" type="number" step="0.000001" value="{{ recon.tolerance.rel if recon and recon.tolerance else 0.000001 }}"></label>
+        <label><input type="checkbox" id="violOnlyB"> 違反のみ表示</label>
+      </div>
+      <table id="tblBefore">
+        <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
+        <tbody>
+          {% for r in deltas %}
+          <tr data-ok="{{ '1' if r.ok else '0' }}" data-reld="{{ r.rel_demand if r.rel_demand is defined else 0 }}" data-rels="{{ r.rel_supply if r.rel_supply is defined else 0 }}" data-relb="{{ r.rel_backlog if r.rel_backlog is defined else 0 }}">
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.delta_demand }}</td>
+            <td class="mono">{{ r.delta_supply }}</td>
+            <td class="mono">{{ r.delta_backlog }}</td>
+            <td class="mono">{{ r.ok }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <script>
+      (function(){
+        function num(x){ var v = parseFloat(x); return isNaN(v)?0:v; }
+        var ta = document.getElementById('tolAbsB');
+        var tr = document.getElementById('tolRelB');
+        var cb = document.getElementById('violOnlyB');
+        function apply(){
+          var _ta = num(ta && ta.value);
+          var _tr = num(tr && tr.value);
+          document.querySelectorAll('#tblBefore tbody tr').forEach(function(trEl){
+            var tds = trEl.querySelectorAll('td');
+            var d = Math.abs(num(tds[2] && tds[2].textContent));
+            var s = Math.abs(num(tds[3] && tds[3].textContent));
+            var b = Math.abs(num(tds[4] && tds[4].textContent));
+            var rd = Math.abs(num(trEl.getAttribute('data-reld')));
+            var rs = Math.abs(num(trEl.getAttribute('data-rels')));
+            var rb = Math.abs(num(trEl.getAttribute('data-relb')));
+            var okd = (d <= _ta) || (rd <= _tr);
+            var oks = (s <= _ta) || (rs <= _tr);
+            var okb = (b <= _ta) || (rb <= _tr);
+            [okd,oks,okb].forEach(function(ok,i){ var td = tds[2+i]; if(td) td.style.background = ok? '': '#fff0f0'; });
+            var rowOk = okd && oks && okb;
+            trEl.setAttribute('data-ok', rowOk ? '1':'0');
+            trEl.style.display = (cb && cb.checked && rowOk) ? 'none' : '';
+          });
+        }
+        if (ta) ta.addEventListener('change', apply);
+        if (tr) tr.addEventListener('change', apply);
+        if (cb) cb.addEventListener('change', apply);
+        apply();
+      })();
+      </script>
+    </details>
+    {% endif %}
+
+    {% if deltas_adj %}
+    <details>
+      <summary>after 差分（先頭50件）</summary>
+      <p class="mono"><a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a></p>
+      <div class="grid" style="align-items:end;">
+        <label>tol_abs<input id="tolAbsA" type="number" step="0.000001" value="{{ recon_adj.tolerance.abs if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
+        <label>tol_rel<input id="tolRelA" type="number" step="0.000001" value="{{ recon_adj.tolerance.rel if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
+        <label><input type="checkbox" id="violOnlyA"> 違反のみ表示</label>
+      </div>
+      <table id="tblAfter">
+        <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
+        <tbody>
+          {% for r in deltas_adj %}
+          <tr data-ok="{{ '1' if r.ok else '0' }}" data-reld="{{ r.rel_demand if r.rel_demand is defined else 0 }}" data-rels="{{ r.rel_supply if r.rel_supply is defined else 0 }}" data-relb="{{ r.rel_backlog if r.rel_backlog is defined else 0 }}">
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.delta_demand }}</td>
+            <td class="mono">{{ r.delta_supply }}</td>
+            <td class="mono">{{ r.delta_backlog }}</td>
+            <td class="mono">{{ r.ok }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <script>
+      (function(){
+        function num(x){ var v = parseFloat(x); return isNaN(v)?0:v; }
+        var ta = document.getElementById('tolAbsA');
+        var tr = document.getElementById('tolRelA');
+        var cb = document.getElementById('violOnlyA');
+        function apply(){
+          var _ta = num(ta && ta.value);
+          var _tr = num(tr && tr.value);
+          document.querySelectorAll('#tblAfter tbody tr').forEach(function(trEl){
+            var tds = trEl.querySelectorAll('td');
+            var d = Math.abs(num(tds[2] && tds[2].textContent));
+            var s = Math.abs(num(tds[3] && tds[3].textContent));
+            var b = Math.abs(num(tds[4] && tds[4].textContent));
+            var rd = Math.abs(num(trEl.getAttribute('data-reld')));
+            var rs = Math.abs(num(trEl.getAttribute('data-rels')));
+            var rb = Math.abs(num(trEl.getAttribute('data-relb')));
+            var okd = (d <= _ta) || (rd <= _tr);
+            var oks = (s <= _ta) || (rs <= _tr);
+            var okb = (b <= _ta) || (rb <= _tr);
+            [okd,oks,okb].forEach(function(ok,i){ var td = tds[2+i]; if(td) td.style.background = ok? '': '#fff0f0'; });
+            var rowOk = okd && oks && okb;
+            trEl.setAttribute('data-ok', rowOk ? '1':'0');
+            trEl.style.display = (cb && cb.checked && rowOk) ? 'none' : '';
+          });
+        }
+        if (ta) ta.addEventListener('change', apply);
+        if (tr) tr.addEventListener('change', apply);
+        if (cb) cb.addEventListener('change', apply);
+        apply();
+      })();
+      </script>
+    </details>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
