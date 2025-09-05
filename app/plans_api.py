@@ -36,6 +36,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     cutover_date = body.get("cutover_date")
     recon_window_days = body.get("recon_window_days")
     anchor_policy = body.get("anchor_policy")
+    blend_split_next = body.get("blend_split_next")
+    blend_weight_mode = body.get("blend_weight_mode")
     carryover = body.get("carryover")
     carryover_split = body.get("carryover_split")
     max_adjust_ratio = body.get("max_adjust_ratio")
@@ -90,6 +92,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         *(["--cutover-date", str(cutover_date)] if cutover_date else []),
         *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
         *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+        *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
+        *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
     ])
     # 4.5) reconcile-levels (before)
     _run_py([
@@ -176,6 +180,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                 *(["--recon-window-days", str(recon_window_days)] if recon_window_days is not None else []),
                 *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                *(["--blend-split-next", str(blend_split_next)] if (blend_split_next is not None) else []),
+                *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
             ])
     # persist to DB
     db.create_plan_version(
@@ -404,8 +410,6 @@ def get_plan_compare(
     elif sort == "abs_asc":
         deltas.sort(key=_absmax)
     return {"version_id": version_id, "rows": deltas[: max(0, int(limit))]}
-
-
 @app.get("/plans/{version_id}/compare.csv", response_class=PlainTextResponse)
 def get_plan_compare_csv(
     version_id: str,
