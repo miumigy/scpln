@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 import time
 from pathlib import Path
@@ -143,6 +144,38 @@ def init_db() -> None:
             )
             """
         )
+        # v3: plan versions and artifacts
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS plan_versions (
+                version_id TEXT PRIMARY KEY,
+                created_at INTEGER NOT NULL,
+                base_scenario_id INTEGER,
+                status TEXT,
+                cutover_date TEXT,
+                recon_window_days INTEGER,
+                objective TEXT,
+                note TEXT
+            )
+            """
+        )
+        c.execute(
+            """
+            CREATE TABLE IF NOT EXISTS plan_artifacts (
+                version_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                json_text TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY(version_id, name)
+            )
+            """
+        )
+        try:
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_plan_artifacts_version ON plan_artifacts(version_id)"
+            )
+        except Exception:
+            pass
 
 
 def create_job(
@@ -385,3 +418,68 @@ def update_scenario(sid: int, **fields: Any) -> None:
 def delete_scenario(sid: int) -> None:
     with _conn() as c:
         c.execute("DELETE FROM scenarios WHERE id=?", (sid,))
+
+
+# --- Plans (v3) ---
+def create_plan_version(
+    version_id: str,
+    *,
+    base_scenario_id: int | None = None,
+    status: str | None = "active",
+    cutover_date: str | None = None,
+    recon_window_days: int | None = None,
+    objective: str | None = None,
+    note: str | None = None,
+) -> None:
+    now = int(time.time() * 1000)
+    with _conn() as c:
+        c.execute(
+            "INSERT OR REPLACE INTO plan_versions(version_id, created_at, base_scenario_id, status, cutover_date, recon_window_days, objective, note) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                version_id,
+                now,
+                base_scenario_id,
+                status,
+                cutover_date,
+                recon_window_days,
+                objective,
+                note,
+            ),
+        )
+
+
+def upsert_plan_artifact(version_id: str, name: str, json_text: str) -> None:
+    now = int(time.time() * 1000)
+    with _conn() as c:
+        c.execute(
+            "INSERT OR REPLACE INTO plan_artifacts(version_id, name, json_text, created_at) VALUES(?,?,?,?)",
+            (version_id, name, json_text, now),
+        )
+
+
+def get_plan_artifact(version_id: str, name: str) -> Dict[str, Any] | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT json_text FROM plan_artifacts WHERE version_id=? AND name=?",
+            (version_id, name),
+        ).fetchone()
+        if not row:
+            return None
+        return json.loads(row["json_text"]) if row["json_text"] else None
+
+
+def get_plan_version(version_id: str) -> Dict[str, Any] | None:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM plan_versions WHERE version_id=?", (version_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_plan_versions(limit: int = 100) -> List[Dict[str, Any]]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT version_id, status, cutover_date, recon_window_days, created_at FROM plan_versions ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
