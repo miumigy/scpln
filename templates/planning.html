@@ -2,6 +2,7 @@
 {% block content %}
 <section>
   <h2>集約計画/詳細計画 パイプライン（UI検証）</h2>
+  <p class="mono">ヘルプ: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md" target="_blank">整合ガイド（GitHub）</a></p>
   <form method="post" action="/planning/run" enctype="multipart/form-data">
     <details>
       <summary>CSVアップロード（任意）</summary>
@@ -193,6 +194,7 @@
 {% if out_dir %}
 <section>
   <h3>出力（{{ out_dir }}）</h3>
+  <p class="mono">整合ガイド: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#パラメタ早見主要" target="_blank">パラメタ早見</a> ｜ <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md#faq抜粋" target="_blank">FAQ</a></p>
   <details open>
     <summary>Aggregate（family×period）</summary>
     {% if aggregate and aggregate.rows %}

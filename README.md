@@ -488,6 +488,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 ## 集約計画/詳細計画パイプライン
 
 設計ドキュメント: [集約↔詳細の統合・整合の方針](docs/AGG_DET_RECONCILIATION_JA.md)
+  - 参照: v2擬似コード／パラメタ早見／FAQ／最小サンプル（before/after）
 
 粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
 
@@ -572,6 +573,7 @@ bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
 - 出力: Aggregate表・能力サマリ（weekly_summary）・整合ログ（AGG↔DET差分の要約表）表示、`report.csv` ダウンロード
 - オプション: `version_id` をフォームで指定すると、整合ログに `version_id` を付与（将来のAPI/DB連携の布石）
 - 予約: `cutover_date`/`recon_window_days`/`anchor_policy` をフォームで指定可能（現状は整合ログに反映・境界要約のみ）
+ - ヘルプ: 整合ガイド（docs/AGG_DET_RECONCILIATION_JA.md）内の「パラメタ早見」「FAQ」を参照
 - ジョブ実行: 「ジョブとして実行」ボタンで非同期化し、`/ui/jobs` から進捗閲覧（完了後はジョブ詳細にプレビューリンク表示）
 
 ## 図解

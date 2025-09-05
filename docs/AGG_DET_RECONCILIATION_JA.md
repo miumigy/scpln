@@ -63,6 +63,30 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
   - 能力: 工程/リソース負荷を上限内に。DETでの超過はAGGに戻し抑制（mix見直し）。
   - BOM: 上位需要→下位展開量の整合、原材料在庫/リードタイム制約の逆伝播。
 
+### v2 ヒューリスティク（擬似コード）
+- 週リスト `weeks` を `pre(<cutover)`, `at(=cutover月)`, `post(>cutover)` に分割。
+- `adjust_segment(weeks, start_slack, start_spill, mode)` を用意。
+  - `mode=forward`: 従来どおり spill を次週へ。slack も次週へ。
+  - `mode=det_near|agg_far|blend`: 区間内で発生した spill を区間外へ吐き出し、戻り値 `end_spill` に集約。
+- DET_near:
+  - `pre=forward(…0,0) → at=det_near(start_slack=pre.slack, start_spill=pre.spill) → post=forward(start_slack=at.slack, start_spill=at.spill)`
+- AGG_far:
+  - `pre1=forward(…0,0) → at=agg_far(start_slack=pre1.slack, start_spill=pre1.spill)`
+  - `pre2=forward(start_slack=0, start_spill=at.spill) → post=forward(start_slack=at.slack, start_spill=0)`
+  - 採用: `pre=pre2` / `at` / `post`
+- blend:
+  - `pre1=forward(…0,0) → at=blend(start_slack=pre1.slack, start_spill=pre1.spill)`
+  - `share_next =
+      if --blend-split-next 指定: その値
+      else: 週別 spill×近接重み（tri|lin|quad）から動的に算出（window内ほど大）`
+  - `spill_prev=at.spill*(1-share_next), spill_next=at.spill*share_next`
+  - `pre2=forward(start_slack=0, start_spill=spill_prev) → post=forward(start_slack=at.slack, start_spill=spill_next)`
+  - 採用: `pre=pre2` / `at` / `post`
+
+メモ:
+- いずれも保存則（総量）は維持。`weekly_summary` に `zone/boundary_index/in_window_*` を付与し、境界の可視性を高める。
+- 近接重み tri/lin は線形、quad は二次（近接を強調）。`win_w=ceil(window_days/7)` を半径に採用。
+
 ## 境界設計
 - `cutover_date` 周辺の整合ウィンドウ `[cutover-W, cutover+W]` で以下を実施:
   - 前半（<cutover）: DET優先、AGGとの差分はAGGへ吸収（先々のmix/量を微調整）。
@@ -255,10 +279,173 @@ graph TD;
   - `--max-adjust-ratio <0..1>`（行ごとの相対上限）、`--tol-abs/--tol-rel`（微小差無視）。
   - `-I/--input-dir` と `--capacity/--open-po/--period-score/--pl-cost` でヘッドルーム重み付け。
 - `reconcile.py`:
-  - `--cutover-date`, `--recon-window-days`, `--anchor-policy` は受け口（今後反映拡充）。
+  - `--cutover-date`, `--recon-window-days`, `--anchor-policy`, `--blend-split-next`, `--blend-weight-mode`（tri|lin|quad）。
+  - API/Jobs/UI の対応: `plans_api.post_plans_integrated_run`/`ui_planning`/`jobs._run_planning` が同名パラメタを委譲。
+  - 推奨セット（例）:
+    - 直近保護: `DET_near` + `recon_window_days=7`
+    - 先々保護: `AGG_far` + `recon_window_days=7`
+    - ブレンド: `blend` + `recon_window_days=14` + `blend_weight_mode=tri`（必要なら `blend_split_next` 固定）
+
+### パラメタ対応表（CLI/API/UI/Jobs）
+- 共通キー（計画一括実行 /plans/integrated/run の body）
+  - `version_id`: 明示しない場合は自動採番（`v<epoch>-<id>`）。
+  - `input_dir`: 既定 `samples/planning`。
+  - `weeks`: 既定 4（1期間の週数ヒント）。
+  - `round_mode`: 既定 `int`（allocate丸め）。
+  - `lt_unit`: 既定 `day`（`mrp.py`）。
+  - `cutover_date`: 例 `YYYY-MM-DD`。未指定時は v2動作は抑制（境界メタのみ無し）。
+  - `recon_window_days`: 既定なし（動作は実装側のデフォルトに依存）。blendの動的分割・in_window_* に影響。
+  - `anchor_policy`: `DET_near|AGG_far|blend`。未指定なら従来（forward）。
+  - `blend_split_next`: 0..1。未指定時は動的に算出。
+  - `blend_weight_mode`: `tri|lin|quad`。未指定時は tri。
+  - `apply_adjusted`: bool。true の場合のみ anchor_adjust 後に `mrp/reconcile` を再実行。
+
+- CLI への委譲（plans_api → scripts）
+  - `plan_aggregate.py`: `-i input_dir -o out/aggregate.json`
+  - `allocate.py`: `--weeks weeks --round round_mode`
+  - `mrp.py`: `--lt-unit lt_unit --weeks weeks`
+  - `reconcile.py`（通常/adjusted）:
+    - `--cutover-date cutover_date`
+    - `--recon-window-days recon_window_days`
+    - `--anchor-policy anchor_policy`
+    - `--blend-split-next blend_split_next`
+    - `--blend-weight-mode blend_weight_mode`
+  - `reconcile_levels.py`: `--version version_id` と `cutover/window/anchor/tol` を委譲。
+  - `anchor_adjust.py`（任意）: `cutover/anchor/window/weeks/calendar/carryover/split/tol/max-adjust-ratio` を委譲。
+
+- UI/Jobs の対応
+  - `/ui/planning` フォーム: cutover/window/anchor/blend を受け付け、上記スクリプトに委譲。
+  - ジョブ（`jobs._run_planning`）: 同パラメタをプロセス引数化して委譲。
+  - `/ui/plans` 詳細: `post /ui/plans/{version}/reconcile` で再整合（`plans_api.post_plan_reconcile` を再利用）。
+
+- 依存関係と優先順位
+  - `anchor_policy` は `cutover_date` が指定された場合に有効（境界月が特定できないため）。
+  - `blend_split_next` は `anchor_policy=blend` の時のみ意味を持つ。未指定時は動的分割。
+  - `recon_window_days` は v2動作（in_window_* や重み計算）に影響するが、未指定でも動作（実装既定値を使用）。
+  - プリセット（pipelineの `--preset`）は「未指定の項目のみ」上書き。明示した値が優先。
+  - `apply_adjusted=false` の場合、`mrp_adjusted.json` を生成せず、`plan_final_adjusted.json` も生成しない（整合は before のみ）。
+
+## 最小サンプル（before/after）
+
+### reconciliation_log.json（before, 抜粋）
+```json
+{
+  "schema_version": "recon-aggdet-1.0",
+  "version_id": "v-demo",
+  "cutover": {"cutover_date": "2025-09-01", "recon_window_days": 7, "anchor_policy": null},
+  "summary": {
+    "rows": 12,
+    "tol_violations": 1,
+    "max_abs_delta": {"demand": 25, "supply": 0, "backlog": 0},
+    "boundary": {"period": "2025-09", "violations": 1, "max_abs_delta": {"demand": 25, "supply": 0, "backlog": 0}}
+  },
+  "deltas": [
+    {
+      "family": "F1",
+      "period": "2025-09",
+      "agg_demand": 700.0,
+      "det_demand": 725.0,
+      "delta_demand": 25.0,
+      "rel_demand": 0.0357,
+      "ok_demand": false,
+      "agg_supply": 0.0,
+      "det_supply": 0.0,
+      "delta_supply": 0.0,
+      "rel_supply": 0.0,
+      "ok_supply": true,
+      "agg_backlog": 0.0,
+      "det_backlog": 0.0,
+      "delta_backlog": 0.0,
+      "rel_backlog": 0.0,
+      "ok_backlog": true,
+      "ok": false,
+      "boundary_period": true
+    }
+  ]
+}
+```
+
+### reconciliation_log_adjusted.json（after, DET_near 適用後, 抜粋）
+```json
+{
+  "schema_version": "recon-aggdet-1.0",
+  "version_id": "v-demo-adjusted",
+  "cutover": {"cutover_date": "2025-09-01", "recon_window_days": 7, "anchor_policy": "DET_near"},
+  "summary": {
+    "rows": 12,
+    "tol_violations": 0,
+    "max_abs_delta": {"demand": 0, "supply": 0, "backlog": 0},
+    "boundary": {"period": "2025-09", "violations": 0, "max_abs_delta": {"demand": 0, "supply": 0, "backlog": 0}}
+  },
+  "deltas": [
+    {
+      "family": "F1",
+      "period": "2025-09",
+      "agg_demand": 700.0,
+      "det_demand": 700.0,
+      "delta_demand": 0.0,
+      "rel_demand": 0.0,
+      "ok_demand": true,
+      "agg_supply": 0.0,
+      "det_supply": 0.0,
+      "delta_supply": 0.0,
+      "rel_supply": 0.0,
+      "ok_supply": true,
+      "agg_backlog": 0.0,
+      "det_backlog": 0.0,
+      "delta_backlog": 0.0,
+      "rel_backlog": 0.0,
+      "ok_backlog": true,
+      "ok": true,
+      "boundary_period": true
+    }
+  ]
+}
+```
+
+### plan_final.json.weekly_summary（after, DET_near, 抜粋）
+```json
+{
+  "weekly_summary": [
+    {"week": "2025-08-Wk04", "zone": "pre",  "capacity": 150, "original_load": 140, "adjusted_load": 140, "spill_in": 0, "spill_out": 0},
+    {"week": "2025-09-Wk01", "zone": "at",   "boundary_index": 1, "boundary_size": 4, "in_window_pre": true,  "in_window_post": false, "capacity": 150, "original_load": 180, "adjusted_load": 150, "spill_in": 0, "spill_out": 30},
+    {"week": "2025-09-Wk02", "zone": "at",   "boundary_index": 2, "boundary_size": 4, "in_window_pre": true,  "in_window_post": false, "capacity": 150, "original_load": 160, "adjusted_load": 150, "spill_in": 0, "spill_out": 10},
+    {"week": "2025-09-Wk03", "zone": "at",   "boundary_index": 3, "boundary_size": 4, "in_window_pre": false, "in_window_post": true,  "capacity": 150, "original_load": 140, "adjusted_load": 140, "spill_in": 0, "spill_out": 0},
+    {"week": "2025-09-Wk04", "zone": "at",   "boundary_index": 4, "boundary_size": 4, "in_window_pre": false, "in_window_post": true,  "capacity": 150, "original_load": 120, "adjusted_load": 120, "spill_in": 0, "spill_out": 0},
+    {"week": "2025-10-Wk01", "zone": "post", "capacity": 150, "original_load": 130, "adjusted_load": 170, "spill_in": 40, "spill_out": 0}
+  ],
+  "boundary_summary": {"period": "2025-09", "weeks": 4, "pre_weeks": 1, "post_weeks": 1, "anchor_policy": "DET_near", "window_days": 7}
+}
+```
+
+備考:
+- DET_near では、cutover月内の spill は区間外（post）先頭に集約（`spill_in`）。
+- blend は `share_next` に応じて pre/post へ分割され、pre 側の forward（pre2）で再分配される。
 
 ## トラブルシュート
 - ポート競合: `scripts/serve.sh` が既存 `uvicorn` を停止試行。改善しない場合 `bash scripts/stop.sh` 実行。
 - `reconciliation_log.json` が見つからない: 差分ログは任意。`reconcile_levels.py` を実行し直してください。
 - 依存不足: `serve.sh` が `requirements.txt` から自動インストール。失敗時は仮想環境の破棄→再実行を検討。
 - 期間キー不一致: `YYYY-MM` と `YYYY-Www` が混在すると推定が働く。運用では一方に統一してください。
+
+## FAQ（抜粋）
+- Q: window は何日が適切？
+  - A: DET_near/AGG_far は 7〜14 日で開始し、違反件数・スピル分布・KPI（稼働率/フィルレート）を見ながら調整。
+- Q: blend の重みはどう選ぶ？
+  - A: tri（線形）を既定。近接を強調したいときは quad。業務要請で固定比があるなら `--blend-split-next`。
+- Q: cutover をまたぐ入荷/PO は？
+  - A: `open_po.csv` の due を period 化し、anchor_adjust の carryover と併せて検討（ヘッドルーム係数を活用）。
+- Q: AGG/DET の period 粒度が異なるケースは？
+  - A: `reconcile_levels.py` が簡易推定するが、境界の精度を上げるには period フォーマットの統一を推奨。
+- Q: capacity.csv が不完全（0/欠損）のときは？
+  - A: 欠損は0扱い。`weekly_summary` で spill が増えるため、capacity の整備（工程/拠点別）を推奨。必要に応じ `weeks` を見直し。
+- Q: mix_share.csv の合計が1にならない場合？
+  - A: allocate 時の丸め/残差配分に影響。`--round` と残差方針で吸収できない偏差は reconcile_levels に現れるため、mix を正規化。
+- Q: tol の推奨は？
+  - A: `tol_abs=1e-6`, `tol_rel=1e-6` を最初のしきい値として採用。小数点処理の丸め誤差で false positive が出る場合は `tol_rel` を緩める。
+- Q: ISO週とsimple月の混在は？
+  - A: UI の weekly_summary は `YYYY-MM-WkX` 前提の簡易推定。ISO週で厳密管理する場合はフォーマット統一（`YYYY-Www`）を推奨。
+- Q: apply_adjusted=false で adjusted 成果物が無いのに参照してしまうことは？
+  - A: API は `apply_adjusted` が false の場合、`mrp_adjusted.json`/`plan_final_adjusted.json` を生成/参照しないようガード済み。
+- Q: パフォーマンスの目安は？
+  - A: サンプルデータ（数百行）で E2E 実行は数秒。期間数/品目数に線形〜準線形。`reconcile_levels` は O(N) のロールアップ。
