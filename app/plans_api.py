@@ -333,7 +333,6 @@ def post_plan_reconcile(
         ])
         db.upsert_plan_artifact(version_id, "sku_week_adjusted.json", (out_dir / "sku_week_adjusted.json").read_text(encoding="utf-8"))
         db.upsert_plan_artifact(version_id, "reconciliation_log_adjusted.json", (out_dir / "reconciliation_log_adjusted.json").read_text(encoding="utf-8"))
-<<<<<<< HEAD
         if apply_adjusted:
             # recompute mrp/reconcile adjusted
             _run_py([
@@ -405,7 +404,6 @@ def get_plan_compare(
     elif sort == "abs_asc":
         deltas.sort(key=_absmax)
     return {"version_id": version_id, "rows": deltas[: max(0, int(limit))]}
-<<<<<<< HEAD
 
 
 @app.get("/plans/{version_id}/compare.csv", response_class=PlainTextResponse)
@@ -475,5 +473,3 @@ def get_plan_carryover_csv(version_id: str):
             }
         )
     return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
-=======
->>>>>>> origin/main
