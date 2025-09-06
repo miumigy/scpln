@@ -25,13 +25,13 @@ def _run_py(args: list[str], env: dict | None = None) -> None:
 
 
 @app.get("/ui/planning", response_class=HTMLResponse)
-def ui_planning(request: Request, dir: str | None = Query(None)):
+def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")):
     out = None
     agg = sku = mrp = plan = report = recon = recon_path = None
     plan_adj = report_adj = recon_adj = recon_adj_path = None
     err_msgs: list[str] = []
-    if dir:
-        out = Path(dir)
+    if out_dir:
+        out = Path(out_dir)
         if not out.is_absolute():
             out = _BASE_DIR / out
         # 読み込みは個別に行い、部分的に表示可能にする
