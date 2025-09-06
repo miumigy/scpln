@@ -487,94 +487,24 @@ SIM_LOG_JSON=1 uvicorn main:app \
 
 ## 集約計画/詳細計画パイプライン
 
-設計ドキュメント: [集約↔詳細の統合・整合の方針](docs/AGG_DET_RECONCILIATION_JA.md)
-  - 参照: v2擬似コード／パラメタ早見（CLI/API/UI/Jobs）／FAQ／最小サンプル
+設計と詳細手順は整合ガイドに集約しています。READMEでは最小限の実行方法のみを示します。
 
-粗粒度（製品ファミリ×月次）→SKU/週次へ按分→MRP→能力整合（CRPライト）→KPIレポートまで一通り実行可能です。
+- 整合ガイド: docs/AGG_DET_RECONCILIATION_JA.md（擬似コード／パラメタ早見／FAQ／サンプル）
+- サンプル入力: samples/planning/
 
-- 前提データ（サンプル）: `samples/planning/`
-  - `demand_family.csv`: `family, period, demand`
-  - `capacity.csv`: `workcenter, period, capacity`
-  - `mix_share.csv`: `family, sku, share`
-  - 参考: `item.csv`, `inventory.csv`, `open_po.csv`, `period_score.csv`, `period_cost.csv`
-- CLI（ステップ毎）
-  - 粗粒度計画: `python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
-    - 出力: `rows: [{family, period, demand, supply, backlog, capacity_total}]`
-  - 按分: `python scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
-    - 出力: `rows: [{family, period, sku, week, demand, supply, backlog}]`
-  - MRPライト: `python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4`
-    - 入力CSV: `item.csv`, `inventory.csv`, `open_po.csv`, 任意で `bom.csv`
-    - 出力: `rows: [{item, week, gross_req, scheduled_receipts, on_hand_start, net_req, planned_order_receipt, planned_order_release, lt_weeks, lot, moq}]`
-  - 製販物整合（CRPライト）: `python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4`
-    - 入力CSV: `capacity.csv`, `mix_share.csv`
-    - 出力: `weekly_summary` と `rows`（mrp行に `planned_order_release_adj` と `planned_order_receipt_adj` を付与）
-    - v2最小（任意）: `--cutover-date YYYY-MM-DD --anchor-policy {DET_near|AGG_far|blend}`
-      - DET_near: cutover月内のスピルを区間外（post）へ送る（pre/at/post分割）
-      - AGG_far: cutover月内のスピルを区間外（pre）へ戻す（preを再計算）
-      - blend: cutover月内スピルを pre/post に分割（`--blend-weight-mode tri|lin|quad` と `--recon-window-days` で近接重み。`--blend-split-next` 指定時は固定比）
-- 整合ログ（AGG↔DET）: `python scripts/reconcile_levels.py -i out/aggregate.json out/sku_week.json -o out/reconciliation_log.json --version v1 --tol-abs 1e-6 --tol-rel 1e-6`
-  - 役割: DET（SKU×週）を family×period にロールアップし、AGG（family×period）との差分を可視化
-  - 出力: `reconciliation_log.json`（`deltas[]` に {family, period, agg_x, det_x, delta_x, ok}）
-  - v2入口: `--cutover-date YYYY-MM-DD` `--recon-window-days N` `--anchor-policy ...` を受け取り、`summary.boundary` に境界期間の違反件数/上位差分を要約（ロジック変更は今後）
-  - anchorポリシー（調整時の重み付け方針・最小実装）
-    - `DET_near`: 期間末（後半週）に重みを置いて差分を吸収（直近DETを優先）
-    - `AGG_far`: 期間頭（前半週）に重みを置いて差分を吸収（先々AGGを優先）
-    - `blend`: 期間中央に三角重みで滑らかに吸収（境界でのブレンドの雛形）
-    - `--recon-window-days N` 指定時は、`DET_near` は末尾N週／`AGG_far` は先頭N週に集中配分（N=ceil(window/7)）
-    - 上限/停止: `--max-adjust-ratio r` で1行の相対調整を±rに制限、`--tol-abs t` で (family,period) の max|Δ|≤t の場合は調整をスキップ
-    - 週中心: `--calendar-mode iso` でcutover週の中心推定をISO近似に変更（既定: simple=7日割り）
-    - 持ち越し: `--carryover (none|prev|next|auto)` で period 残差を隣接periodへ均等配分（上限比率内・2周目再配分あり）。`auto` は `DET_near/blend→next`, `AGG_far→prev`
-    - 余地バイアス(POC): `-I <input_dir>` または `--capacity <path>` を指定すると、隣接periodの余地評価に `capacity.csv` のperiod容量をバイアスとして加味（`--headroom-capacity-weight` 係数、既定0.5）。容量が大きいperiodを優先しやすくなります。さらに `--open-po <path>` または `-I <input_dir>` で `open_po.csv` を読み込み、`--headroom-inbound-weight` で入荷量バイアスを付与可能（入荷の多いperiodを優先）。
-  - 余地バイアス拡張(POC): `--period-score <csv>` で任意の periodスコア（例: 販促/優先度）を読み込み `--headroom-score-weight` で加点、`--pl-cost <csv>` でperiodコストを読み込み `--headroom-cost-weight` で抑制（高コストperiodを避ける）。CSVは `period,score|cost` を想定。
-    - サンプル: `samples/planning/period_score.csv`, `samples/planning/period_cost.csv`
-  - レポート（KPI）: `python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv`
-    - 出力: 単一CSV（type列で区分）。capacity: 週次能力/負荷/稼働率、service: FGの週次 需要/供給計画/概算フィルレート
+実行方法（最小）
+- UI: `/ui/planning` を開き、入力ディレクトリ（既定: samples/planning）で実行
+- API: `POST /plans/integrated/run`（例）: `{ "input_dir":"samples/planning", "weeks":4, "round_mode":"int", "lt_unit":"day" }`
+- スクリプト: `bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4`
+  - プリセット: `--preset det_near|agg_far|blend`（`--cutover-date` と併用）
 
-### 一括実行
+出力（out/）
+- aggregate.json / sku_week.json / mrp.json / plan_final.json / reconciliation_log.json / report.csv
+- 任意（anchor適用・adjusted指定時）: sku_week_adjusted.json / reconciliation_log_adjusted.json / mrp_adjusted.json / plan_final_adjusted.json / report_adjusted.csv
 
-パイプライン全体を一括実行するスクリプトを追加しています。
-
-```bash
-bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 --round int --lt-unit day \
-  --cutover-date 2025-01-15 --anchor-policy blend --calendar-mode iso \
-  --max-adjust-ratio 0.25 --apply-adjusted --carryover both --carryover-split 0.7 \
-  --tol-abs 1e-6 --tol-rel 0.001
-```
-
-出力は `out/` 配下に `aggregate.json` `sku_week.json` `mrp.json` `plan_final.json` `reconciliation_log.json` `report.csv` に加え、
-アンカー適用時は `sku_week_adjusted.json` `reconciliation_log_adjusted.json`、`--apply-adjusted` 指定時は `mrp_adjusted.json` `plan_final_adjusted.json` `report_adjusted.csv` を生成します。
-
-備考: 本パイプラインはヒューリスティク中心の最小実装です。工程別能力・在庫時系列の厳密再計算・外注コスト最適化等は今後の拡張余地です。
-
-プリセット（簡易指定）
-
-```bash
-# det_near: cutover前保護（postへ寄せる）
-bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
-  --preset det_near --cutover-date 2025-09-01
-
-# agg_far: cutover後保護（preへ戻す）
-bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
-  --preset agg_far --cutover-date 2025-09-01
-
-# blend: 近接重みで分割（window=14, 重み=tri）
-bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4 \
-  --preset blend --cutover-date 2025-09-01
-```
-
-注: プリセットは未指定の値にのみ適用されます。明示した `--anchor-policy` 等があればそちらを優先します。
-
-### Web UI（集約計画/詳細計画）
-
-- エンドポイント: `GET /ui/planning`
-- 導線: トップページ（Home）のナビバーから「集約/詳細計画」で遷移可能
-- パイプライン実行: フォームから `samples/planning` もしくはCSVアップロードで、集約→按分→MRP→整合→KPI を一括実行
-- 可視化: 週次能力vs調整負荷のバー、FG需要vs供給計画のライン、SKU×週の需要スタックバー
-- 出力: Aggregate表・能力サマリ（weekly_summary）・整合ログ（AGG↔DET差分の要約表）表示、`report.csv` ダウンロード
-- オプション: `version_id` をフォームで指定すると、整合ログに `version_id` を付与（将来のAPI/DB連携の布石）
-- 予約: `cutover_date`/`recon_window_days`/`anchor_policy` をフォームで指定可能（現状は整合ログに反映・境界要約のみ）
- - ヘルプ: 整合ガイド（docs/AGG_DET_RECONCILIATION_JA.md）内の「パラメタ早見」「FAQ」を参照
-- ジョブ実行: 「ジョブとして実行」ボタンで非同期化し、`/ui/jobs` から進捗閲覧（完了後はジョブ詳細にプレビューリンク表示）
+補足
+- v2ポリシー（DET_near/AGG_far/blend）やパラメタの意味は整合ガイドを参照
+- スモーク: `python scripts/spill_smoke.py -i out/plan_final.json`
 
 ## 図解
 
