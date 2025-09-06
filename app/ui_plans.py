@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.api import app
 from fastapi.responses import HTMLResponse
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
@@ -13,7 +14,7 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
 @app.get("/ui/plans", response_class=HTMLResponse)
-def ui_plans(request):
+def ui_plans(request: Request):
     plans = db.list_plan_versions(limit=200)
     # enrich with summary if exists (lightweight; avoid N+1 heavy loads)
     rows = []
@@ -32,7 +33,7 @@ def ui_plans(request):
     )
 
 @app.get("/ui/plans/{version_id}", response_class=HTMLResponse)
-def ui_plan_detail(version_id: str, request):
+def ui_plan_detail(version_id: str, request: Request):
     ver = db.get_plan_version(version_id)
     if not ver:
         return templates.TemplateResponse(
