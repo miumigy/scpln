@@ -225,7 +225,7 @@ graph TD;
   J-->K[plan_final.json];
   E-->L[anchor_adjust.py];
   L-->M[sku_week_adjusted.json];
-  M-->N[reconcile_levels.py(adjusted)];
+  M-->N[reconcile_levels_adj.py];
   N-->O[reconciliation_log_adjusted.json];
 ```
 
