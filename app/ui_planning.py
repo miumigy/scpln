@@ -148,7 +148,11 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
             report_adj = (
                 str((rp2).relative_to(_BASE_DIR))
                 if rp2.exists()
-                else (str(Path(rel_dir) / "report_adjusted.csv") if (out / "report_adjusted.csv").exists() else None)
+                else (
+                    str(Path(rel_dir) / "report_adjusted.csv")
+                    if (out / "report_adjusted.csv").exists()
+                    else None
+                )
             )
         except Exception as e:
             # out が _BASE_DIR 配下でない場合など
@@ -157,48 +161,65 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
             err_msgs.append(f"report.csv: {e}")
         # before/after 差分比較（上位20件）
         try:
-            if recon and recon_adj and isinstance(recon.get("deltas"), list) and isinstance(recon_adj.get("deltas"), list):
+            if (
+                recon
+                and recon_adj
+                and isinstance(recon.get("deltas"), list)
+                and isinstance(recon_adj.get("deltas"), list)
+            ):
                 before_list = recon.get("deltas")
-                after_map = { (str(r.get("family")), str(r.get("period"))) : r for r in recon_adj.get("deltas") }
+                after_map = {
+                    (str(r.get("family")), str(r.get("period"))): r
+                    for r in recon_adj.get("deltas")
+                }
+
                 def _absmax(row: dict) -> float:
                     try:
-                        return max(abs(float(row.get("delta_demand", 0) or 0)), abs(float(row.get("delta_supply", 0) or 0)), abs(float(row.get("delta_backlog", 0) or 0)))
+                        return max(
+                            abs(float(row.get("delta_demand", 0) or 0)),
+                            abs(float(row.get("delta_supply", 0) or 0)),
+                            abs(float(row.get("delta_backlog", 0) or 0)),
+                        )
                     except Exception:
                         return 0.0
+
                 top = sorted(before_list, key=_absmax, reverse=True)[:20]
                 comp = []
                 for r in top:
                     key = (str(r.get("family")), str(r.get("period")))
                     a = after_map.get(key) or {}
-                    comp.append({
-                        "family": key[0],
-                        "period": key[1],
-                        "before": {
-                            "demand": r.get("delta_demand"),
-                            "supply": r.get("delta_supply"),
-                            "backlog": r.get("delta_backlog"),
-                            "rel_demand": r.get("rel_demand"),
-                            "rel_supply": r.get("rel_supply"),
-                            "rel_backlog": r.get("rel_backlog"),
-                            "ok": r.get("ok"),
-                            "ok_demand": r.get("ok_demand"),
-                            "ok_supply": r.get("ok_supply"),
-                            "ok_backlog": r.get("ok_backlog"),
-                        },
-                        "after": {
-                            "demand": a.get("delta_demand"),
-                            "supply": a.get("delta_supply"),
-                            "backlog": a.get("delta_backlog"),
-                            "rel_demand": a.get("rel_demand"),
-                            "rel_supply": a.get("rel_supply"),
-                            "rel_backlog": a.get("rel_backlog"),
-                            "ok": a.get("ok"),
-                            "ok_demand": a.get("ok_demand"),
-                            "ok_supply": a.get("ok_supply"),
-                            "ok_backlog": a.get("ok_backlog"),
-                        },
-                    })
+                    comp.append(
+                        {
+                            "family": key[0],
+                            "period": key[1],
+                            "before": {
+                                "demand": r.get("delta_demand"),
+                                "supply": r.get("delta_supply"),
+                                "backlog": r.get("delta_backlog"),
+                                "rel_demand": r.get("rel_demand"),
+                                "rel_supply": r.get("rel_supply"),
+                                "rel_backlog": r.get("rel_backlog"),
+                                "ok": r.get("ok"),
+                                "ok_demand": r.get("ok_demand"),
+                                "ok_supply": r.get("ok_supply"),
+                                "ok_backlog": r.get("ok_backlog"),
+                            },
+                            "after": {
+                                "demand": a.get("delta_demand"),
+                                "supply": a.get("delta_supply"),
+                                "backlog": a.get("delta_backlog"),
+                                "rel_demand": a.get("rel_demand"),
+                                "rel_supply": a.get("rel_supply"),
+                                "rel_backlog": a.get("rel_backlog"),
+                                "ok": a.get("ok"),
+                                "ok_demand": a.get("ok_demand"),
+                                "ok_supply": a.get("ok_supply"),
+                                "ok_backlog": a.get("ok_backlog"),
+                            },
+                        }
+                    )
                 recon_compare = comp
+
                 # 要約: 総|Δ|の before/after と改善率
                 def total_abs(rows):
                     s = 0.0
@@ -210,9 +231,14 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
                         except Exception:
                             pass
                     return s
+
                 before_total = total_abs(before_list)
                 after_total = total_abs(list(after_map.values()))
-                impr = (1.0 - after_total / before_total) * 100.0 if before_total > 0 else 0.0
+                impr = (
+                    (1.0 - after_total / before_total) * 100.0
+                    if before_total > 0
+                    else 0.0
+                )
                 recon_summary = {
                     "before_total": round(before_total, 6),
                     "after_total": round(after_total, 6),
@@ -236,7 +262,7 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
             "recon_path": recon_path,
             "recon_adj": recon_adj,
             "recon_adj_path": recon_adj_path,
-            "anchor_adj": anchor_adj if 'anchor_adj' in locals() else None,
+            "anchor_adj": anchor_adj if "anchor_adj" in locals() else None,
             "recon_compare": recon_compare,
             "recon_summary": recon_summary,
             "report_path": report,
@@ -254,7 +280,7 @@ def planning_run(
     weeks: int = Form(4),
     round_mode: str = Form("int"),
     lt_unit: str = Form("day"),
-    version_id: str = Form("") ,
+    version_id: str = Form(""),
     cutover_date: str | None = Form(None),
     recon_window_days: str | None = Form(None),
     anchor_policy: str | None = Form(None),
@@ -375,10 +401,22 @@ def planning_run(
             "--weeks",
             str(weeks),
             *(["--cutover-date", cutover_date] if cutover_date else []),
-            *(["--recon-window-days", str(recon_window_days_i)] if recon_window_days_i is not None else []),
+            *(
+                ["--recon-window-days", str(recon_window_days_i)]
+                if recon_window_days_i is not None
+                else []
+            ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-            *(["--blend-split-next", str(blend_split_next_f)] if (blend_split_next_f is not None) else []),
-            *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
+            *(
+                ["--blend-split-next", str(blend_split_next_f)]
+                if (blend_split_next_f is not None)
+                else []
+            ),
+            *(
+                ["--blend-weight-mode", str(blend_weight_mode)]
+                if blend_weight_mode
+                else []
+            ),
         ]
     )
     # 4.5) reconcile-levels (AGG↔DET 差分ログ)
@@ -393,10 +431,22 @@ def planning_run(
             "--version",
             (version_id or "ui"),
             *(["--cutover-date", cutover_date] if cutover_date else []),
-            *(["--recon-window-days", str(recon_window_days_i)] if recon_window_days_i is not None else []),
+            *(
+                ["--recon-window-days", str(recon_window_days_i)]
+                if recon_window_days_i is not None
+                else []
+            ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-            *(["--tol-abs", str(tol_abs_f)] if tol_abs_f is not None else ["--tol-abs", "1e-6"]),
-            *(["--tol-rel", str(tol_rel_f)] if tol_rel_f is not None else ["--tol-rel", "1e-6"]),
+            *(
+                ["--tol-abs", str(tol_abs_f)]
+                if tol_abs_f is not None
+                else ["--tol-abs", "1e-6"]
+            ),
+            *(
+                ["--tol-rel", str(tol_rel_f)]
+                if tol_rel_f is not None
+                else ["--tol-rel", "1e-6"]
+            ),
         ]
     )
     # export before CSV
@@ -437,13 +487,25 @@ def planning_run(
                 str(cutover_date),
                 "--anchor-policy",
                 str(anchor_policy),
-                *(["--recon-window-days", str(recon_window_days_i)] if recon_window_days_i is not None else []),
+                *(
+                    ["--recon-window-days", str(recon_window_days_i)]
+                    if recon_window_days_i is not None
+                    else []
+                ),
                 "--weeks",
                 str(weeks),
                 *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                 *(["--carryover", str(carryover)] if carryover else []),
-                *(["--carryover-split", str(carryover_split_f)] if (carryover_split_f is not None) else []),
-                *(["--max-adjust-ratio", str(max_adjust_ratio_f)] if (max_adjust_ratio_f is not None) else []),
+                *(
+                    ["--carryover-split", str(carryover_split_f)]
+                    if (carryover_split_f is not None)
+                    else []
+                ),
+                *(
+                    ["--max-adjust-ratio", str(max_adjust_ratio_f)]
+                    if (max_adjust_ratio_f is not None)
+                    else []
+                ),
                 *(["--tol-abs", str(tol_abs_f)] if (tol_abs_f is not None) else []),
                 *(["--tol-rel", str(tol_rel_f)] if (tol_rel_f is not None) else []),
                 "-I",
@@ -462,10 +524,22 @@ def planning_run(
                 (version_id or "ui-adjusted"),
                 "--cutover-date",
                 str(cutover_date),
-                *(["--recon-window-days", str(recon_window_days_i)] if recon_window_days_i is not None else []),
+                *(
+                    ["--recon-window-days", str(recon_window_days_i)]
+                    if recon_window_days_i is not None
+                    else []
+                ),
                 *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-                *(["--tol-abs", str(tol_abs_f)] if tol_abs_f is not None else ["--tol-abs", "1e-6"]),
-                *(["--tol-rel", str(tol_rel_f)] if tol_rel_f is not None else ["--tol-rel", "1e-6"]),
+                *(
+                    ["--tol-abs", str(tol_abs_f)]
+                    if tol_abs_f is not None
+                    else ["--tol-abs", "1e-6"]
+                ),
+                *(
+                    ["--tol-rel", str(tol_rel_f)]
+                    if tol_rel_f is not None
+                    else ["--tol-rel", "1e-6"]
+                ),
             ]
         )
         # export compare CSV and carryover CSV
@@ -538,10 +612,22 @@ def planning_run(
                     "--weeks",
                     str(weeks),
                     *(["--cutover-date", cutover_date] if cutover_date else []),
-                    *(["--recon-window-days", str(recon_window_days_i)] if recon_window_days_i is not None else []),
+                    *(
+                        ["--recon-window-days", str(recon_window_days_i)]
+                        if recon_window_days_i is not None
+                        else []
+                    ),
                     *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-                    *(["--blend-split-next", str(blend_split_next_f)] if (blend_split_next_f is not None) else []),
-                    *(["--blend-weight-mode", str(blend_weight_mode)] if blend_weight_mode else []),
+                    *(
+                        ["--blend-split-next", str(blend_split_next_f)]
+                        if (blend_split_next_f is not None)
+                        else []
+                    ),
+                    *(
+                        ["--blend-weight-mode", str(blend_weight_mode)]
+                        if blend_weight_mode
+                        else []
+                    ),
                 ]
             )
             _run_py(
@@ -569,17 +655,23 @@ def planning_run(
     )
     # Persist as plan version so that /ui/plans で一覧表示できるようにする
     try:
-        ver_id = (version_id or f"ui-{ts}")
+        ver_id = version_id or f"ui-{ts}"
         _db.create_plan_version(
             ver_id,
             status="active",
             cutover_date=cutover_date,
-            recon_window_days=recon_window_days if isinstance(recon_window_days, int) else _to_int(recon_window_days),
+            recon_window_days=(
+                recon_window_days
+                if isinstance(recon_window_days, int)
+                else _to_int(recon_window_days)
+            ),
             objective=None,
             note="ui_planning",
         )
+
         def _load(p: Path):
             return p.read_text(encoding="utf-8") if p.exists() else None
+
         for name in (
             "aggregate.json",
             "sku_week.json",

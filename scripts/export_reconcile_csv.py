@@ -62,9 +62,19 @@ def main() -> None:
     ap.add_argument("-i", dest="input1", required=True, help="reconciliation_log.json")
     ap.add_argument("-o", dest="output", required=True, help="CSV出力パス")
     ap.add_argument("--label", dest="label1", default="before", help="1つ目のラベル")
-    ap.add_argument("-j", dest="input2", default=None, help="reconciliation_log_adjusted.json（任意）")
+    ap.add_argument(
+        "-j",
+        dest="input2",
+        default=None,
+        help="reconciliation_log_adjusted.json（任意）",
+    )
     ap.add_argument("--label2", dest="label2", default="after", help="2つ目のラベル")
-    ap.add_argument("--only-violations", dest="only_violations", action="store_true", help="違反行(ok=false)のみ出力")
+    ap.add_argument(
+        "--only-violations",
+        dest="only_violations",
+        action="store_true",
+        help="違反行(ok=false)のみ出力",
+    )
     args = ap.parse_args()
 
     p1 = _load(args.input1)

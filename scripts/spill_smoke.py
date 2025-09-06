@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from typing import Any, Dict
+from typing import Dict
 
 
 def main() -> None:
@@ -34,7 +34,13 @@ def main() -> None:
         if z not in agg:
             continue
         d = agg[z]
-        for k in ("spill_in", "spill_out", "capacity", "original_load", "adjusted_load"):
+        for k in (
+            "spill_in",
+            "spill_out",
+            "capacity",
+            "original_load",
+            "adjusted_load",
+        ):
             try:
                 d[k] = d.get(k, 0.0) + float(r.get(k, 0) or 0)
             except Exception:
@@ -50,4 +56,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
