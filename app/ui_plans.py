@@ -24,7 +24,18 @@ def ui_plans(request: Request):
         summary = (recon or {}).get("summary") or {}
         cut = (recon or {}).get("cutover") or {}
         policy = cut.get("anchor_policy")
-        rows.append({**p, "recon_summary": summary, "policy": policy})
+        # DBに保存されていない場合は、artifactのcutover情報で補完
+        cutover_date = p.get("cutover_date") or cut.get("cutover_date")
+        recon_window_days = p.get("recon_window_days")
+        if recon_window_days is None:
+            recon_window_days = cut.get("recon_window_days")
+        rows.append({
+            **p,
+            "cutover_date": cutover_date,
+            "recon_window_days": recon_window_days,
+            "recon_summary": summary,
+            "policy": policy,
+        })
     return templates.TemplateResponse(
         "plans.html",
         {

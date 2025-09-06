@@ -25,7 +25,7 @@
         <td class="mono">{{ p.cutover_date or '' }}</td>
         <td class="mono">{{ p.recon_window_days or '' }}</td>
         <td class="mono">{{ p.policy or '' }}</td>
-        <td class="mono">{{ p.created_at }}</td>
+        <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
         <td class="mono">{{ (p.recon_summary.violations or p.recon_summary.tol_violations) if p.recon_summary else '' }}</td>
         <td class="mono">
           {% if p.recon_summary and p.recon_summary.max_abs_delta %}
@@ -45,4 +45,28 @@
   <p>まだプランがありません。/ui/planning から実行するか、/plans/integrated/run を呼び出してください。</p>
   {% endif %}
 </section>
+{% endblock %}
+{% block scripts %}
+<script>
+// JSTフォーマット（ms epoch → YYYY/MM/DD HH:mm:ss）
+function fmtJst(ms){
+  var n = Number(ms);
+  if (!Number.isFinite(n)) return '';
+  var t = new Date(n + 9*3600*1000); // JSTへシフトしUTC系getterで整形
+  var y = t.getUTCFullYear();
+  var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+  var d = String(t.getUTCDate()).padStart(2,'0');
+  var h = String(t.getUTCHours()).padStart(2,'0');
+  var mi = String(t.getUTCMinutes()).padStart(2,'0');
+  var s = String(t.getUTCSeconds()).padStart(2,'0');
+  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s;
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('td.ts-ms').forEach(function(td){
+    var ms = td.getAttribute('data-ms');
+    var txt = fmtJst(ms);
+    if (txt) td.textContent = txt;
+  });
+});
+</script>
 {% endblock %}
