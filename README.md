@@ -526,6 +526,7 @@ graph TD
   B -->|/ui/scenarios| A
   B -->|/ui/compare| A
   B -->|/ui/planning| A
+  B -->|/ui/plans| A
 ```
 
 ### クラス図（主要要素）
@@ -719,6 +720,18 @@ sequenceDiagram
   UI->>JM: submit_planning_pipeline_job(params)
   JM-->>UI: job_id
   UI-->>User: 303 Redirect to /ui/jobs
+
+  %% 統合API（プラン生成・保存）
+  User->>API: POST /plans/integrated/run
+  API->>API: run pipeline (scripts)
+  API->>D: save plan_versions & plan_artifacts
+  API-->>User: 200 JSON { version_id, out_dir }
+
+  %% プラン一覧/詳細
+  User->>UI: GET /ui/plans
+  UI->>API: GET /plans
+  API-->>UI: plans list
+  User->>UI: GET /ui/plans/{version}
 ```
 
 ## 拡張戦略（残る拡張のみ）
