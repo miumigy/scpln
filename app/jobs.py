@@ -538,13 +538,19 @@ class JobManager:
                     if cutover_date:
                         args_recon_adj += ["--cutover-date", str(cutover_date)]
                     if recon_window_days is not None:
-                        args_recon_adj += ["--recon-window-days", str(recon_window_days)]
+                        args_recon_adj += [
+                            "--recon-window-days",
+                            str(recon_window_days),
+                        ]
                     if anchor_policy:
                         args_recon_adj += ["--anchor-policy", str(anchor_policy)]
                     if blend_split_next is not None:
                         args_recon_adj += ["--blend-split-next", str(blend_split_next)]
                     if blend_weight_mode:
-                        args_recon_adj += ["--blend-weight-mode", str(blend_weight_mode)]
+                        args_recon_adj += [
+                            "--blend-weight-mode",
+                            str(blend_weight_mode),
+                        ]
                     runpy(args_recon_adj)
                     runpy(
                         [
@@ -567,8 +573,24 @@ class JobManager:
                     "plan_final.json",
                     "reconciliation_log.json",
                     # optional adjusted artifacts
-                    *(["sku_week_adjusted.json", "reconciliation_log_adjusted.json"] if (anchor_policy and cutover_date) else []),
-                    *(["mrp_adjusted.json", "plan_final_adjusted.json", "report_adjusted.csv"] if (anchor_policy and cutover_date and bool(cfg.get("apply_adjusted") or False)) else []),
+                    *(
+                        ["sku_week_adjusted.json", "reconciliation_log_adjusted.json"]
+                        if (anchor_policy and cutover_date)
+                        else []
+                    ),
+                    *(
+                        [
+                            "mrp_adjusted.json",
+                            "plan_final_adjusted.json",
+                            "report_adjusted.csv",
+                        ]
+                        if (
+                            anchor_policy
+                            and cutover_date
+                            and bool(cfg.get("apply_adjusted") or False)
+                        )
+                        else []
+                    ),
                     "report.csv",
                 ],
                 "version_id": version_id,

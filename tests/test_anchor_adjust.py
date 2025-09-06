@@ -15,7 +15,13 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     agg = {
         "schema_version": "agg-1.0",
         "rows": [
-            {"family": "F1", "period": "2025-01", "demand": 100.0, "supply": 90.0, "backlog": 10.0}
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "demand": 100.0,
+                "supply": 90.0,
+                "backlog": 10.0,
+            }
         ],
     }
     det_rows = []
@@ -99,7 +105,11 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     )
     after = json.loads((out_dir / "recon_after.json").read_text(encoding="utf-8"))
     # Expect boundary violations reduced (ideally to 0)
-    assert after["summary"]["boundary"]["violations"] <= before["summary"]["boundary"]["violations"]
+    assert (
+        after["summary"]["boundary"]["violations"]
+        <= before["summary"]["boundary"]["violations"]
+    )
+
     # and deltas for supply/backlog closer to 0
     # find row for (F1, 2025-01)
     def _row(d):
@@ -111,6 +121,9 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     rb = _row(before)
     ra = _row(after)
     assert rb and ra
-    assert abs(float(ra.get("delta_supply", 0))) <= abs(float(rb.get("delta_supply", 0)))
-    assert abs(float(ra.get("delta_backlog", 0))) <= abs(float(rb.get("delta_backlog", 0)))
-
+    assert abs(float(ra.get("delta_supply", 0))) <= abs(
+        float(rb.get("delta_supply", 0))
+    )
+    assert abs(float(ra.get("delta_backlog", 0))) <= abs(
+        float(rb.get("delta_backlog", 0))
+    )

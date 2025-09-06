@@ -27,7 +27,14 @@ def main() -> None:
     with open(args.output, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(
             f,
-            fieldnames=["family", "from_period", "to_period", "delta_demand", "delta_supply", "delta_backlog"],
+            fieldnames=[
+                "family",
+                "from_period",
+                "to_period",
+                "delta_demand",
+                "delta_supply",
+                "delta_backlog",
+            ],
         )
         w.writeheader()
         for r in rows:
@@ -47,4 +54,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

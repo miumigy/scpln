@@ -34,16 +34,23 @@ def ui_plans(request: Request):
         },
     )
 
+
 @app.get("/ui/plans/{version_id}", response_class=HTMLResponse)
 def ui_plan_detail(version_id: str, request: Request):
     ver = db.get_plan_version(version_id)
     if not ver:
         return templates.TemplateResponse(
             "plans_detail.html",
-            {"request": request, "subtitle": "プラン詳細", "error": "version not found"},
+            {
+                "request": request,
+                "subtitle": "プラン詳細",
+                "error": "version not found",
+            },
         )
     recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
-    recon_adj = db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
+    recon_adj = (
+        db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
+    )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
@@ -66,20 +73,22 @@ def ui_plan_detail(version_id: str, request: Request):
 
 
 @app.post("/ui/plans/{version_id}/reconcile")
-def ui_plan_reconcile(version_id: str, request,
-                      cutover_date: str | None = None,
-                      recon_window_days: int | None = None,
-                      anchor_policy: str | None = None,
-                      tol_abs: float | None = None,
-                      tol_rel: float | None = None,
-                      calendar_mode: str | None = None,
-                      carryover: str | None = None,
-                      carryover_split: float | None = None,
-                      input_dir: str | None = "samples/planning",
-                      apply_adjusted: int | None = None,
-                      weeks: int | None = 4,
-                      lt_unit: str | None = "day",
-                      ):
+def ui_plan_reconcile(
+    version_id: str,
+    request,
+    cutover_date: str | None = None,
+    recon_window_days: int | None = None,
+    anchor_policy: str | None = None,
+    tol_abs: float | None = None,
+    tol_rel: float | None = None,
+    calendar_mode: str | None = None,
+    carryover: str | None = None,
+    carryover_split: float | None = None,
+    input_dir: str | None = "samples/planning",
+    apply_adjusted: int | None = None,
+    weeks: int | None = 4,
+    lt_unit: str | None = "day",
+):
     body = {
         "cutover_date": cutover_date,
         "recon_window_days": recon_window_days,
@@ -99,5 +108,5 @@ def ui_plan_reconcile(version_id: str, request,
     except Exception:
         pass
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
- 

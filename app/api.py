@@ -359,6 +359,7 @@ async def read_index():
             logging.exception("failed_to_read_index_cwd")
     return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
 
+
 # Ensure planning plans API routes are registered when importing only app.api
 try:
     from app import plans_api as _plans_api  # noqa: F401
