@@ -23,8 +23,8 @@
         <td class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a></td>
         <td>{{ p.status or '' }}</td>
         <td class="mono">{{ p.cutover_date or '' }}</td>
-        <td class="mono">{{ p.recon_window_days or '' }}</td>
-        <td class="mono">{{ p.policy or '' }}</td>
+        <td class="mono">{{ p.recon_window_days if p.recon_window_days is not none else '' }}</td>
+        <td class="mono">{{ p.policy if p.policy is not none else '' }}</td>
         <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
         <td class="mono">{{ (p.recon_summary.violations or p.recon_summary.tol_violations) if p.recon_summary else '' }}</td>
         <td class="mono">

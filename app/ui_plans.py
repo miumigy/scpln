@@ -20,15 +20,34 @@ def ui_plans(request: Request):
     rows = []
     for p in plans:
         ver = p.get("version_id")
+        # 1) base reconciliation
         recon = db.get_plan_artifact(ver, "reconciliation_log.json") or {}
         summary = (recon or {}).get("summary") or {}
         cut = (recon or {}).get("cutover") or {}
-        policy = cut.get("anchor_policy")
-        # DBに保存されていない場合は、artifactのcutover情報で補完
-        cutover_date = p.get("cutover_date") or cut.get("cutover_date")
+        # 2) adjusted reconciliation (fallback)
+        recon_adj = db.get_plan_artifact(ver, "reconciliation_log_adjusted.json") or {}
+        cut_adj = (recon_adj or {}).get("cutover") or {}
+        # 3) boundary summary (policy/window fallback)
+        plan_final = db.get_plan_artifact(ver, "plan_final.json") or {}
+        plan_final_adj = db.get_plan_artifact(ver, "plan_final_adjusted.json") or {}
+        bs = (plan_final or {}).get("boundary_summary") or {}
+        bs_adj = (plan_final_adj or {}).get("boundary_summary") or {}
+
+        # 補完: cutover_date は cutover からのみ（boundaryはperiodのため未採用）
+        cutover_date = p.get("cutover_date") or cut.get("cutover_date") or cut_adj.get("cutover_date")
+        # 補完: window は cutover.recon_window_days → adjusted → boundary_summary.window_days
         recon_window_days = p.get("recon_window_days")
         if recon_window_days is None:
             recon_window_days = cut.get("recon_window_days")
+        if recon_window_days is None:
+            recon_window_days = cut_adj.get("recon_window_days")
+        if recon_window_days is None:
+            recon_window_days = bs.get("window_days")
+        if recon_window_days is None:
+            recon_window_days = bs_adj.get("window_days")
+        # 補完: policy は cutover.anchor_policy → adjusted → boundary_summary.anchor_policy
+        policy = cut.get("anchor_policy") or cut_adj.get("anchor_policy") or bs.get("anchor_policy") or bs_adj.get("anchor_policy")
+
         rows.append({
             **p,
             "cutover_date": cutover_date,
