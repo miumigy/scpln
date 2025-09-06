@@ -29,6 +29,10 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
     out = None
     agg = sku = mrp = plan = report = recon = recon_path = None
     plan_adj = report_adj = recon_adj = recon_adj_path = None
+    # initialize optional objects to avoid UnboundLocalError when out_dir is not provided
+    anchor_adj = None
+    recon_compare = None
+    recon_summary = None
     err_msgs: list[str] = []
     if out_dir:
         out = Path(out_dir)
@@ -127,8 +131,6 @@ def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")
             report = str(rp)
             err_msgs.append(f"report.csv: {e}")
         # before/after 差分比較（上位20件）
-        recon_compare = None
-        recon_summary = None
         try:
             if recon and recon_adj and isinstance(recon.get("deltas"), list) and isinstance(recon_adj.get("deltas"), list):
                 before_list = recon.get("deltas")
