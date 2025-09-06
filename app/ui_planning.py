@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app.jobs import JOB_MANAGER
+from app import db as _db
 import os
 import json
 import subprocess
@@ -565,6 +566,36 @@ def planning_run(
             str(out_base / "report.csv"),
         ]
     )
+    # Persist as plan version so that /ui/plans で一覧表示できるようにする
+    try:
+        ver_id = (version_id or f"ui-{ts}")
+        _db.create_plan_version(
+            ver_id,
+            status="active",
+            cutover_date=cutover_date,
+            recon_window_days=recon_window_days if isinstance(recon_window_days, int) else _to_int(recon_window_days),
+            objective=None,
+            note="ui_planning",
+        )
+        def _load(p: Path):
+            return p.read_text(encoding="utf-8") if p.exists() else None
+        for name in (
+            "aggregate.json",
+            "sku_week.json",
+            "mrp.json",
+            "plan_final.json",
+            "reconciliation_log.json",
+            "sku_week_adjusted.json",
+            "mrp_adjusted.json",
+            "plan_final_adjusted.json",
+            "reconciliation_log_adjusted.json",
+        ):
+            t = _load(out_base / name)
+            if t is not None:
+                _db.upsert_plan_artifact(ver_id, name, t)
+    except Exception:
+        # UI上は続行（/ui/plans 側で空の場合は未保存扱い）
+        pass
     rel = str(out_base.relative_to(_BASE_DIR))
     return RedirectResponse(url=f"/ui/planning?dir={rel}", status_code=303)
 
