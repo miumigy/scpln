@@ -22,7 +22,9 @@ def ui_plans(request: Request):
         ver = p.get("version_id")
         recon = db.get_plan_artifact(ver, "reconciliation_log.json") or {}
         summary = (recon or {}).get("summary") or {}
-        rows.append({**p, "recon_summary": summary})
+        cut = (recon or {}).get("cutover") or {}
+        policy = cut.get("anchor_policy")
+        rows.append({**p, "recon_summary": summary, "policy": policy})
     return templates.TemplateResponse(
         "plans.html",
         {

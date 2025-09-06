@@ -10,6 +10,7 @@
         <th>status</th>
         <th>cutover</th>
         <th>window</th>
+        <th>policy</th>
         <th>created_at</th>
         <th>violations</th>
         <th>max|Δ| (d/s/b)</th>
@@ -23,6 +24,7 @@
         <td>{{ p.status or '' }}</td>
         <td class="mono">{{ p.cutover_date or '' }}</td>
         <td class="mono">{{ p.recon_window_days or '' }}</td>
+        <td class="mono">{{ p.policy or '' }}</td>
         <td class="mono">{{ p.created_at }}</td>
         <td class="mono">{{ (p.recon_summary.violations or p.recon_summary.tol_violations) if p.recon_summary else '' }}</td>
         <td class="mono">
@@ -33,6 +35,7 @@
         <td>
           <a class="secondary" href="/plans/{{ p.version_id }}/summary" target="_blank">summary</a>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">compare</a>
+          <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">violations</a>
         </td>
       </tr>
       {% endfor %}

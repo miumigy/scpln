@@ -267,6 +267,7 @@ def planning_run(
     tol_abs: str | None = Form(None),
     tol_rel: str | None = Form(None),
     apply_adjusted: int | None = Form(None),
+    redirect_to_plans: int | None = Form(None),
     demand_family: UploadFile | None = File(None),
     capacity: UploadFile | None = File(None),
     mix_share: UploadFile | None = File(None),
@@ -596,6 +597,9 @@ def planning_run(
     except Exception:
         # UI上は続行（/ui/plans 側で空の場合は未保存扱い）
         pass
+    # 遷移先: 要求があればプラン一覧へ
+    if redirect_to_plans:
+        return RedirectResponse(url="/ui/plans", status_code=303)
     rel = str(out_base.relative_to(_BASE_DIR))
     return RedirectResponse(url=f"/ui/planning?dir={rel}", status_code=303)
 
