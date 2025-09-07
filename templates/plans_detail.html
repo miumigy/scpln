@@ -249,6 +249,7 @@
             <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
             <a class="secondary" href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank">diffs.csv (±5%)</a>
             <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
+            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー">copy all</button>
           </form>
           {% endif %}
         {% else %}
@@ -516,6 +517,18 @@
         var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
       }
     }
+    function copyRunCompareAll(runIdsCsv){
+      if (!runIdsCsv) return;
+      var origin = (location && location.origin) ? location.origin : '';
+      var m = origin + '/ui/compare/metrics.csv?run_ids=' + runIdsCsv;
+      var d = origin + '/ui/compare/diffs.csv?run_ids=' + runIdsCsv + '&threshold=5';
+      var txt = m + '\n' + d;
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
     document.addEventListener('click', function(ev){
       var t = ev.target;
       if (t && t.classList && t.classList.contains('copy')){
@@ -525,6 +538,10 @@
       if (t && t.classList && t.classList.contains('copy-all')){
         var ver = t.getAttribute('data-version');
         if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-runs-all')){
+        var ids = t.getAttribute('data-run-ids');
+        if (ids){ copyRunCompareAll(ids); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
       }
     });
   })();
