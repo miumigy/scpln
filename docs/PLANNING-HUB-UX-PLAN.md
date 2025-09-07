@@ -177,11 +177,11 @@ sequenceDiagram
 - [x] P-20 README/ヘルプ更新（新動線の案内）
 
 #### P2 統合期（画面統合 + 非推奨化）
-- [ ] P-07 Aggregateタブ移植
+- [x] P-07 Aggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Aggregate タブを追加し、`aggregate.json` の family×period 表を表示（需要/供給/バックログ/能力合計）。
-- [ ] P-08 Disaggregateタブ移植
+- [x] P-08 Disaggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
-- [ ] P-09 Scheduleタブ移植（予定オーダ生成）
+- [x] P-09 Scheduleタブ移植（予定オーダ生成）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Schedule タブを追加し、`mrp.json` の予定オーダ（scheduled_receipts）を先頭200件表示。`/plans/{id}/schedule.csv` を新設し、week/sku/在庫端点を含むCSVをエクスポート可能に。
 - [ ] P-10 Validate（量・容量・MOQ/倍数）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Validate タブ（MVP）を追加。以下の自動チェックを表示：Tol違反数（before/after）、負在庫件数、予定受入の小数行、能力超過週数。
