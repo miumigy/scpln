@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+- feat(P-14): レガシーUI `/ui/planning` の段階的クローズ
+  - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
+  - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）
+  - tests: 404ガイド/回避動作の追加テスト
+- feat(P-11): Plan & Run（自動補完）を拡張（tol_abs/rel, calendar_mode, carryover系 等を委譲）
+  - UIフォーム拡張、/runs API→/plans/integrated/run への委譲、リダイレクト検証のテスト
+- feat(P-07/08/09/10): Planning Hub タブ
+  - Aggregate/Disaggregate/Schedule/Validate（MVP）をプラン詳細に追加
+  - `schedule.csv` エクスポート、Validate自動チェック（Tol違反/負在庫/小数受入/能力超過）
+- feat(P-13): メトリクス拡張（Prometheus）
+  - plans_created_total / plans_reconciled_total / plans_viewed_total / runs_queued_total
+  - plan_schedule_export_total / plan_compare_export_total / plan_carryover_export_total
+- docs(P-23): 用語表/README/アクセシビリティ
+  - `docs/TERMS-JA.md` 追加、READMEをPlanning Hub中心に統一
+  - UIにツールチップ/aria-labelを付加（検索/並び替え/実行/コピー/比較 等）
+- docs(P-24): ハンズオンチュートリアル
+  - `docs/TUTORIAL-JA.md` 追加（作成→プレビュー→再整合→Plan&Run→結果確認）
+  - `docs/API-OVERVIEW-JA.md` 追加（主要エンドポイントの要約）
+
 ## v0.4.1 (2025-08-27)
 
 - feat(ui/planning): 粗密計画UIを強化
