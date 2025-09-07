@@ -7,6 +7,13 @@
     <article><mark>エラー</mark><pre class="mono">{{ error }}</pre></article>
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
+    <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
+      <a role="button" class="secondary" data-tab="overview">Overview</a>
+      <a role="button" class="secondary" data-tab="execute">Execute</a>
+      <a role="button" class="secondary" data-tab="results">Results</a>
+      <a role="button" class="secondary" data-tab="diff">Diff</a>
+    </nav>
+    <div id="tab-execute" class="tab-pane" style="display:none;">
     <details open>
       <summary>再整合（パラメータ指定）</summary>
       <form method="post" action="/ui/plans/{{ version_id }}/reconcile">
@@ -54,6 +61,80 @@
       </form>
     </details>
 
+    <details>
+      <summary>統合Run（新規バージョン作成）</summary>
+      <form method="post" action="/ui/plans/run">
+        <div class="grid" style="align-items:end;">
+          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+          <label>lt_unit
+            <select name="lt_unit">
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+          <label>cutover_date<input type="date" name="cutover_date"></label>
+          <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
+          <label>anchor_policy
+            <select name="anchor_policy">
+              <option value="">(未指定)</option>
+              <option value="DET_near">DET_near</option>
+              <option value="AGG_far">AGG_far</option>
+              <option value="blend">blend</option>
+            </select>
+          </label>
+          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+          <label>calendar_mode
+            <select name="calendar_mode">
+              <option value="">(未指定)</option>
+              <option value="simple">simple</option>
+              <option value="iso">iso</option>
+            </select>
+          </label>
+          <label>carryover
+            <select name="carryover">
+              <option value="">(未指定)</option>
+              <option value="auto">auto</option>
+              <option value="prev">prev</option>
+              <option value="next">next</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
+          <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
+        </div>
+        <button type="submit">Run Now（即時実行）</button>
+      </form>
+      <form method="post" action="/planning/run_job" style="margin-top:8px;">
+        <div class="grid" style="align-items:end;">
+          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+          <label>lt_unit
+            <select name="lt_unit">
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+          <label>cutover_date<input type="date" name="cutover_date"></label>
+          <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
+          <label>anchor_policy
+            <select name="anchor_policy">
+              <option value="">(未指定)</option>
+              <option value="DET_near">DET_near</option>
+              <option value="AGG_far">AGG_far</option>
+              <option value="blend">blend</option>
+            </select>
+          </label>
+          <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
+        </div>
+        <button type="submit" class="secondary">Queue Job（ジョブ投入）</button>
+        <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
+      </form>
+    </details>
+    </div>
+
+    <div id="tab-overview" class="tab-pane">
     <details open>
       <summary>要約</summary>
       <table>
@@ -73,7 +154,103 @@
         </tbody>
       </table>
     </details>
+    {% if kpi_preview %}
+    <section style="margin-top:8px;">
+      <h4>MVP: KPIプレビュー</h4>
+      <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
+        <article>
+          <header>能力合計</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.capacity_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>負荷合計（adjusted）</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.adjusted_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>能力利用率</header>
+          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.util_pct)) if kpi_preview.util_pct is not none else '-' }}</strong>
+        </article>
+        <article>
+          <header>spill_in 合計</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_in_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>spill_out 合計</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_out_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>違反件数 before/after</header>
+          <strong class="mono">{{ kpi_preview.viol_before or 0 }} → {{ kpi_preview.viol_after if kpi_preview.viol_after is not none else '-' }}</strong>
+        </article>
+        <article>
+          <header>需要合計（DET）</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_demand_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>発注合計（DET supply）</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_supply_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>サービスレベル（DET, 推定）</header>
+          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.sl_pct)) if kpi_preview.sl_pct is not none else '-' }}</strong>
+        </article>
+        <article>
+          <header>欠品合計（DET backlog）</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_backlog_total or 0) }}</strong>
+        </article>
+        <article>
+          <header>在庫合計（初期, MRP）</header>
+          <strong class="mono">{{ '%.0f'|format(kpi_preview.inv_initial_total if kpi_preview.inv_initial_total is not none else 0) }}</strong>
+        </article>
+      </div>
+      {% if kpi_preview.window_days %}
+        <p class="mono">window_days={{ kpi_preview.window_days }} ｜ policy={{ kpi_preview.anchor_policy or '(none)' }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+    <p class="mono">
+      エクスポート: 
+      <a href="/plans/{{ version_id }}/summary" target="_blank">summary.json</a> ｜
+      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>compare.csv</a> ｜
+      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" download>violations.csv</a> ｜
+      <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
+    </p>
+    </div>
 
+    <div id="tab-results" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>最新Run（base_scenario）</summary>
+      {% if version.base_scenario_id %}
+        {% if latest_runs and latest_runs|length > 0 %}
+          <table>
+            <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th><th>リンク</th></tr></thead>
+            <tbody>
+              {% for r in latest_runs %}
+              <tr>
+                <td class="mono">{{ r.run_id }}</td>
+                <td class="mono">{{ r.started_at }}</td>
+                <td class="mono">{{ r.fill_rate }}</td>
+                <td class="mono">{{ r.profit_total }}</td>
+                <td><a class="secondary" href="/ui/runs/{{ r.run_id }}" target="_blank">open</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if latest_run_ids and latest_run_ids|length >= 2 %}
+          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+            <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
+            <button type="submit">最新2件を比較</button>
+            <a class="secondary" href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" target="_blank">metrics.csv</a>
+            <a class="secondary" href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank">diffs.csv (±5%)</a>
+          </form>
+          {% endif %}
+        {% else %}
+          <p>該当シナリオのRunが見つかりません。<a href="/ui/runs" target="_blank">/ui/runs</a> を参照してください。</p>
+        {% endif %}
+      {% else %}
+        <p>プランに base_scenario_id が未設定です。</p>
+      {% endif %}
+    </details>
     {% if weekly_summary %}
     <details>
       <summary>能力サマリ（weekly_summary）</summary>
@@ -102,6 +279,7 @@
       </table>
     </details>
     {% endif %}
+    </div>
 
     {% if deltas %}
     <details open>
@@ -162,6 +340,7 @@
     </details>
     {% endif %}
 
+    <div id="tab-diff" class="tab-pane" style="display:none;">
     {% if deltas_adj %}
     <details>
       <summary>after 差分（先頭50件）</summary>
@@ -220,9 +399,10 @@
       </script>
     </details>
     {% endif %}
+    </div>
   {% endif %}
 </section>
-<section>
+<section id="chart-section" style="display:none;">
   <h3>可視化</h3>
   <canvas id="chartSpillZonePlan" height="100"></canvas>
   <canvas id="chartCapacityPlan" height="100" style="margin-top:16px"></canvas>
@@ -272,8 +452,35 @@
         const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
       }
     }
-    makeSpill();
-    makeCapacity();
+    // 遅延描画: Resultsタブで描画
+    window.__renderCharts = function(){ try{ makeSpill(); makeCapacity(); }catch(e){} };
+  })();
+</script>
+<script>
+  // タブ切替
+  (function(){
+    function activate(tab){
+      ['overview','execute','results','diff'].forEach(function(k){
+        var el = document.getElementById('tab-'+k);
+        if (el) el.style.display = (k===tab)?'':'none';
+      });
+      var chartSec = document.getElementById('chart-section');
+      if (chartSec) chartSec.style.display = (tab==='results')? '' : 'none';
+      if (tab==='results' && typeof window.__renderCharts==='function') { window.__renderCharts(); }
+      document.querySelectorAll('nav [data-tab]').forEach(function(a){
+        a.classList.toggle('contrast', a.getAttribute('data-tab')===tab);
+      });
+      try { localStorage.setItem('plan_detail_tab', tab); } catch(e){}
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var saved = null;
+      try { saved = localStorage.getItem('plan_detail_tab'); } catch(e){}
+      var init = saved || 'overview';
+      activate(init);
+      document.querySelectorAll('nav [data-tab]').forEach(function(a){
+        a.addEventListener('click', function(){ activate(a.getAttribute('data-tab')); });
+      });
+    });
   })();
 </script>
 {% endblock %}

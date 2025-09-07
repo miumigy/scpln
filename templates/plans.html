@@ -2,6 +2,58 @@
 {% block content %}
 <section>
   <h2>プランバージョン一覧</h2>
+  <details open>
+    <summary>新規Plan作成（統合Run）</summary>
+    <form method="post" action="/ui/plans/run">
+      <div class="grid" style="align-items:end;">
+        <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+        <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+        <label>lt_unit
+          <select name="lt_unit">
+            <option value="day" selected>day</option>
+            <option value="week">week</option>
+          </select>
+        </label>
+        <label>cutover_date<input type="date" name="cutover_date"></label>
+        <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
+        <label>anchor_policy
+          <select name="anchor_policy">
+            <option value="">(未指定)</option>
+            <option value="DET_near">DET_near</option>
+            <option value="AGG_far">AGG_far</option>
+            <option value="blend">blend</option>
+          </select>
+        </label>
+        <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
+        <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+        <label>calendar_mode
+          <select name="calendar_mode">
+            <option value="">(未指定)</option>
+            <option value="simple">simple</option>
+            <option value="iso">iso</option>
+          </select>
+        </label>
+        <label>carryover
+          <select name="carryover">
+            <option value="">(未指定)</option>
+            <option value="auto">auto</option>
+            <option value="prev">prev</option>
+            <option value="next">next</option>
+            <option value="both">both</option>
+          </select>
+        </label>
+        <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
+        <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
+      </div>
+      <button type="submit">Run（作成）</button>
+      <p class="mono">参考: 従来の実行は <a href="/ui/planning" target="_blank">/ui/planning</a></p>
+    </form>
+  </details>
+
+  <div style="display:flex; gap:8px; align-items:center; margin:8px 0;">
+    <input id="q" type="search" placeholder="検索（version/status/policy）" />
+    <small class="mono" id="meta"></small>
+  </div>
   {% if plans and plans|length > 0 %}
   <table>
     <thead>
@@ -67,6 +119,24 @@ document.addEventListener('DOMContentLoaded', function(){
     var txt = fmtJst(ms);
     if (txt) td.textContent = txt;
   });
+  var q = document.getElementById('q');
+  var meta = document.getElementById('meta');
+  var rows = Array.from(document.querySelectorAll('tbody tr'));
+  function apply(){
+    var s = (q && q.value || '').toLowerCase().trim();
+    var vis = 0;
+    rows.forEach(function(tr){
+      var txt = tr.textContent.toLowerCase();
+      var ok = !s || txt.indexOf(s) >= 0;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) vis++;
+    });
+    if (meta) meta.textContent = vis + ' / ' + rows.length;
+  }
+  if (q) {
+    q.addEventListener('input', apply);
+    apply();
+  }
 });
 </script>
 {% endblock %}
