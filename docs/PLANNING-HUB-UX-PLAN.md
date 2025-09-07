@@ -240,10 +240,10 @@ sequenceDiagram
 | P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ✔ | miumigy | 2025-09-14 |
-| P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-07 | Aggregateタブ移植 | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-08 | Disaggregateタブ移植 | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-11 | Plan & Run（自動補完） | S3 | P1 | ☐ | miumigy | 2025-09-28 |
 | P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ | miumigy | 2025-09-28 |
 | P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
