@@ -190,6 +190,7 @@ sequenceDiagram
   - 進捗: 2025-09-07 `/ui/plans` 一覧に「copy all」を追加（summary/compare(rel)/violations(abs) の3リンクを一括コピー）。ソート対象に policy を追加。既存の列インデックス不整合を修正（created_at/violations）。
   - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に「copy all」を追加（summary/compare(rel/abs)/carryover を一括コピー）。一覧のソート対象に cutover を追加。
   - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に「最新2件Runの比較リンク（metrics/diffs）の一括コピー」を追加。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に複合ソートUI（主/副キー＋昇降）を追加。設定をlocalStorageへ保存し再訪時に復元。詳細に「チェック選択したリンクの一括コピー」も追加。
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）

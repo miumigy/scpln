@@ -208,18 +208,22 @@
       {% endif %}
     </section>
     {% endif %}
-    <p class="mono">
-      エクスポート: 
-      <a href="/plans/{{ version_id }}/summary" target="_blank">summary.json</a>
+    <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <span>エクスポート:</span>
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー">copy</button>
-      ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>compare.csv</a>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー">copy</button>
-      ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" download>violations.csv</a>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
-      ｜ <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
       ｜ <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
-    </p>
+      <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
+    </div>
     </div>
 
     <div id="tab-results" class="tab-pane" style="display:none;">
@@ -245,11 +249,12 @@
           <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
             <button type="submit">最新2件を比較</button>
-            <a class="secondary" href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" target="_blank">metrics.csv</a>
+            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
             <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
-            <a class="secondary" href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank">diffs.csv (±5%)</a>
+            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
             <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
             <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー">copy all</button>
+            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
           </form>
           {% endif %}
         {% else %}
@@ -542,6 +547,20 @@
       if (t && t.classList && t.classList.contains('copy-runs-all')){
         var ids = t.getAttribute('data-run-ids');
         if (ids){ copyRunCompareAll(ids); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-selected')){
+        var checks = Array.from(document.querySelectorAll('.sel-copy:checked'));
+        var origin = (location && location.origin) ? location.origin : '';
+        var urls = checks.map(function(c){ return origin + (c.getAttribute('data-href')||''); }).filter(Boolean);
+        if (urls.length){
+          var txt = urls.join('\n');
+          if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(txt).catch(function(){});
+          } else {
+            var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+          }
+          t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy selected'; }, 1200);
+        }
       }
     });
   })();
