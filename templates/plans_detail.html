@@ -12,6 +12,7 @@
       <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
       <a role="button" class="secondary" data-tab="disaggregate">Disaggregate</a>
       <a role="button" class="secondary" data-tab="schedule">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate">Validate</a>
       <a role="button" class="secondary" data-tab="execute">Execute</a>
       <a role="button" class="secondary" data-tab="results">Results</a>
       <a role="button" class="secondary" data-tab="diff">Diff</a>
@@ -101,6 +102,37 @@
       </table>
       {% else %}
       <p>データなし（このPlanの実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
+
+    <div id="tab-validate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>検証（MVP）</summary>
+      {% if validate %}
+      <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
+        <article>
+          <header>Tol違反（before/after）</header>
+          <strong class="mono">{{ validate.tol_violations_before if validate.tol_violations_before is not none else '-' }} → {{ validate.tol_violations_after if validate.tol_violations_after is not none else '-' }}</strong>
+          <footer><a class="secondary" href="/plans/{{ version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank">compare (violations)</a></footer>
+        </article>
+        <article>
+          <header>負在庫行数</header>
+          <strong class="mono">{{ validate.neg_inventory_rows or 0 }}</strong>
+          <footer><em class="mono">mrp rows={{ validate.mrp_total_rows or 0 }}</em></footer>
+        </article>
+        <article>
+          <header>予定受入の小数行</header>
+          <strong class="mono">{{ validate.fractional_receipts_rows or 0 }}</strong>
+        </article>
+        <article>
+          <header>能力超過（週）</header>
+          <strong class="mono">{{ validate.capacity_over_weeks or 0 }}</strong>
+          <footer><em class="mono">weekly rows={{ validate.weekly_total_rows or 0 }}</em></footer>
+        </article>
+      </div>
+      {% else %}
+      <p>データなし（Planの実行後に検証が有効になります）</p>
       {% endif %}
     </details>
     </div>
@@ -564,7 +596,7 @@
   // タブ切替
   (function(){
     function activate(tab){
-      ['overview','aggregate','disaggregate','schedule','execute','results','diff'].forEach(function(k){
+      ['overview','aggregate','disaggregate','schedule','validate','execute','results','diff'].forEach(function(k){
         var el = document.getElementById('tab-'+k);
         if (el) el.style.display = (k===tab)?'':'none';
       });

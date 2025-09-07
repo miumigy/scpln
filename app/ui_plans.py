@@ -101,6 +101,50 @@ def ui_plan_detail(version_id: str, request: Request):
     except Exception:
         schedule_rows_sample = []
         schedule_total = 0
+
+    # Validate summary (MVP)
+    validate = {}
+    try:
+        # 1) tolerance violations from reconciliation summary (before/after)
+        tol_before = (recon.get("summary") or {}).get("tol_violations")
+        tol_after = (recon_adj.get("summary") or {}).get("tol_violations")
+        # 2) negative inventory counts from mrp rows
+        mrows = list((plan_mrp.get("rows") or []))
+        neg_inv = 0
+        frac_sched = 0
+        for r in mrows:
+            try:
+                ohs = float(r.get("on_hand_start") or 0)
+                ohe = float(r.get("on_hand_end") or 0)
+                if ohe < 0 or ohs < 0:
+                    neg_inv += 1
+                sr = float(r.get("scheduled_receipts") or 0)
+                if abs(sr - round(sr)) > 1e-6:
+                    frac_sched += 1
+            except Exception:
+                pass
+        # 3) capacity violations from weekly_summary (adjusted_load > capacity)
+        ws = plan_final.get("weekly_summary") or []
+        cap_over = 0
+        for r in ws:
+            try:
+                cap = float(r.get("capacity") or 0)
+                adj = float(r.get("adjusted_load") or 0)
+                if adj - cap > 1e-6:
+                    cap_over += 1
+            except Exception:
+                pass
+        validate = {
+            "tol_violations_before": tol_before,
+            "tol_violations_after": tol_after,
+            "neg_inventory_rows": neg_inv,
+            "fractional_receipts_rows": frac_sched,
+            "capacity_over_weeks": cap_over,
+            "mrp_total_rows": len(mrows),
+            "weekly_total_rows": len(ws),
+        }
+    except Exception:
+        validate = {}
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
@@ -245,6 +289,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "disagg_total": len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0,
             "schedule_rows": schedule_rows_sample,
             "schedule_total": schedule_total,
+            "validate": validate,
         },
     )
 
