@@ -201,6 +201,7 @@ sequenceDiagram
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）
   - 進捗: 2025-09-07 `/ui/plans/{id}` Execute内に「Plan & Run（自動補完）」を追加。既存Planの cutover/window/policy を引き継いだ統合実行を /runs API で起動（同期/ジョブの選択可）。
+  - 追補: 2025-09-07 引継ぎ項目を拡張（tol_abs/tol_rel/calendar_mode/carryover/carryover_split/apply_adjusted）。フォームから指定可能にし、/runs→/plans/integrated/run へ委譲。
 - [ ] P-12 state 遷移/Invalidation 実装
   - 進捗: 2025-09-07 `/ui/plans/{id}` Overviewに state 表示と操作（advance/invalidate）を追加。`state.json`（plan_artifacts）で `state: draft→aggregated→disaggregated→scheduled→executed` と `invalid` 配列を管理。`plan_versions.status` へも反映。
 - [ ] P-13 KPI/テレメトリ導入

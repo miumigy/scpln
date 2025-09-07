@@ -367,6 +367,15 @@ def ui_plan_run_auto(
     input_dir: str = Form("samples/planning"),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
+    cutover_date: str | None = Form(default=None),
+    recon_window_days: int | None = Form(default=None),
+    anchor_policy: str | None = Form(default=None),
+    tol_abs: float | None = Form(default=None),
+    tol_rel: float | None = Form(default=None),
+    calendar_mode: str | None = Form(default=None),
+    carryover: str | None = Form(default=None),
+    carryover_split: float | None = Form(default=None),
+    apply_adjusted: int | None = Form(default=None),
     queue_job: int | None = Form(default=None),
 ):
     """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
@@ -391,6 +400,12 @@ def ui_plan_run_auto(
             "cutover_date": cutover_date,
             "recon_window_days": recon_window_days,
             "anchor_policy": anchor_policy,
+            "tol_abs": tol_abs,
+            "tol_rel": tol_rel,
+            "calendar_mode": calendar_mode,
+            "carryover": carryover,
+            "carryover_split": carryover_split,
+            "apply_adjusted": bool(apply_adjusted),
         },
     }
     res = _runs_api.post_runs(body)
