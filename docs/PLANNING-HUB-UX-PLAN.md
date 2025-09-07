@@ -222,8 +222,8 @@ sequenceDiagram
 | P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ✔ | miumigy | 2025-09-14 |
- | P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
 | P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
 | P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ | miumigy | 2025-09-21 |
