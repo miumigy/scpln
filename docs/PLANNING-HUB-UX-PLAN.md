@@ -200,6 +200,7 @@ sequenceDiagram
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）
+  - 進捗: 2025-09-07 `/ui/plans/{id}` Execute内に「Plan & Run（自動補完）」を追加。既存Planの cutover/window/policy を引き継いだ統合実行を /runs API で起動（同期/ジョブの選択可）。
 - [ ] P-12 state 遷移/Invalidation 実装
 - [ ] P-13 KPI/テレメトリ導入
 - [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）

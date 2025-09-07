@@ -255,6 +255,23 @@
         <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
       </form>
     </details>
+
+    <details>
+      <summary>Plan & Run（自動補完・新規バージョン作成）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+        <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+        <label>lt_unit
+          <select name="lt_unit">
+            <option value="day" selected>day</option>
+            <option value="week">week</option>
+          </select>
+        </label>
+        <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
+        <button type="submit" class="contrast">Plan & Run を実行</button>
+        <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>
+      </form>
+    </details>
     </div>
 
     <div id="tab-overview" class="tab-pane">

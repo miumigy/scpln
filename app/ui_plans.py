@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
 from app import plans_api as _plans_api  # for reuse handlers
+from app import runs_api as _runs_api  # for Plan & Run adapter
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -344,6 +345,49 @@ def ui_plan_reconcile(
         pass
     from fastapi.responses import RedirectResponse
 
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@app.post("/ui/plans/{version_id}/plan_run_auto")
+def ui_plan_run_auto(
+    version_id: str,
+    request: Request,
+    input_dir: str = Form("samples/planning"),
+    weeks: int = Form(4),
+    lt_unit: str = Form("day"),
+    queue_job: int | None = Form(default=None),
+):
+    """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
+    - queue_job チェック時は非同期（ジョブ投入）。
+    - それ以外は同期で新規Plan作成し詳細にリダイレクト。
+    """
+    ver = db.get_plan_version(version_id) or {}
+    # 既存のcutover/window/policyを引き継ぎ（存在する場合）
+    # plan_final.boundary_summary にもフォールバック
+    plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    bs = (plan_final.get("boundary_summary") or {}) if isinstance(plan_final, dict) else {}
+    cutover_date = ver.get("cutover_date") or bs.get("cutover_date")
+    recon_window_days = ver.get("recon_window_days") or bs.get("window_days")
+    anchor_policy = bs.get("anchor_policy")
+    body = {
+        "pipeline": "integrated",
+        "async": bool(queue_job),
+        "options": {
+            "input_dir": input_dir,
+            "weeks": weeks,
+            "lt_unit": lt_unit,
+            "cutover_date": cutover_date,
+            "recon_window_days": recon_window_days,
+            "anchor_policy": anchor_policy,
+        },
+    }
+    res = _runs_api.post_runs(body)
+    from fastapi.responses import RedirectResponse
+
+    # 正常系でlocationへ誘導
+    if isinstance(res, dict) and res.get("location"):
+        return RedirectResponse(url=str(res.get("location")), status_code=303)
+    # 失敗時は元画面へ
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
