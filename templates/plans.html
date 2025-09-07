@@ -82,9 +82,11 @@
         <option value="asc">asc</option>
       </select>
     </span>
+    <small class="mono" id="sortBadge"></small>
   </div>
   {% if plans and plans|length > 0 %}
-  <table id="tblPlans">
+  <div style="overflow-x:auto;">
+  <table id="tblPlans" style="table-layout:auto; min-width:960px;">
     <thead>
       <tr>
         <th>version_id</th>
@@ -101,7 +103,7 @@
     <tbody>
       {% for p in plans %}
       <tr>
-        <td class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a></td>
+        <td class="mono"><a class="truncate" style="max-width:240px; display:inline-block;" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
         <td>{{ p.status or '' }}</td>
         <td class="mono">{{ p.cutover_date or '' }}</td>
         <td class="mono">{{ p.recon_window_days if p.recon_window_days is not none else 0 }}</td>
@@ -126,6 +128,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p>まだプランがありません。/ui/planning から実行するか、/plans/integrated/run を呼び出してください。</p>
   {% endif %}
@@ -155,6 +158,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var q = document.getElementById('q');
   var meta = document.getElementById('meta');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
+  var sortBadge = document.getElementById('sortBadge');
   // 検索フィルタの永続化（localStorage）
   var KEY_Q = 'ui_plans_query';
   try {
@@ -197,6 +201,12 @@ document.addEventListener('DOMContentLoaded', function(){
   // 簡易ソート（status/created_at/violations）
   var KEY_SORT = 'ui_plans_sort';
   var KEY_SORT2 = 'ui_plans_sort2';
+  function updateSortBadge(pkey, pdir, skey, sdir){
+    if (!sortBadge) return;
+    var txt = 'Sort: ' + (pkey||'-') + ' ' + (pdir||'-');
+    if (skey) txt += ' ｜ Secondary: ' + skey + ' ' + (sdir||'-');
+    sortBadge.textContent = txt;
+  }
   function getCellValue(tr, idx){ var el = tr.children[idx]; return el ? el.textContent.trim() : ''; }
   function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return isNaN(n)? null : n; }
   function cmp(a,b){ return a<b ? -1 : a>b ? 1 : 0; }
@@ -273,6 +283,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var sk = document.getElementById('sortSKey'); if (sk) sk.value = skey || '';
     var sd = document.getElementById('sortSDir'); if (sd) sd.value = sdir;
     applySort2(pkey, pdir, skey, sdir);
+    updateSortBadge(pkey, pdir, skey, sdir);
   }
   document.querySelectorAll('th[data-sort]').forEach(function(th){
     th.style.cursor = 'pointer';
@@ -296,6 +307,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var skey = sk ? sk.value : '';
     var sdir = sd ? sd.value : 'desc';
     applySort2(pkey, pdir, skey, sdir);
+    updateSortBadge(pkey, pdir, skey, sdir);
   }
   ['sortPKey','sortPDir','sortSKey','sortSDir'].forEach(function(id){ var el = document.getElementById(id); if (el) el.addEventListener('change', onSort2Change); });
 
