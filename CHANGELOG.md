@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.5.0 (2025-09-07)
+
+- Planning Hub P2 の安定リリース
+  - P-14: レガシーUI `/ui/planning` 段階的クローズ（Phase2: 302, Phase3: 404ガイド）+ テスト
+  - P-11: Plan & Run（自動補完）引継ぎ拡張（tol_abs/rel, calendar_mode, carryover系 等）+ テスト
+  - P-07/08/09/10: タブ（Aggregate/Disaggregate/Schedule/Validate）追加、`schedule.csv`、Validate自動チェック
+  - P-13: Prometheusメトリクス拡張（plans_created_total ほか）
+  - P-23: 用語表/README統一、UIツールチップ/aria-label 追加、API概要ドキュメント
+  - P-24: ハンズオンチュートリアル追加（作成→プレビュー→再整合→Plan&Run→結果確認）
+
 ## v0.5.0-rc (2025-09-07)
 
 - Planning Hub P2 ロールアップ（#184）
