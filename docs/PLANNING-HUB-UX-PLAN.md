@@ -184,6 +184,7 @@ sequenceDiagram
   - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。
   - 進捗: 2025-09-07 ナビゲーションを整理。`/ui/planning` を「集約/詳細計画（レガシー）」、`/ui/plans` を「Planning Hub（推奨入口）」として明示（title属性で補足）。
 - [ ] P-22 履歴・固定リンクの強化（フィルタ/再実行/共有）
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に固定リンクのコピー機能（summary/compare/violationsのURLをワンクリックでコピー）を追加。検索フィルタの入力値をlocalStorageに保存し、一覧再訪時に復元。
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）

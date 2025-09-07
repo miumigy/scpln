@@ -86,8 +86,11 @@
         </td>
         <td>
           <a class="secondary" href="/plans/{{ p.version_id }}/summary" target="_blank">summary</a>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" title="URLをコピー">copy</button>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">compare</a>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" title="URLをコピー">copy</button>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">violations</a>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" title="URLをコピー">copy</button>
         </td>
       </tr>
       {% endfor %}
@@ -122,6 +125,12 @@ document.addEventListener('DOMContentLoaded', function(){
   var q = document.getElementById('q');
   var meta = document.getElementById('meta');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
+  // 検索フィルタの永続化（localStorage）
+  var KEY_Q = 'ui_plans_query';
+  try {
+    var saved = localStorage.getItem(KEY_Q);
+    if (q && saved && typeof saved === 'string') { q.value = saved; }
+  } catch(e) {}
   function apply(){
     var s = (q && q.value || '').toLowerCase().trim();
     var vis = 0;
@@ -132,11 +141,28 @@ document.addEventListener('DOMContentLoaded', function(){
       if (ok) vis++;
     });
     if (meta) meta.textContent = vis + ' / ' + rows.length;
+    try { localStorage.setItem(KEY_Q, s); } catch(e) {}
   }
   if (q) {
     q.addEventListener('input', apply);
     apply();
   }
+  // URLコピー（クリックでlocation.origin + data-href をコピー）
+  function copyUrl(href){
+    var abs = (location && location.origin ? location.origin : '') + href;
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(abs).catch(function(){});
+    } else {
+      var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+    }
+  }
+  document.addEventListener('click', function(ev){
+    var t = ev.target;
+    if (t && t.classList && t.classList.contains('copy')){
+      var href = t.getAttribute('data-href');
+      if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
+    }
+  });
 });
 </script>
 {% endblock %}
