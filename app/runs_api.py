@@ -6,6 +6,7 @@ from fastapi import Body
 from fastapi.responses import JSONResponse
 
 from app.api import app
+from app.metrics import RUNS_QUEUED
 
 
 @app.post("/runs")
@@ -59,6 +60,10 @@ def post_runs(body: Dict[str, Any] = Body(...)):
                         "pipeline": pipeline,
                     },
                 )
+                try:
+                    RUNS_QUEUED.inc()
+                except Exception:
+                    pass
             except Exception:
                 pass
             return {

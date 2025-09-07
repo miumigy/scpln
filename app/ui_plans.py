@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
 from app import plans_api as _plans_api  # for reuse handlers
+from app import runs_api as _runs_api  # for Plan & Run adapter
+from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -95,6 +97,68 @@ def ui_plan_detail(version_id: str, request: Request):
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
+    plan_state = db.get_plan_artifact(version_id, "state.json") or {"state": "draft", "invalid": []}
+    aggregate = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    sku_week = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    disagg_rows_sample = []
+    try:
+        disagg_rows_sample = list((sku_week.get("rows") or [])[:200])
+    except Exception:
+        disagg_rows_sample = []
+    # schedule rows from mrp.json (first 200)
+    schedule_rows_sample = []
+    schedule_total = 0
+    try:
+        mrows = list((plan_mrp.get("rows") or []))
+        schedule_total = len(mrows)
+        schedule_rows_sample = mrows[:200]
+    except Exception:
+        schedule_rows_sample = []
+        schedule_total = 0
+
+    # Validate summary (MVP)
+    validate = {}
+    try:
+        # 1) tolerance violations from reconciliation summary (before/after)
+        tol_before = (recon.get("summary") or {}).get("tol_violations")
+        tol_after = (recon_adj.get("summary") or {}).get("tol_violations")
+        # 2) negative inventory counts from mrp rows
+        mrows = list((plan_mrp.get("rows") or []))
+        neg_inv = 0
+        frac_sched = 0
+        for r in mrows:
+            try:
+                ohs = float(r.get("on_hand_start") or 0)
+                ohe = float(r.get("on_hand_end") or 0)
+                if ohe < 0 or ohs < 0:
+                    neg_inv += 1
+                sr = float(r.get("scheduled_receipts") or 0)
+                if abs(sr - round(sr)) > 1e-6:
+                    frac_sched += 1
+            except Exception:
+                pass
+        # 3) capacity violations from weekly_summary (adjusted_load > capacity)
+        ws = plan_final.get("weekly_summary") or []
+        cap_over = 0
+        for r in ws:
+            try:
+                cap = float(r.get("capacity") or 0)
+                adj = float(r.get("adjusted_load") or 0)
+                if adj - cap > 1e-6:
+                    cap_over += 1
+            except Exception:
+                pass
+        validate = {
+            "tol_violations_before": tol_before,
+            "tol_violations_after": tol_after,
+            "neg_inventory_rows": neg_inv,
+            "fractional_receipts_rows": frac_sched,
+            "capacity_over_weeks": cap_over,
+            "mrp_total_rows": len(mrows),
+            "weekly_total_rows": len(ws),
+        }
+    except Exception:
+        validate = {}
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
@@ -220,6 +284,10 @@ def ui_plan_detail(version_id: str, request: Request):
                 "base_scenario_id": (ver or {}).get("base_scenario_id"),
             },
         )
+        try:
+            PLANS_VIEWED.inc()
+        except Exception:
+            pass
     except Exception:
         pass
     return templates.TemplateResponse(
@@ -238,6 +306,13 @@ def ui_plan_detail(version_id: str, request: Request):
             "kpi_preview": kpi_preview,
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
+            "aggregate": aggregate,
+            "disagg_rows": disagg_rows_sample,
+            "disagg_total": len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0,
+            "schedule_rows": schedule_rows_sample,
+            "schedule_total": schedule_total,
+            "validate": validate,
+            "plan_state": plan_state,
         },
     )
 
@@ -286,12 +361,105 @@ def ui_plan_reconcile(
                     "lt_unit": lt_unit,
                 },
             )
+            try:
+                PLANS_RECONCILED.inc()
+            except Exception:
+                pass
         except Exception:
             pass
     except Exception:
         pass
     from fastapi.responses import RedirectResponse
 
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@app.post("/ui/plans/{version_id}/plan_run_auto")
+def ui_plan_run_auto(
+    version_id: str,
+    request: Request,
+    input_dir: str = Form("samples/planning"),
+    weeks: int = Form(4),
+    lt_unit: str = Form("day"),
+    queue_job: int | None = Form(default=None),
+):
+    """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
+    - queue_job チェック時は非同期（ジョブ投入）。
+    - それ以外は同期で新規Plan作成し詳細にリダイレクト。
+    """
+    ver = db.get_plan_version(version_id) or {}
+    # 既存のcutover/window/policyを引き継ぎ（存在する場合）
+    # plan_final.boundary_summary にもフォールバック
+    plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    bs = (plan_final.get("boundary_summary") or {}) if isinstance(plan_final, dict) else {}
+    cutover_date = ver.get("cutover_date") or bs.get("cutover_date")
+    recon_window_days = ver.get("recon_window_days") or bs.get("window_days")
+    anchor_policy = bs.get("anchor_policy")
+    body = {
+        "pipeline": "integrated",
+        "async": bool(queue_job),
+        "options": {
+            "input_dir": input_dir,
+            "weeks": weeks,
+            "lt_unit": lt_unit,
+            "cutover_date": cutover_date,
+            "recon_window_days": recon_window_days,
+            "anchor_policy": anchor_policy,
+        },
+    }
+    res = _runs_api.post_runs(body)
+    from fastapi.responses import RedirectResponse
+
+    # 正常系でlocationへ誘導
+    if isinstance(res, dict) and res.get("location"):
+        return RedirectResponse(url=str(res.get("location")), status_code=303)
+    # 失敗時は元画面へ
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+_STEPS = ["draft", "aggregated", "disaggregated", "scheduled", "executed"]
+
+
+@app.post("/ui/plans/{version_id}/state/advance")
+def ui_plan_state_advance(version_id: str, request: Request, to: str = Form(...)):
+    if to not in _STEPS:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+    state = db.get_plan_artifact(version_id, "state.json") or {"state": "draft", "invalid": []}
+    curr = state.get("state") or "draft"
+    if _STEPS.index(to) < _STEPS.index(curr):
+        to = curr
+    state["state"] = to
+    inv = set(state.get("invalid") or [])
+    for s in _STEPS:
+        if _STEPS.index(s) <= _STEPS.index(to):
+            inv.discard(s)
+    state["invalid"] = sorted(list(inv))
+    db.upsert_plan_artifact(version_id, "state.json", json.dumps(state, ensure_ascii=False))
+    try:
+        db.update_plan_version(version_id, status=to)
+    except Exception:
+        pass
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@app.post("/ui/plans/{version_id}/state/invalidate")
+def ui_plan_state_invalidate(version_id: str, request: Request, from_step: str = Form(...)):
+    if from_step not in _STEPS:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+    idx = _STEPS.index(from_step)
+    state = {
+        "state": from_step,
+        "invalid": _STEPS[idx + 1 :],
+    }
+    db.upsert_plan_artifact(version_id, "state.json", json.dumps(state, ensure_ascii=False))
+    try:
+        db.update_plan_version(version_id, status=from_step)
+    except Exception:
+        pass
+    from fastapi.responses import RedirectResponse
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
@@ -340,6 +508,10 @@ def ui_plans_run(
                 "anchor_policy": anchor_policy,
             },
         )
+        try:
+            PLANS_CREATED.inc()
+        except Exception:
+            pass
     except Exception:
         pass
     from fastapi.responses import RedirectResponse

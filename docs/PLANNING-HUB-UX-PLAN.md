@@ -168,23 +168,51 @@ sequenceDiagram
 - [x] P-15 Run API仕様ドラフト（エンドポイント/ペイロード/状態機械）
 - [x] P-16 既存3入口→Run APIアダプタ実装（内部経路統一）
   - 実装: `POST /runs`（adapter）を追加。`pipeline=integrated` を `/plans/integrated/run`（同期）/ `JOB_MANAGER.submit_planning`（非同期）へ委譲。
-- [ ] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
+- [x] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
   - 実装: Plans詳細のOverviewにMVP KPIカード（能力合計/負荷合計/能力利用率/スピル合計/違反件数）を表示。
+  - 進捗: 2025-09-07 完了。`/ui/plans/{id}` で `kpi_preview` を表示（capacity_total/adjusted_total/util_pct/spill_in_total/spill_out_total/viol_before/viol_after/det_demand_total/det_supply_total/det_backlog_total/sl_pct/inv_initial_total/window_days/anchor_policy）。
+  - 備考: `plan_final.weekly_summary` と `reconciliation_log(_adjusted).json`、`mrp.json` から軽量集計。データ欠落時はフェイルセーフで非表示。
 - [x] P-19 計測イベント仕込み（到達時間/クリック/離脱）
   - 実装: `legacy_redirect_hit`（/→/ui/plans）, `plan_created`（/ui/plans/run, /runs 同期）, `run_queued`（/runs 非同期）, `plan_results_viewed`（/ui/plans/{id}）, `plan_executed`（再整合）を JSON ログ出力
 - [x] P-20 README/ヘルプ更新（新動線の案内）
 
 #### P2 統合期（画面統合 + 非推奨化）
 - [ ] P-07 Aggregateタブ移植
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Aggregate タブを追加し、`aggregate.json` の family×period 表を表示（需要/供給/バックログ/能力合計）。
 - [ ] P-08 Disaggregateタブ移植
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
 - [ ] P-09 Scheduleタブ移植（予定オーダ生成）
-- [ ] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導
-- [ ] P-22 履歴・固定リンクの強化（フィルタ/再実行/共有）
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Schedule タブを追加し、`mrp.json` の予定オーダ（scheduled_receipts）を先頭200件表示。`/plans/{id}/schedule.csv` を新設し、week/sku/在庫端点を含むCSVをエクスポート可能に。
+- [ ] P-10 Validate（量・容量・MOQ/倍数）
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Validate タブ（MVP）を追加。以下の自動チェックを表示：Tol違反数（before/after）、負在庫件数、予定受入の小数行、能力超過週数。
+- [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）
+  - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。
+  - 進捗: 2025-09-07 ナビゲーションを整理。`/ui/planning` を「集約/詳細計画（レガシー）」、`/ui/plans` を「Planning Hub（推奨入口）」として明示（title属性で補足）。
+- [x] P-22 履歴・固定リンクの強化（フィルタ/再実行/共有）（2025-09-07 完了）
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に固定リンクのコピー機能（summary/compare/violationsのURLをワンクリックでコピー）を追加。検索フィルタの入力値をlocalStorageに保存し、一覧再訪時に復元。
+  - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に固定リンクのコピー（summary/compare/violations/carryover）と「最新2件Runの metrics/diffs 比較リンク」のコピーを追加。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に簡易ソート（status/created_at/violations）を追加。選択ソートをlocalStorageへ保存。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に「copy all」を追加（summary/compare(rel)/violations(abs) の3リンクを一括コピー）。ソート対象に policy を追加。既存の列インデックス不整合を修正（created_at/violations）。
+  - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に「copy all」を追加（summary/compare(rel/abs)/carryover を一括コピー）。一覧のソート対象に cutover を追加。
+  - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に「最新2件Runの比較リンク（metrics/diffs）の一括コピー」を追加。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に複合ソートUI（主/副キー＋昇降）を追加。設定をlocalStorageへ保存し再訪時に復元。詳細に「チェック選択したリンクの一括コピー」も追加。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧のUX細部を改善。表を横スクロール可能にし、version_id をtruncate表示。現在のソート状態をバッジ表示（主/副キー・昇降）。
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）
+  - 進捗: 2025-09-07 `/ui/plans/{id}` Execute内に「Plan & Run（自動補完）」を追加。既存Planの cutover/window/policy を引き継いだ統合実行を /runs API で起動（同期/ジョブの選択可）。
 - [ ] P-12 state 遷移/Invalidation 実装
+  - 進捗: 2025-09-07 `/ui/plans/{id}` Overviewに state 表示と操作（advance/invalidate）を追加。`state.json`（plan_artifacts）で `state: draft→aggregated→disaggregated→scheduled→executed` と `invalid` 配列を管理。`plan_versions.status` へも反映。
 - [ ] P-13 KPI/テレメトリ導入
+  - 進捗: 2025-09-07 Prometheusメトリクスを強化し `/metrics` で公開。以下のカウンタを追加し、UI/APIに配線:
+    - `plans_created_total`（Plan作成）
+    - `plans_reconciled_total`（再整合実行）
+    - `plans_viewed_total`（プラン詳細閲覧）
+    - `runs_queued_total`（ジョブ投入）
+    - `plan_schedule_export_total`（schedule.csvエクスポート）
+    - `plan_compare_export_total{mode}`（compare.csvエクスポート）
+    - `plan_carryover_export_total`（carryover.csvエクスポート）
+  - 備考: 既存のHTTP計測（総数/レイテンシ）に併載。Grafana等への連携は次期。
 - [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
 - [ ] P-24 チュートリアル/ハンズオン更新
@@ -210,13 +238,12 @@ sequenceDiagram
 | P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ✔ | miumigy | 2025-09-14 |
-| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
- | P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
-| P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ | miumigy | 2025-09-21 |
-| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-07 | Aggregateタブ移植 | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-08 | Disaggregateタブ移植 | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-11 | Plan & Run（自動補完） | S3 | P1 | ☐ | miumigy | 2025-09-28 |
 | P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ | miumigy | 2025-09-28 |
 | P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
@@ -226,8 +253,8 @@ sequenceDiagram
 | P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
-| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ☐ | miumigy | 2025-09-21 |
-| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ✔ | miumigy | 2025-09-07 |
+| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 | P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 

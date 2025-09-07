@@ -3,6 +3,36 @@
 <section>
   <h2>集約計画/詳細計画 パイプライン（UI検証）</h2>
   <p class="mono">ヘルプ: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md" target="_blank">整合ガイド（GitHub）</a></p>
+  <article id="legacyNotice" style="margin: 8px 0;">
+    <strong>この画面はレガシーです（Planning Hubへ統合中）。</strong>
+    <div>推奨入口: <a href="/ui/plans">/ui/plans</a>（編集→プレビュー→実行→結果を一貫体験）</div>
+    <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+      <label style="margin:0;">
+        <input type="checkbox" id="autoRedirectHub"> 次回から自動でPlanning Hubに移動する
+      </label>
+      <a role="button" class="contrast" href="/ui/plans">今すぐHubを開く</a>
+    </div>
+  </article>
+  <script>
+    (function(){
+      // レガシー→Hub誘導（任意自動リダイレクト）
+      try {
+        var key = 'legacyAutoRedirectToHub';
+        var cb = document.getElementById('autoRedirectHub');
+        var want = localStorage.getItem(key) === '1';
+        if (cb) {
+          cb.checked = want;
+          cb.addEventListener('change', function(){
+            try { localStorage.setItem(key, cb.checked ? '1' : '0'); } catch(e) {}
+            if (cb.checked) { window.location.href = '/ui/plans'; }
+          });
+        }
+        if (want) {
+          window.location.replace('/ui/plans');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <form method="post" action="/planning/run" enctype="multipart/form-data">
     <details>
       <summary>CSVアップロード（任意）</summary>

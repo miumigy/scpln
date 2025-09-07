@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import Body, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
+from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_SCHEDULE
 
 from app.api import app
 from app import db
@@ -622,6 +623,49 @@ def get_plan_compare_csv(
     w.writeheader()
     for r in rows:
         w.writerow({k: r.get(k) for k in header})
+    try:
+        PLAN_EXPORT_COMPARE.labels(mode=sort).inc()
+    except Exception:
+        pass
+    return PlainTextResponse(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8"
+    )
+
+
+@app.get("/plans/{version_id}/schedule.csv", response_class=PlainTextResponse)
+def get_plan_schedule_csv(version_id: str):
+    """Export a lightweight planned schedule from mrp.json.
+    Columns: week, sku, scheduled_receipts, on_hand_start, on_hand_end.
+    """
+    mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
+    rows = list(mrp.get("rows") or [])
+    header = [
+        "week",
+        "sku",
+        "scheduled_receipts",
+        "on_hand_start",
+        "on_hand_end",
+    ]
+    import io
+    import csv
+
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=header)
+    w.writeheader()
+    for r in rows:
+        w.writerow(
+            {
+                "week": r.get("week"),
+                "sku": r.get("sku"),
+                "scheduled_receipts": r.get("scheduled_receipts"),
+                "on_hand_start": r.get("on_hand_start"),
+                "on_hand_end": r.get("on_hand_end"),
+            }
+        )
+    try:
+        PLAN_EXPORT_SCHEDULE.inc()
+    except Exception:
+        pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )
@@ -667,6 +711,10 @@ def get_plan_carryover_csv(version_id: str):
                 "cap_norm_next": r.get("cap_norm_next"),
             }
         )
+    try:
+        PLAN_EXPORT_CARRYOVER.inc()
+    except Exception:
+        pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )

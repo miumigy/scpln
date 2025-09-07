@@ -9,10 +9,133 @@
     <p class="mono">version_id={{ version_id }}</p>
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
       <a role="button" class="secondary" data-tab="overview">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate">Disaggregate</a>
+      <a role="button" class="secondary" data-tab="schedule">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate">Validate</a>
       <a role="button" class="secondary" data-tab="execute">Execute</a>
       <a role="button" class="secondary" data-tab="results">Results</a>
       <a role="button" class="secondary" data-tab="diff">Diff</a>
     </nav>
+    <div id="tab-aggregate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>Aggregate（family×period）</summary>
+      {% if aggregate and aggregate.rows %}
+      <table>
+        <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
+        <tbody>
+          {% for r in aggregate.rows %}
+          <tr>
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.demand }}</td>
+            <td class="mono">{{ r.supply }}</td>
+            <td class="mono">{{ r.backlog }}</td>
+            <td class="mono">{{ r.capacity_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>データなし（このPlanの再整合や実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
+
+    <div id="tab-disaggregate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>Disaggregate（SKU×week）</summary>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
+        <input id="skuFilter" type="search" placeholder="SKUフィルタ（部分一致）">
+        <input id="weekFilter" type="search" placeholder="週フィルタ（例: 2025-W01）">
+        <small class="mono" id="disaggMeta"></small>
+        <small class="mono">表示は先頭200件（全{{ disagg_total or 0 }}件）</small>
+      </div>
+      {% if disagg_rows %}
+      <table id="tblDisagg">
+        <thead><tr><th>week</th><th>sku</th><th>demand</th><th>supply_plan</th><th>backlog</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
+        <tbody>
+          {% for r in disagg_rows %}
+          <tr>
+            <td class="mono">{{ r.week }}</td>
+            <td class="mono">{{ r.sku }}</td>
+            <td class="mono">{{ r.demand }}</td>
+            <td class="mono">{{ r.supply_plan }}</td>
+            <td class="mono">{{ r.backlog }}</td>
+            <td class="mono">{{ r.on_hand_start }}</td>
+            <td class="mono">{{ r.on_hand_end }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>データなし（このPlanの実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
+
+    <div id="tab-schedule" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>予定オーダ（Scheduled Receipts）</summary>
+      <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
+        <input id="schedSku" type="search" placeholder="SKUフィルタ（部分一致）">
+        <input id="schedWeek" type="search" placeholder="週フィルタ（例: 2025-W01）">
+        <small id="schedMeta"></small>
+        <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank">schedule.csv</a>
+        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="URLをコピー">copy</button>
+        <small>表示は先頭200件（全{{ schedule_total or 0 }}件）</small>
+      </div>
+      {% if schedule_rows %}
+      <table id="tblSchedule">
+        <thead><tr><th>week</th><th>sku</th><th>scheduled_receipts</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
+        <tbody>
+          {% for r in schedule_rows %}
+          <tr>
+            <td class="mono">{{ r.week }}</td>
+            <td class="mono">{{ r.sku }}</td>
+            <td class="mono">{{ r.scheduled_receipts }}</td>
+            <td class="mono">{{ r.on_hand_start }}</td>
+            <td class="mono">{{ r.on_hand_end }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>データなし（このPlanの実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
+
+    <div id="tab-validate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>検証（MVP）</summary>
+      {% if validate %}
+      <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
+        <article>
+          <header>Tol違反（before/after）</header>
+          <strong class="mono">{{ validate.tol_violations_before if validate.tol_violations_before is not none else '-' }} → {{ validate.tol_violations_after if validate.tol_violations_after is not none else '-' }}</strong>
+          <footer><a class="secondary" href="/plans/{{ version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank">compare (violations)</a></footer>
+        </article>
+        <article>
+          <header>負在庫行数</header>
+          <strong class="mono">{{ validate.neg_inventory_rows or 0 }}</strong>
+          <footer><em class="mono">mrp rows={{ validate.mrp_total_rows or 0 }}</em></footer>
+        </article>
+        <article>
+          <header>予定受入の小数行</header>
+          <strong class="mono">{{ validate.fractional_receipts_rows or 0 }}</strong>
+        </article>
+        <article>
+          <header>能力超過（週）</header>
+          <strong class="mono">{{ validate.capacity_over_weeks or 0 }}</strong>
+          <footer><em class="mono">weekly rows={{ validate.weekly_total_rows or 0 }}</em></footer>
+        </article>
+      </div>
+      {% else %}
+      <p>データなし（Planの実行後に検証が有効になります）</p>
+      {% endif %}
+    </details>
+    </div>
     <div id="tab-execute" class="tab-pane" style="display:none;">
     <details open>
       <summary>再整合（パラメータ指定）</summary>
@@ -132,6 +255,23 @@
         <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
       </form>
     </details>
+
+    <details>
+      <summary>Plan & Run（自動補完・新規バージョン作成）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+        <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
+        <label>lt_unit
+          <select name="lt_unit">
+            <option value="day" selected>day</option>
+            <option value="week">week</option>
+          </select>
+        </label>
+        <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
+        <button type="submit" class="contrast">Plan & Run を実行</button>
+        <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>
+      </form>
+    </details>
     </div>
 
     <div id="tab-overview" class="tab-pane">
@@ -151,8 +291,36 @@
             <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
             <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
           {% endif %}
+          <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} ｜ invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
         </tbody>
       </table>
+    </details>
+    <details>
+      <summary>State 管理（MVP）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/state/advance" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>advance to
+          <select name="to">
+            <option value="draft">draft</option>
+            <option value="aggregated">aggregated</option>
+            <option value="disaggregated">disaggregated</option>
+            <option value="scheduled">scheduled</option>
+            <option value="executed">executed</option>
+          </select>
+        </label>
+        <button type="submit">Advance</button>
+      </form>
+      <form method="post" action="/ui/plans/{{ version_id }}/state/invalidate" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:6px;">
+        <label>invalidate from
+          <select name="from_step">
+            <option value="draft">draft</option>
+            <option value="aggregated">aggregated</option>
+            <option value="disaggregated">disaggregated</option>
+            <option value="scheduled">scheduled</option>
+            <option value="executed">executed</option>
+          </select>
+        </label>
+        <button type="submit" class="secondary">Invalidate</button>
+      </form>
     </details>
     {% if kpi_preview %}
     <section style="margin-top:8px;">
@@ -208,13 +376,22 @@
       {% endif %}
     </section>
     {% endif %}
-    <p class="mono">
-      エクスポート: 
-      <a href="/plans/{{ version_id }}/summary" target="_blank">summary.json</a> ｜
-      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>compare.csv</a> ｜
-      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" download>violations.csv</a> ｜
-      <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
-    </p>
+    <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <span>エクスポート:</span>
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー">copy</button>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー">copy</button>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
+      ｜
+      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
+      ｜ <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
+      <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
+    </div>
     </div>
 
     <div id="tab-results" class="tab-pane" style="display:none;">
@@ -237,11 +414,15 @@
             </tbody>
           </table>
           {% if latest_run_ids and latest_run_ids|length >= 2 %}
-          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
             <button type="submit">最新2件を比較</button>
-            <a class="secondary" href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" target="_blank">metrics.csv</a>
-            <a class="secondary" href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank">diffs.csv (±5%)</a>
+            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
+            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
+            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
+            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
+            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー">copy all</button>
+            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
           </form>
           {% endif %}
         {% else %}
@@ -460,7 +641,7 @@
   // タブ切替
   (function(){
     function activate(tab){
-      ['overview','execute','results','diff'].forEach(function(k){
+      ['overview','aggregate','disaggregate','schedule','validate','execute','results','diff'].forEach(function(k){
         var el = document.getElementById('tab-'+k);
         if (el) el.style.display = (k===tab)?'':'none';
       });
@@ -480,6 +661,135 @@
       document.querySelectorAll('nav [data-tab]').forEach(function(a){
         a.addEventListener('click', function(){ activate(a.getAttribute('data-tab')); });
       });
+    });
+  })();
+</script>
+<script>
+  // Disaggregate簡易フィルタ
+  (function(){
+    function val(el){ return (el && el.value || '').toLowerCase().trim(); }
+    function apply(){
+      var sku = val(document.getElementById('skuFilter'));
+      var wk = val(document.getElementById('weekFilter'));
+      var rows = document.querySelectorAll('#tblDisagg tbody tr');
+      var vis=0, all=0;
+      rows.forEach(function(tr){
+        all++;
+        var tds = tr.querySelectorAll('td');
+        var w = (tds[0] && tds[0].textContent || '').toLowerCase();
+        var s = (tds[1] && tds[1].textContent || '').toLowerCase();
+        var ok = (!wk || w.indexOf(wk)>=0) && (!sku || s.indexOf(sku)>=0);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) vis++;
+      });
+      var meta = document.getElementById('disaggMeta');
+      if (meta) meta.textContent = vis + ' / ' + all;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var sf = document.getElementById('skuFilter');
+      var wf = document.getElementById('weekFilter');
+      if (sf) sf.addEventListener('input', apply);
+      if (wf) wf.addEventListener('input', apply);
+      apply();
+    });
+  })();
+</script>
+<script>
+  // Schedule 簡易フィルタ
+  (function(){
+    function val(el){ return (el && el.value || '').toLowerCase().trim(); }
+    function apply(){
+      var sku = val(document.getElementById('schedSku'));
+      var wk = val(document.getElementById('schedWeek'));
+      var rows = document.querySelectorAll('#tblSchedule tbody tr');
+      var vis=0, all=0;
+      rows.forEach(function(tr){
+        all++;
+        var tds = tr.querySelectorAll('td');
+        var w = (tds[0] && tds[0].textContent || '').toLowerCase();
+        var s = (tds[1] && tds[1].textContent || '').toLowerCase();
+        var ok = (!wk || w.indexOf(wk)>=0) && (!sku || s.indexOf(sku)>=0);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) vis++;
+      });
+      var meta = document.getElementById('schedMeta');
+      if (meta) meta.textContent = vis + ' / ' + all;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var sf = document.getElementById('schedSku');
+      var wf = document.getElementById('schedWeek');
+      if (sf) sf.addEventListener('input', apply);
+      if (wf) wf.addEventListener('input', apply);
+      apply();
+    });
+  })();
+</script>
+<script>
+  // 固定リンクのコピー機能（一覧と同仕様）
+  (function(){
+    function copyUrl(href){
+      var abs = (location && location.origin ? location.origin : '') + href;
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(abs).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
+    function copyAllLinks(ver){
+      var origin = (location && location.origin) ? location.origin : '';
+      var urls = [
+        origin + '/plans/' + ver + '/summary',
+        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=rel_desc&limit=1000',
+        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=abs_desc&limit=1000',
+        origin + '/plans/' + ver + '/carryover.csv'
+      ];
+      var txt = urls.join('\n');
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
+    function copyRunCompareAll(runIdsCsv){
+      if (!runIdsCsv) return;
+      var origin = (location && location.origin) ? location.origin : '';
+      var m = origin + '/ui/compare/metrics.csv?run_ids=' + runIdsCsv;
+      var d = origin + '/ui/compare/diffs.csv?run_ids=' + runIdsCsv + '&threshold=5';
+      var txt = m + '\n' + d;
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
+    document.addEventListener('click', function(ev){
+      var t = ev.target;
+      if (t && t.classList && t.classList.contains('copy')){
+        var href = t.getAttribute('data-href');
+        if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-all')){
+        var ver = t.getAttribute('data-version');
+        if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-runs-all')){
+        var ids = t.getAttribute('data-run-ids');
+        if (ids){ copyRunCompareAll(ids); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-selected')){
+        var checks = Array.from(document.querySelectorAll('.sel-copy:checked'));
+        var origin = (location && location.origin) ? location.origin : '';
+        var urls = checks.map(function(c){ return origin + (c.getAttribute('data-href')||''); }).filter(Boolean);
+        if (urls.length){
+          var txt = urls.join('\n');
+          if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(txt).catch(function(){});
+          } else {
+            var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+          }
+          t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy selected'; }, 1200);
+        }
+      }
     });
   })();
 </script>

@@ -483,3 +483,30 @@ def list_plan_versions(limit: int = 100) -> List[Dict[str, Any]]:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def update_plan_version(version_id: str, **fields: Any) -> None:
+    if not fields:
+        return
+    allowed = {
+        "status",
+        "cutover_date",
+        "recon_window_days",
+        "objective",
+        "note",
+        "base_scenario_id",
+    }
+    keys = [k for k in fields.keys() if k in allowed]
+    if not keys:
+        return
+    sets = []
+    params: list[Any] = []
+    for k in keys:
+        sets.append(f"{k}=?")
+        params.append(fields[k])
+    params.append(version_id)
+    with _conn() as c:
+        c.execute(
+            f"UPDATE plan_versions SET {', '.join(sets)} WHERE version_id=?",
+            tuple(params),
+        )
