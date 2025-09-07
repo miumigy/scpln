@@ -409,16 +409,16 @@
     <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
       <span>エクスポート:</span>
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜ <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
       <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
     </div>
@@ -446,13 +446,13 @@
           {% if latest_run_ids and latest_run_ids|length >= 2 %}
           <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
-            <button type="submit">最新2件を比較</button>
+            <button type="submit" aria-label="最新2件を比較">最新2件を比較</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー" aria-label="URLをコピー">copy</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
-            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー">copy all</button>
-            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー" aria-label="URLをコピー">copy</button>
+            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー" aria-label="リンクを一括コピー">copy all</button>
+            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー" aria-label="チェックしたリンクを一括コピー">copy selected</button>
           </form>
           {% endif %}
         {% else %}
