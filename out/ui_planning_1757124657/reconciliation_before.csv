@@ -1,0 +1,4 @@
+label,family,period,agg_demand,det_demand,delta_demand,rel_demand,ok_demand,agg_supply,det_supply,delta_supply,rel_supply,ok_supply,agg_backlog,det_backlog,delta_backlog,rel_backlog,ok_backlog,ok
+before,F1,2025-01,100.0,100.0,0.0,0.0,True,83.333333,83.333333,0.0,0.0,True,16.666667,16.666667,0.0,0.0,True,True
+before,F1,2025-02,120.0,120.0,0.0,0.0,True,120.0,120.0,0.0,0.0,True,0.0,0.0,0.0,0.0,True,True
+before,F2,2025-01,80.0,80.0,0.0,0.0,True,66.666667,66.666667,0.0,0.0,True,13.333333,13.333333,0.0,0.0,True,True

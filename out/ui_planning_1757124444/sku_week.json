@@ -1,0 +1,195 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR3: family→SKU と 月→週の比例配分（丸め/誤差吸収あり）",
+  "inputs_summary": {
+    "demand_rows": 3,
+    "capacity_rows": 2,
+    "mix_rows": 3,
+    "aggregate_rows": 3,
+    "mix_families": 2,
+    "weeks_per_period": 4,
+    "round_mode": "int"
+  },
+  "rows": [
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU1",
+      "week": "2025-01-W1",
+      "demand": 15.0,
+      "supply": 12.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU1",
+      "week": "2025-01-W2",
+      "demand": 15.0,
+      "supply": 12.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU1",
+      "week": "2025-01-W3",
+      "demand": 15.0,
+      "supply": 12.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU1",
+      "week": "2025-01-W4",
+      "demand": 15.0,
+      "supply": 13.999999799999998,
+      "backlog": 1.0000002000000006
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU2",
+      "week": "2025-01-W1",
+      "demand": 10.0,
+      "supply": 8.0,
+      "backlog": 2.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU2",
+      "week": "2025-01-W2",
+      "demand": 10.0,
+      "supply": 8.0,
+      "backlog": 2.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU2",
+      "week": "2025-01-W3",
+      "demand": 10.0,
+      "supply": 8.0,
+      "backlog": 2.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "sku": "SKU2",
+      "week": "2025-01-W4",
+      "demand": 10.0,
+      "supply": 9.333333199999998,
+      "backlog": 0.6666668000000007
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU1",
+      "week": "2025-02-W1",
+      "demand": 18.0,
+      "supply": 18.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU1",
+      "week": "2025-02-W2",
+      "demand": 18.0,
+      "supply": 18.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU1",
+      "week": "2025-02-W3",
+      "demand": 18.0,
+      "supply": 18.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU1",
+      "week": "2025-02-W4",
+      "demand": 18.0,
+      "supply": 18.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU2",
+      "week": "2025-02-W1",
+      "demand": 12.0,
+      "supply": 12.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU2",
+      "week": "2025-02-W2",
+      "demand": 12.0,
+      "supply": 12.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU2",
+      "week": "2025-02-W3",
+      "demand": 12.0,
+      "supply": 12.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "sku": "SKU2",
+      "week": "2025-02-W4",
+      "demand": 12.0,
+      "supply": 12.0,
+      "backlog": 0.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "sku": "SKU3",
+      "week": "2025-01-W1",
+      "demand": 20.0,
+      "supply": 17.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "sku": "SKU3",
+      "week": "2025-01-W2",
+      "demand": 20.0,
+      "supply": 17.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "sku": "SKU3",
+      "week": "2025-01-W3",
+      "demand": 20.0,
+      "supply": 17.0,
+      "backlog": 3.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "sku": "SKU3",
+      "week": "2025-01-W4",
+      "demand": 20.0,
+      "supply": 15.666667000000004,
+      "backlog": 4.333333
+    }
+  ]
+}

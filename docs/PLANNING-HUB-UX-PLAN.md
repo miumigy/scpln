@@ -170,6 +170,8 @@ sequenceDiagram
   - 実装: `POST /runs`（adapter）を追加。`pipeline=integrated` を `/plans/integrated/run`（同期）/ `JOB_MANAGER.submit_planning`（非同期）へ委譲。
 - [ ] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
   - 実装: Plans詳細のOverviewにMVP KPIカード（能力合計/負荷合計/能力利用率/スピル合計/違反件数）を表示。
+  - 進捗: 2025-09-07 完了。`/ui/plans/{id}` で `kpi_preview` を表示（capacity_total/adjusted_total/util_pct/spill_in_total/spill_out_total/viol_before/viol_after/det_demand_total/det_supply_total/det_backlog_total/sl_pct/inv_initial_total/window_days/anchor_policy）。
+  - 備考: `plan_final.weekly_summary` と `reconciliation_log(_adjusted).json`、`mrp.json` から軽量集計。データ欠落時はフェイルセーフで非表示。
 - [x] P-19 計測イベント仕込み（到達時間/クリック/離脱）
   - 実装: `legacy_redirect_hit`（/→/ui/plans）, `plan_created`（/ui/plans/run, /runs 同期）, `run_queued`（/runs 非同期）, `plan_results_viewed`（/ui/plans/{id}）, `plan_executed`（再整合）を JSON ログ出力
 - [x] P-20 README/ヘルプ更新（新動線の案内）

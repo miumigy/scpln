@@ -1,0 +1,100 @@
+{
+  "schema_version": "recon-aggdet-1.0",
+  "version_id": "job-60c983b4",
+  "cutover": {
+    "cutover_date": null,
+    "recon_window_days": null,
+    "anchor_policy": null
+  },
+  "inputs_summary": {
+    "aggregate_rows": 3,
+    "det_rows": 20,
+    "families": 2,
+    "periods": 2
+  },
+  "tolerance": {
+    "abs": 1e-06,
+    "rel": 1e-06
+  },
+  "summary": {
+    "rows": 3,
+    "tol_violations": 0,
+    "max_abs_delta": {
+      "demand": 0.0,
+      "supply": 0.0,
+      "backlog": 0.0
+    },
+    "boundary": {
+      "period": null,
+      "violations": 0,
+      "max_abs_delta": {
+        "demand": 0.0,
+        "supply": 0.0,
+        "backlog": 0.0
+      },
+      "top": []
+    }
+  },
+  "deltas": [
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "agg_demand": 100.0,
+      "det_demand": 100.0,
+      "delta_demand": 0.0,
+      "rel_demand": 0.0,
+      "ok_demand": true,
+      "agg_supply": 83.333333,
+      "det_supply": 83.333333,
+      "delta_supply": 0.0,
+      "rel_supply": 0.0,
+      "ok_supply": true,
+      "agg_backlog": 16.666667,
+      "det_backlog": 16.666667,
+      "delta_backlog": 0.0,
+      "rel_backlog": 0.0,
+      "ok_backlog": true,
+      "ok": true
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "agg_demand": 120.0,
+      "det_demand": 120.0,
+      "delta_demand": 0.0,
+      "rel_demand": 0.0,
+      "ok_demand": true,
+      "agg_supply": 120.0,
+      "det_supply": 120.0,
+      "delta_supply": 0.0,
+      "rel_supply": 0.0,
+      "ok_supply": true,
+      "agg_backlog": 0.0,
+      "det_backlog": 0.0,
+      "delta_backlog": 0.0,
+      "rel_backlog": 0.0,
+      "ok_backlog": true,
+      "ok": true
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "agg_demand": 80.0,
+      "det_demand": 80.0,
+      "delta_demand": 0.0,
+      "rel_demand": 0.0,
+      "ok_demand": true,
+      "agg_supply": 66.666667,
+      "det_supply": 66.666667,
+      "delta_supply": 0.0,
+      "rel_supply": 0.0,
+      "ok_supply": true,
+      "agg_backlog": 13.333333,
+      "det_backlog": 13.333333,
+      "delta_backlog": 0.0,
+      "rel_backlog": 0.0,
+      "ok_backlog": true,
+      "ok": true
+    }
+  ]
+}
