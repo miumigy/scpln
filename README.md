@@ -74,10 +74,10 @@ bash scripts/stop.sh            # 停止
 ```
 
 アクセス: `http://localhost:8000`
-- 入口統合（Planning Hub, ベータ）
+- 入口統合（Planning Hub）
   - 推奨入口: `/ui/plans`（Planの作成→実行→結果確認まで一貫）
   - ルート `/` は `/ui/plans` へリダイレクト（P-06）
-  - 従来UI `/ui/planning` は併存（段階的移行）
+  - 従来UI `/ui/planning` は段階的にクローズ（P-14）。一時的に `?allow_legacy=1` で回避可。環境により `HUB_LEGACY_CLOSE=1` で404ガイド表示。
 - ヘッダ右のナビ: 「プラン一覧」「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
   - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
 
@@ -101,7 +101,7 @@ bash scripts/stop.sh            # 停止
 
 注意:
 - Freeプランではスリープやビルド時間制限があります。スリープ復帰時の初回応答が遅くなることがあります。
-- ディスク容量は用途に応じて調整してください。`/out` に可視化用CSV（`report.csv`）や`/ui/planning`の生成物が保存されます。
+- ディスク容量は用途に応じて調整してください。`/out` に可視化用CSV（`report.csv`）や生成物が保存されます。
 - 認証は既定で無効（`AUTH_MODE=none`）です。公開環境では `AUTH_MODE=apikey|basic` とシークレットを設定してください。
 
 ### GitHubリリース作成で自動デプロイ
