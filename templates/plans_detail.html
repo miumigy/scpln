@@ -180,7 +180,7 @@
             </select>
           </label>
         </div>
-        <button type="submit">再整合を実行</button>
+        <button type="submit" aria-label="再整合を実行">再整合を実行</button>
       </form>
     </details>
 
@@ -227,7 +227,7 @@
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit">Run Now（即時実行）</button>
+        <button type="submit" aria-label="即時実行">Run Now（即時実行）</button>
       </form>
       <form method="post" action="/planning/run_job" style="margin-top:8px;">
         <div class="grid" style="align-items:end;">
@@ -251,7 +251,7 @@
           </label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit" class="secondary">Queue Job（ジョブ投入）</button>
+        <button type="submit" class="secondary" aria-label="ジョブ投入">Queue Job（ジョブ投入）</button>
         <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
       </form>
     </details>
@@ -298,7 +298,7 @@
         <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
         <label><input type="checkbox" name="apply_adjusted" value="1"> 調整後DETも計算</label>
         <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
-        <button type="submit" class="contrast">Plan & Run を実行</button>
+        <button type="submit" class="contrast" aria-label="Plan & Run を実行">Plan & Run を実行</button>
         <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>
       </form>
     </details>
