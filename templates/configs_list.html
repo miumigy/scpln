@@ -25,7 +25,7 @@
         <td>
           <a role="button" href="/ui/configs/{{ r.id }}/edit">編集</a>
           <form method="post" action="/ui/configs/{{ r.id }}/delete" style="display:inline" onsubmit="return confirm('削除しますか?');">
-            <button type="submit" class="secondary">削除</button>
+            <button type="submit" class="secondary" aria-label="設定を削除">削除</button>
           </form>
           <a role="button" class="contrast" href="/?config_id={{ r.id }}" target="_blank" rel="noopener noreferrer">Simへ</a>
         </td>
