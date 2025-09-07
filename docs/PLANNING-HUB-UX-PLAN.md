@@ -187,6 +187,7 @@ sequenceDiagram
   - 進捗: 2025-09-07 `/ui/plans` 一覧に固定リンクのコピー機能（summary/compare/violationsのURLをワンクリックでコピー）を追加。検索フィルタの入力値をlocalStorageに保存し、一覧再訪時に復元。
   - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に固定リンクのコピー（summary/compare/violations/carryover）と「最新2件Runの metrics/diffs 比較リンク」のコピーを追加。
   - 進捗: 2025-09-07 `/ui/plans` 一覧に簡易ソート（status/created_at/violations）を追加。選択ソートをlocalStorageへ保存。
+  - 進捗: 2025-09-07 `/ui/plans` 一覧に「copy all」を追加（summary/compare(rel)/violations(abs) の3リンクを一括コピー）。ソート対象に policy を追加。既存の列インデックス不整合を修正（created_at/violations）。
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
 - [ ] P-11 Plan & Run（自動補完）

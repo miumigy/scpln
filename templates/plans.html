@@ -62,7 +62,7 @@
         <th data-sort="status" title="クリックで並び替え">status</th>
         <th>cutover</th>
         <th>window</th>
-        <th>policy</th>
+        <th data-sort="policy" title="クリックで並び替え">policy</th>
         <th data-sort="created_at" title="クリックで並び替え">created_at</th>
         <th data-sort="violations" title="クリックで並び替え">violations</th>
         <th>max|Δ| (d/s/b)</th>
@@ -91,6 +91,7 @@
           <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" title="URLをコピー">copy</button>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">violations</a>
           <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" title="URLをコピー">copy</button>
+          <button type="button" class="secondary copy-all" data-version="{{ p.version_id }}" title="summary/compare/violations をまとめてコピー">copy all</button>
         </td>
       </tr>
       {% endfor %}
@@ -174,7 +175,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!table) return;
     var tbody = table.querySelector('tbody');
     var rowsArr = Array.from(tbody.querySelectorAll('tr'));
-    var colIdx = {status:1, created_at:6, violations:7}[key];
+    // 列インデックス: 0:id 1:status 2:cutover 3:window 4:policy 5:created_at 6:violations 7:maxΔ 8:API
+    var colIdx = {status:1, policy:4, created_at:5, violations:6}[key];
     if (colIdx == null) return;
     rowsArr.sort(function(ra, rb){
       var va = getCellValue(ra, colIdx);
@@ -211,6 +213,29 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
   initSort();
+
+  // 一括コピー: summary/compare(rel)/violations(abs)
+  function copyAllLinks(ver){
+    var origin = (location && location.origin) ? location.origin : '';
+    var urls = [
+      origin + '/plans/' + ver + '/summary',
+      origin + '/plans/' + ver + '/compare?violations_only=true&sort=rel_desc&limit=100',
+      origin + '/plans/' + ver + '/compare?violations_only=true&sort=abs_desc&limit=200'
+    ];
+    var txt = urls.join('\n');
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).catch(function(){});
+    } else {
+      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+    }
+  }
+  document.addEventListener('click', function(ev){
+    var t = ev.target;
+    if (t && t.classList && t.classList.contains('copy-all')){
+      var ver = t.getAttribute('data-version');
+      if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
+    }
+  });
 });
 </script>
 {% endblock %}
