@@ -210,10 +210,14 @@
     {% endif %}
     <p class="mono">
       エクスポート: 
-      <a href="/plans/{{ version_id }}/summary" target="_blank">summary.json</a> ｜
-      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>compare.csv</a> ｜
-      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" download>violations.csv</a> ｜
-      <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
+      <a href="/plans/{{ version_id }}/summary" target="_blank">summary.json</a>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー">copy</button>
+      ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>compare.csv</a>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー">copy</button>
+      ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" download>violations.csv</a>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
+      ｜ <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
     </p>
     </div>
 
@@ -237,11 +241,13 @@
             </tbody>
           </table>
           {% if latest_run_ids and latest_run_ids|length >= 2 %}
-          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
             <button type="submit">最新2件を比較</button>
             <a class="secondary" href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" target="_blank">metrics.csv</a>
+            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
             <a class="secondary" href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank">diffs.csv (±5%)</a>
+            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
           </form>
           {% endif %}
         {% else %}
@@ -480,6 +486,26 @@
       document.querySelectorAll('nav [data-tab]').forEach(function(a){
         a.addEventListener('click', function(){ activate(a.getAttribute('data-tab')); });
       });
+    });
+  })();
+</script>
+<script>
+  // 固定リンクのコピー機能（一覧と同仕様）
+  (function(){
+    function copyUrl(href){
+      var abs = (location && location.origin ? location.origin : '') + href;
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(abs).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
+    document.addEventListener('click', function(ev){
+      var t = ev.target;
+      if (t && t.classList && t.classList.contains('copy')){
+        var href = t.getAttribute('data-href');
+        if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
+      }
     });
   })();
 </script>

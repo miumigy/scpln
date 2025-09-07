@@ -55,16 +55,16 @@
     <small class="mono" id="meta"></small>
   </div>
   {% if plans and plans|length > 0 %}
-  <table>
+  <table id="tblPlans">
     <thead>
       <tr>
         <th>version_id</th>
-        <th>status</th>
+        <th data-sort="status" title="クリックで並び替え">status</th>
         <th>cutover</th>
         <th>window</th>
         <th>policy</th>
-        <th>created_at</th>
-        <th>violations</th>
+        <th data-sort="created_at" title="クリックで並び替え">created_at</th>
+        <th data-sort="violations" title="クリックで並び替え">violations</th>
         <th>max|Δ| (d/s/b)</th>
         <th>API</th>
       </tr>
@@ -163,6 +163,54 @@ document.addEventListener('DOMContentLoaded', function(){
       if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
     }
   });
+
+  // 簡易ソート（status/created_at/violations）
+  var KEY_SORT = 'ui_plans_sort';
+  function getCellValue(tr, idx){ var el = tr.children[idx]; return el ? el.textContent.trim() : ''; }
+  function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return isNaN(n)? null : n; }
+  function cmp(a,b){ return a<b ? -1 : a>b ? 1 : 0; }
+  function applySort(key, dir){
+    var table = document.getElementById('tblPlans');
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    var rowsArr = Array.from(tbody.querySelectorAll('tr'));
+    var colIdx = {status:1, created_at:6, violations:7}[key];
+    if (colIdx == null) return;
+    rowsArr.sort(function(ra, rb){
+      var va = getCellValue(ra, colIdx);
+      var vb = getCellValue(rb, colIdx);
+      if (key === 'created_at'){
+        // 日付文字列はDateに
+        var da = Date.parse(va.replace(/\//g,'-')) || 0;
+        var db = Date.parse(vb.replace(/\//g,'-')) || 0;
+        return dir==='asc'? (da-db):(db-da);
+      }
+      var na = toNum(va); var nb = toNum(vb);
+      if (na!=null && nb!=null) return dir==='asc'? (na-nb):(nb-na);
+      return dir==='asc'? cmp(va,vb): cmp(vb,va);
+    });
+    rowsArr.forEach(function(r){ tbody.appendChild(r); });
+    // ヘッダ装飾
+    document.querySelectorAll('th[data-sort]').forEach(function(th){ th.classList.remove('active-sort'); });
+    var th = document.querySelector('th[data-sort="'+key+'"]'); if (th) th.classList.add('active-sort');
+    try { localStorage.setItem(KEY_SORT, JSON.stringify({key:key, dir:dir})); } catch(e) {}
+  }
+  function initSort(){
+    var saved = null; try { saved = JSON.parse(localStorage.getItem(KEY_SORT)||'null'); }catch(e){}
+    var key = saved && saved.key || 'created_at';
+    var dir = saved && saved.dir || 'desc';
+    applySort(key, dir);
+  }
+  document.querySelectorAll('th[data-sort]').forEach(function(th){
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', function(){
+      var key = th.getAttribute('data-sort');
+      var saved = null; try { saved = JSON.parse(localStorage.getItem(KEY_SORT)||'null'); }catch(e){}
+      var dir = (saved && saved.key===key && saved.dir==='asc') ? 'desc' : 'asc';
+      applySort(key, dir);
+    });
+  });
+  initSort();
 });
 </script>
 {% endblock %}
