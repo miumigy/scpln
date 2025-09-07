@@ -267,6 +267,36 @@
             <option value="week">week</option>
           </select>
         </label>
+        <label>cutover_date<input type="date" name="cutover_date"></label>
+        <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
+        <label>anchor_policy
+          <select name="anchor_policy">
+            <option value="">(未指定)</option>
+            <option value="DET_near">DET_near</option>
+            <option value="AGG_far">AGG_far</option>
+            <option value="blend">blend</option>
+          </select>
+        </label>
+        <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
+        <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+        <label>calendar_mode
+          <select name="calendar_mode">
+            <option value="">(未指定)</option>
+            <option value="simple">simple</option>
+            <option value="iso">iso</option>
+          </select>
+        </label>
+        <label>carryover
+          <select name="carryover">
+            <option value="">(未指定)</option>
+            <option value="auto">auto</option>
+            <option value="prev">prev</option>
+            <option value="next">next</option>
+            <option value="both">both</option>
+          </select>
+        </label>
+        <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
+        <label><input type="checkbox" name="apply_adjusted" value="1"> 調整後DETも計算</label>
         <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
         <button type="submit" class="contrast">Plan & Run を実行</button>
         <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>

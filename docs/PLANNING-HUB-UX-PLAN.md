@@ -177,11 +177,11 @@ sequenceDiagram
 - [x] P-20 README/ヘルプ更新（新動線の案内）
 
 #### P2 統合期（画面統合 + 非推奨化）
-- [ ] P-07 Aggregateタブ移植
+- [x] P-07 Aggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Aggregate タブを追加し、`aggregate.json` の family×period 表を表示（需要/供給/バックログ/能力合計）。
-- [ ] P-08 Disaggregateタブ移植
+- [x] P-08 Disaggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
-- [ ] P-09 Scheduleタブ移植（予定オーダ生成）
+- [x] P-09 Scheduleタブ移植（予定オーダ生成）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Schedule タブを追加し、`mrp.json` の予定オーダ（scheduled_receipts）を先頭200件表示。`/plans/{id}/schedule.csv` を新設し、week/sku/在庫端点を含むCSVをエクスポート可能に。
 - [ ] P-10 Validate（量・容量・MOQ/倍数）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Validate タブ（MVP）を追加。以下の自動チェックを表示：Tol違反数（before/after）、負在庫件数、予定受入の小数行、能力超過週数。
@@ -199,11 +199,12 @@ sequenceDiagram
   - 進捗: 2025-09-07 `/ui/plans` 一覧のUX細部を改善。表を横スクロール可能にし、version_id をtruncate表示。現在のソート状態をバッジ表示（主/副キー・昇降）。
 
 #### P3 整理期（旧入口撤去 + ドキュメント）
-- [ ] P-11 Plan & Run（自動補完）
+- [x] P-11 Plan & Run（自動補完）
   - 進捗: 2025-09-07 `/ui/plans/{id}` Execute内に「Plan & Run（自動補完）」を追加。既存Planの cutover/window/policy を引き継いだ統合実行を /runs API で起動（同期/ジョブの選択可）。
-- [ ] P-12 state 遷移/Invalidation 実装
+  - 追補: 2025-09-07 引継ぎ項目を拡張（tol_abs/tol_rel/calendar_mode/carryover/carryover_split/apply_adjusted）。フォームから指定可能にし、/runs→/plans/integrated/run へ委譲。
+- [x] P-12 state 遷移/Invalidation 実装
   - 進捗: 2025-09-07 `/ui/plans/{id}` Overviewに state 表示と操作（advance/invalidate）を追加。`state.json`（plan_artifacts）で `state: draft→aggregated→disaggregated→scheduled→executed` と `invalid` 配列を管理。`plan_versions.status` へも反映。
-- [ ] P-13 KPI/テレメトリ導入
+- [x] P-13 KPI/テレメトリ導入
   - 進捗: 2025-09-07 Prometheusメトリクスを強化し `/metrics` で公開。以下のカウンタを追加し、UI/APIに配線:
     - `plans_created_total`（Plan作成）
     - `plans_reconciled_total`（再整合実行）
@@ -246,9 +247,9 @@ sequenceDiagram
 | P-08 | Disaggregateタブ移植 | S2 | P1 | ✔ | miumigy | 2025-09-07 |
 | P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ✔ | miumigy | 2025-09-07 |
 | P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
-| P-11 | Plan & Run（自動補完） | S3 | P1 | ☐ | miumigy | 2025-09-28 |
-| P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ | miumigy | 2025-09-28 |
-| P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-11 | Plan & Run（自動補完） | S3 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ✔ | miumigy | 2025-09-07 |
+| P-13 | KPI/テレメトリ導入 | S3 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 | P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
