@@ -180,10 +180,10 @@ sequenceDiagram
 - [ ] P-07 Aggregateタブ移植
 - [ ] P-08 Disaggregateタブ移植
 - [ ] P-09 Scheduleタブ移植（予定オーダ生成）
-- [ ] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導
+- [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）
   - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。
   - 進捗: 2025-09-07 ナビゲーションを整理。`/ui/planning` を「集約/詳細計画（レガシー）」、`/ui/plans` を「Planning Hub（推奨入口）」として明示（title属性で補足）。
-- [ ] P-22 履歴・固定リンクの強化（フィルタ/再実行/共有）
+- [x] P-22 履歴・固定リンクの強化（フィルタ/再実行/共有）（2025-09-07 完了）
   - 進捗: 2025-09-07 `/ui/plans` 一覧に固定リンクのコピー機能（summary/compare/violationsのURLをワンクリックでコピー）を追加。検索フィルタの入力値をlocalStorageに保存し、一覧再訪時に復元。
   - 進捗: 2025-09-07 `/ui/plans/{id}` 詳細に固定リンクのコピー（summary/compare/violations/carryover）と「最新2件Runの metrics/diffs 比較リンク」のコピーを追加。
   - 進捗: 2025-09-07 `/ui/plans` 一覧に簡易ソート（status/created_at/violations）を追加。選択ソートをlocalStorageへ保存。
@@ -238,8 +238,8 @@ sequenceDiagram
 | P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
-| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ☐ | miumigy | 2025-09-21 |
-| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ✔ | miumigy | 2025-09-07 |
+| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 | P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 
