@@ -182,29 +182,29 @@ sequenceDiagram
 
 | ID | タスク | スプリント | 優先 | 状態 | 担当 | 期日 |
 |---|---|---:|:---:|:---:|:---:|:---:|
-| P-01 | `/ui/plans` 一覧（作成ボタン/検索） | S1 | P1 | ☐ |  |  |
-| P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ☐ |  |  |
-| P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ☐ |  |  |
-| P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ☐ |  |  |
-| P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ☐ |  |  |
-| P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ☐ |  |  |
-| P-07 | Aggregateタブ移植 | S2 | P1 | ☐ |  |  |
-| P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ |  |  |
-| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ |  |  |
-| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ☐ |  |  |
-| P-11 | Plan & Run（自動補完） | S3 | P1 | ☐ |  |  |
-| P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ |  |  |
-| P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ |  |  |
-| P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ☐ |  |  |
-| P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ☐ |  |  |
-| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ☐ |  |  |
-| P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ☐ |  |  |
-| P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ☐ |  |  |
-| P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ☐ |  |  |
-| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ☐ |  |  |
-| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ☐ |  |  |
-| P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ |  |  |
-| P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ☐ |  |  |
+| P-01 | `/ui/plans` 一覧（作成ボタン/検索） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ☐ | miumigy | 2025-09-14 |
+| P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
+| P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
+| P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ | miumigy | 2025-09-21 |
+| P-10 | Validate（量・容量・MOQ/倍数） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-11 | Plan & Run（自動補完） | S3 | P1 | ☐ | miumigy | 2025-09-28 |
+| P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ | miumigy | 2025-09-28 |
+| P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ☐ | miumigy | 2025-09-14 |
+| P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ☐ | miumigy | 2025-09-14 |
+| P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
+| P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 
 ## 受入テスト（AT・E2E観点）
 - AT-01: `/ui/plans` から Plan 作成→Execute→Results 一連が完了。
