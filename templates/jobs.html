@@ -69,8 +69,8 @@
       <label>Presets
         <select id="agg-preset-select"></select>
       </label>
-      <button type="button" class="secondary" onclick="applyAggPreset()">Apply</button>
-      <button type="button" class="secondary" onclick="deleteAggPreset()">Delete</button>
+      <button type="button" class="secondary" onclick="applyAggPreset()" aria-label="プリセットを適用">Apply</button>
+      <button type="button" class="secondary" onclick="deleteAggPreset()" aria-label="プリセットを削除">Delete</button>
     </div>
   </details>
   <form method="get" action="/ui/jobs" style="display:flex; gap:8px; align-items:center; margin:8px 0;">
@@ -82,7 +82,7 @@
         {% endfor %}
       </select>
     </label>
-    <button type="submit" class="secondary">Apply</button>
+    <button type="submit" class="secondary" aria-label="設定を適用">Apply</button>
   </form>
   {% if rows %}
   <table role="grid">
