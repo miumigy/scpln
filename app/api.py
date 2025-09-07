@@ -329,7 +329,10 @@ if _OTEL_ENABLED:
 async def read_index():
     # Planning Hub への誘導（P-06）: Home は /ui/plans へリダイレクト
     try:
-        logging.info("legacy_redirect_hit", extra={"event": "legacy_redirect_hit", "from": "/", "to": "/ui/plans"})
+        logging.info(
+            "legacy_redirect_hit",
+            extra={"event": "legacy_redirect_hit", "from": "/", "to": "/ui/plans"},
+        )
     except Exception:
         pass
     return RedirectResponse(url="/ui/plans?legacy_redirect=1", status_code=307)
