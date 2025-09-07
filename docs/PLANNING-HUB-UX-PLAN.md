@@ -178,6 +178,7 @@ sequenceDiagram
 
 #### P2 統合期（画面統合 + 非推奨化）
 - [ ] P-07 Aggregateタブ移植
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Aggregate タブを追加し、`aggregate.json` の family×period 表を表示（需要/供給/バックログ/能力合計）。
 - [ ] P-08 Disaggregateタブ移植
 - [ ] P-09 Scheduleタブ移植（予定オーダ生成）
 - [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）

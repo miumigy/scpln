@@ -9,10 +9,35 @@
     <p class="mono">version_id={{ version_id }}</p>
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
       <a role="button" class="secondary" data-tab="overview">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
       <a role="button" class="secondary" data-tab="execute">Execute</a>
       <a role="button" class="secondary" data-tab="results">Results</a>
       <a role="button" class="secondary" data-tab="diff">Diff</a>
     </nav>
+    <div id="tab-aggregate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>Aggregate（family×period）</summary>
+      {% if aggregate and aggregate.rows %}
+      <table>
+        <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
+        <tbody>
+          {% for r in aggregate.rows %}
+          <tr>
+            <td>{{ r.period }}</td>
+            <td>{{ r.family }}</td>
+            <td class="mono">{{ r.demand }}</td>
+            <td class="mono">{{ r.supply }}</td>
+            <td class="mono">{{ r.backlog }}</td>
+            <td class="mono">{{ r.capacity_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>データなし（このPlanの再整合や実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
     <div id="tab-execute" class="tab-pane" style="display:none;">
     <details open>
       <summary>再整合（パラメータ指定）</summary>
@@ -473,7 +498,7 @@
   // タブ切替
   (function(){
     function activate(tab){
-      ['overview','execute','results','diff'].forEach(function(k){
+      ['overview','aggregate','execute','results','diff'].forEach(function(k){
         var el = document.getElementById('tab-'+k);
         if (el) el.style.display = (k===tab)?'':'none';
       });

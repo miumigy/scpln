@@ -84,6 +84,7 @@ def ui_plan_detail(version_id: str, request: Request):
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
+    aggregate = db.get_plan_artifact(version_id, "aggregate.json") or {}
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
@@ -223,6 +224,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "kpi_preview": kpi_preview,
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
+            "aggregate": aggregate,
         },
     )
 
