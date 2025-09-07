@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.5.0 (2025-09-07)
+
 - feat(ui/plans): Planning Hub 詳細のアクセシビリティ改善（aria-label追加）
 - docs(planning): PLANNING-HUB-UX-PLAN のWBS整合（P-23/P-24 完了）と進捗追記
 
