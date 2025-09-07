@@ -8,14 +8,14 @@
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
-      <a role="button" class="secondary" data-tab="overview">Overview</a>
-      <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
-      <a role="button" class="secondary" data-tab="disaggregate">Disaggregate</a>
-      <a role="button" class="secondary" data-tab="schedule">Schedule</a>
-      <a role="button" class="secondary" data-tab="validate">Validate</a>
-      <a role="button" class="secondary" data-tab="execute">Execute</a>
-      <a role="button" class="secondary" data-tab="results">Results</a>
-      <a role="button" class="secondary" data-tab="diff">Diff</a>
+      <a role="button" class="secondary" data-tab="overview" title="概要">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate" title="集約">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開">Disaggregate</a>
+      <a role="button" class="secondary" data-tab="schedule" title="予定オーダ">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate" title="検証">Validate</a>
+      <a role="button" class="secondary" data-tab="execute" title="実行">Execute</a>
+      <a role="button" class="secondary" data-tab="results" title="結果">Results</a>
+      <a role="button" class="secondary" data-tab="diff" title="差分">Diff</a>
     </nav>
     <div id="tab-aggregate" class="tab-pane" style="display:none;">
     <details open>

@@ -219,6 +219,7 @@ sequenceDiagram
   - 進捗: 2025-09-07 Phase 3（トグル）実装。`HUB_LEGACY_CLOSE=1` 環境変数が有効なときは 404 ガイド（legacy_closed.html）を表示。`allow_legacy=1` で一時的に回避可能。
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
   - 進捗: 2025-09-07 用語表 `docs/TERMS-JA.md` 追加。README に Planning Hub 入口/レガシー移行の表記統一を反映（P-14参照）。
+  - 進捗: 2025-09-07 UIタブに日本語ツールチップを付与（Overview→概要, Execute→実行, Results→結果, Diff→差分, Aggregate→集約, Disaggregate→詳細展開, Schedule→予定オーダ, Validate→検証）。表示ラベルは互換維持のため既存英語を継続。
 - [ ] P-24 チュートリアル/ハンズオン更新
 
 ### ステータス基準
