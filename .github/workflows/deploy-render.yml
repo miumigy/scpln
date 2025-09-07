@@ -8,8 +8,6 @@ on:
 jobs:
   deploy:
     name: Trigger Render Deployment
-    # 実行条件: APIキー+サービスID もしくは Deploy Hook のいずれかが設定されている場合のみ
-    if: ${{ (secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '') || secrets.RENDER_DEPLOY_HOOK_URL != '' }}
     runs-on: ubuntu-latest
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
