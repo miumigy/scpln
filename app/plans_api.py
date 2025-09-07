@@ -627,6 +627,41 @@ def get_plan_compare_csv(
     )
 
 
+@app.get("/plans/{version_id}/schedule.csv", response_class=PlainTextResponse)
+def get_plan_schedule_csv(version_id: str):
+    """Export a lightweight planned schedule from mrp.json.
+    Columns: week, sku, scheduled_receipts, on_hand_start, on_hand_end.
+    """
+    mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
+    rows = list(mrp.get("rows") or [])
+    header = [
+        "week",
+        "sku",
+        "scheduled_receipts",
+        "on_hand_start",
+        "on_hand_end",
+    ]
+    import io
+    import csv
+
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=header)
+    w.writeheader()
+    for r in rows:
+        w.writerow(
+            {
+                "week": r.get("week"),
+                "sku": r.get("sku"),
+                "scheduled_receipts": r.get("scheduled_receipts"),
+                "on_hand_start": r.get("on_hand_start"),
+                "on_hand_end": r.get("on_hand_end"),
+            }
+        )
+    return PlainTextResponse(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8"
+    )
+
+
 @app.get("/plans/{version_id}/carryover.csv", response_class=PlainTextResponse)
 def get_plan_carryover_csv(version_id: str):
     adj = db.get_plan_artifact(version_id, "sku_week_adjusted.json") or {}

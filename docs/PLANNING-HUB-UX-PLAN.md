@@ -182,6 +182,7 @@ sequenceDiagram
 - [ ] P-08 Disaggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
 - [ ] P-09 Scheduleタブ移植（予定オーダ生成）
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Schedule タブを追加し、`mrp.json` の予定オーダ（scheduled_receipts）を先頭200件表示。`/plans/{id}/schedule.csv` を新設し、week/sku/在庫端点を含むCSVをエクスポート可能に。
 - [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）
   - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。
   - 進捗: 2025-09-07 ナビゲーションを整理。`/ui/planning` を「集約/詳細計画（レガシー）」、`/ui/plans` を「Planning Hub（推奨入口）」として明示（title属性で補足）。
