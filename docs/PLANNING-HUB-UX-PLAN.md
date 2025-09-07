@@ -214,7 +214,8 @@ sequenceDiagram
     - `plan_carryover_export_total`（carryover.csvエクスポート）
   - 備考: 既存のHTTP計測（総数/レイテンシ）に併載。Grafana等への連携は次期。
 - [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
-  - 進捗: 2025-09-07 Phase 2 実装。`/ui/planning` にアクセス時、`allow_legacy=1` が無い場合は `/ui/plans` へ302リダイレクト（opt-out可）。Phase 3では404ガイドへ切替予定。
+  - 進捗: 2025-09-07 Phase 2 実装。`/ui/planning` にアクセス時、`allow_legacy=1` が無い場合は `/ui/plans` へ302リダイレクト（opt-out可）。
+  - 進捗: 2025-09-07 Phase 3（トグル）実装。`HUB_LEGACY_CLOSE=1` 環境変数が有効なときは 404 ガイド（legacy_closed.html）を表示。`allow_legacy=1` で一時的に回避可能。
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
 - [ ] P-24 チュートリアル/ハンズオン更新
 
