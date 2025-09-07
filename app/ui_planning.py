@@ -50,7 +50,19 @@ def _to_float(x: str | float | None) -> float | None:
 
 
 @app.get("/ui/planning", response_class=HTMLResponse)
-def ui_planning(request: Request, out_dir: str | None = Query(None, alias="dir")):
+def ui_planning(
+    request: Request,
+    out_dir: str | None = Query(None, alias="dir"),
+    allow_legacy: int | None = Query(None),
+):
+    # Phase 2: 一時リダイレクト（opt-outは allow_legacy=1）
+    try:
+        if not allow_legacy:
+            from app.metrics import HTTP_REQUESTS  # reuse http counter for visibility
+            HTTP_REQUESTS.labels(method="GET", path="/ui/planning", status="302").inc()
+            return RedirectResponse(url="/ui/plans", status_code=302)
+    except Exception:
+        return RedirectResponse(url="/ui/plans", status_code=302)
     out = None
     agg = sku = mrp = plan = report = recon = recon_path = None
     plan_adj = report_adj = recon_adj = recon_adj_path = None
