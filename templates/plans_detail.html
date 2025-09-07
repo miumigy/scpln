@@ -291,8 +291,36 @@
             <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
             <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
           {% endif %}
+          <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} ｜ invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
         </tbody>
       </table>
+    </details>
+    <details>
+      <summary>State 管理（MVP）</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/state/advance" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>advance to
+          <select name="to">
+            <option value="draft">draft</option>
+            <option value="aggregated">aggregated</option>
+            <option value="disaggregated">disaggregated</option>
+            <option value="scheduled">scheduled</option>
+            <option value="executed">executed</option>
+          </select>
+        </label>
+        <button type="submit">Advance</button>
+      </form>
+      <form method="post" action="/ui/plans/{{ version_id }}/state/invalidate" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:6px;">
+        <label>invalidate from
+          <select name="from_step">
+            <option value="draft">draft</option>
+            <option value="aggregated">aggregated</option>
+            <option value="disaggregated">disaggregated</option>
+            <option value="scheduled">scheduled</option>
+            <option value="executed">executed</option>
+          </select>
+        </label>
+        <button type="submit" class="secondary">Invalidate</button>
+      </form>
     </details>
     {% if kpi_preview %}
     <section style="margin-top:8px;">
