@@ -180,6 +180,7 @@ sequenceDiagram
 - [ ] P-07 Aggregateタブ移植
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Aggregate タブを追加し、`aggregate.json` の family×period 表を表示（需要/供給/バックログ/能力合計）。
 - [ ] P-08 Disaggregateタブ移植
+  - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
 - [ ] P-09 Scheduleタブ移植（予定オーダ生成）
 - [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）
   - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。

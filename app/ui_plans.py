@@ -85,6 +85,12 @@ def ui_plan_detail(version_id: str, request: Request):
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
     aggregate = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    sku_week = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    disagg_rows_sample = []
+    try:
+        disagg_rows_sample = list((sku_week.get("rows") or [])[:200])
+    except Exception:
+        disagg_rows_sample = []
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
@@ -225,6 +231,8 @@ def ui_plan_detail(version_id: str, request: Request):
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
             "aggregate": aggregate,
+            "disagg_rows": disagg_rows_sample,
+            "disagg_total": len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0,
         },
     )
 

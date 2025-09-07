@@ -10,6 +10,7 @@
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
       <a role="button" class="secondary" data-tab="overview">Overview</a>
       <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate">Disaggregate</a>
       <a role="button" class="secondary" data-tab="execute">Execute</a>
       <a role="button" class="secondary" data-tab="results">Results</a>
       <a role="button" class="secondary" data-tab="diff">Diff</a>
@@ -35,6 +36,38 @@
       </table>
       {% else %}
       <p>データなし（このPlanの再整合や実行で生成されます）</p>
+      {% endif %}
+    </details>
+    </div>
+
+    <div id="tab-disaggregate" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>Disaggregate（SKU×week）</summary>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
+        <input id="skuFilter" type="search" placeholder="SKUフィルタ（部分一致）">
+        <input id="weekFilter" type="search" placeholder="週フィルタ（例: 2025-W01）">
+        <small class="mono" id="disaggMeta"></small>
+        <small class="mono">表示は先頭200件（全{{ disagg_total or 0 }}件）</small>
+      </div>
+      {% if disagg_rows %}
+      <table id="tblDisagg">
+        <thead><tr><th>week</th><th>sku</th><th>demand</th><th>supply_plan</th><th>backlog</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
+        <tbody>
+          {% for r in disagg_rows %}
+          <tr>
+            <td class="mono">{{ r.week }}</td>
+            <td class="mono">{{ r.sku }}</td>
+            <td class="mono">{{ r.demand }}</td>
+            <td class="mono">{{ r.supply_plan }}</td>
+            <td class="mono">{{ r.backlog }}</td>
+            <td class="mono">{{ r.on_hand_start }}</td>
+            <td class="mono">{{ r.on_hand_end }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>データなし（このPlanの実行で生成されます）</p>
       {% endif %}
     </details>
     </div>
@@ -498,7 +531,7 @@
   // タブ切替
   (function(){
     function activate(tab){
-      ['overview','aggregate','execute','results','diff'].forEach(function(k){
+      ['overview','aggregate','disaggregate','execute','results','diff'].forEach(function(k){
         var el = document.getElementById('tab-'+k);
         if (el) el.style.display = (k===tab)?'':'none';
       });
@@ -518,6 +551,36 @@
       document.querySelectorAll('nav [data-tab]').forEach(function(a){
         a.addEventListener('click', function(){ activate(a.getAttribute('data-tab')); });
       });
+    });
+  })();
+</script>
+<script>
+  // Disaggregate簡易フィルタ
+  (function(){
+    function val(el){ return (el && el.value || '').toLowerCase().trim(); }
+    function apply(){
+      var sku = val(document.getElementById('skuFilter'));
+      var wk = val(document.getElementById('weekFilter'));
+      var rows = document.querySelectorAll('#tblDisagg tbody tr');
+      var vis=0, all=0;
+      rows.forEach(function(tr){
+        all++;
+        var tds = tr.querySelectorAll('td');
+        var w = (tds[0] && tds[0].textContent || '').toLowerCase();
+        var s = (tds[1] && tds[1].textContent || '').toLowerCase();
+        var ok = (!wk || w.indexOf(wk)>=0) && (!sku || s.indexOf(sku)>=0);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) vis++;
+      });
+      var meta = document.getElementById('disaggMeta');
+      if (meta) meta.textContent = vis + ' / ' + all;
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var sf = document.getElementById('skuFilter');
+      var wf = document.getElementById('weekFilter');
+      if (sf) sf.addEventListener('input', apply);
+      if (wf) wf.addEventListener('input', apply);
+      apply();
     });
   })();
 </script>
