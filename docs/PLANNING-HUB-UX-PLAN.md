@@ -168,7 +168,7 @@ sequenceDiagram
 - [x] P-15 Run API仕様ドラフト（エンドポイント/ペイロード/状態機械）
 - [x] P-16 既存3入口→Run APIアダプタ実装（内部経路統一）
   - 実装: `POST /runs`（adapter）を追加。`pipeline=integrated` を `/plans/integrated/run`（同期）/ `JOB_MANAGER.submit_planning`（非同期）へ委譲。
-- [ ] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
+- [x] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
   - 実装: Plans詳細のOverviewにMVP KPIカード（能力合計/負荷合計/能力利用率/スピル合計/違反件数）を表示。
   - 進捗: 2025-09-07 完了。`/ui/plans/{id}` で `kpi_preview` を表示（capacity_total/adjusted_total/util_pct/spill_in_total/spill_out_total/viol_before/viol_after/det_demand_total/det_supply_total/det_backlog_total/sl_pct/inv_initial_total/window_days/anchor_policy）。
   - 備考: `plan_final.weekly_summary` と `reconciliation_log(_adjusted).json`、`mrp.json` から軽量集計。データ欠落時はフェイルセーフで非表示。
@@ -223,7 +223,6 @@ sequenceDiagram
 | P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ✔ | miumigy | 2025-09-14 |
-| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
  | P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
 | P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
