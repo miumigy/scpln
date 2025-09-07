@@ -133,7 +133,7 @@ def main() -> int:
         r = post_form(s, f"{base}/ui/plans/run", form)
         if r.status_code not in (302, 303):
             ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
-        time.sleep(0.3)
+        time.sleep(0.6)
         vid = latest_plan_id(s, base)
         if not vid:
             ng("AT-01 Plan作成", "version_id が取得できませんでした")
@@ -145,6 +145,24 @@ def main() -> int:
             else:
                 ng("AT-01 Plan作成→summary取得", "weekly_summary 欠落")
             plan_id = vid
+            # HTML: /ui/plans 一覧
+            try:
+                rlist = s.get(f"{base}/ui/plans", timeout=30)
+                if rlist.status_code == 200 and ("プランバージョン一覧" in rlist.text):
+                    ok("HTML: /ui/plans が200で一覧見出しを含む")
+                else:
+                    ng("HTML: /ui/plans", f"code={rlist.status_code}")
+            except Exception as e:
+                ng("HTML: /ui/plans", str(e))
+            # HTML: /ui/plans/{id} 詳細
+            try:
+                rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
+                if rdet.status_code == 200 and ("プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text):
+                    ok("HTML: /ui/plans/{id} が200でタブ要素を含む")
+                else:
+                    ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
+            except Exception as e:
+                ng("HTML: /ui/plans/{id}", str(e))
     except Exception as e:
         ng("AT-01 Plan作成", str(e))
         plan_id = None  # type: ignore
@@ -207,17 +225,24 @@ def main() -> int:
     except Exception as e:
         ng("AT-05 Validate 情報", str(e))
 
-    # AT-06: Compare に Plan 紐づき
+    # AT-06: Compare に Plan 紐づき（limit/violations_only 整合）
     try:
         if plan_id:
-            j = get_json(s, f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit=50")
-            if "rows" in j:
-                ok("AT-06 Compare JSON 取得")
+            limit = 50
+            j = get_json(s, f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit={limit}")
+            rows = j.get("rows") if isinstance(j, dict) else None
+            if isinstance(rows, list) and len(rows) <= limit:
+                viol_ok = all((not bool(r.get("ok"))) for r in rows)
+                if viol_ok or len(rows) == 0:
+                    ok("AT-06 Compare JSON 取得（limit/violations_only整合）")
+                else:
+                    ng("AT-06 Compare JSON", "violations_only で ok=true を含む")
             else:
-                ng("AT-06 Compare JSON", "rows 欠落")
+                ng("AT-06 Compare JSON", "rows 欠落/型不正")
             r = s.get(f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100", timeout=30)
-            if r.status_code == 200 and r.text.splitlines()[0].startswith("family,period"):
-                ok("AT-06 Compare CSV 取得")
+            lines = r.text.splitlines() if r.status_code == 200 else []
+            if r.status_code == 200 and len(lines) >= 1 and lines[0].startswith("family,period"):
+                ok("AT-06 Compare CSV 取得（ヘッダ整合）")
             else:
                 ng("AT-06 Compare CSV", f"code={r.status_code}")
         else:
@@ -225,12 +250,22 @@ def main() -> int:
     except Exception as e:
         ng("AT-06 Compare", str(e))
 
-    # Export（schedule/carryover）でメトリクスも動かす
+    # Export（schedule/carryover）でメトリクスも動かす（件数・数値性の軽検証）
     try:
         if plan_id:
             r = s.get(f"{base}/plans/{plan_id}/schedule.csv", timeout=30)
-            if r.status_code == 200 and r.text.splitlines()[0].startswith("week,sku"):
-                ok("Export schedule.csv")
+            lines = r.text.splitlines() if r.status_code == 200 else []
+            if r.status_code == 200 and len(lines) >= 2 and lines[0].startswith("week,sku"):
+                try:
+                    import csv
+                    from io import StringIO
+                    rows = list(csv.DictReader(StringIO(r.text)))
+                    # 数件の scheduled_receipts が数値に変換できること
+                    for rr in rows[:10]:
+                        float(rr.get("scheduled_receipts"))
+                    ok("Export schedule.csv（ヘッダ/数値性/データ件数）")
+                except Exception as e:
+                    ng("Export schedule.csv", f"CSV parse/数値性: {e}")
             else:
                 ng("Export schedule.csv", f"code={r.status_code}")
             # carryover（adjustedなしでも空CSVが返る場合あり）
@@ -284,4 +319,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
