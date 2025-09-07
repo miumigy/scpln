@@ -204,6 +204,15 @@ sequenceDiagram
 - [ ] P-12 state 遷移/Invalidation 実装
   - 進捗: 2025-09-07 `/ui/plans/{id}` Overviewに state 表示と操作（advance/invalidate）を追加。`state.json`（plan_artifacts）で `state: draft→aggregated→disaggregated→scheduled→executed` と `invalid` 配列を管理。`plan_versions.status` へも反映。
 - [ ] P-13 KPI/テレメトリ導入
+  - 進捗: 2025-09-07 Prometheusメトリクスを強化し `/metrics` で公開。以下のカウンタを追加し、UI/APIに配線:
+    - `plans_created_total`（Plan作成）
+    - `plans_reconciled_total`（再整合実行）
+    - `plans_viewed_total`（プラン詳細閲覧）
+    - `runs_queued_total`（ジョブ投入）
+    - `plan_schedule_export_total`（schedule.csvエクスポート）
+    - `plan_compare_export_total{mode}`（compare.csvエクスポート）
+    - `plan_carryover_export_total`（carryover.csvエクスポート）
+  - 備考: 既存のHTTP計測（総数/レイテンシ）に併載。Grafana等への連携は次期。
 - [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
 - [ ] P-24 チュートリアル/ハンズオン更新

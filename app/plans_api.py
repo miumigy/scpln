@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import Body, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
+from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_SCHEDULE
 
 from app.api import app
 from app import db
@@ -622,6 +623,10 @@ def get_plan_compare_csv(
     w.writeheader()
     for r in rows:
         w.writerow({k: r.get(k) for k in header})
+    try:
+        PLAN_EXPORT_COMPARE.labels(mode=sort).inc()
+    except Exception:
+        pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )
@@ -657,6 +662,10 @@ def get_plan_schedule_csv(version_id: str):
                 "on_hand_end": r.get("on_hand_end"),
             }
         )
+    try:
+        PLAN_EXPORT_SCHEDULE.inc()
+    except Exception:
+        pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )
@@ -702,6 +711,10 @@ def get_plan_carryover_csv(version_id: str):
                 "cap_norm_next": r.get("cap_norm_next"),
             }
         )
+    try:
+        PLAN_EXPORT_CARRYOVER.inc()
+    except Exception:
+        pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )

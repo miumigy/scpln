@@ -9,6 +9,7 @@ from pathlib import Path
 from app import db
 from app import plans_api as _plans_api  # for reuse handlers
 from app import runs_api as _runs_api  # for Plan & Run adapter
+from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -268,6 +269,10 @@ def ui_plan_detail(version_id: str, request: Request):
                 "base_scenario_id": (ver or {}).get("base_scenario_id"),
             },
         )
+        try:
+            PLANS_VIEWED.inc()
+        except Exception:
+            pass
     except Exception:
         pass
     return templates.TemplateResponse(
@@ -341,6 +346,10 @@ def ui_plan_reconcile(
                     "lt_unit": lt_unit,
                 },
             )
+            try:
+                PLANS_RECONCILED.inc()
+            except Exception:
+                pass
         except Exception:
             pass
     except Exception:
@@ -484,6 +493,10 @@ def ui_plans_run(
                 "anchor_policy": anchor_policy,
             },
         )
+        try:
+            PLANS_CREATED.inc()
+        except Exception:
+            pass
     except Exception:
         pass
     from fastapi.responses import RedirectResponse
