@@ -8,14 +8,14 @@
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
-      <a role="button" class="secondary" data-tab="overview" title="概要">Overview</a>
-      <a role="button" class="secondary" data-tab="aggregate" title="集約">Aggregate</a>
-      <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開">Disaggregate</a>
-      <a role="button" class="secondary" data-tab="schedule" title="予定オーダ">Schedule</a>
-      <a role="button" class="secondary" data-tab="validate" title="検証">Validate</a>
-      <a role="button" class="secondary" data-tab="execute" title="実行">Execute</a>
-      <a role="button" class="secondary" data-tab="results" title="結果">Results</a>
-      <a role="button" class="secondary" data-tab="diff" title="差分">Diff</a>
+      <a role="button" class="secondary" data-tab="overview" title="概要" aria-label="概要タブ">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate" title="集約" aria-label="集約タブ">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開" aria-label="詳細展開タブ">Disaggregate</a>
+      <a role="button" class="secondary" data-tab="schedule" title="予定オーダ" aria-label="予定オーダタブ">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate" title="検証" aria-label="検証タブ">Validate</a>
+      <a role="button" class="secondary" data-tab="execute" title="実行" aria-label="実行タブ">Execute</a>
+      <a role="button" class="secondary" data-tab="results" title="結果" aria-label="結果タブ">Results</a>
+      <a role="button" class="secondary" data-tab="diff" title="差分" aria-label="差分タブ">Diff</a>
     </nav>
     <div id="tab-aggregate" class="tab-pane" style="display:none;">
     <details open>
@@ -46,8 +46,8 @@
     <details open>
       <summary>Disaggregate（SKU×week）</summary>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
-        <input id="skuFilter" type="search" placeholder="SKUフィルタ（部分一致）">
-        <input id="weekFilter" type="search" placeholder="週フィルタ（例: 2025-W01）">
+        <input id="skuFilter" type="search" placeholder="SKUフィルタ（部分一致）" aria-label="SKUフィルタ（部分一致）">
+        <input id="weekFilter" type="search" placeholder="週フィルタ（例: 2025-W01）" aria-label="週フィルタ（例: 2025-W01）">
         <small class="mono" id="disaggMeta"></small>
         <small class="mono">表示は先頭200件（全{{ disagg_total or 0 }}件）</small>
       </div>
@@ -78,11 +78,11 @@
     <details open>
       <summary>予定オーダ（Scheduled Receipts）</summary>
       <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
-        <input id="schedSku" type="search" placeholder="SKUフィルタ（部分一致）">
-        <input id="schedWeek" type="search" placeholder="週フィルタ（例: 2025-W01）">
+        <input id="schedSku" type="search" placeholder="SKUフィルタ（部分一致）" aria-label="SKUフィルタ（部分一致）">
+        <input id="schedWeek" type="search" placeholder="週フィルタ（例: 2025-W01）" aria-label="週フィルタ（例: 2025-W01）">
         <small id="schedMeta"></small>
         <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank">schedule.csv</a>
-        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="URLをコピー">copy</button>
+        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="URLをコピー" aria-label="schedule.csv のURLをコピー">copy</button>
         <small>表示は先頭200件（全{{ schedule_total or 0 }}件）</small>
       </div>
       {% if schedule_rows %}
