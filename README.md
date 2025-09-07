@@ -78,6 +78,7 @@ bash scripts/stop.sh            # 停止
   - 推奨入口: `/ui/plans`（Planの作成→実行→結果確認まで一貫）
   - ルート `/` は `/ui/plans` へリダイレクト（P-06）
   - 従来UI `/ui/planning` は段階的にクローズ（P-14）。一時的に `?allow_legacy=1` で回避可。環境により `HUB_LEGACY_CLOSE=1` で404ガイド表示。
+  - API概要は `docs/API-OVERVIEW-JA.md` を参照。用語は `docs/TERMS-JA.md` に準拠。
 - ヘッダ右のナビ: 「プラン一覧」「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
   - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
 

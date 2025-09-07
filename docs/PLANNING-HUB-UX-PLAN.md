@@ -220,6 +220,7 @@ sequenceDiagram
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
   - 進捗: 2025-09-07 用語表 `docs/TERMS-JA.md` 追加。README に Planning Hub 入口/レガシー移行の表記統一を反映（P-14参照）。
   - 進捗: 2025-09-07 UIタブに日本語ツールチップを付与（Overview→概要, Execute→実行, Results→結果, Diff→差分, Aggregate→集約, Disaggregate→詳細展開, Schedule→予定オーダ, Validate→検証）。表示ラベルは互換維持のため既存英語を継続。
+  - 進捗: 2025-09-07 API概要 `docs/API-OVERVIEW-JA.md` を追加し、READMEから参照。主要ボタン/検索/並び替えに aria-label を付与し可読性を向上。
 - [ ] P-24 チュートリアル/ハンズオン更新
 
 ### ステータス基準
