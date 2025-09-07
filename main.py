@@ -91,6 +91,12 @@ try:
 except Exception:
     pass
 
+# runs API (adapter)
+try:
+    from app import runs_api as _runs_api  # noqa: F401
+except Exception:
+    pass
+
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 # Fallback: define /simulation route here when import failed (to avoid 404)

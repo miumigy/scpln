@@ -30,9 +30,31 @@
         <a href="/ui/planning">集約/詳細計画</a>
         <a href="/ui/plans">プラン一覧</a>
       </nav>
+      <div id="hubBanner" style="display:none; margin-top:8px;">
+        <article style="padding:8px 12px;">
+          <strong>Planning Hub に移行中:</strong>
+          入口は <a href="/ui/plans">/ui/plans</a> に統合しました（ベータ）。
+          <button id="hubBannerClose" class="secondary" style="float:right;">閉じる</button>
+        </article>
+      </div>
     </header>
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}
+  <script>
+    (function(){
+      function qs(id){ return document.getElementById(id); }
+      function show(){ var el = qs('hubBanner'); if (el) el.style.display=''; }
+      function hide(){ var el = qs('hubBanner'); if (el) el.style.display='none'; }
+      try {
+        var hidden = localStorage.getItem('hideHubBanner') === '1';
+        if (!hidden) {
+          show();
+        }
+        var btn = qs('hubBannerClose');
+        if (btn) btn.addEventListener('click', function(){ localStorage.setItem('hideHubBanner','1'); hide(); });
+      } catch(e) { show(); }
+    })();
+  </script>
 </body>
 </html>

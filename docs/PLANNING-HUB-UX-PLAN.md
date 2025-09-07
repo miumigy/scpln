@@ -83,6 +83,26 @@ sequenceDiagram
   EXE-->>API: result, write-ops
 ```
 
+### Run API 仕様ドラフト（P-15）
+- エンドポイント
+  - `POST /runs`（新規ラン作成）
+    - body: `{ mode: 'dry'|'apply'|'partial', scenario_id?, plan_version?, pipeline?: 'integrated'|'aggregate'|'allocate'|'mrp'|'reconcile', scope?: {...}, options?: {...} }`
+    - options例: `{ weeks, lt_unit, cutover_date, recon_window_days, anchor_policy, tol_abs, tol_rel, calendar_mode, carryover, carryover_split, apply_adjusted }`
+  - `GET /runs`（一覧・フィルタ）: `?scenario_id&config_id&offset&limit&sort=started_at&order=desc`
+  - `GET /runs/{id}`（詳細）
+  - `GET /runs/{id}/artifacts`（一覧）/ `GET /runs/{id}/{name}`（個別CSV/JSON）
+  - `POST /runs/{id}/retry`（再実行）/ `POST /runs/{id}/cancel`（キャンセル）
+  - `GET /runs/{id}/logs`（ログストリーム/テキスト、将来WebSocket）
+- 状態機械
+  - `draft → queued → running → succeeded|failed|canceled`
+  - `failed → queued`（retry）
+- 設計方針
+  - 既存`/plans/integrated/run`（同期）と`/planning/run_job`（非同期）を`POST /runs`へ段階的に吸収。
+  - ドライランはアーティファクト保存（DB/FS）と副作用（書込）の分離旗付けで実装。
+  - partialは`pipeline`＋`scope`指定で単一/中間タスクの検証を許容。
+  - 互換: 既存UIからは当面アダプタで透過的に移行。
+
+
 ## Execute/Results/Validate 仕様（追補）
 - Execute：Run Now（同期）/ Queue Job（非同期）を同一フォームに統合。オプションは `random_seed`, `include_trace`, `plan_id`, `config_id` を保持。
 - Results：KPI（fill_rate/profit/penalty など）＋ Plan Adherence（数量達成率/納期遵守/容量超過）＋ Compare 導線。
@@ -140,15 +160,19 @@ sequenceDiagram
 ### マイルストーンとタスク
 
 #### P1 併存期（Hub導入 + API統一）
-- [ ] P-01 `/ui/plans` 一覧（作成ボタン/検索）
-- [ ] P-02 新規Planダイアログ（Config選択/名称/期間）
-- [ ] P-03 `/ui/plans/{id}` 骨格（タブ/アクションバー）
-- [ ] P-04 Executeタブ：Run Now/Queue Job 統合
-- [ ] P-15 Run API仕様ドラフト（エンドポイント/ペイロード/状態機械）
-- [ ] P-16 既存3入口→Run APIアダプタ実装（内部経路統一）
+- [x] P-01 `/ui/plans` 一覧（作成ボタン/検索）
+- [x] P-02 新規Planダイアログ（Config選択/名称/期間）
+- [x] P-03 `/ui/plans/{id}` 骨格（タブ/アクションバー）
+- [x] P-04 Executeタブ：Run Now/Queue Job 統合
+- [x] P-06 Home→Plan リダイレクト & バナー
+- [x] P-15 Run API仕様ドラフト（エンドポイント/ペイロード/状態機械）
+- [x] P-16 既存3入口→Run APIアダプタ実装（内部経路統一）
+  - 実装: `POST /runs`（adapter）を追加。`pipeline=integrated` を `/plans/integrated/run`（同期）/ `JOB_MANAGER.submit_planning`（非同期）へ委譲。
 - [ ] P-18 差分/KPIプレビューUI（MVP: 在庫・発注・SL）
-- [ ] P-19 計測イベント仕込み（到達時間/クリック/離脱）
-- [ ] P-20 README/ヘルプ更新（新動線の案内）
+  - 実装: Plans詳細のOverviewにMVP KPIカード（能力合計/負荷合計/能力利用率/スピル合計/違反件数）を表示。
+- [x] P-19 計測イベント仕込み（到達時間/クリック/離脱）
+  - 実装: `legacy_redirect_hit`（/→/ui/plans）, `plan_created`（/ui/plans/run, /runs 同期）, `run_queued`（/runs 非同期）, `plan_results_viewed`（/ui/plans/{id}）, `plan_executed`（再整合）を JSON ログ出力
+- [x] P-20 README/ヘルプ更新（新動線の案内）
 
 #### P2 統合期（画面統合 + 非推奨化）
 - [ ] P-07 Aggregateタブ移植
@@ -182,12 +206,13 @@ sequenceDiagram
 
 | ID | タスク | スプリント | 優先 | 状態 | 担当 | 期日 |
 |---|---|---:|:---:|:---:|:---:|:---:|
-| P-01 | `/ui/plans` 一覧（作成ボタン/検索） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ☐ | miumigy | 2025-09-14 |
-| P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ☐ | miumigy | 2025-09-14 |
+| P-01 | `/ui/plans` 一覧（作成ボタン/検索） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-02 | 新規Planダイアログ（Config選択/名称/期間） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-03 | `/ui/plans/{id}` 骨格（タブ/アクションバー） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-04 | Executeタブ：Run Now/Queue Job 統合 | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-06 | Home→Plan リダイレクト & バナー | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+ | P-05 | Resultsタブ：最新Run表示＆Compare導線 | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-07 | Aggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
 | P-08 | Disaggregateタブ移植 | S2 | P1 | ☐ | miumigy | 2025-09-21 |
 | P-09 | Scheduleタブ移植（予定オーダ生成） | S2 | P1 | ☐ | miumigy | 2025-09-21 |
@@ -196,11 +221,11 @@ sequenceDiagram
 | P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ☐ | miumigy | 2025-09-28 |
 | P-13 | KPI/テレメトリ導入 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
 | P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ☐ | miumigy | 2025-09-28 |
-| P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ☐ | miumigy | 2025-09-14 |
-| P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ☐ | miumigy | 2025-09-14 |
-| P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ☐ | miumigy | 2025-09-14 |
+| P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
+| P-19 | 計測イベント仕込み（到達時間/クリック/離脱） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
+| P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ☐ | miumigy | 2025-09-21 |
 | P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ☐ | miumigy | 2025-09-21 |
 | P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ | miumigy | 2025-09-28 |

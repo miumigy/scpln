@@ -74,7 +74,11 @@ bash scripts/stop.sh            # 停止
 ```
 
 アクセス: `http://localhost:8000`
-- ヘッダ右のナビ: 「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
+- 入口統合（Planning Hub, ベータ）
+  - 推奨入口: `/ui/plans`（Planの作成→実行→結果確認まで一貫）
+  - ルート `/` は `/ui/plans` へリダイレクト（P-06）
+  - 従来UI `/ui/planning` は併存（段階的移行）
+- ヘッダ右のナビ: 「プラン一覧」「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
   - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
 
 ### Render へのデプロイ（Blueprint）
@@ -492,9 +496,12 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - 整合ガイド: [集約↔詳細 計画の統合・整合ガイド](docs/AGG_DET_RECONCILIATION_JA.md)（擬似コード／パラメタ早見／FAQ／サンプル）
 - サンプル入力: samples/planning/
 
-実行方法（最小）
-- UI: `/ui/planning` を開き、入力ディレクトリ（既定: samples/planning）で実行
-- API: `POST /plans/integrated/run`（例）: `{ "input_dir":"samples/planning", "weeks":4, "round_mode":"int", "lt_unit":"day" }`
+-実行方法（最小）
+- UI（推奨）: `/ui/plans` → 「新規Plan作成（統合Run）」で実行（作成後に詳細へ）
+- UI（従来）: `/ui/planning` を開き、入力ディレクトリ（既定: samples/planning）で実行
+- API: `POST /plans/integrated/run`（同期, 従来） または `POST /runs`（アダプタ, P-16）
+  - 例（/runs, 同期）: `{ "pipeline":"integrated", "async": false, "options": { "input_dir":"samples/planning", "weeks":4, "lt_unit":"day" } }`
+  - 例（/runs, 非同期）: `{ "pipeline":"integrated", "async": true,  "options": { ... } }`（`/ui/jobs/{job_id}` で進捗確認）
 - スクリプト: `bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4`
   - プリセット: `--preset det_near|agg_far|blend`（`--cutover-date` と併用）
 
@@ -525,8 +532,10 @@ graph TD
   B -->|/ui/jobs| A
   B -->|/ui/scenarios| A
   B -->|/ui/compare| A
-  B -->|/ui/planning| A
   B -->|/ui/plans| A
+  B -->|/ui/planning| A
+  %% / は Hub へ誘導
+  B -->|/ (→ /ui/plans)| A
 ```
 
 ### クラス図（主要要素）

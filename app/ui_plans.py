@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from app.api import app
+import logging
 from fastapi.responses import HTMLResponse
-from fastapi import Request
+from fastapi import Request, Form
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
@@ -82,9 +83,130 @@ def ui_plan_detail(version_id: str, request: Request):
         db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
+    # latest runs for this plan's base scenario (if available)
+    latest_runs: list[dict] = []
+    latest_ids: list[str] = []
+    base_sid = (ver or {}).get("base_scenario_id")
+    if base_sid is not None:
+        try:
+            from app.run_registry import REGISTRY  # type: ignore
+
+            rows = []
+            if hasattr(REGISTRY, "list_page"):
+                try:
+                    resp = REGISTRY.list_page(
+                        offset=0,
+                        limit=5,
+                        sort="started_at",
+                        order="desc",
+                        schema_version=None,
+                        config_id=None,
+                        scenario_id=int(base_sid),
+                        detail=False,
+                    )
+                    rows = resp.get("runs") or []
+                except Exception:
+                    rows = []
+            if not rows and hasattr(REGISTRY, "list_ids"):
+                try:
+                    ids = REGISTRY.list_ids()
+                    for rid in ids:
+                        rec = REGISTRY.get(rid) or {}
+                        if rec.get("scenario_id") == base_sid:
+                            rows.append(rec)
+                            if len(rows) >= 5:
+                                break
+                except Exception:
+                    rows = []
+            for r in rows:
+                rid = r.get("run_id")
+                if not rid:
+                    continue
+                latest_ids.append(rid)
+                latest_runs.append(
+                    {
+                        "run_id": rid,
+                        "started_at": r.get("started_at"),
+                        "duration_ms": r.get("duration_ms"),
+                        "fill_rate": (r.get("summary") or {}).get("fill_rate"),
+                        "profit_total": (r.get("summary") or {}).get("profit_total"),
+                    }
+                )
+        except Exception:
+            latest_runs = []
+            latest_ids = []
+    # KPI preview (MVP): capacity/utilization and spill totals
+    kpi_preview = {}
+    try:
+        ws = plan_final.get("weekly_summary") or []
+        cap_total = sum(float(r.get("capacity") or 0) for r in ws)
+        adj_total = sum(float(r.get("adjusted_load") or 0) for r in ws)
+        spill_in_total = sum(float(r.get("spill_in") or 0) for r in ws)
+        spill_out_total = sum(float(r.get("spill_out") or 0) for r in ws)
+        util = (adj_total / cap_total * 100.0) if cap_total else None
+        # DET集計（需要/供給/バックログ）から SL と発注合計を推定
+        det_dem = det_sup = det_bkl = 0.0
+        try:
+            for row in (recon.get("deltas") or []):
+                det_dem += float(row.get("det_demand") or 0)
+                det_sup += float(row.get("det_supply") or 0)
+                det_bkl += float(row.get("det_backlog") or 0)
+        except Exception:
+            det_dem = det_sup = det_bkl = 0.0
+        sl = ((det_dem - det_bkl) / det_dem * 100.0) if det_dem else None
+        # 在庫（MVP）: MRPの最初の週の on_hand_start 合計を在庫初期合計として表示
+        inv_init_total = None
+        try:
+            mrows = list(plan_mrp.get("rows") or [])
+            if mrows:
+                weeks = []
+                for r in mrows:
+                    w = str(r.get("week"))
+                    if w and w not in weeks:
+                        weeks.append(w)
+                firstw = weeks[0] if weeks else None
+                if firstw:
+                    inv_init_total = sum(
+                        float(r.get("on_hand_start") or 0)
+                        for r in mrows
+                        if str(r.get("week")) == firstw
+                    )
+        except Exception:
+            inv_init_total = None
+        kpi_preview = {
+            "capacity_total": cap_total,
+            "adjusted_total": adj_total,
+            "util_pct": util,
+            "spill_in_total": spill_in_total,
+            "spill_out_total": spill_out_total,
+            "det_demand_total": det_dem,
+            "det_supply_total": det_sup,
+            "det_backlog_total": det_bkl,
+            "sl_pct": sl,
+            "inv_initial_total": inv_init_total,
+            "viol_before": (recon.get("summary") or {}).get("tol_violations"),
+            "viol_after": (recon_adj.get("summary") or {}).get("tol_violations"),
+            "window_days": (plan_final.get("boundary_summary") or {}).get("window_days"),
+            "anchor_policy": (plan_final.get("boundary_summary") or {}).get("anchor_policy"),
+        }
+    except Exception:
+        kpi_preview = {}
+    # 計測イベント: plan_results_viewed（詳細表示）
+    try:
+        logging.info(
+            "plan_results_viewed",
+            extra={
+                "event": "plan_results_viewed",
+                "version_id": version_id,
+                "base_scenario_id": (ver or {}).get("base_scenario_id"),
+            },
+        )
+    except Exception:
+        pass
     return templates.TemplateResponse(
         "plans_detail.html",
         {
@@ -98,6 +220,9 @@ def ui_plan_detail(version_id: str, request: Request):
             "boundary_summary": plan_final.get("boundary_summary"),
             "deltas": deltas,
             "deltas_adj": deltas_adj,
+            "kpi_preview": kpi_preview,
+            "latest_runs": latest_runs,
+            "latest_run_ids": latest_ids,
         },
     )
 
@@ -135,6 +260,71 @@ def ui_plan_reconcile(
     }
     try:
         _plans_api.post_plan_reconcile(version_id, body)  # reuse handler
+        try:
+            logging.info(
+                "plan_executed",
+                extra={
+                    "event": "plan_executed",
+                    "version_id": version_id,
+                    "apply_adjusted": bool(apply_adjusted),
+                    "weeks": weeks,
+                    "lt_unit": lt_unit,
+                },
+            )
+        except Exception:
+            pass
+    except Exception:
+        pass
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@app.post("/ui/plans/run")
+def ui_plans_run(
+    request: Request,
+    input_dir: str = Form("samples/planning"),
+    weeks: int = Form(4),
+    lt_unit: str = Form("day"),
+    cutover_date: str | None = Form(default=None),
+    recon_window_days: int | None = Form(default=None),
+    anchor_policy: str | None = Form(default=None),
+    tol_abs: float | None = Form(default=None),
+    tol_rel: float | None = Form(default=None),
+    calendar_mode: str | None = Form(default=None),
+    carryover: str | None = Form(default=None),
+    carryover_split: float | None = Form(default=None),
+    apply_adjusted: int | None = Form(default=None),
+):
+    body = {
+        "input_dir": input_dir,
+        "weeks": weeks,
+        "lt_unit": lt_unit,
+        "cutover_date": cutover_date,
+        "recon_window_days": recon_window_days,
+        "anchor_policy": anchor_policy,
+        "tol_abs": tol_abs,
+        "tol_rel": tol_rel,
+        "calendar_mode": calendar_mode,
+        "carryover": carryover,
+        "carryover_split": carryover_split,
+        "apply_adjusted": bool(apply_adjusted),
+    }
+    res = _plans_api.post_plans_integrated_run(body)
+    version_id = res.get("version_id")
+    # 計測イベント: plan_created（新規作成）
+    try:
+        logging.info(
+            "plan_created",
+            extra={
+                "event": "plan_created",
+                "version_id": version_id,
+                "input_dir": input_dir,
+                "weeks": weeks,
+                "lt_unit": lt_unit,
+                "anchor_policy": anchor_policy,
+            },
+        )
     except Exception:
         pass
     from fastapi.responses import RedirectResponse

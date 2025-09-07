@@ -5,7 +5,7 @@ import contextvars
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.exception_handlers import (
     http_exception_handler as _default_http_exc_handler,
 )
@@ -327,37 +327,12 @@ if _OTEL_ENABLED:
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
-    idx = BASE_DIR / "index.html"
+    # Planning Hub への誘導（P-06）: Home は /ui/plans へリダイレクト
     try:
-        logging.info(
-            "index_resolve",
-            extra={"event": "index_resolve", "path": str(idx), "exists": idx.exists()},
-        )
+        logging.info("legacy_redirect_hit", extra={"event": "legacy_redirect_hit", "from": "/", "to": "/ui/plans"})
     except Exception:
         pass
-    if idx.exists():
-        try:
-            return FileResponse(path=str(idx), media_type="text/html; charset=utf-8")
-        except Exception:
-            logging.exception("failed_to_read_index")
-    # fallback to CWD
-    cwd_idx = Path.cwd() / "index.html"
-    if cwd_idx.exists():
-        try:
-            logging.info(
-                "index_resolve_cwd",
-                extra={
-                    "event": "index_resolve_cwd",
-                    "path": str(cwd_idx),
-                    "exists": True,
-                },
-            )
-            return FileResponse(
-                path=str(cwd_idx), media_type="text/html; charset=utf-8"
-            )
-        except Exception:
-            logging.exception("failed_to_read_index_cwd")
-    return HTMLResponse("<h1>Error</h1><p>index.html not found.</p>", status_code=404)
+    return RedirectResponse(url="/ui/plans?legacy_redirect=1", status_code=307)
 
 
 # Ensure planning plans API routes are registered when importing only app.api
