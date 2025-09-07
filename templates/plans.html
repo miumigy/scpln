@@ -45,17 +45,17 @@
         <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
         <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
       </div>
-      <button type="submit">Run（作成）</button>
+      <button type="submit" aria-label="新規Planを作成して実行">Run（作成）</button>
       <p class="mono">参考: 従来の実行は <a href="/ui/planning" target="_blank">/ui/planning</a></p>
     </form>
   </details>
 
   <div style="display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap;">
-    <input id="q" type="search" placeholder="検索（version/status/policy）" />
+    <input id="q" type="search" placeholder="検索（version/status/policy）" aria-label="検索（version/status/policy）" />
     <small class="mono" id="meta"></small>
     <span class="mono" style="margin-left:8px;">並び: 
       <label style="margin:0 4px;">主
-        <select id="sortPKey">
+        <select id="sortPKey" aria-label="主キーの並び替え対象">
           <option value="created_at">created_at</option>
           <option value="status">status</option>
           <option value="violations">violations</option>
@@ -63,12 +63,12 @@
           <option value="cutover">cutover</option>
         </select>
       </label>
-      <select id="sortPDir">
+      <select id="sortPDir" aria-label="主キーの並び順">
         <option value="desc">desc</option>
         <option value="asc">asc</option>
       </select>
       ｜ <label style="margin:0 4px;">副
-        <select id="sortSKey">
+        <select id="sortSKey" aria-label="副キーの並び替え対象">
           <option value="">(なし)</option>
           <option value="created_at">created_at</option>
           <option value="status">status</option>
@@ -77,7 +77,7 @@
           <option value="cutover">cutover</option>
         </select>
       </label>
-      <select id="sortSDir">
+      <select id="sortSDir" aria-label="副キーの並び順">
         <option value="desc">desc</option>
         <option value="asc">asc</option>
       </select>
@@ -117,12 +117,12 @@
         </td>
         <td>
           <a class="secondary" href="/plans/{{ p.version_id }}/summary" target="_blank">summary</a>
-          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" title="URLをコピー">copy</button>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" title="URLをコピー" aria-label="URLをコピー">copy</button>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">compare</a>
-          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" title="URLをコピー">copy</button>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" title="URLをコピー" aria-label="URLをコピー">copy</button>
           <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">violations</a>
-          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" title="URLをコピー">copy</button>
-          <button type="button" class="secondary copy-all" data-version="{{ p.version_id }}" title="summary/compare/violations をまとめてコピー">copy all</button>
+          <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" title="URLをコピー" aria-label="URLをコピー">copy</button>
+          <button type="button" class="secondary copy-all" data-version="{{ p.version_id }}" title="summary/compare/violations をまとめてコピー" aria-label="リンクを一括コピー">copy all</button>
         </td>
       </tr>
       {% endfor %}

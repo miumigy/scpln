@@ -3,7 +3,7 @@
 <section>
   <h2>Runs</h2>
   <p>
-    <button id="reload-btn" type="button">Refresh from API</button>
+    <button id="reload-btn" type="button" aria-label="APIから再読み込み">Refresh from API</button>
   </p>
   {% if rows %}
   <table role="grid">
@@ -11,9 +11,9 @@
       <tr>
         <th></th>
         <th>run_id</th>
-        <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at">started_at</button></th>
-        <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms">dur(ms)</button></th>
-        <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version">schema</button></th>
+        <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="開始時刻で並び替え">started_at</button></th>
+        <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="所要時間で並び替え">dur(ms)</button></th>
+        <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="スキーマで並び替え">schema</button></th>
         <th>config_id</th>
         <th>scenario_id</th>
         <th>fill_rate</th>
@@ -42,10 +42,10 @@
     </tbody>
   </table>
   <div id="pager" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-    <button id="first-page" type="button" class="secondary">First</button>
-    <button id="prev-page" type="button" class="secondary">Prev</button>
-    <button id="next-page" type="button" class="secondary">Next</button>
-    <button id="last-page" type="button" class="secondary">Last</button>
+    <button id="first-page" type="button" class="secondary" aria-label="最初のページへ">First</button>
+    <button id="prev-page" type="button" class="secondary" aria-label="前のページへ">Prev</button>
+    <button id="next-page" type="button" class="secondary" aria-label="次のページへ">Next</button>
+    <button id="last-page" type="button" class="secondary" aria-label="最後のページへ">Last</button>
     <span class="mono">Page</span>
     <input id="page-number" type="number" min="1" value="1" style="width:5em" />
     <span class="mono">/ <span id="page-total">1</span></span>
@@ -60,7 +60,7 @@
     <span id="pager-info" class="mono"></span>
   </div>
   <div id="bulk-actions" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-    <button id="delete-selected" type="button" class="contrast">Delete selected</button>
+    <button id="delete-selected" type="button" class="contrast" aria-label="選択したランを削除">Delete selected</button>
   </div>
   <div id="filters" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
     <label>Sort
@@ -85,8 +85,8 @@
     <label>Scenario ID
       <input id="scenario-filter" type="number" placeholder="" min="1" style="width:7em" />
     </label>
-    <button id="apply-filter" type="button" class="secondary">Apply</button>
-    <button id="clear-filter" type="button" class="secondary">Clear</button>
+    <button id="apply-filter" type="button" class="secondary" aria-label="フィルタを適用">Apply</button>
+    <button id="clear-filter" type="button" class="secondary" aria-label="フィルタをクリア">Clear</button>
   </div>
   {% else %}
     <p>まだランはありません。/simulation を叩いて生成してください。</p>
@@ -99,9 +99,9 @@
       <input id="run-ids" class="mono" type="text" name="run_ids" placeholder="id1,id2" required />
     </label>
     <small>上のチェックボックス選択を反映するには「Use selected」を押下</small>
-    <button id="use-selected" type="button" class="secondary">Use selected</button>
-    <button type="submit">Compare</button>
-    <button id="compare-selected" type="button" class="contrast">Compare selected</button>
+    <button id="use-selected" type="button" class="secondary" aria-label="選択したランを使用">Use selected</button>
+    <button type="submit" aria-label="比較を実行">Compare</button>
+    <button id="compare-selected" type="button" class="contrast" aria-label="選択したランを比較">Compare selected</button>
   </form>
   </section>
 {% endblock %}

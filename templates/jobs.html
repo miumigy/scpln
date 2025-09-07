@@ -43,7 +43,7 @@
         <textarea id="agg-location-map" rows="3" placeholder='{"S1":{"region":"R1"}}' style="width:100%;"></textarea>
       </label>
       <div style="grid-column: 1 / -1; display:flex; gap:8px;">
-        <button type="button" class="secondary" onclick="formatAggJson()">Format JSON</button>
+        <button type="button" class="secondary" onclick="formatAggJson()" aria-label="JSONを整形">Format JSON</button>
       </div>
       <label>date_field
         <input type="text" id="agg-date-field" placeholder="date" />
@@ -58,19 +58,19 @@
         </select>
       </label>
       <div>
-        <button type="submit">Enqueue</button>
+        <button type="submit" aria-label="ジョブをキューに投入">Enqueue</button>
       </div>
     </form>
     <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 12px;">
       <label>Preset name
         <input type="text" id="agg-preset-name" placeholder="my-preset" />
       </label>
-      <button type="button" class="secondary" onclick="saveAggPreset()">Save preset</button>
+      <button type="button" class="secondary" onclick="saveAggPreset()" aria-label="プリセットを保存">Save preset</button>
       <label>Presets
         <select id="agg-preset-select"></select>
       </label>
-      <button type="button" class="secondary" onclick="applyAggPreset()">Apply</button>
-      <button type="button" class="secondary" onclick="deleteAggPreset()">Delete</button>
+      <button type="button" class="secondary" onclick="applyAggPreset()" aria-label="プリセットを適用">Apply</button>
+      <button type="button" class="secondary" onclick="deleteAggPreset()" aria-label="プリセットを削除">Delete</button>
     </div>
   </details>
   <form method="get" action="/ui/jobs" style="display:flex; gap:8px; align-items:center; margin:8px 0;">
@@ -82,7 +82,7 @@
         {% endfor %}
       </select>
     </label>
-    <button type="submit" class="secondary">Apply</button>
+    <button type="submit" class="secondary" aria-label="設定を適用">Apply</button>
   </form>
   {% if rows %}
   <table role="grid">

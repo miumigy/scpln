@@ -8,14 +8,14 @@
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
     <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
-      <a role="button" class="secondary" data-tab="overview">Overview</a>
-      <a role="button" class="secondary" data-tab="aggregate">Aggregate</a>
-      <a role="button" class="secondary" data-tab="disaggregate">Disaggregate</a>
-      <a role="button" class="secondary" data-tab="schedule">Schedule</a>
-      <a role="button" class="secondary" data-tab="validate">Validate</a>
-      <a role="button" class="secondary" data-tab="execute">Execute</a>
-      <a role="button" class="secondary" data-tab="results">Results</a>
-      <a role="button" class="secondary" data-tab="diff">Diff</a>
+      <a role="button" class="secondary" data-tab="overview" title="概要">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate" title="集約">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開">Disaggregate</a>
+      <a role="button" class="secondary" data-tab="schedule" title="予定オーダ">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate" title="検証">Validate</a>
+      <a role="button" class="secondary" data-tab="execute" title="実行">Execute</a>
+      <a role="button" class="secondary" data-tab="results" title="結果">Results</a>
+      <a role="button" class="secondary" data-tab="diff" title="差分">Diff</a>
     </nav>
     <div id="tab-aggregate" class="tab-pane" style="display:none;">
     <details open>
@@ -180,7 +180,7 @@
             </select>
           </label>
         </div>
-        <button type="submit">再整合を実行</button>
+        <button type="submit" aria-label="再整合を実行">再整合を実行</button>
       </form>
     </details>
 
@@ -227,7 +227,7 @@
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit">Run Now（即時実行）</button>
+        <button type="submit" aria-label="即時実行">Run Now（即時実行）</button>
       </form>
       <form method="post" action="/planning/run_job" style="margin-top:8px;">
         <div class="grid" style="align-items:end;">
@@ -251,7 +251,7 @@
           </label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit" class="secondary">Queue Job（ジョブ投入）</button>
+        <button type="submit" class="secondary" aria-label="ジョブ投入">Queue Job（ジョブ投入）</button>
         <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
       </form>
     </details>
@@ -298,7 +298,7 @@
         <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
         <label><input type="checkbox" name="apply_adjusted" value="1"> 調整後DETも計算</label>
         <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
-        <button type="submit" class="contrast">Plan & Run を実行</button>
+        <button type="submit" class="contrast" aria-label="Plan & Run を実行">Plan & Run を実行</button>
         <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>
       </form>
     </details>
@@ -409,16 +409,16 @@
     <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
       <span>エクスポート:</span>
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー" aria-label="URLをコピー">copy</button>
       ｜ <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
       <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
     </div>
@@ -446,13 +446,13 @@
           {% if latest_run_ids and latest_run_ids|length >= 2 %}
           <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
-            <button type="submit">最新2件を比較</button>
+            <button type="submit" aria-label="最新2件を比較">最新2件を比較</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー">copy</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー" aria-label="URLをコピー">copy</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー">copy</button>
-            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー">copy all</button>
-            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー" aria-label="URLをコピー">copy</button>
+            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー" aria-label="リンクを一括コピー">copy all</button>
+            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー" aria-label="チェックしたリンクを一括コピー">copy selected</button>
           </form>
           {% endif %}
         {% else %}
