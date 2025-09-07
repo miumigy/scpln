@@ -183,7 +183,7 @@ sequenceDiagram
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Disaggregate タブを追加し、`sku_week.json` の先頭200件をSKU×weekで表示（簡易フィルタ付き）。
 - [x] P-09 Scheduleタブ移植（予定オーダ生成）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Schedule タブを追加し、`mrp.json` の予定オーダ（scheduled_receipts）を先頭200件表示。`/plans/{id}/schedule.csv` を新設し、week/sku/在庫端点を含むCSVをエクスポート可能に。
-- [x] P-10 Validate（量・容量・MOQ/倍数）
+- [ ] P-10 Validate（量・容量・MOQ/倍数）
   - 進捗: 2025-09-07 `/ui/plans/{id}` に Validate タブ（MVP）を追加。以下の自動チェックを表示：Tol違反数（before/after）、負在庫件数、予定受入の小数行、能力超過週数。
 - [x] P-21 既存リンクの非推奨バナー・Hub内セクションへの誘導（2025-09-07 完了）
   - 進捗: 2025-09-07 レガシー画面 `/ui/planning` に非推奨バナーとHub誘導を追加。任意の「次回から自動でPlanning Hubに移動」設定（localStorage）を実装。ナビゲーション上のリンク整理は別途。
@@ -214,7 +214,7 @@ sequenceDiagram
     - `plan_compare_export_total{mode}`（compare.csvエクスポート）
     - `plan_carryover_export_total`（carryover.csvエクスポート）
   - 備考: 既存のHTTP計測（総数/レイテンシ）に併載。Grafana等への連携は次期。
-- [x] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
+- [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
   - 進捗: 2025-09-07 Phase 2 実装。`/ui/planning` にアクセス時、`allow_legacy=1` が無い場合は `/ui/plans` へ302リダイレクト（opt-out可）。
   - 進捗: 2025-09-07 Phase 3（トグル）実装。`HUB_LEGACY_CLOSE=1` 環境変数が有効なときは 404 ガイド（legacy_closed.html）を表示。`allow_legacy=1` で一時的に回避可能。
 - [ ] P-23 用語統一（UI/README/APIドキュメント）
