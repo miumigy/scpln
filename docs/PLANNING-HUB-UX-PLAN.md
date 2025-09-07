@@ -217,11 +217,13 @@ sequenceDiagram
 - [ ] P-14 旧画面クローズ & 404 ガイド（Home実行エントリ撤去 + 一時リダイレクト含む）
   - 進捗: 2025-09-07 Phase 2 実装。`/ui/planning` にアクセス時、`allow_legacy=1` が無い場合は `/ui/plans` へ302リダイレクト（opt-out可）。
   - 進捗: 2025-09-07 Phase 3（トグル）実装。`HUB_LEGACY_CLOSE=1` 環境変数が有効なときは 404 ガイド（legacy_closed.html）を表示。`allow_legacy=1` で一時的に回避可能。
-- [ ] P-23 用語統一（UI/README/APIドキュメント）
+- [x] P-23 用語統一（UI/README/APIドキュメント）
   - 進捗: 2025-09-07 用語表 `docs/TERMS-JA.md` 追加。README に Planning Hub 入口/レガシー移行の表記統一を反映（P-14参照）。
   - 進捗: 2025-09-07 UIタブに日本語ツールチップを付与（Overview→概要, Execute→実行, Results→結果, Diff→差分, Aggregate→集約, Disaggregate→詳細展開, Schedule→予定オーダ, Validate→検証）。表示ラベルは互換維持のため既存英語を継続。
   - 進捗: 2025-09-07 API概要 `docs/API-OVERVIEW-JA.md` を追加し、READMEから参照。主要ボタン/検索/並び替えに aria-label を付与し可読性を向上。
-- [ ] P-24 チュートリアル/ハンズオン更新
+  - 進捗: 2025-09-07 主要入力（Disaggregate/Schedule の SKU・週フィルタ、URLコピー）に `aria-label` を追加し可読性を向上。
+- [x] P-24 チュートリアル/ハンズオン更新
+  - 進捗: 2025-09-07 `docs/TUTORIAL-JA.md` を Planning Hub フローに更新し、/runs API とエクスポート例（schedule.csv/compare.csv）を追記。
 
 ### ステータス基準
 - 未着手 / 進行中 / レビュー中 / 完了（必要に応じラベル運用）
@@ -253,7 +255,7 @@ sequenceDiagram
 | P-11 | Plan & Run（自動補完） | S3 | P1 | ✔ | miumigy | 2025-09-07 |
 | P-12 | state 遷移/Invalidation 実装 | S3 | P1 | ✔ | miumigy | 2025-09-07 |
 | P-13 | KPI/テレメトリ導入 | S3 | P2 | ✔ | miumigy | 2025-09-07 |
-| P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-14 | 旧画面クローズ & 404 ガイド | S3 | P2 | ✔ | miumigy | 2025-09-28 |
 | P-15 | Run API仕様ドラフト（EP/ペイロード/状態機械） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-16 | 既存3入口→Run APIアダプタ実装（統一） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
 | P-18 | 差分/KPIプレビューUI（MVP: 在庫・発注・SL） | S1 | P1 | ✔ | miumigy | 2025-09-14 |
@@ -261,8 +263,8 @@ sequenceDiagram
 | P-20 | README/ヘルプ更新（新動線の案内） | S1 | P2 | ✔ | miumigy | 2025-09-14 |
 | P-21 | 非推奨バナー・Hub内セクション誘導 | S2 | P2 | ✔ | miumigy | 2025-09-07 |
 | P-22 | 履歴/固定リンクの強化（フィルタ/再実行/共有） | S2 | P2 | ✔ | miumigy | 2025-09-07 |
-| P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ☐ | miumigy | 2025-09-28 |
-| P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ☐ | miumigy | 2025-09-28 |
+| P-23 | 用語統一（UI/README/APIドキュメント） | S3 | P2 | ✔ | miumigy | 2025-09-28 |
+| P-24 | チュートリアル/ハンズオン更新 | S3 | P2 | ✔ | miumigy | 2025-09-28 |
 
 ## 受入テスト（AT・E2E観点）
 - AT-01: `/ui/plans` から Plan 作成→Execute→Results 一連が完了。
