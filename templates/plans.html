@@ -60,7 +60,7 @@
       <tr>
         <th>version_id</th>
         <th data-sort="status" title="クリックで並び替え">status</th>
-        <th>cutover</th>
+        <th data-sort="cutover" title="クリックで並び替え">cutover</th>
         <th>window</th>
         <th data-sort="policy" title="クリックで並び替え">policy</th>
         <th data-sort="created_at" title="クリックで並び替え">created_at</th>
@@ -176,12 +176,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var tbody = table.querySelector('tbody');
     var rowsArr = Array.from(tbody.querySelectorAll('tr'));
     // 列インデックス: 0:id 1:status 2:cutover 3:window 4:policy 5:created_at 6:violations 7:maxΔ 8:API
-    var colIdx = {status:1, policy:4, created_at:5, violations:6}[key];
+    var colIdx = {status:1, cutover:2, policy:4, created_at:5, violations:6}[key];
     if (colIdx == null) return;
     rowsArr.sort(function(ra, rb){
       var va = getCellValue(ra, colIdx);
       var vb = getCellValue(rb, colIdx);
-      if (key === 'created_at'){
+      if (key === 'created_at' || key === 'cutover'){
         // 日付文字列はDateに
         var da = Date.parse(va.replace(/\//g,'-')) || 0;
         var db = Date.parse(vb.replace(/\//g,'-')) || 0;

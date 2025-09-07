@@ -218,6 +218,7 @@
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー">copy</button>
       ｜ <a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a>
       <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー">copy</button>
+      ｜ <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
     </p>
     </div>
 
@@ -500,11 +501,30 @@
         var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
       }
     }
+    function copyAllLinks(ver){
+      var origin = (location && location.origin) ? location.origin : '';
+      var urls = [
+        origin + '/plans/' + ver + '/summary',
+        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=rel_desc&limit=1000',
+        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=abs_desc&limit=1000',
+        origin + '/plans/' + ver + '/carryover.csv'
+      ];
+      var txt = urls.join('\n');
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+      }
+    }
     document.addEventListener('click', function(ev){
       var t = ev.target;
       if (t && t.classList && t.classList.contains('copy')){
         var href = t.getAttribute('data-href');
         if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
+      }
+      if (t && t.classList && t.classList.contains('copy-all')){
+        var ver = t.getAttribute('data-version');
+        if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
       }
     });
   })();
