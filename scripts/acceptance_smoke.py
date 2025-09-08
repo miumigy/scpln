@@ -149,7 +149,10 @@ def main() -> int:
             try:
                 rlist = s.get(f"{base}/ui/plans", timeout=30)
                 if rlist.status_code == 200 and ("プランバージョン一覧" in rlist.text):
-                    ok("HTML: /ui/plans が200で一覧見出しを含む")
+                    if 'aria-label=' in rlist.text:
+                        ok("HTML: /ui/plans が200で見出し/aria-labelを含む")
+                    else:
+                        ng("HTML: /ui/plans", "aria-label が見つかりません")
                 else:
                     ng("HTML: /ui/plans", f"code={rlist.status_code}")
             except Exception as e:
@@ -158,7 +161,12 @@ def main() -> int:
             try:
                 rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
                 if rdet.status_code == 200 and ("プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text):
-                    ok("HTML: /ui/plans/{id} が200でタブ要素を含む")
+                    # 代表的なタブ aria-label を確認
+                    labels = ["概要タブ", "集約タブ", "詳細展開タブ", "予定オーダタブ", "検証タブ", "実行タブ", "結果タブ", "差分タブ"]
+                    if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
+                        ok("HTML: /ui/plans/{id} が200でタブ aria-label を含む")
+                    else:
+                        ng("HTML: /ui/plans/{id}", "タブ aria-label が見つかりません")
                 else:
                     ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
             except Exception as e:
@@ -242,7 +250,11 @@ def main() -> int:
             r = s.get(f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100", timeout=30)
             lines = r.text.splitlines() if r.status_code == 200 else []
             if r.status_code == 200 and len(lines) >= 1 and lines[0].startswith("family,period"):
-                ok("AT-06 Compare CSV 取得（ヘッダ整合）")
+                # ヘッダ以外の行数が上限内
+                if len(lines) - 1 <= 100:
+                    ok("AT-06 Compare CSV 取得（ヘッダ/件数上限）")
+                else:
+                    ng("AT-06 Compare CSV", f"件数超過: {len(lines)-1}")
             else:
                 ng("AT-06 Compare CSV", f"code={r.status_code}")
         else:
@@ -260,10 +272,15 @@ def main() -> int:
                     import csv
                     from io import StringIO
                     rows = list(csv.DictReader(StringIO(r.text)))
-                    # 数件の scheduled_receipts が数値に変換できること
-                    for rr in rows[:10]:
-                        float(rr.get("scheduled_receipts"))
-                    ok("Export schedule.csv（ヘッダ/数値性/データ件数）")
+                    data_rows = len(rows)
+                    if data_rows < 1:
+                        ng("Export schedule.csv", "データ行が0件")
+                    else:
+                        # 数値性: scheduled_receipts と on_hand_start
+                        for rr in rows[:10]:
+                            float(rr.get("scheduled_receipts"))
+                            float(rr.get("on_hand_start"))
+                        ok("Export schedule.csv（下限/数値性OK）")
                 except Exception as e:
                     ng("Export schedule.csv", f"CSV parse/数値性: {e}")
             else:
