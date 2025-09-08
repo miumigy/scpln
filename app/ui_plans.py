@@ -38,7 +38,11 @@ def ui_plans(request: Request):
         bs_adj = (plan_final_adj or {}).get("boundary_summary") or {}
 
         # 補完: cutover_date は cutover からのみ（boundaryはperiodのため未採用）
-        cutover_date = p.get("cutover_date") or cut.get("cutover_date") or cut_adj.get("cutover_date")
+        cutover_date = (
+            p.get("cutover_date")
+            or cut.get("cutover_date")
+            or cut_adj.get("cutover_date")
+        )
         # 補完: window は cutover.recon_window_days → adjusted → boundary_summary.window_days
         recon_window_days = p.get("recon_window_days")
         if recon_window_days is None:
@@ -50,15 +54,22 @@ def ui_plans(request: Request):
         if recon_window_days is None:
             recon_window_days = bs_adj.get("window_days")
         # 補完: policy は cutover.anchor_policy → adjusted → boundary_summary.anchor_policy
-        policy = cut.get("anchor_policy") or cut_adj.get("anchor_policy") or bs.get("anchor_policy") or bs_adj.get("anchor_policy")
+        policy = (
+            cut.get("anchor_policy")
+            or cut_adj.get("anchor_policy")
+            or bs.get("anchor_policy")
+            or bs_adj.get("anchor_policy")
+        )
 
-        rows.append({
-            **p,
-            "cutover_date": cutover_date,
-            "recon_window_days": recon_window_days,
-            "recon_summary": summary,
-            "policy": policy,
-        })
+        rows.append(
+            {
+                **p,
+                "cutover_date": cutover_date,
+                "recon_window_days": recon_window_days,
+                "recon_summary": summary,
+                "policy": policy,
+            }
+        )
     return templates.TemplateResponse(
         "plans.html",
         {
@@ -216,7 +227,7 @@ def ui_plan_detail(version_id: str, request: Request):
         # DET集計（需要/供給/バックログ）から SL と発注合計を推定
         det_dem = det_sup = det_bkl = 0.0
         try:
-            for row in (recon.get("deltas") or []):
+            for row in recon.get("deltas") or []:
                 det_dem += float(row.get("det_demand") or 0)
                 det_sup += float(row.get("det_supply") or 0)
                 det_bkl += float(row.get("det_backlog") or 0)
@@ -255,8 +266,12 @@ def ui_plan_detail(version_id: str, request: Request):
             "inv_initial_total": inv_init_total,
             "viol_before": (recon.get("summary") or {}).get("tol_violations"),
             "viol_after": (recon_adj.get("summary") or {}).get("tol_violations"),
-            "window_days": (plan_final.get("boundary_summary") or {}).get("window_days"),
-            "anchor_policy": (plan_final.get("boundary_summary") or {}).get("anchor_policy"),
+            "window_days": (plan_final.get("boundary_summary") or {}).get(
+                "window_days"
+            ),
+            "anchor_policy": (plan_final.get("boundary_summary") or {}).get(
+                "anchor_policy"
+            ),
         }
     except Exception:
         kpi_preview = {}
@@ -367,6 +382,15 @@ def ui_plan_run_auto(
     input_dir: str = Form("samples/planning"),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
+    cutover_date: str | None = Form(default=None),
+    recon_window_days: int | None = Form(default=None),
+    anchor_policy: str | None = Form(default=None),
+    tol_abs: float | None = Form(default=None),
+    tol_rel: float | None = Form(default=None),
+    calendar_mode: str | None = Form(default=None),
+    carryover: str | None = Form(default=None),
+    carryover_split: float | None = Form(default=None),
+    apply_adjusted: int | None = Form(default=None),
     queue_job: int | None = Form(default=None),
 ):
     """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
@@ -391,6 +415,12 @@ def ui_plan_run_auto(
             "cutover_date": cutover_date,
             "recon_window_days": recon_window_days,
             "anchor_policy": anchor_policy,
+            "tol_abs": tol_abs,
+            "tol_rel": tol_rel,
+            "calendar_mode": calendar_mode,
+            "carryover": carryover,
+            "carryover_split": carryover_split,
+            "apply_adjusted": bool(apply_adjusted),
         },
     }
     res = _runs_api.post_runs(body)

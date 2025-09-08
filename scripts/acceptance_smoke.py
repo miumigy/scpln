@@ -23,6 +23,7 @@ from __future__ import annotations
 import sys
 import time
 import argparse
+import json
 from typing import Dict, Any, Optional
 
 try:
@@ -40,6 +41,12 @@ def get_json(session: requests.Session, url: str) -> Dict[str, Any]:
 
 def post_form(session: requests.Session, url: str, data: Dict[str, Any]) -> requests.Response:
     return session.post(url, data=data, timeout=60, allow_redirects=False)
+
+
+def post_json(session: requests.Session, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    r = session.post(url, json=data, timeout=120)
+    r.raise_for_status()
+    return r.json()
 
 
 def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
@@ -66,6 +73,7 @@ def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
         plans = data.get("plans") or []
         if not isinstance(plans, list) or not plans:
             return None
+        # created_at があれば最大を選ぶ。なければ末尾。
         plans2 = [p for p in plans if isinstance(p, dict)]
         plans2.sort(key=lambda p: (p.get("created_at") or 0), reverse=True)
         return (plans2[0] or {}).get("version_id")
@@ -148,7 +156,10 @@ def main() -> int:
             try:
                 rlist = s.get(f"{base}/ui/plans", timeout=30)
                 if rlist.status_code == 200 and ("プランバージョン一覧" in rlist.text):
-                    ok("HTML: /ui/plans が200で一覧見出しを含む")
+                    if 'aria-label=' in rlist.text:
+                        ok("HTML: /ui/plans が200で見出し/aria-labelを含む")
+                    else:
+                        ng("HTML: /ui/plans", "aria-label が見つかりません")
                 else:
                     ng("HTML: /ui/plans", f"code={rlist.status_code}")
             except Exception as e:
@@ -156,10 +167,13 @@ def main() -> int:
             # HTML: /ui/plans/{id} 詳細
             try:
                 rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
-                if rdet.status_code == 200 and (
-                    "プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text
-                ):
-                    ok("HTML: /ui/plans/{id} が200でタブ要素を含む")
+                if rdet.status_code == 200 and ("プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text):
+                    # 代表的なタブ aria-label を確認
+                    labels = ["概要タブ", "集約タブ", "詳細展開タブ", "予定オーダタブ", "検証タブ", "実行タブ", "結果タブ", "差分タブ"]
+                    if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
+                        ok("HTML: /ui/plans/{id} が200でタブ aria-label を含む")
+                    else:
+                        ng("HTML: /ui/plans/{id}", "タブ aria-label が見つかりません")
                 else:
                     ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
             except Exception as e:
@@ -171,9 +185,7 @@ def main() -> int:
     # AT-03: 旧UI誘導
     try:
         r = s.get(f"{base}/ui/planning", allow_redirects=False, timeout=10)
-        if r.status_code in (301, 302) and r.headers.get("Location", "").startswith(
-            "/ui/plans"
-        ):
+        if r.status_code in (301, 302) and r.headers.get("Location", "").startswith("/ui/plans"):
             ok("AT-03 /ui/planning → /ui/plans (302)")
         elif r.status_code == 404:
             ok("AT-03 /ui/planning 404 ガイド表示")
@@ -202,6 +214,7 @@ def main() -> int:
                 "carryover": "both",
                 "carryover_split": 0.5,
                 "apply_adjusted": 1,
+                # queue_job は未指定（同期）
             }
             r2 = post_form(s, f"{base}/ui/plans/{plan_id}/plan_run_auto", form)
             if r2.status_code not in (302, 303):
@@ -221,9 +234,7 @@ def main() -> int:
     try:
         if plan_id:
             summ = get_json(s, f"{base}/plans/{plan_id}/summary")
-            if (summ.get("reconciliation") is not None) and (
-                summ.get("weekly_summary") is not None
-            ):
+            if (summ.get("reconciliation") is not None) and (summ.get("weekly_summary") is not None):
                 ok("AT-05 Validate 情報の存在（reconciliation/weekly_summary）")
             else:
                 ng("AT-05 Validate 情報", "必要キーが見つかりません")
@@ -232,14 +243,11 @@ def main() -> int:
     except Exception as e:
         ng("AT-05 Validate 情報", str(e))
 
-    # AT-06: Compare（limit/violations_only 整合）
+    # AT-06: Compare に Plan 紐づき（limit/violations_only 整合）
     try:
         if plan_id:
             limit = 50
-            j = get_json(
-                s,
-                f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit={limit}",
-            )
+            j = get_json(s, f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit={limit}")
             rows = j.get("rows") if isinstance(j, dict) else None
             if isinstance(rows, list) and len(rows) <= limit:
                 viol_ok = all((not bool(r.get("ok"))) for r in rows)
@@ -249,15 +257,14 @@ def main() -> int:
                     ng("AT-06 Compare JSON", "violations_only で ok=true を含む")
             else:
                 ng("AT-06 Compare JSON", "rows 欠落/型不正")
-            r = s.get(
-                f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100",
-                timeout=30,
-            )
+            r = s.get(f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100", timeout=30)
             lines = r.text.splitlines() if r.status_code == 200 else []
-            if r.status_code == 200 and len(lines) >= 1 and lines[0].startswith(
-                "family,period"
-            ):
-                ok("AT-06 Compare CSV 取得（ヘッダ整合）")
+            if r.status_code == 200 and len(lines) >= 1 and lines[0].startswith("family,period"):
+                # ヘッダ以外の行数が上限内
+                if len(lines) - 1 <= 100:
+                    ok("AT-06 Compare CSV 取得（ヘッダ/件数上限）")
+                else:
+                    ng("AT-06 Compare CSV", f"件数超過: {len(lines)-1}")
             else:
                 ng("AT-06 Compare CSV", f"code={r.status_code}")
         else:
@@ -270,18 +277,20 @@ def main() -> int:
         if plan_id:
             r = s.get(f"{base}/plans/{plan_id}/schedule.csv", timeout=30)
             lines = r.text.splitlines() if r.status_code == 200 else []
-            if r.status_code == 200 and len(lines) >= 2 and lines[0].startswith(
-                "week,sku"
-            ):
+            if r.status_code == 200 and len(lines) >= 2 and lines[0].startswith("week,sku"):
                 try:
                     import csv
                     from io import StringIO
-
                     rows = list(csv.DictReader(StringIO(r.text)))
-                    for rr in rows[:10]:
-                        v = rr.get("scheduled_receipts")
-                        float(v)
-                    ok("Export schedule.csv（ヘッダ/数値性/データ件数）")
+                    data_rows = len(rows)
+                    if data_rows < 1:
+                        ng("Export schedule.csv", "データ行が0件")
+                    else:
+                        # 数値性: scheduled_receipts と on_hand_start
+                        for rr in rows[:10]:
+                            float(rr.get("scheduled_receipts"))
+                            float(rr.get("on_hand_start"))
+                        ok("Export schedule.csv（下限/数値性OK）")
                 except Exception as e:
                     ng("Export schedule.csv", f"CSV parse/数値性: {e}")
             else:
@@ -300,7 +309,7 @@ def main() -> int:
     # Metrics after
     try:
         metrics_after = fetch_metrics(s, f"{base}/metrics")
-        # 存在チェック
+        # 期待するメトリクス（存在）
         expected = [
             "plans_created_total",
             "plans_viewed_total",
@@ -312,14 +321,9 @@ def main() -> int:
         missing = [k for k in expected if k not in metrics_after]
         if missing:
             ng("AT-07 metrics 存在チェック", f"missing: {missing}")
-        # 増分（いずれか増えていればOK）
+        # 増分（最低限: created/viewed/schedule/compare のどれかが増える）
         inc_names = []
-        for name in (
-            "plans_created_total",
-            "plans_viewed_total",
-            "plan_schedule_export_total",
-            "plan_compare_export_total",
-        ):
+        for name in ("plans_created_total", "plans_viewed_total", "plan_schedule_export_total", "plan_compare_export_total"):
             before = metrics_before.get(name, 0)
             after = metrics_after.get(name, 0)
             if after > before:
@@ -342,4 +346,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

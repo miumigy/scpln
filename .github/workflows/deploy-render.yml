@@ -8,6 +8,8 @@ on:
 jobs:
   deploy:
     name: Trigger Render Deployment
+    # 実行条件: APIキー+サービスID もしくは Deploy Hook のいずれかが設定されている場合のみ
+    if: ${{ (secrets.RENDER_API_KEY != '' && secrets.RENDER_SERVICE_ID != '') || secrets.RENDER_DEPLOY_HOOK_URL != '' }}
     runs-on: ubuntu-latest
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
@@ -27,12 +29,13 @@ jobs:
             -d '{"clearCache":false}'
 
       - name: Trigger via Deploy Hook (fallback)
-        if: ${{ env.RENDER_API_KEY == '' || env.RENDER_SERVICE_ID == '' }}
+        if: ${{ (env.RENDER_API_KEY == '' || env.RENDER_SERVICE_ID == '') && env.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
           set -euo pipefail
-          if [ -z "${RENDER_DEPLOY_HOOK_URL:-}" ]; then
-            echo "Missing secret RENDER_DEPLOY_HOOK_URL or (RENDER_API_KEY & RENDER_SERVICE_ID)." >&2
-            exit 1
-          fi
           echo "Triggering deploy via Deploy Hook"
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Skip (no Render secrets configured)
+        if: ${{ env.RENDER_API_KEY == '' && env.RENDER_SERVICE_ID == '' && env.RENDER_DEPLOY_HOOK_URL == '' }}
+        run: |
+          echo "Skipping: no Render secrets configured (RENDER_API_KEY/RENDER_SERVICE_ID or RENDER_DEPLOY_HOOK_URL)"
