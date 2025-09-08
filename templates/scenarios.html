@@ -4,21 +4,21 @@
   <h2>Scenarios</h2>
   <form id="scn-filter" onsubmit="return false;" style="display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin:8px 0;">
     <label>Search (name/desc)
-      <input type="text" id="f-q" placeholder="keyword" />
+      <input type="text" id="f-q" placeholder="keyword" aria-label="シナリオ検索" />
     </label>
     <label>Tag
-      <input type="text" id="f-tag" list="tag-list" placeholder="tag" />
+      <input type="text" id="f-tag" list="tag-list" placeholder="tag" aria-label="タグフィルタ" />
       <datalist id="tag-list"></datalist>
     </label>
     <label>Locked
-      <select id="f-locked">
+      <select id="f-locked" aria-label="ロック状態フィルタ">
         <option value="">(all)</option>
         <option value="1">locked</option>
         <option value="0">unlocked</option>
       </select>
     </label>
-    <button type="button" class="secondary" id="f-apply">Apply</button>
-    <button type="button" class="secondary" id="f-clear">Clear</button>
+    <button type="button" class="secondary" id="f-apply" aria-label="フィルタを適用">Apply</button>
+    <button type="button" class="secondary" id="f-clear" aria-label="フィルタをクリア">Clear</button>
   </form>
   <form method="post" action="/ui/scenarios" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
     <label>Name
@@ -33,7 +33,7 @@
     <label style="grid-column:1 / -1;">Description
       <textarea name="description" rows="3" style="width:100%"></textarea>
     </label>
-    <div><button type="submit">Add</button></div>
+    <div><button type="submit" aria-label="シナリオを追加">Add</button></div>
   </form>
   {% if rows %}
   <table role="grid">
@@ -70,7 +70,7 @@
                 {% endfor %}
               </select>
             </label>
-            <button type="submit">Run</button>
+            <button type="submit" aria-label="このシナリオで実行">Run</button>
           </form>
         </td>
         <td>
@@ -93,11 +93,11 @@
                 <textarea name="description" rows="3" style="width:100%">{{ r.description or '' }}</textarea>
               </label>
               <div style="grid-column:1 / -1; display:flex; gap:6px;">
-                <button type="submit">Update</button>
+                <button type="submit" aria-label="シナリオを更新">Update</button>
               </div>
             </form>
             <form method="post" action="/ui/scenarios/{{ r.id }}/delete" onsubmit="return confirm('Delete scenario #{{ r.id }}?');" style="margin-top:6px;">
-              <button type="submit" class="contrast">Delete</button>
+              <button type="submit" class="contrast" aria-label="シナリオを削除">Delete</button>
             </form>
           </details>
         </td>

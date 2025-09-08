@@ -55,10 +55,21 @@ def ui_planning(
     out_dir: str | None = Query(None, alias="dir"),
     allow_legacy: int | None = Query(None),
 ):
+    # Phase 3（フラグ有効時）: 404ガイドへ誘導（opt-outは allow_legacy=1）
+    try:
+        if os.getenv("HUB_LEGACY_CLOSE", "0") == "1" and not allow_legacy:
+            return templates.TemplateResponse(
+                "legacy_closed.html",
+                {"request": request, "subtitle": "レガシー入口は終了しました"},
+                status_code=404,
+            )
+    except Exception:
+        pass
     # Phase 2: 一時リダイレクト（opt-outは allow_legacy=1）
     try:
         if not allow_legacy:
             from app.metrics import HTTP_REQUESTS  # reuse http counter for visibility
+
             HTTP_REQUESTS.labels(method="GET", path="/ui/planning", status="302").inc()
             return RedirectResponse(url="/ui/plans", status_code=302)
     except Exception:
