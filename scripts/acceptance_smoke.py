@@ -9,13 +9,13 @@ Usage:
 - アプリが起動済み（uvicorn main:app --reload など）
 
 検証観点（要約）:
-- AT-01: Plan作成→summary取得
+- AT-01: Plan作成→summary取得、/ui/plans と /ui/plans/{id} のHTML軽検証
 - AT-02: '/' が /ui/plans へリダイレクト
 - AT-03: /ui/planning が 302→/ui/plans または 404(ガイド)
 - AT-04: Plan & Run（自動補完）で新規Planが作成される
 - AT-05: /plans/{id}/summary に recon/weekly_summary が出力される
-- AT-06: /plans/{id}/compare(.csv) が取得できる
-- AT-07: /metrics に主要カウンタが現れ、操作で増分する
+- AT-06: /plans/{id}/compare(.csv) 取得（limit/violations_only 整合）
+- AT-07: /metrics 主要カウンタの存在と増分
 """
 
 from __future__ import annotations
@@ -142,12 +142,13 @@ def main() -> int:
         r = post_form(s, f"{base}/ui/plans/run", form)
         if r.status_code not in (302, 303):
             ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
+        # 生成・永続の少しの遅延を待機
         time.sleep(0.6)
         vid = latest_plan_id(s, base)
         if not vid:
             ng("AT-01 Plan作成", "version_id が取得できませんでした")
         else:
-            # summary
+            # summary（必須キー）
             summ = get_json(s, f"{base}/plans/{vid}/summary")
             if "weekly_summary" in summ:
                 ok("AT-01 Plan作成→summary取得")
@@ -234,7 +235,7 @@ def main() -> int:
             r2 = post_form(s, f"{base}/ui/plans/{plan_id}/plan_run_auto", form)
             if r2.status_code not in (302, 303):
                 ng("AT-04 Plan&Run", f"unexpected status: {r2.status_code}")
-            time.sleep(0.3)
+            time.sleep(0.6)
             new_plan_id = latest_plan_id(s, base)
             if new_plan_id and new_plan_id != plan_id:
                 ok("AT-04 Plan&Run（自動補完）で新規Plan作成")
