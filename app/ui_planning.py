@@ -69,6 +69,7 @@ def ui_planning(
     try:
         if not allow_legacy:
             from app.metrics import HTTP_REQUESTS  # reuse http counter for visibility
+
             HTTP_REQUESTS.labels(method="GET", path="/ui/planning", status="302").inc()
             return RedirectResponse(url="/ui/plans", status_code=302)
     except Exception:

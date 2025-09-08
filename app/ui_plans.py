@@ -98,7 +98,10 @@ def ui_plan_detail(version_id: str, request: Request):
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
-    plan_state = db.get_plan_artifact(version_id, "state.json") or {"state": "draft", "invalid": []}
+    plan_state = db.get_plan_artifact(version_id, "state.json") or {
+        "state": "draft",
+        "invalid": [],
+    }
     aggregate = db.get_plan_artifact(version_id, "aggregate.json") or {}
     sku_week = db.get_plan_artifact(version_id, "sku_week.json") or {}
     disagg_rows_sample = []
@@ -309,7 +312,9 @@ def ui_plan_detail(version_id: str, request: Request):
             "latest_run_ids": latest_ids,
             "aggregate": aggregate,
             "disagg_rows": disagg_rows_sample,
-            "disagg_total": len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0,
+            "disagg_total": (
+                len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0
+            ),
             "schedule_rows": schedule_rows_sample,
             "schedule_total": schedule_total,
             "validate": validate,
@@ -401,7 +406,11 @@ def ui_plan_run_auto(
     # 既存のcutover/window/policyを引き継ぎ（存在する場合）
     # plan_final.boundary_summary にもフォールバック
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
-    bs = (plan_final.get("boundary_summary") or {}) if isinstance(plan_final, dict) else {}
+    bs = (
+        (plan_final.get("boundary_summary") or {})
+        if isinstance(plan_final, dict)
+        else {}
+    )
     cutover_date = ver.get("cutover_date") or bs.get("cutover_date")
     recon_window_days = ver.get("recon_window_days") or bs.get("window_days")
     anchor_policy = bs.get("anchor_policy")
@@ -440,8 +449,12 @@ _STEPS = ["draft", "aggregated", "disaggregated", "scheduled", "executed"]
 def ui_plan_state_advance(version_id: str, request: Request, to: str = Form(...)):
     if to not in _STEPS:
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
-    state = db.get_plan_artifact(version_id, "state.json") or {"state": "draft", "invalid": []}
+    state = db.get_plan_artifact(version_id, "state.json") or {
+        "state": "draft",
+        "invalid": [],
+    }
     curr = state.get("state") or "draft"
     if _STEPS.index(to) < _STEPS.index(curr):
         to = curr
@@ -451,31 +464,40 @@ def ui_plan_state_advance(version_id: str, request: Request, to: str = Form(...)
         if _STEPS.index(s) <= _STEPS.index(to):
             inv.discard(s)
     state["invalid"] = sorted(list(inv))
-    db.upsert_plan_artifact(version_id, "state.json", json.dumps(state, ensure_ascii=False))
+    db.upsert_plan_artifact(
+        version_id, "state.json", json.dumps(state, ensure_ascii=False)
+    )
     try:
         db.update_plan_version(version_id, status=to)
     except Exception:
         pass
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
 @app.post("/ui/plans/{version_id}/state/invalidate")
-def ui_plan_state_invalidate(version_id: str, request: Request, from_step: str = Form(...)):
+def ui_plan_state_invalidate(
+    version_id: str, request: Request, from_step: str = Form(...)
+):
     if from_step not in _STEPS:
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
     idx = _STEPS.index(from_step)
     state = {
         "state": from_step,
         "invalid": _STEPS[idx + 1 :],
     }
-    db.upsert_plan_artifact(version_id, "state.json", json.dumps(state, ensure_ascii=False))
+    db.upsert_plan_artifact(
+        version_id, "state.json", json.dumps(state, ensure_ascii=False)
+    )
     try:
         db.update_plan_version(version_id, status=from_step)
     except Exception:
         pass
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 

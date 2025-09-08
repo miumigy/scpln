@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from fastapi.testclient import TestClient
 from app.api import app
 
@@ -17,4 +16,3 @@ def test_planning_legacy_close_404(monkeypatch):
     r2 = client.get("/ui/planning?allow_legacy=1")
     # either redirect to /ui/plans (Phase 2) or legacy rendered; but not 404
     assert r2.status_code != 404
-

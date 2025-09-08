@@ -23,7 +23,6 @@ from __future__ import annotations
 import sys
 import time
 import argparse
-import json
 from typing import Dict, Any, Optional
 
 try:
@@ -39,11 +38,15 @@ def get_json(session: requests.Session, url: str) -> Dict[str, Any]:
     return r.json()
 
 
-def post_form(session: requests.Session, url: str, data: Dict[str, Any]) -> requests.Response:
+def post_form(
+    session: requests.Session, url: str, data: Dict[str, Any]
+) -> requests.Response:
     return session.post(url, data=data, timeout=60, allow_redirects=False)
 
 
-def post_json(session: requests.Session, url: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def post_json(
+    session: requests.Session, url: str, data: Dict[str, Any]
+) -> Dict[str, Any]:
     r = session.post(url, json=data, timeout=120)
     r.raise_for_status()
     return r.json()
@@ -89,8 +92,10 @@ def main() -> int:
     s = requests.Session()
 
     failures: list[str] = []
+
     def ok(name: str):
         print(f"[OK] {name}")
+
     def ng(name: str, msg: str):
         failures.append(f"{name}: {msg}")
         print(f"[NG] {name}: {msg}")
@@ -106,11 +111,15 @@ def main() -> int:
     # AT-02: Home リダイレクト
     try:
         r = s.get(f"{base}/", allow_redirects=False, timeout=10)
-        if r.status_code in (301, 302, 307, 308) and \
-           (r.headers.get("Location", "").startswith("/ui/plans")):
+        if r.status_code in (301, 302, 307, 308) and (
+            r.headers.get("Location", "").startswith("/ui/plans")
+        ):
             ok("AT-02 Home→/ui/plans リダイレクト")
         else:
-            ng("AT-02 Home リダイレクト", f"code={r.status_code} location={r.headers.get('Location')}")
+            ng(
+                "AT-02 Home リダイレクト",
+                f"code={r.status_code} location={r.headers.get('Location')}",
+            )
     except Exception as e:
         ng("AT-02 Home リダイレクト", str(e))
 
@@ -149,7 +158,7 @@ def main() -> int:
             try:
                 rlist = s.get(f"{base}/ui/plans", timeout=30)
                 if rlist.status_code == 200 and ("プランバージョン一覧" in rlist.text):
-                    if 'aria-label=' in rlist.text:
+                    if "aria-label=" in rlist.text:
                         ok("HTML: /ui/plans が200で見出し/aria-labelを含む")
                     else:
                         ng("HTML: /ui/plans", "aria-label が見つかりません")
@@ -160,9 +169,20 @@ def main() -> int:
             # HTML: /ui/plans/{id} 詳細
             try:
                 rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
-                if rdet.status_code == 200 and ("プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text):
+                if rdet.status_code == 200 and (
+                    "プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text
+                ):
                     # 代表的なタブ aria-label を確認
-                    labels = ["概要タブ", "集約タブ", "詳細展開タブ", "予定オーダタブ", "検証タブ", "実行タブ", "結果タブ", "差分タブ"]
+                    labels = [
+                        "概要タブ",
+                        "集約タブ",
+                        "詳細展開タブ",
+                        "予定オーダタブ",
+                        "検証タブ",
+                        "実行タブ",
+                        "結果タブ",
+                        "差分タブ",
+                    ]
                     if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
                         ok("HTML: /ui/plans/{id} が200でタブ aria-label を含む")
                     else:
@@ -178,12 +198,17 @@ def main() -> int:
     # AT-03: 旧UI誘導
     try:
         r = s.get(f"{base}/ui/planning", allow_redirects=False, timeout=10)
-        if r.status_code in (301, 302) and r.headers.get("Location", "").startswith("/ui/plans"):
+        if r.status_code in (301, 302) and r.headers.get("Location", "").startswith(
+            "/ui/plans"
+        ):
             ok("AT-03 /ui/planning → /ui/plans (302)")
         elif r.status_code == 404:
             ok("AT-03 /ui/planning 404 ガイド表示")
         else:
-            ng("AT-03 旧UI誘導", f"code={r.status_code} location={r.headers.get('Location')}")
+            ng(
+                "AT-03 旧UI誘導",
+                f"code={r.status_code} location={r.headers.get('Location')}",
+            )
     except Exception as e:
         ng("AT-03 旧UI誘導", str(e))
 
@@ -224,7 +249,9 @@ def main() -> int:
     try:
         if plan_id:
             summ = get_json(s, f"{base}/plans/{plan_id}/summary")
-            if (summ.get("reconciliation") is not None) and (summ.get("weekly_summary") is not None):
+            if (summ.get("reconciliation") is not None) and (
+                summ.get("weekly_summary") is not None
+            ):
                 ok("AT-05 Validate 情報の存在（reconciliation/weekly_summary）")
             else:
                 ng("AT-05 Validate 情報", "必要キーが見つかりません")
@@ -237,7 +264,10 @@ def main() -> int:
     try:
         if plan_id:
             limit = 50
-            j = get_json(s, f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit={limit}")
+            j = get_json(
+                s,
+                f"{base}/plans/{plan_id}/compare?violations_only=true&sort=rel_desc&limit={limit}",
+            )
             rows = j.get("rows") if isinstance(j, dict) else None
             if isinstance(rows, list) and len(rows) <= limit:
                 viol_ok = all((not bool(r.get("ok"))) for r in rows)
@@ -247,9 +277,16 @@ def main() -> int:
                     ng("AT-06 Compare JSON", "violations_only で ok=true を含む")
             else:
                 ng("AT-06 Compare JSON", "rows 欠落/型不正")
-            r = s.get(f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100", timeout=30)
+            r = s.get(
+                f"{base}/plans/{plan_id}/compare.csv?violations_only=true&sort=abs_desc&limit=100",
+                timeout=30,
+            )
             lines = r.text.splitlines() if r.status_code == 200 else []
-            if r.status_code == 200 and len(lines) >= 1 and lines[0].startswith("family,period"):
+            if (
+                r.status_code == 200
+                and len(lines) >= 1
+                and lines[0].startswith("family,period")
+            ):
                 # ヘッダ以外の行数が上限内
                 if len(lines) - 1 <= 100:
                     ok("AT-06 Compare CSV 取得（ヘッダ/件数上限）")
@@ -267,10 +304,15 @@ def main() -> int:
         if plan_id:
             r = s.get(f"{base}/plans/{plan_id}/schedule.csv", timeout=30)
             lines = r.text.splitlines() if r.status_code == 200 else []
-            if r.status_code == 200 and len(lines) >= 2 and lines[0].startswith("week,sku"):
+            if (
+                r.status_code == 200
+                and len(lines) >= 2
+                and lines[0].startswith("week,sku")
+            ):
                 try:
                     import csv
                     from io import StringIO
+
                     rows = list(csv.DictReader(StringIO(r.text)))
                     data_rows = len(rows)
                     if data_rows < 1:
@@ -313,7 +355,12 @@ def main() -> int:
             ng("AT-07 metrics 存在チェック", f"missing: {missing}")
         # 増分（最低限: created/viewed/schedule/compare のどれかが増える）
         inc_names = []
-        for name in ("plans_created_total", "plans_viewed_total", "plan_schedule_export_total", "plan_compare_export_total"):
+        for name in (
+            "plans_created_total",
+            "plans_viewed_total",
+            "plan_schedule_export_total",
+            "plan_compare_export_total",
+        ):
             before = metrics_before.get(name, 0)
             after = metrics_after.get(name, 0)
             if after > before:
