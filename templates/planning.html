@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section>
-  <h2>集約計画/詳細計画 パイプライン（UI検証）</h2>
+  <h2>集約計画/詳細計画 パイプライン（レガシー/UI検証）</h2>
   <p class="mono">ヘルプ: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md" target="_blank">整合ガイド（GitHub）</a></p>
   <article id="legacyNotice" style="margin: 8px 0;">
     <strong>この画面はレガシーです（Planning Hubへ統合中）。</strong>
@@ -139,7 +139,7 @@
       <p class="mono">注: 現時点では version_id のみログ付与に使用し、他の設定はv2で有効化予定です。</p>
     </details>
     <label><input type="checkbox" name="redirect_to_plans" value="1"> 実行後に「プラン一覧」へ遷移して保存内容を確認する</label>
-    <button type="submit">パイプライン実行</button>
+    <button type="submit" aria-label="パイプライン実行">パイプライン実行</button>
   </form>
 </section>
 
@@ -213,7 +213,7 @@
       </label>
       <label><input type="checkbox" name="apply_adjusted" value="1"> 調整後DETでMRP/CRPも再計算（検証）</label>
     </div>
-    <button type="submit" class="secondary">ジョブとして実行（/ui/jobsで監視）</button>
+    <button type="submit" class="secondary" aria-label="ジョブとして実行">ジョブとして実行（/ui/jobsで監視）</button>
   </form>
 </section>
 

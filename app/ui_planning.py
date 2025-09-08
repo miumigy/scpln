@@ -55,10 +55,21 @@ def ui_planning(
     out_dir: str | None = Query(None, alias="dir"),
     allow_legacy: int | None = Query(None),
 ):
+    # Phase 3（フラグ有効時）: 404ガイドへ誘導（opt-outは allow_legacy=1）
+    try:
+        if os.getenv("HUB_LEGACY_CLOSE", "0") == "1" and not allow_legacy:
+            return templates.TemplateResponse(
+                "legacy_closed.html",
+                {"request": request, "subtitle": "レガシー入口は終了しました"},
+                status_code=404,
+            )
+    except Exception:
+        pass
     # Phase 2: 一時リダイレクト（opt-outは allow_legacy=1）
     try:
         if not allow_legacy:
             from app.metrics import HTTP_REQUESTS  # reuse http counter for visibility
+
             HTTP_REQUESTS.labels(method="GET", path="/ui/planning", status="302").inc()
             return RedirectResponse(url="/ui/plans", status_code=302)
     except Exception:
@@ -413,18 +424,18 @@ def planning_run(
             "--weeks",
             str(weeks),
             *(["--cutover-date", cutover_date] if cutover_date else []),
-            *(
+            *( \
                 ["--recon-window-days", str(recon_window_days_i)]
                 if recon_window_days_i is not None
                 else []
             ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-            *(
+            *( \
                 ["--blend-split-next", str(blend_split_next_f)]
                 if (blend_split_next_f is not None)
                 else []
             ),
-            *(
+            *( \
                 ["--blend-weight-mode", str(blend_weight_mode)]
                 if blend_weight_mode
                 else []
@@ -443,18 +454,18 @@ def planning_run(
             "--version",
             (version_id or "ui"),
             *(["--cutover-date", cutover_date] if cutover_date else []),
-            *(
+            *( \
                 ["--recon-window-days", str(recon_window_days_i)]
                 if recon_window_days_i is not None
                 else []
             ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-            *(
+            *( \
                 ["--tol-abs", str(tol_abs_f)]
                 if tol_abs_f is not None
                 else ["--tol-abs", "1e-6"]
             ),
-            *(
+            *( \
                 ["--tol-rel", str(tol_rel_f)]
                 if tol_rel_f is not None
                 else ["--tol-rel", "1e-6"]
@@ -499,7 +510,7 @@ def planning_run(
                 str(cutover_date),
                 "--anchor-policy",
                 str(anchor_policy),
-                *(
+                *( \
                     ["--recon-window-days", str(recon_window_days_i)]
                     if recon_window_days_i is not None
                     else []
@@ -508,12 +519,12 @@ def planning_run(
                 str(weeks),
                 *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                 *(["--carryover", str(carryover)] if carryover else []),
-                *(
+                *( \
                     ["--carryover-split", str(carryover_split_f)]
                     if (carryover_split_f is not None)
                     else []
                 ),
-                *(
+                *( \
                     ["--max-adjust-ratio", str(max_adjust_ratio_f)]
                     if (max_adjust_ratio_f is not None)
                     else []
@@ -536,18 +547,18 @@ def planning_run(
                 (version_id or "ui-adjusted"),
                 "--cutover-date",
                 str(cutover_date),
-                *(
+                *( \
                     ["--recon-window-days", str(recon_window_days_i)]
                     if recon_window_days_i is not None
                     else []
                 ),
                 *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-                *(
+                *( \
                     ["--tol-abs", str(tol_abs_f)]
                     if tol_abs_f is not None
                     else ["--tol-abs", "1e-6"]
                 ),
-                *(
+                *( \
                     ["--tol-rel", str(tol_rel_f)]
                     if tol_rel_f is not None
                     else ["--tol-rel", "1e-6"]
@@ -624,18 +635,18 @@ def planning_run(
                     "--weeks",
                     str(weeks),
                     *(["--cutover-date", cutover_date] if cutover_date else []),
-                    *(
+                    *( \
                         ["--recon-window-days", str(recon_window_days_i)]
                         if recon_window_days_i is not None
                         else []
                     ),
                     *(["--anchor-policy", anchor_policy] if anchor_policy else []),
-                    *(
+                    *( \
                         ["--blend-split-next", str(blend_split_next_f)]
                         if (blend_split_next_f is not None)
                         else []
                     ),
-                    *(
+                    *( \
                         ["--blend-weight-mode", str(blend_weight_mode)]
                         if blend_weight_mode
                         else []

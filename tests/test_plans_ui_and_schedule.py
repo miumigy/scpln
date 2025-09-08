@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from fastapi.testclient import TestClient
 from app.api import app
-from app import db
 
 
 def _make_plan_with_artifacts(version_id: str) -> None:
@@ -31,7 +30,9 @@ def test_schedule_csv_and_ui_tabs_present():
     r = client.get(f"/plans/{ver}/schedule.csv")
     assert r.status_code == 200
     body = r.text.splitlines()
-    assert body and body[0].startswith("week,sku,scheduled_receipts,on_hand_start,on_hand_end")
+    assert body and body[0].startswith(
+        "week,sku,scheduled_receipts,on_hand_start,on_hand_end"
+    )
     # plan detail UI renders core tabs and links
     r = client.get(f"/ui/plans/{ver}")
     assert r.status_code == 200

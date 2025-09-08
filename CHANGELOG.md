@@ -2,8 +2,49 @@
 
 ## Unreleased
 
+## v0.5.0 (2025-09-07)
+
 - feat(ui/plans): Planning Hub 詳細のアクセシビリティ改善（aria-label追加）
 - docs(planning): PLANNING-HUB-UX-PLAN のWBS整合（P-23/P-24 完了）と進捗追記
+
+## v0.5.0 (2025-09-07)
+
+- Planning Hub P2 の安定リリース
+  - P-14: レガシーUI `/ui/planning` 段階的クローズ（Phase2: 302, Phase3: 404ガイド）+ テスト
+  - P-11: Plan & Run（自動補完）引継ぎ拡張（tol_abs/rel, calendar_mode, carryover系 等）+ テスト
+  - P-07/08/09/10: タブ（Aggregate/Disaggregate/Schedule/Validate）追加、`schedule.csv`、Validate自動チェック
+  - P-13: Prometheusメトリクス拡張（plans_created_total ほか）
+  - P-23: 用語表/README統一、UIツールチップ/aria-label 追加、API概要ドキュメント
+  - P-24: ハンズオンチュートリアル追加（作成→プレビュー→再整合→Plan&Run→結果確認）
+
+## v0.5.0-rc (2025-09-07)
+
+- Planning Hub P2 ロールアップ（#184）
+  - P-14: レガシーUI `/ui/planning` 段階的クローズ（Phase2: 302, Phase3: 404ガイド）+ テスト
+  - P-11: Plan & Run（自動補完）引継ぎ拡張（tol_abs/rel, calendar_mode, carryover系 等）+ テスト
+  - P-07/08/09/10: タブ（Aggregate/Disaggregate/Schedule/Validate）追加、`schedule.csv`、Validate自動チェック
+  - P-13: Prometheusメトリクス拡張（plans_created_total ほか）
+  - P-23: 用語表/README統一、UIツールチップ/aria-label 追加、API概要ドキュメント
+  - P-24: ハンズオンチュートリアル追加（作成→プレビュー→再整合→Plan&Run→結果確認）
+
+- feat(P-14): レガシーUI `/ui/planning` の段階的クローズ
+  - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
+  - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）
+  - tests: 404ガイド/回避動作の追加テスト
+- feat(P-11): Plan & Run（自動補完）を拡張（tol_abs/rel, calendar_mode, carryover系 等を委譲）
+  - UIフォーム拡張、/runs API→/plans/integrated/run への委譲、リダイレクト検証のテスト
+- feat(P-07/08/09/10): Planning Hub タブ
+  - Aggregate/Disaggregate/Schedule/Validate（MVP）をプラン詳細に追加
+  - `schedule.csv` エクスポート、Validate自動チェック（Tol違反/負在庫/小数受入/能力超過）
+- feat(P-13): メトリクス拡張（Prometheus）
+  - plans_created_total / plans_reconciled_total / plans_viewed_total / runs_queued_total
+  - plan_schedule_export_total / plan_compare_export_total / plan_carryover_export_total
+- docs(P-23): 用語表/README/アクセシビリティ
+  - `docs/TERMS-JA.md` 追加、READMEをPlanning Hub中心に統一
+  - UIにツールチップ/aria-labelを付加（検索/並び替え/実行/コピー/比較 等）
+- docs(P-24): ハンズオンチュートリアル
+  - `docs/TUTORIAL-JA.md` 追加（作成→プレビュー→再整合→Plan&Run→結果確認）
+  - `docs/API-OVERVIEW-JA.md` 追加（主要エンドポイントの要約）
 
 ## v0.4.1 (2025-08-27)
 

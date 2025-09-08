@@ -35,12 +35,18 @@ HTTP_DURATION = Histogram(
 
 # Planning Hub specific KPIs
 PLANS_CREATED = Counter("plans_created_total", "Number of plans created")
-PLANS_RECONCILED = Counter("plans_reconciled_total", "Number of plan reconciliations executed")
+PLANS_RECONCILED = Counter(
+    "plans_reconciled_total", "Number of plan reconciliations executed"
+)
 PLANS_VIEWED = Counter("plans_viewed_total", "Number of plan detail views")
 RUNS_QUEUED = Counter("runs_queued_total", "Number of background runs queued")
 PLAN_EXPORT_SCHEDULE = Counter("plan_schedule_export_total", "Exports of schedule.csv")
-PLAN_EXPORT_COMPARE = Counter("plan_compare_export_total", "Exports of compare.csv", labelnames=("mode",))
-PLAN_EXPORT_CARRYOVER = Counter("plan_carryover_export_total", "Exports of carryover.csv")
+PLAN_EXPORT_COMPARE = Counter(
+    "plan_compare_export_total", "Exports of compare.csv", labelnames=("mode",)
+)
+PLAN_EXPORT_CARRYOVER = Counter(
+    "plan_carryover_export_total", "Exports of carryover.csv"
+)
 
 COMPARE_REQUESTS = Counter(
     "compare_requests_total",
