@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from app.api import app
-from fastapi import Request, Form, Query, UploadFile, File
+from fastapi import Request, Form, Query, UploadFile, File, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app.jobs import JOB_MANAGER
 from app import db as _db
+from app.simulation_api import PlanningRunParams
 import os
 import json
 import subprocess
@@ -23,30 +24,6 @@ def _run_py(args: list[str], env: dict | None = None) -> None:
     if env:
         e.update(env)
     subprocess.run(["python3", *args], cwd=str(_BASE_DIR), env=e, check=True)
-
-
-def _to_int(x: str | int | None) -> int | None:
-    try:
-        if x is None:
-            return None
-        if isinstance(x, int):
-            return x
-        s = str(x).strip()
-        return int(s) if s != "" else None
-    except Exception:
-        return None
-
-
-def _to_float(x: str | float | None) -> float | None:
-    try:
-        if x is None:
-            return None
-        if isinstance(x, float):
-            return x
-        s = str(x).strip()
-        return float(s) if s != "" else None
-    except Exception:
-        return None
 
 
 @app.get("/ui/planning", response_class=HTMLResponse)
@@ -298,25 +275,7 @@ def ui_planning(
 @app.post("/planning/run")
 def planning_run(
     request: Request,
-    input_dir: str = Form("samples/planning"),
-    out_dir: str | None = Form(None),
-    weeks: int = Form(4),
-    round_mode: str = Form("int"),
-    lt_unit: str = Form("day"),
-    version_id: str = Form(""),
-    cutover_date: str | None = Form(None),
-    recon_window_days: int | None = Form(None),
-    anchor_policy: str | None = Form(None),
-    calendar_mode: str | None = Form(None),
-    carryover: str | None = Form(None),
-    carryover_split: float | None = Form(None),
-    blend_split_next: float | None = Form(None),
-    blend_weight_mode: str | None = Form(None),
-    max_adjust_ratio: float | None = Form(None),
-    tol_abs: float | None = Form(None),
-    tol_rel: float | None = Form(None),
-    apply_adjusted: int | None = Form(None),
-    redirect_to_plans: int | None = Form(None),
+    params: PlanningRunParams = Depends(),
     demand_family: UploadFile | None = File(None),
     capacity: UploadFile | None = File(None),
     mix_share: UploadFile | None = File(None),
@@ -326,7 +285,7 @@ def planning_run(
     bom: UploadFile | None = File(None),
 ):
     ts = int(time.time())
-    out_base = Path(out_dir) if out_dir else (_BASE_DIR / "out" / f"ui_planning_{ts}")
+    out_base = Path(params.out_dir) if params.out_dir else (_BASE_DIR / "out" / f"ui_planning_{ts}")
     out_base.mkdir(parents=True, exist_ok=True)
     # optional: uploaded CSVs → override input_dir into temp folder
     upload_files = {
@@ -357,10 +316,8 @@ def planning_run(
         except Exception:
             # 個別の失敗は無視（他の入力にフォールバック）
             continue
-    if wrote_any:
-        input_dir = str(tmp_in)
-
     
+    input_dir = str(tmp_in) if wrote_any else params.input_dir
 
     # 1) aggregate
     _run_py(
@@ -383,9 +340,9 @@ def planning_run(
             "-o",
             str(out_base / "sku_week.json"),
             "--weeks",
-            str(weeks),
+            str(params.weeks),
             "--round",
-            round_mode,
+            params.round_mode,
         ]
     )
     # 3) mrp
@@ -399,9 +356,9 @@ def planning_run(
             "-o",
             str(out_base / "mrp.json"),
             "--lt-unit",
-            lt_unit,
+            params.lt_unit,
             "--weeks",
-            str(weeks),
+            str(params.weeks),
         ]
     )
     # 4) reconcile
@@ -416,22 +373,22 @@ def planning_run(
             "-o",
             str(out_base / "plan_final.json"),
             "--weeks",
-            str(weeks),
-            *(["--cutover-date", cutover_date] if cutover_date else []),
+            str(params.weeks),
+            *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
             *( \
-                ["--recon-window-days", str(recon_window_days)]
-                if recon_window_days is not None
+                ["--recon-window-days", str(params.recon_window_days)]
+                if params.recon_window_days is not None
                 else []
             ),
-            *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+            *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
             *( \
-                ["--blend-split-next", str(blend_split_next)]
-                if (blend_split_next is not None)
+                ["--blend-split-next", str(params.blend_split_next)]
+                if (params.blend_split_next is not None)
                 else []
             ),
             *( \
-                ["--blend-weight-mode", str(blend_weight_mode)]
-                if blend_weight_mode
+                ["--blend-weight-mode", str(params.blend_weight_mode)]
+                if params.blend_weight_mode
                 else []
             ),
         ]
@@ -446,22 +403,22 @@ def planning_run(
             "-o",
             str(out_base / "reconciliation_log.json"),
             "--version",
-            (version_id or "ui"),
-            *(["--cutover-date", cutover_date] if cutover_date else []),
+            (params.version_id or "ui"),
+            *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
             *( \
-                ["--recon-window-days", str(recon_window_days)]
-                if recon_window_days is not None
+                ["--recon-window-days", str(params.recon_window_days)]
+                if params.recon_window_days is not None
                 else []
             ),
-            *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+            *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
             *( \
-                ["--tol-abs", str(tol_abs)]
-                if tol_abs is not None
+                ["--tol-abs", str(params.tol_abs)]
+                if params.tol_abs is not None
                 else ["--tol-abs", "1e-6"]
             ),
             *( \
-                ["--tol-rel", str(tol_rel)]
-                if tol_rel is not None
+                ["--tol-rel", str(params.tol_rel)]
+                if params.tol_rel is not None
                 else ["--tol-rel", "1e-6"]
             ),
         ]
@@ -491,7 +448,7 @@ def planning_run(
         ]
     )
     # optional: anchor=DET_near 調整（検証用、MRP再計算は行わない）
-    if anchor_policy and cutover_date:
+    if params.anchor_policy and params.cutover_date:
         _run_py(
             [
                 "scripts/anchor_adjust.py",
@@ -501,30 +458,30 @@ def planning_run(
                 "-o",
                 str(out_base / "sku_week_adjusted.json"),
                 "--cutover-date",
-                str(cutover_date),
+                str(params.cutover_date),
                 "--anchor-policy",
-                str(anchor_policy),
+                str(params.anchor_policy),
                 *( \
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
+                    ["--recon-window-days", str(params.recon_window_days)]
+                    if params.recon_window_days is not None
                     else []
                 ),
                 "--weeks",
-                str(weeks),
-                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
-                *(["--carryover", str(carryover)] if carryover else []),
+                str(params.weeks),
+                *(["--calendar-mode", str(params.calendar_mode)] if params.calendar_mode else []),
+                *(["--carryover", str(params.carryover)] if params.carryover else []),
                 *( \
-                    ["--carryover-split", str(carryover_split)]
-                    if (carryover_split is not None)
+                    ["--carryover-split", str(params.carryover_split)]
+                    if (params.carryover_split is not None)
                     else []
                 ),
                 *( \
-                    ["--max-adjust-ratio", str(max_adjust_ratio)]
-                    if (max_adjust_ratio is not None)
+                    ["--max-adjust-ratio", str(params.max_adjust_ratio)]
+                    if (params.max_adjust_ratio is not None)
                     else []
                 ),
-                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
-                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
+                *(["--tol-abs", str(params.tol_abs)] if (params.tol_abs is not None) else []),
+                *(["--tol-rel", str(params.tol_rel)] if (params.tol_rel is not None) else []),
                 "-I",
                 input_dir,
             ]
@@ -538,23 +495,23 @@ def planning_run(
                 "-o",
                 str(out_base / "reconciliation_log_adjusted.json"),
                 "--version",
-                (version_id or "ui-adjusted"),
+                (params.version_id or "ui-adjusted"),
                 "--cutover-date",
-                str(cutover_date),
+                str(params.cutover_date),
                 *( \
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
+                    ["--recon-window-days", str(params.recon_window_days)]
+                    if params.recon_window_days is not None
                     else []
                 ),
-                *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+                *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
                 *( \
-                    ["--tol-abs", str(tol_abs)]
-                    if tol_abs is not None
+                    ["--tol-abs", str(params.tol_abs)]
+                    if params.tol_abs is not None
                     else ["--tol-abs", "1e-6"]
                 ),
                 *( \
-                    ["--tol-rel", str(tol_rel)]
-                    if tol_rel is not None
+                    ["--tol-rel", str(params.tol_rel)]
+                    if params.tol_rel is not None
                     else ["--tol-rel", "1e-6"]
                 ),
             ]
@@ -600,7 +557,7 @@ def planning_run(
                 str(out_base / "carryover.csv"),
             ]
         )
-        if apply_adjusted:
+        if params.apply_adjusted:
             _run_py(
                 [
                     "scripts/mrp.py",
@@ -611,9 +568,9 @@ def planning_run(
                     "-o",
                     str(out_base / "mrp_adjusted.json"),
                     "--lt-unit",
-                    lt_unit,
+                    params.lt_unit,
                     "--weeks",
-                    str(weeks),
+                    str(params.weeks),
                 ]
             )
             _run_py(
@@ -627,22 +584,22 @@ def planning_run(
                     "-o",
                     str(out_base / "plan_final_adjusted.json"),
                     "--weeks",
-                    str(weeks),
-                    *(["--cutover-date", cutover_date] if cutover_date else []),
+                    str(params.weeks),
+                    *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
                     *( \
-                        ["--recon-window-days", str(recon_window_days)]
-                        if recon_window_days is not None
+                        ["--recon-window-days", str(params.recon_window_days)]
+                        if params.recon_window_days is not None
                         else []
                     ),
-                    *(["--anchor-policy", anchor_policy] if anchor_policy else []),
+                    *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
                     *( \
-                        ["--blend-split-next", str(blend_split_next)]
-                        if (blend_split_next is not None)
+                        ["--blend-split-next", str(params.blend_split_next)]
+                        if (params.blend_split_next is not None)
                         else []
                     ),
                     *( \
-                        ["--blend-weight-mode", str(blend_weight_mode)]
-                        if blend_weight_mode
+                        ["--blend-weight-mode", str(params.blend_weight_mode)]
+                        if params.blend_weight_mode
                         else []
                     ),
                 ]
@@ -672,16 +629,12 @@ def planning_run(
     )
     # Persist as plan version so that /ui/plans で一覧表示できるようにする
     try:
-        ver_id = version_id or f"ui-{ts}"
+        ver_id = params.version_id or f"ui-{ts}"
         _db.create_plan_version(
             ver_id,
             status="active",
-            cutover_date=cutover_date,
-            recon_window_days=(
-                recon_window_days
-                if isinstance(recon_window_days, int)
-                else _to_int(recon_window_days)
-            ),
+            cutover_date=params.cutover_date,
+            recon_window_days=params.recon_window_days,
             objective=None,
             note="ui_planning",
         )
@@ -707,7 +660,7 @@ def planning_run(
         # UI上は続行（/ui/plans 側で空の場合は未保存扱い）
         pass
     # 遷移先: 要求があればプラン一覧へ
-    if redirect_to_plans:
+    if params.redirect_to_plans:
         return RedirectResponse(url="/ui/plans", status_code=303)
     rel = str(out_base.relative_to(_BASE_DIR))
     return RedirectResponse(url=f"/ui/planning?dir={rel}", status_code=303)
@@ -715,44 +668,9 @@ def planning_run(
 
 @app.post("/planning/run_job")
 def planning_run_job(
-    input_dir: str = Form("samples/planning"),
-    out_dir: str | None = Form(None),
-    weeks: int = Form(4),
-    round_mode: str = Form("int"),
-    lt_unit: str = Form("day"),
-    version_id: str = Form(""),
-    cutover_date: str | None = Form(None),
-    recon_window_days: int | None = Form(None),
-    anchor_policy: str | None = Form(None),
-    calendar_mode: str | None = Form(None),
-    carryover: str | None = Form(None),
-    carryover_split: float | None = Form(None),
-    max_adjust_ratio: float | None = Form(None),
-    blend_split_next: float | None = Form(None),
-    blend_weight_mode: str | None = Form(None),
-    tol_abs: float | None = Form(None),
-    tol_rel: float | None = Form(None),
-    apply_adjusted: int | None = Form(None),
+    params: PlanningRunParams = Depends(),
 ):
-    params = {
-        "input_dir": input_dir,
-        "out_dir": out_dir,
-        "weeks": weeks,
-        "round_mode": round_mode,
-        "lt_unit": lt_unit,
-        "version_id": version_id,
-        "cutover_date": cutover_date,
-        "recon_window_days": recon_window_days,
-        "anchor_policy": anchor_policy,
-        "calendar_mode": calendar_mode,
-        "max_adjust_ratio": max_adjust_ratio,
-        "carryover": carryover,
-        "carryover_split": carryover_split,
-        "apply_adjusted": bool(apply_adjusted),
-        "tol_abs": tol_abs,
-        "tol_rel": tol_rel,
-        "blend_split_next": blend_split_next,
-        "blend_weight_mode": blend_weight_mode,
-    }
-    job_id = JOB_MANAGER.submit_planning(params)
+    # /planning/run と異なり、ファイルアップロードはここでは未対応
+    # そのため、params を dict に変換して渡すだけでよい
+    job_id = JOB_MANAGER.submit_planning(params.model_dump())
     return RedirectResponse(url="/ui/jobs", status_code=303)
