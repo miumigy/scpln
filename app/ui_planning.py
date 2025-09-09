@@ -305,16 +305,16 @@ def planning_run(
     lt_unit: str = Form("day"),
     version_id: str = Form(""),
     cutover_date: str | None = Form(None),
-    recon_window_days: str | None = Form(None),
+    recon_window_days: int | None = Form(None),
     anchor_policy: str | None = Form(None),
     calendar_mode: str | None = Form(None),
     carryover: str | None = Form(None),
-    carryover_split: str | None = Form(None),
-    blend_split_next: str | None = Form(None),
+    carryover_split: float | None = Form(None),
+    blend_split_next: float | None = Form(None),
     blend_weight_mode: str | None = Form(None),
-    max_adjust_ratio: str | None = Form(None),
-    tol_abs: str | None = Form(None),
-    tol_rel: str | None = Form(None),
+    max_adjust_ratio: float | None = Form(None),
+    tol_abs: float | None = Form(None),
+    tol_rel: float | None = Form(None),
     apply_adjusted: int | None = Form(None),
     redirect_to_plans: int | None = Form(None),
     demand_family: UploadFile | None = File(None),
@@ -360,13 +360,7 @@ def planning_run(
     if wrote_any:
         input_dir = str(tmp_in)
 
-    # normalize optional numerics (空文字→None)
-    recon_window_days_i = _to_int(recon_window_days)
-    carryover_split_f = _to_float(carryover_split)
-    blend_split_next_f = _to_float(blend_split_next)
-    max_adjust_ratio_f = _to_float(max_adjust_ratio)
-    tol_abs_f = _to_float(tol_abs)
-    tol_rel_f = _to_float(tol_rel)
+    
 
     # 1) aggregate
     _run_py(
@@ -425,14 +419,14 @@ def planning_run(
             str(weeks),
             *(["--cutover-date", cutover_date] if cutover_date else []),
             *( \
-                ["--recon-window-days", str(recon_window_days_i)]
-                if recon_window_days_i is not None
+                ["--recon-window-days", str(recon_window_days)]
+                if recon_window_days is not None
                 else []
             ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
             *( \
-                ["--blend-split-next", str(blend_split_next_f)]
-                if (blend_split_next_f is not None)
+                ["--blend-split-next", str(blend_split_next)]
+                if (blend_split_next is not None)
                 else []
             ),
             *( \
@@ -455,19 +449,19 @@ def planning_run(
             (version_id or "ui"),
             *(["--cutover-date", cutover_date] if cutover_date else []),
             *( \
-                ["--recon-window-days", str(recon_window_days_i)]
-                if recon_window_days_i is not None
+                ["--recon-window-days", str(recon_window_days)]
+                if recon_window_days is not None
                 else []
             ),
             *(["--anchor-policy", anchor_policy] if anchor_policy else []),
             *( \
-                ["--tol-abs", str(tol_abs_f)]
-                if tol_abs_f is not None
+                ["--tol-abs", str(tol_abs)]
+                if tol_abs is not None
                 else ["--tol-abs", "1e-6"]
             ),
             *( \
-                ["--tol-rel", str(tol_rel_f)]
-                if tol_rel_f is not None
+                ["--tol-rel", str(tol_rel)]
+                if tol_rel is not None
                 else ["--tol-rel", "1e-6"]
             ),
         ]
@@ -511,8 +505,8 @@ def planning_run(
                 "--anchor-policy",
                 str(anchor_policy),
                 *( \
-                    ["--recon-window-days", str(recon_window_days_i)]
-                    if recon_window_days_i is not None
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
                     else []
                 ),
                 "--weeks",
@@ -520,17 +514,17 @@ def planning_run(
                 *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                 *(["--carryover", str(carryover)] if carryover else []),
                 *( \
-                    ["--carryover-split", str(carryover_split_f)]
-                    if (carryover_split_f is not None)
+                    ["--carryover-split", str(carryover_split)]
+                    if (carryover_split is not None)
                     else []
                 ),
                 *( \
-                    ["--max-adjust-ratio", str(max_adjust_ratio_f)]
-                    if (max_adjust_ratio_f is not None)
+                    ["--max-adjust-ratio", str(max_adjust_ratio)]
+                    if (max_adjust_ratio is not None)
                     else []
                 ),
-                *(["--tol-abs", str(tol_abs_f)] if (tol_abs_f is not None) else []),
-                *(["--tol-rel", str(tol_rel_f)] if (tol_rel_f is not None) else []),
+                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
             ]
@@ -548,19 +542,19 @@ def planning_run(
                 "--cutover-date",
                 str(cutover_date),
                 *( \
-                    ["--recon-window-days", str(recon_window_days_i)]
-                    if recon_window_days_i is not None
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
                     else []
                 ),
                 *(["--anchor-policy", anchor_policy] if anchor_policy else []),
                 *( \
-                    ["--tol-abs", str(tol_abs_f)]
-                    if tol_abs_f is not None
+                    ["--tol-abs", str(tol_abs)]
+                    if tol_abs is not None
                     else ["--tol-abs", "1e-6"]
                 ),
                 *( \
-                    ["--tol-rel", str(tol_rel_f)]
-                    if tol_rel_f is not None
+                    ["--tol-rel", str(tol_rel)]
+                    if tol_rel is not None
                     else ["--tol-rel", "1e-6"]
                 ),
             ]
@@ -636,14 +630,14 @@ def planning_run(
                     str(weeks),
                     *(["--cutover-date", cutover_date] if cutover_date else []),
                     *( \
-                        ["--recon-window-days", str(recon_window_days_i)]
-                        if recon_window_days_i is not None
+                        ["--recon-window-days", str(recon_window_days)]
+                        if recon_window_days is not None
                         else []
                     ),
                     *(["--anchor-policy", anchor_policy] if anchor_policy else []),
                     *( \
-                        ["--blend-split-next", str(blend_split_next_f)]
-                        if (blend_split_next_f is not None)
+                        ["--blend-split-next", str(blend_split_next)]
+                        if (blend_split_next is not None)
                         else []
                     ),
                     *( \
@@ -728,16 +722,16 @@ def planning_run_job(
     lt_unit: str = Form("day"),
     version_id: str = Form(""),
     cutover_date: str | None = Form(None),
-    recon_window_days: str | None = Form(None),
+    recon_window_days: int | None = Form(None),
     anchor_policy: str | None = Form(None),
     calendar_mode: str | None = Form(None),
     carryover: str | None = Form(None),
-    carryover_split: str | None = Form(None),
-    max_adjust_ratio: str | None = Form(None),
-    blend_split_next: str | None = Form(None),
+    carryover_split: float | None = Form(None),
+    max_adjust_ratio: float | None = Form(None),
+    blend_split_next: float | None = Form(None),
     blend_weight_mode: str | None = Form(None),
-    tol_abs: str | None = Form(None),
-    tol_rel: str | None = Form(None),
+    tol_abs: float | None = Form(None),
+    tol_rel: float | None = Form(None),
     apply_adjusted: int | None = Form(None),
 ):
     params = {
@@ -748,16 +742,16 @@ def planning_run_job(
         "lt_unit": lt_unit,
         "version_id": version_id,
         "cutover_date": cutover_date,
-        "recon_window_days": _to_int(recon_window_days),
+        "recon_window_days": recon_window_days,
         "anchor_policy": anchor_policy,
         "calendar_mode": calendar_mode,
-        "max_adjust_ratio": _to_float(max_adjust_ratio),
+        "max_adjust_ratio": max_adjust_ratio,
         "carryover": carryover,
-        "carryover_split": _to_float(carryover_split),
+        "carryover_split": carryover_split,
         "apply_adjusted": bool(apply_adjusted),
-        "tol_abs": _to_float(tol_abs),
-        "tol_rel": _to_float(tol_rel),
-        "blend_split_next": _to_float(blend_split_next),
+        "tol_abs": tol_abs,
+        "tol_rel": tol_rel,
+        "blend_split_next": blend_split_next,
         "blend_weight_mode": blend_weight_mode,
     }
     job_id = JOB_MANAGER.submit_planning(params)
