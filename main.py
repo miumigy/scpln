@@ -177,6 +177,13 @@ if not globals().get("_SIM_LOADED", False):
             "cost_trace": getattr(sim, "cost_trace", []),
         }
 
+# --- Add debug code to print all registered routes ---
+print("--- Registered Routes ---")
+for route in app.routes:
+    # APIRoute などの基本的なルート情報のみ表示
+    if hasattr(route, "path") and hasattr(route, "methods"):
+        print(f"Path: {route.path}, Methods: {route.methods}")
+print("-------------------------")
 
 if __name__ == "__main__":
     import json
