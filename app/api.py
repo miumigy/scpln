@@ -1,8 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from app.metrics import HTTP_REQUESTS, start_metrics_server
-import os
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 import logging
@@ -52,9 +50,3 @@ async def root():
     from fastapi.responses import RedirectResponse
 
     return RedirectResponse(url="/docs/api/redoc")
-
-
-@app.on_event("startup")
-def on_startup():
-    if os.getenv("METRICS_ENABLED", "0") == "1":
-        start_metrics_server()

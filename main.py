@@ -99,6 +99,19 @@ except Exception:
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
+import os
+try:
+    from app.metrics import start_metrics_server
+
+    @app.on_event("startup")
+    def on_startup():
+        if os.getenv("METRICS_ENABLED", "0") == "1":
+            start_metrics_server()
+except ImportError:
+    # app.metrics が存在しない場合などは何もしない
+    pass
+
+
 # Fallback: define /simulation route here when import failed (to avoid 404)
 if not globals().get("_SIM_LOADED", False):
     from fastapi import Query, Request
