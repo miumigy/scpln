@@ -61,12 +61,14 @@ def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
         if line.startswith("#"):
             continue
         parts = line.strip().split()
-        if len(parts) == 2 and parts[0].endswith("_total"):
-            name = parts[0]
-            try:
-                out[name] = int(float(parts[1]))
-            except Exception:
-                pass
+        if len(parts) >= 2:
+            name = parts[0].split("{")[0]
+            if name.endswith("_total"):
+                try:
+                    current_value = out.get(name, 0)
+                    out[name] = current_value + int(float(parts[-1]))
+                except (ValueError, IndexError):
+                    pass
     return out
 
 
