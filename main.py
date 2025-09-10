@@ -16,7 +16,7 @@ except Exception:
 
 try:
     from app import simulation_api as _simulation_api  # noqa: F401
-
+    app.include_router(_simulation_api.router)
     _SIM_LOADED = True
 except Exception:
     _SIM_LOADED = False
