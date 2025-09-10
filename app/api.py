@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
@@ -43,6 +44,7 @@ _BASE_DIR = Path(__file__).resolve().parents[1]
 static_path = _BASE_DIR / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
 
 # ルートパス（/docsへのリダイレクト）
 @app.get("/")

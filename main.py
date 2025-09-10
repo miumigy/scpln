@@ -100,6 +100,7 @@ except Exception:
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 import os
+
 try:
     from app.metrics import start_metrics_server
 
@@ -107,6 +108,7 @@ try:
     def on_startup():
         if os.getenv("METRICS_ENABLED", "0") == "1":
             start_metrics_server()
+
 except ImportError:
     # app.metrics が存在しない場合などは何もしない
     pass
@@ -176,6 +178,7 @@ if not globals().get("_SIM_LOADED", False):
             "summary": summary,
             "cost_trace": getattr(sim, "cost_trace", []),
         }
+
 
 # --- Add debug code to print all registered routes ---
 print("--- Registered Routes ---")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.api import app
-from fastapi import Request, Form, Query, UploadFile, File, Depends
+from fastapi import Request, Query, UploadFile, File, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -285,7 +285,11 @@ def planning_run(
     bom: UploadFile | None = File(None),
 ):
     ts = int(time.time())
-    out_base = Path(params.out_dir) if params.out_dir else (_BASE_DIR / "out" / f"ui_planning_{ts}")
+    out_base = (
+        Path(params.out_dir)
+        if params.out_dir
+        else (_BASE_DIR / "out" / f"ui_planning_{ts}")
+    )
     out_base.mkdir(parents=True, exist_ok=True)
     # optional: uploaded CSVs → override input_dir into temp folder
     upload_files = {
@@ -316,7 +320,7 @@ def planning_run(
         except Exception:
             # 個別の失敗は無視（他の入力にフォールバック）
             continue
-    
+
     input_dir = str(tmp_in) if wrote_any else params.input_dir
 
     # 1) aggregate
@@ -375,18 +379,22 @@ def planning_run(
             "--weeks",
             str(params.weeks),
             *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
-            *( \
+            *(
                 ["--recon-window-days", str(params.recon_window_days)]
                 if params.recon_window_days is not None
                 else []
             ),
-            *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
-            *( \
+            *(
+                ["--anchor-policy", params.anchor_policy]
+                if params.anchor_policy
+                else []
+            ),
+            *(
                 ["--blend-split-next", str(params.blend_split_next)]
                 if (params.blend_split_next is not None)
                 else []
             ),
-            *( \
+            *(
                 ["--blend-weight-mode", str(params.blend_weight_mode)]
                 if params.blend_weight_mode
                 else []
@@ -405,18 +413,22 @@ def planning_run(
             "--version",
             (params.version_id or "ui"),
             *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
-            *( \
+            *(
                 ["--recon-window-days", str(params.recon_window_days)]
                 if params.recon_window_days is not None
                 else []
             ),
-            *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
-            *( \
+            *(
+                ["--anchor-policy", params.anchor_policy]
+                if params.anchor_policy
+                else []
+            ),
+            *(
                 ["--tol-abs", str(params.tol_abs)]
                 if params.tol_abs is not None
                 else ["--tol-abs", "1e-6"]
             ),
-            *( \
+            *(
                 ["--tol-rel", str(params.tol_rel)]
                 if params.tol_rel is not None
                 else ["--tol-rel", "1e-6"]
@@ -461,27 +473,39 @@ def planning_run(
                 str(params.cutover_date),
                 "--anchor-policy",
                 str(params.anchor_policy),
-                *( \
+                *(
                     ["--recon-window-days", str(params.recon_window_days)]
                     if params.recon_window_days is not None
                     else []
                 ),
                 "--weeks",
                 str(params.weeks),
-                *(["--calendar-mode", str(params.calendar_mode)] if params.calendar_mode else []),
+                *(
+                    ["--calendar-mode", str(params.calendar_mode)]
+                    if params.calendar_mode
+                    else []
+                ),
                 *(["--carryover", str(params.carryover)] if params.carryover else []),
-                *( \
+                *(
                     ["--carryover-split", str(params.carryover_split)]
                     if (params.carryover_split is not None)
                     else []
                 ),
-                *( \
+                *(
                     ["--max-adjust-ratio", str(params.max_adjust_ratio)]
                     if (params.max_adjust_ratio is not None)
                     else []
                 ),
-                *(["--tol-abs", str(params.tol_abs)] if (params.tol_abs is not None) else []),
-                *(["--tol-rel", str(params.tol_rel)] if (params.tol_rel is not None) else []),
+                *(
+                    ["--tol-abs", str(params.tol_abs)]
+                    if (params.tol_abs is not None)
+                    else []
+                ),
+                *(
+                    ["--tol-rel", str(params.tol_rel)]
+                    if (params.tol_rel is not None)
+                    else []
+                ),
                 "-I",
                 input_dir,
             ]
@@ -498,18 +522,22 @@ def planning_run(
                 (params.version_id or "ui-adjusted"),
                 "--cutover-date",
                 str(params.cutover_date),
-                *( \
+                *(
                     ["--recon-window-days", str(params.recon_window_days)]
                     if params.recon_window_days is not None
                     else []
                 ),
-                *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
-                *( \
+                *(
+                    ["--anchor-policy", params.anchor_policy]
+                    if params.anchor_policy
+                    else []
+                ),
+                *(
                     ["--tol-abs", str(params.tol_abs)]
                     if params.tol_abs is not None
                     else ["--tol-abs", "1e-6"]
                 ),
-                *( \
+                *(
                     ["--tol-rel", str(params.tol_rel)]
                     if params.tol_rel is not None
                     else ["--tol-rel", "1e-6"]
@@ -585,19 +613,27 @@ def planning_run(
                     str(out_base / "plan_final_adjusted.json"),
                     "--weeks",
                     str(params.weeks),
-                    *(["--cutover-date", params.cutover_date] if params.cutover_date else []),
-                    *( \
+                    *(
+                        ["--cutover-date", params.cutover_date]
+                        if params.cutover_date
+                        else []
+                    ),
+                    *(
                         ["--recon-window-days", str(params.recon_window_days)]
                         if params.recon_window_days is not None
                         else []
                     ),
-                    *(["--anchor-policy", params.anchor_policy] if params.anchor_policy else []),
-                    *( \
+                    *(
+                        ["--anchor-policy", params.anchor_policy]
+                        if params.anchor_policy
+                        else []
+                    ),
+                    *(
                         ["--blend-split-next", str(params.blend_split_next)]
                         if (params.blend_split_next is not None)
                         else []
                     ),
-                    *( \
+                    *(
                         ["--blend-weight-mode", str(params.blend_weight_mode)]
                         if params.blend_weight_mode
                         else []
