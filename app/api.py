@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 import logging
 
 # 詳細なログ設定
@@ -46,9 +46,7 @@ if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 
-# ルートパス（/docsへのリダイレクト）
+# ルートパス（/ui/plansへのリダイレクト）
 @app.get("/")
 async def root():
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(url="/docs/api/redoc")
+    return RedirectResponse(url="/ui/plans", status_code=301)
