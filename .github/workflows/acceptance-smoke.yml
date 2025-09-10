@@ -44,6 +44,11 @@ jobs:
             sleep 1
           done
 
+      - name: Show server log before smoke test
+        run: |
+          echo '==== server.log ===='
+          cat server.log || true
+
       - name: Run acceptance smoke
         run: |
           python scripts/acceptance_smoke.py --base-url http://127.0.0.1:8000

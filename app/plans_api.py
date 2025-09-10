@@ -18,6 +18,12 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
+def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
+    val = body.get(key, default)
+    if isinstance(val, str) and val == "":
+        return None
+    return val
+
 
 def _run_py(args: list[str]) -> None:
     env = os.environ.copy()
@@ -28,24 +34,24 @@ def _run_py(args: list[str]) -> None:
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
-    version_id = str(body.get("version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
-    input_dir = body.get("input_dir") or "samples/planning"
-    out_dir = Path(body.get("out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}"))
-    weeks = str(body.get("weeks") or 4)
-    round_mode = body.get("round_mode") or "int"
-    lt_unit = body.get("lt_unit") or "day"
-    cutover_date = body.get("cutover_date")
-    recon_window_days = body.get("recon_window_days")
-    anchor_policy = body.get("anchor_policy")
-    blend_split_next = body.get("blend_split_next")
-    blend_weight_mode = body.get("blend_weight_mode")
-    carryover = body.get("carryover")
-    carryover_split = body.get("carryover_split")
-    max_adjust_ratio = body.get("max_adjust_ratio")
-    tol_abs = body.get("tol_abs")
-    tol_rel = body.get("tol_rel")
-    calendar_mode = body.get("calendar_mode")
-    apply_adjusted = bool(body.get("apply_adjusted") or False)
+    version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
+    input_dir = _get_param(body, "input_dir") or "samples/planning"
+    out_dir = Path(_get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}"))
+    weeks = str(_get_param(body, "weeks") or 4)
+    round_mode = _get_param(body, "round_mode") or "int"
+    lt_unit = _get_param(body, "lt_unit") or "day"
+    cutover_date = _get_param(body, "cutover_date")
+    recon_window_days = _get_param(body, "recon_window_days")
+    anchor_policy = _get_param(body, "anchor_policy")
+    blend_split_next = _get_param(body, "blend_split_next")
+    blend_weight_mode = _get_param(body, "blend_weight_mode")
+    carryover = _get_param(body, "carryover")
+    carryover_split = _get_param(body, "carryover_split")
+    max_adjust_ratio = _get_param(body, "max_adjust_ratio")
+    tol_abs = _get_param(body, "tol_abs")
+    tol_rel = _get_param(body, "tol_rel")
+    calendar_mode = _get_param(body, "calendar_mode")
+    apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     # 1) aggregate
