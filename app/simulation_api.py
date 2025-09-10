@@ -1,12 +1,14 @@
 from __future__ import annotations
 from pydantic import BaseModel, field_validator
 
+
 class PlanningRunParams(BaseModel):
     """
     /planning/run と /planning/run_job のためのパラメータモデル。
     FastAPIのバリデーションが空文字""をうまく扱えない問題へのワークアラウンドとして導入。
     バリデーションの前に空文字をNoneに変換する。
     """
+
     input_dir: str = "samples/planning"
     out_dir: str | None = None
     weeks: int = 4
@@ -27,10 +29,10 @@ class PlanningRunParams(BaseModel):
     apply_adjusted: int | None = None
     redirect_to_plans: int | None = None
 
-    @field_validator('*', mode='before')
+    @field_validator("*", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         """すべてのフィールドで、空文字列をNoneに変換する"""
-        if v == '':
+        if v == "":
             return None
         return v
