@@ -49,6 +49,7 @@ class PlanningRunParams(BaseModel):
             return None
         return v
 
+
 def _get_registry():
     from app.run_registry import REGISTRY, _BACKEND, _DB_MAX_ROWS  # type: ignore
 

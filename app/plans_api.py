@@ -18,6 +18,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
+
 def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
     val = body.get(key, default)
     if isinstance(val, str) and val == "":
@@ -36,7 +37,9 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
     version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
     input_dir = _get_param(body, "input_dir") or "samples/planning"
-    out_dir = Path(_get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}"))
+    out_dir = Path(
+        _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
+    )
     weeks = str(_get_param(body, "weeks") or 4)
     round_mode = _get_param(body, "round_mode") or "int"
     lt_unit = _get_param(body, "lt_unit") or "day"
