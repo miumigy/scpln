@@ -45,10 +45,10 @@ static_path = _BASE_DIR / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
+
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
-
 
 
 # ルートパス（/ui/plansへのリダイレクト）
