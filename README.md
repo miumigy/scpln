@@ -77,7 +77,7 @@ bash scripts/stop.sh            # 停止
 - 入口統合（Planning Hub）
   - 推奨入口: `/ui/plans`（Planの作成→実行→結果確認まで一貫）
   - ルート `/` は `/ui/plans` へリダイレクト（P-06）
-  - 従来UI `/ui/planning` は段階的にクローズ（P-14）。一時的に `?allow_legacy=1` で回避可。環境により `HUB_LEGACY_CLOSE=1` で404ガイド表示。
+  - 旧UI `/ui/planning` は廃止しました（完全移行済み）。
   - API概要は `docs/API-OVERVIEW-JA.md` を参照。用語は `docs/TERMS-JA.md` に準拠。
 - ヘッダ右のナビ: 「プラン一覧」「ラン履歴」「シナリオ一覧」「設定マスタ」「ジョブ一覧」「階層マスタ」「集約/詳細計画」
   - いずれも別タブ遷移（UI内ルーティングではなくHTTPナビゲーション）
@@ -498,8 +498,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - サンプル入力: samples/planning/
 
 -実行方法（最小）
-- UI（推奨）: `/ui/plans` → 「新規Plan作成（統合Run）」で実行（作成後に詳細へ）
-- UI（従来）: `/ui/planning` を開き、入力ディレクトリ（既定: samples/planning）で実行
+- UI: `/ui/plans` → 「新規Plan作成（統合Run）」で実行（作成後に詳細へ）
 - API: `POST /plans/integrated/run`（同期, 従来） または `POST /runs`（アダプタ, P-16）
   - 例（/runs, 同期）: `{ "pipeline":"integrated", "async": false, "options": { "input_dir":"samples/planning", "weeks":4, "lt_unit":"day" } }`
   - 例（/runs, 非同期）: `{ "pipeline":"integrated", "async": true,  "options": { ... } }`（`/ui/jobs/{job_id}` で進捗確認）
@@ -534,7 +533,7 @@ graph TD
   B -->|/ui/scenarios| A
   B -->|/ui/compare| A
   B -->|/ui/plans| A
-  B -->|/ui/planning| A
+  %% 旧UI (/ui/planning) は廃止
   %% / は Hub へ誘導
   B -->|/ (→ /ui/plans)| A
 ```

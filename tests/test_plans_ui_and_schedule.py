@@ -74,14 +74,4 @@ def test_metrics_include_planning_hub_counters():
         assert ("# HELP " + metric) in text
 
 
-def test_legacy_planning_redirects_to_hub():
-    client = TestClient(app)
-    r = client.get("/ui/planning")
-    # Phase 2: 302 redirect to /ui/plans unless allow_legacy=1
-    assert r.status_code in (200, 302, 307)
-    # TestClient may follow redirects automatically; check history or location
-    if r.history:
-        assert any(h.status_code in (302, 307) for h in r.history)
-    else:
-        loc = r.headers.get("location", "")
-        assert "/ui/plans" in (loc or "/ui/plans")
+# 旧UI (/ui/planning) は完全移行により削除済みのためテスト対象外

@@ -229,7 +229,7 @@
         </div>
         <button type="submit" aria-label="即時実行">Run Now（即時実行）</button>
       </form>
-      <form method="post" action="/planning/run_job" style="margin-top:8px;">
+      <form id="queue-run-form" style="margin-top:8px;" onsubmit="return queueRunViaRunsApi(event)">
         <div class="grid" style="align-items:end;">
           <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
           <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
@@ -254,6 +254,41 @@
         <button type="submit" class="secondary" aria-label="ジョブ投入">Queue Job（ジョブ投入）</button>
         <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
       </form>
+      <script>
+      async function queueRunViaRunsApi(ev){
+        ev.preventDefault();
+        try{
+          const f = document.getElementById('queue-run-form');
+          const fd = new FormData(f);
+          function val(name){ const v = fd.get(name); return (v===null||v==='')?undefined:String(v); }
+          function valNum(name){ const v = val(name); return v===undefined?undefined:Number(v); }
+          function valBool(name){ return fd.get(name) ? true : false; }
+          const body = {
+            pipeline: 'integrated',
+            async: true,
+            options: {
+              input_dir: val('input_dir') || 'samples/planning',
+              weeks: valNum('weeks')||4,
+              lt_unit: val('lt_unit')||'day',
+              cutover_date: val('cutover_date')||undefined,
+              recon_window_days: valNum('recon_window_days'),
+              anchor_policy: val('anchor_policy')||undefined,
+              apply_adjusted: valBool('apply_adjusted')
+            }
+          };
+          const res = await fetch('/runs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if (!res.ok){
+            const txt = await res.text();
+            alert('queue failed: '+txt);
+            return false;
+          }
+          const data = await res.json();
+          if (data && data.location){ window.location.href = data.location; }
+          else { alert('queued'); }
+        }catch(e){ alert('queue failed'); }
+        return false;
+      }
+      </script>
     </details>
 
     <details>
