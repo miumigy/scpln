@@ -40,7 +40,7 @@
 - タブを切り替え、KPIや差分、可視化（Chart.js）を参照
 
 ## 6. レガシーUIとの関係（P-14）
-- `/ui/planning` は段階的クローズ
+- 旧UI `/ui/planning` は廃止。Planning Hub（`/ui/plans`）を利用してください。
   - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
   - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）を表示
 

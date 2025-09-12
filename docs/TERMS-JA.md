@@ -19,5 +19,4 @@
 - KPI（主要指標）: fill rate, profit, capacity utilization, spill など。
 
 補足:
-- 推奨入口は Planning Hub（`/ui/plans`）。従来UI（`/ui/planning`）は段階的にクローズします（P-14）。
-
+- 推奨入口は Planning Hub（`/ui/plans`）。旧UI（`/ui/planning`）は廃止しました。

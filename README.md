@@ -724,17 +724,17 @@ sequenceDiagram
   REG-->>UI: summaries
   UI-->>User: HTML (compare view)
 
-  %% 集約/詳細計画 UI（パイプライン実行）
-  User->>UI: GET /ui/planning
-  UI->>JM: submit_planning_pipeline_job(params)
-  JM-->>UI: job_id
-  UI-->>User: 303 Redirect to /ui/jobs
+  %% Hub UI（実行）
+  User->>UI: POST /ui/plans/run
+  UI-->>User: 303 Redirect to /ui/plans/{id}
+  User->>API: POST /runs (async:true)
+  API-->>User: 202 { job_id, location:/ui/jobs/{job_id} }
 
   %% 統合API（プラン生成・保存）
   User->>API: POST /plans/integrated/run
   API->>API: run pipeline (scripts)
   API->>D: save plan_versions & plan_artifacts
-  API-->>User: 200 JSON { version_id, out_dir }
+  API-->>User: 200 JSON { version_id, artifacts }
 
   %% プラン一覧/詳細
   User->>UI: GET /ui/plans
