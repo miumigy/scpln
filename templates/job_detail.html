@@ -24,10 +24,14 @@
     </p>
     {% endif %}
   </section>
-  {% if job.type == 'planning' and job.status == 'succeeded' and result and result.out_dir %}
+  {% if job.type == 'planning' and job.status == 'succeeded' and result %}
   <section>
-    <a role="button" href="/ui/planning?dir={{ result.out_dir }}">Open Planning Output</a>
-    <span class="mono">({{ result.out_dir }})</span>
+    {% if result.version_id %}
+      <a role="button" href="/ui/plans/{{ result.version_id }}">Open Plan</a>
+    {% endif %}
+    {% if result.out_dir %}
+      <span class="mono">({{ result.out_dir }})</span>
+    {% endif %}
   </section>
   {% endif %}
   <footer>

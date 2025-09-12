@@ -25,6 +25,8 @@ def ui_jobs(
                 js = _json.loads(r.get("result_json"))
                 if isinstance(js, dict) and js.get("out_dir"):
                     r["out_dir"] = js.get("out_dir")
+                if isinstance(js, dict) and js.get("version_id"):
+                    r["plan_version_id"] = js.get("version_id")
         except Exception:
             pass
     return templates.TemplateResponse(

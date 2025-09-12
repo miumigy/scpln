@@ -111,8 +111,10 @@
         <td class="mono truncate" title="{{ r.run_id or r.out_dir or '' }}">
           {% if r.run_id %}
             {{ r.run_id }}
+          {% elif r.type == 'planning' and r.plan_version_id %}
+            <a href="/ui/plans/{{ r.plan_version_id }}">{{ r.plan_version_id }}</a>
           {% elif r.type == 'planning' and r.out_dir %}
-            <a href="/ui/planning?dir={{ r.out_dir }}">{{ r.out_dir }}</a>
+            {{ r.out_dir }}
           {% else %}
             
           {% endif %}
