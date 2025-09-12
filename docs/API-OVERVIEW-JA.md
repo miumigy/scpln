@@ -54,7 +54,7 @@
 - GET `/ui/compare/diffs.csv?run_ids={id1},{id2}&threshold=5` 差分比較CSV
 
 ## レガシーUI
-- GET `/ui/planning` 段階的クローズ（Phase2: /ui/plansへ302, Phase3: 404ガイド）。`?allow_legacy=1` で一時回避可能。
+- 旧UI `/ui/planning` は廃止しました。入口は `/ui/plans` を利用してください。
 
 備考:
 - すべてのJSON/CSVはUTF-8。CSVはtext/csv; charset=utf-8で返却。

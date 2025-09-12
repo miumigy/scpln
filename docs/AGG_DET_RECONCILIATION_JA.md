@@ -263,11 +263,11 @@ graph TD;
 ## UI 起動と確認手順
 - サーバ起動（自動依存インストール・reload可）:
   - `bash scripts/serve.sh`（環境変数: `PORT=8000 RELOAD=1` など）
-- UI画面:
-  - `http://localhost:8000/ui/planning?dir=out/ui_planning_xxx`（成果物ディレクトリを指定）
-  - 画面では `aggregate.json / sku_week.json / mrp.json / plan_final.json` に加え、`reconciliation_log*.json` のパスと差分要約を表示。
+- UI画面（Planning Hub）:
+  - `http://localhost:8000/ui/plans/{version_id}` でプラン詳細を確認（Aggregate/Disaggregate/Schedule/Validate/Results/Diff など）。
+  - 実行（新規作成）は `/ui/plans` のフォームまたは `POST /ui/plans/run` を利用。
 - API 経由の一括実行:
-  - `POST /plans/integrated/run` 実行後、レスポンスの `out_dir` を `dir` に指定して確認。
+  - `POST /plans/integrated/run` 実行後、レスポンスの `version_id` を用いて `/ui/plans/{version_id}` を開く（成果物は /plans API からも取得可能）。
 
 ## パラメタ早見（主要）
 - `reconcile_levels.py`:
@@ -280,7 +280,7 @@ graph TD;
   - `-I/--input-dir` と `--capacity/--open-po/--period-score/--pl-cost` でヘッドルーム重み付け。
 - `reconcile.py`:
   - `--cutover-date`, `--recon-window-days`, `--anchor-policy`, `--blend-split-next`, `--blend-weight-mode`（tri|lin|quad）。
-  - API/Jobs/UI の対応: `plans_api.post_plans_integrated_run`/`ui_planning`/`jobs._run_planning` が同名パラメタを委譲。
+  - API/Jobs/UI の対応: `plans_api.post_plans_integrated_run`/`ui_plans`（Runフォーム）/`jobs._run_planning` が同名パラメタを委譲。
   - 推奨セット（例）:
     - 直近保護: `DET_near` + `recon_window_days=7`
     - 先々保護: `AGG_far` + `recon_window_days=7`
@@ -314,9 +314,9 @@ graph TD;
   - `anchor_adjust.py`（任意）: `cutover/anchor/window/weeks/calendar/carryover/split/tol/max-adjust-ratio` を委譲。
 
 - UI/Jobs の対応
-  - `/ui/planning` フォーム: cutover/window/anchor/blend を受け付け、上記スクリプトに委譲。
+  - `/ui/plans` の作成フォーム（および詳細Execute内）で cutover/window/anchor/blend 等を指定し、上記スクリプトに委譲。
   - ジョブ（`jobs._run_planning`）: 同パラメタをプロセス引数化して委譲。
-  - `/ui/plans` 詳細: `post /ui/plans/{version}/reconcile` で再整合（`plans_api.post_plan_reconcile` を再利用）。
+  - `/ui/plans` 詳細: `POST /ui/plans/{version}/reconcile` で再整合（`plans_api.post_plan_reconcile` を再利用）。
 
 - 依存関係と優先順位
   - `anchor_policy` は `cutover_date` が指定された場合に有効（境界月が特定できないため）。
@@ -329,12 +329,12 @@ graph TD;
 
 | パラメタ | CLI(主) | APIキー | UIフォーム | Jobs | 既定 | 備考 |
 |---|---|---|---|---|---|---|
-| cutover_date | reconcile.py `--cutover-date` | cutover_date | planning: 高度設定 | submit_planning | なし | 指定時のみ v2 有効 |
-| recon_window_days | reconcile.py `--recon-window-days` | recon_window_days | planning: 高度設定 | submit_planning | 実装既定 | in_window/重み計算に影響 |
-| anchor_policy | reconcile.py `--anchor-policy` | anchor_policy | planning: 高度設定 | submit_planning | なし | DET_near/AGG_far/blend |
-| blend_split_next | reconcile.py `--blend-split-next` | blend_split_next | planning: 高度設定 | submit_planning | 動的算定 | blend時のpost比率(0..1) |
-| blend_weight_mode | reconcile.py `--blend-weight-mode` | blend_weight_mode | planning: 高度設定 | submit_planning | tri | tri/lin/quad |
-| apply_adjusted | — | apply_adjusted | planning: チェック | submit_planning | false | trueで adjusted MRP/CRP 実行 |
+| cutover_date | reconcile.py `--cutover-date` | cutover_date | plans: 作成/詳細 | submit_planning | なし | 指定時のみ v2 有効 |
+| recon_window_days | reconcile.py `--recon-window-days` | recon_window_days | plans: 作成/詳細 | submit_planning | 実装既定 | in_window/重み計算に影響 |
+| anchor_policy | reconcile.py `--anchor-policy` | anchor_policy | plans: 作成/詳細 | submit_planning | なし | DET_near/AGG_far/blend |
+| blend_split_next | reconcile.py `--blend-split-next` | blend_split_next | plans: 作成/詳細 | submit_planning | 動的算定 | blend時のpost比率(0..1) |
+| blend_weight_mode | reconcile.py `--blend-weight-mode` | blend_weight_mode | plans: 作成/詳細 | submit_planning | tri | tri/lin/quad |
+| apply_adjusted | — | apply_adjusted | plans: チェック | submit_planning | false | trueで adjusted MRP/CRP 実行 |
 
 補足: /plans/integrated/run は上記を scripts に委譲し、成果物をDBに保存（/plans API で参照）。
 

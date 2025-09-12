@@ -11,7 +11,7 @@ Usage:
 検証観点（要約）:
 - AT-01: Plan作成→summary取得、/ui/plans と /ui/plans/{id} のHTML軽検証
 - AT-02: '/' が /ui/plans へリダイレクト
-- AT-03: /ui/planning が 302→/ui/plans または 404(ガイド)
+- AT-03: /runs 非同期でジョブ投入され、/ui/jobs への location が返る
 - AT-04: Plan & Run（自動補完）で新規Planが作成される
 - AT-05: /plans/{id}/summary に recon/weekly_summary が出力される
 - AT-06: /plans/{id}/compare(.csv) 取得（limit/violations_only 整合）
@@ -198,22 +198,26 @@ def main() -> int:
         ng("AT-01 Plan作成", str(e))
         plan_id = None  # type: ignore
 
-    # AT-03: 旧UI誘導
+    # AT-03: /runs 非同期（ジョブ投入→location）
     try:
-        r = s.get(f"{base}/ui/planning", allow_redirects=False, timeout=10)
-        if r.status_code in (301, 302) and r.headers.get("Location", "").startswith(
-            "/ui/plans"
-        ):
-            ok("AT-03 /ui/planning → /ui/plans (302)")
-        elif r.status_code == 404:
-            ok("AT-03 /ui/planning 404 ガイド表示")
+        payload = {
+            "pipeline": "integrated",
+            "async": True,
+            "options": {"input_dir": "samples/planning", "weeks": 1, "lt_unit": "day"},
+        }
+        res = post_json(s, f"{base}/runs", payload)
+        loc = (res or {}).get("location") or ""
+        if (res.get("status") == "queued") and loc.startswith("/ui/jobs/"):
+            # location が開ける（200系）ことを確認
+            rj = s.get(f"{base}{loc}", timeout=30)
+            if rj.status_code // 100 == 2:
+                ok("AT-03 /runs 非同期→/ui/jobs へ誘導")
+            else:
+                ng("AT-03 /runs 非同期", f"jobs page code={rj.status_code}")
         else:
-            ng(
-                "AT-03 旧UI誘導",
-                f"code={r.status_code} location={r.headers.get('Location')}",
-            )
+            ng("AT-03 /runs 非同期", f"unexpected response: {res}")
     except Exception as e:
-        ng("AT-03 旧UI誘導", str(e))
+        ng("AT-03 /runs 非同期", str(e))
 
     # AT-04: Plan & Run（自動補完）
     new_plan_id: Optional[str] = None
