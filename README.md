@@ -544,7 +544,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - Execute: PlanをもとにRunを実施、KPI確認、承認/ベースライン化
 
 ```mermaid
-graph LR
+flowchart LR
   H[Planning Hub (/ui/plans)]
   R[Run Detail (/ui/runs/:id)]
   H --> A[Draft]
@@ -571,24 +571,15 @@ graph LR
 ### 簡易アーキテクチャ
 
 ```mermaid
-graph TD
+flowchart TD
   B[Browser] --> A[FastAPI]
   B --> S[Static files]
-  A --> E[SupplyChainSimulator]
-  A <--> D[(SQLite DB)]
+  A --> E[Simulator]
+  A --> D[SQLite DB]
   E --> M[Pydantic Models]
-  A --> H[Healthz endpoint]
+  A --> H[Healthz]
   E --> L[simulation.log]
-  %% UI routes
-  B -->|/ui/configs| A
-  B -->|/ui/runs| A
-  B -->|/ui/jobs| A
-  B -->|/ui/scenarios| A
-  B -->|/ui/compare| A
-  B -->|/ui/plans| A
-  %% 旧UI (/ui/planning) は廃止
-  %% / は Hub へ誘導
-  B -->|/ (→ /ui/plans)| A
+  B --> A
 ```
 
 ### クラス図（主要要素）
