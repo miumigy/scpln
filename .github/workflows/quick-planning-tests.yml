@@ -1,0 +1,42 @@
+name: quick-planning-tests
+
+on:
+  pull_request:
+    paths:
+      - 'samples/planning/**'
+      - 'scripts/**'
+      - 'engine/**'
+      - 'app/**'
+      - 'domain/**'
+      - 'tests/**'
+      - '.github/workflows/quick-planning-tests.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'samples/planning/**'
+      - 'scripts/**'
+      - 'engine/**'
+      - 'app/**'
+      - 'domain/**'
+      - 'tests/**'
+      - '.github/workflows/quick-planning-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run quick tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q tests/test_planning_pipeline.py::test_aggregate_supply_backlog
+          pytest -q tests/test_ui_*.py
+          pytest -q tests/test_simulation_endpoint.py
