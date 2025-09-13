@@ -122,6 +122,18 @@ def ui_run_detail(request: Request, run_id: str):
         )
     except Exception:
         cfg_json_str = ""
+    # Back link context (prefer explicit query from=jobs; fallback to Referer)
+    try:
+        from_jobs = (request.query_params.get("from") == "jobs")  # type: ignore[attr-defined]
+    except Exception:
+        from_jobs = False
+    try:
+        ref = request.headers.get("referer", "")
+        if (not from_jobs) and ("/ui/jobs" in ref):
+            from_jobs = True
+    except Exception:
+        pass
+    back_href = "/ui/jobs" if from_jobs else "/ui/runs"
     return templates.TemplateResponse(
         "run_detail.html",
         {
@@ -133,5 +145,7 @@ def ui_run_detail(request: Request, run_id: str):
             "scenario_id": scenario_id,
             "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
+            "from_jobs": from_jobs,
+            "back_href": back_href,
         },
     )
