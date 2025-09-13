@@ -189,3 +189,12 @@ def post_simulation(
         "cost_trace": getattr(sim, "cost_trace", []),
     }
     return resp
+
+# FastAPI appへルーターを登録（import時の副作用で有効化）
+try:
+    from app.api import app as _app  # 循環依存を避けるため遅延import
+
+    _app.include_router(router)
+except Exception:
+    # テストや一部実行環境での遅延初期化に備え、失敗しても例外は伝播しない
+    pass
