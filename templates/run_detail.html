@@ -225,6 +225,8 @@
   function getHeaders(){
     const h = {};
     try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+    try { const u = localStorage.getItem('user_email') || ''; if (u) h['X-User'] = u; } catch {}
+    try { const r = localStorage.getItem('user_role') || ''; if (r) h['X-Role'] = r; } catch {}
     return h;
   }
 
