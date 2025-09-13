@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- feat(samples): 計画サンプルを2025-12まで拡張（年内フル）
+- fix(api): /simulation ルーターをFastAPIアプリへ登録（404解消）
+- refactor(ui): TemplateResponseの新API形式へ移行（requestを第1引数化）
+- chore(ci): planning系クイックテスト追加、pipキャッシュ、成果物の軽量検証、失敗時アーティファクト収集
+- chore(ci): pytest-xdist導入で `-n auto` 並列実行
+- docs: READMEのサンプル期間説明を更新（2025-01〜2025-12）
+
 ## v0.5.0 (2025-09-07)
 
 - feat(ui/plans): Planning Hub 詳細のアクセシビリティ改善（aria-label追加）
