@@ -98,6 +98,7 @@ def ui_plan_detail(version_id: str, request: Request):
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
+    source_meta = db.get_plan_artifact(version_id, "source.json") or {}
     plan_state = db.get_plan_artifact(version_id, "state.json") or {
         "state": "draft",
         "invalid": [],
@@ -170,6 +171,7 @@ def ui_plan_detail(version_id: str, request: Request):
     latest_runs: list[dict] = []
     latest_ids: list[str] = []
     base_sid = (ver or {}).get("base_scenario_id")
+    related_plans: list[dict] = []
     if base_sid is not None:
         try:
             from app.run_registry import REGISTRY  # type: ignore
@@ -218,6 +220,13 @@ def ui_plan_detail(version_id: str, request: Request):
         except Exception:
             latest_runs = []
             latest_ids = []
+        # 関連Plan（同一base_scenarioの最新）
+        try:
+            related = db.list_plan_versions_by_base(int(base_sid), limit=5)
+            # 自分自身を除外
+            related_plans = [p for p in related if p.get("version_id") != version_id]
+        except Exception:
+            related_plans = []
     # KPI preview (MVP): capacity/utilization and spill totals
     kpi_preview = {}
     try:
@@ -301,6 +310,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "subtitle": f"プラン詳細 {version_id}",
             "version_id": version_id,
             "version": ver,
+            "created_from_run_id": (source_meta or {}).get("source_run_id"),
             "recon": recon,
             "recon_adj": recon_adj,
             "weekly_summary": plan_final.get("weekly_summary"),
@@ -310,6 +320,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "kpi_preview": kpi_preview,
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
+            "related_plans": related_plans,
             "aggregate": aggregate,
             "disagg_rows": disagg_rows_sample,
             "disagg_total": (

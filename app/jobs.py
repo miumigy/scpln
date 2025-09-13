@@ -564,6 +564,51 @@ class JobManager:
                         ]
                     )
 
+            # persist to plan DB (version + artifacts)
+            try:
+                db.create_plan_version(
+                    version_id,
+                    base_scenario_id=cfg.get("base_scenario_id"),
+                    status="active",
+                    cutover_date=cutover_date,
+                    recon_window_days=recon_window_days,
+                    objective=cfg.get("objective"),
+                    note=cfg.get("note"),
+                )
+                def _read(p: Path) -> str | None:
+                    try:
+                        return p.read_text(encoding="utf-8") if p.exists() else None
+                    except Exception:
+                        return None
+                for name in (
+                    "aggregate.json",
+                    "sku_week.json",
+                    "mrp.json",
+                    "plan_final.json",
+                    "reconciliation_log.json",
+                    "sku_week_adjusted.json",
+                    "mrp_adjusted.json",
+                    "plan_final_adjusted.json",
+                    "reconciliation_log_adjusted.json",
+                ):
+                    t = _read(out_dir / name)
+                    if t is not None:
+                        db.upsert_plan_artifact(version_id, name, t)
+                # source linkage (optional)
+                src_run = cfg.get("source_run_id")
+                if src_run:
+                    try:
+                        db.upsert_plan_artifact(
+                            version_id,
+                            "source.json",
+                            json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                # DBへの保存に失敗してもジョブ自体は継続
+                logging.exception("planning_job_persist_failed", extra={"job_id": job_id, "version_id": version_id})
+
             result = {
                 "out_dir": str(out_dir.relative_to(base)),
                 "files": [

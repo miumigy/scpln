@@ -40,6 +40,52 @@
       <p>データなし（このPlanの再整合や実行で生成されます）</p>
       {% endif %}
     </details>
+    <script>
+    (function(){
+      function getHeaders(){
+        const h = {};
+        try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+        return h;
+      }
+      function applyDiffLinks(){
+        try {
+          const sort = document.getElementById('diff-sort')?.value || 'rel_desc';
+          const viol = document.getElementById('diff-viol')?.checked ? 'true':'false';
+          document.querySelectorAll('#rel-list a').forEach(a => {
+            if (a && a.getAttribute('href') && a.textContent === 'diff'){
+              const href = new URL(a.getAttribute('href'), location.origin);
+              href.searchParams.set('violations_only', viol);
+              href.searchParams.set('sort', sort);
+              a.setAttribute('href', href.pathname + href.search);
+            }
+          });
+        } catch {}
+      }
+      async function loadRelated(){
+        try {
+          const sort = document.getElementById('rel-sort')?.value || 'created_desc';
+          const limitEl = document.getElementById('rel-limit');
+          const limit = Math.max(1, parseInt(limitEl && limitEl.value || '5', 10));
+          const base = {{ (version.base_scenario_id or 'null') | tojson | safe }};
+          if (!base) return;
+          const qs = new URLSearchParams({ base_scenario_id: String(base), limit: String(limit), sort });
+          const res = await fetch('/plans/by_base?'+qs.toString(), { headers: getHeaders() });
+          if (!res.ok) return;
+          const js = await res.json();
+          const rows = (js && js.plans) || [];
+          const ul = document.getElementById('rel-list');
+          if (!ul) return;
+          const cur = {{ version_id | tojson | safe }};
+          const items = rows.filter(p => p.version_id !== cur).map(p => `<li><a href="/ui/plans/${p.version_id}">${p.version_id}</a> <small>(${p.status||''})</small></li>`);
+          ul.innerHTML = items.join('');
+        } catch(e) { /* noop */ }
+      }
+      document.getElementById('rel-apply')?.addEventListener('click', async function(){ await loadRelated(); applyDiffLinks(); });
+      document.getElementById('diff-apply')?.addEventListener('click', applyDiffLinks);
+      // 初期ロード
+      loadRelated().then(applyDiffLinks).catch(()=>{});
+    })();
+    </script>
     </div>
 
     <div id="tab-disaggregate" class="tab-pane" style="display:none;">
@@ -346,6 +392,9 @@
         <thead><tr><th>項目</th><th>値</th></tr></thead>
         <tbody>
           <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
+          {% if created_from_run_id %}
+            <tr><td>created_from_run</td><td class="mono"><a href="/ui/runs/{{ created_from_run_id }}">{{ created_from_run_id }}</a></td></tr>
+          {% endif %}
           <tr><td>cutover_date</td><td class="mono">{{ version.cutover_date or '' }}</td></tr>
           <tr><td>recon_window_days</td><td class="mono">{{ version.recon_window_days or '' }}</td></tr>
           {% if recon and recon.summary %}
@@ -359,6 +408,44 @@
           <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} ｜ invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
         </tbody>
       </table>
+      {% if related_plans and related_plans|length > 0 %}
+      <div style="margin-top:6px;">
+        <strong>関連Plan（同一base_scenario, 最新）:</strong>
+        <ul>
+          {% for p in related_plans %}
+          <li class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a> <small>({{ p.status or '' }})</small>
+            ｜ <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank" title="現在のPlan基準の差分（violationsのみ、rel_desc）">diff</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      <div style="margin-top:6px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>関連Plan 並び
+          <select id="rel-sort">
+            <option value="created_desc" selected>created_desc</option>
+            <option value="created_asc">created_asc</option>
+            <option value="status">status</option>
+          </select>
+        </label>
+        <label>件数
+          <input id="rel-limit" type="number" min="1" max="50" value="5" style="width:6em;" />
+        </label>
+        <button id="rel-apply" type="button" class="secondary">Apply</button>
+      </div>
+      <ul id="rel-list" class="mono" style="margin-top:6px;"></ul>
+      <div style="margin-top:6px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+        <label>Diff sort
+          <select id="diff-sort">
+            <option value="rel_desc" selected>rel_desc</option>
+            <option value="abs_desc">abs_desc</option>
+            <option value="rel_asc">rel_asc</option>
+            <option value="abs_asc">abs_asc</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="diff-viol" checked> violations_only</label>
+        <button id="diff-apply" type="button" class="secondary">Apply to links</button>
+      </div>
     </details>
     <details>
       <summary>State 管理（MVP）</summary>

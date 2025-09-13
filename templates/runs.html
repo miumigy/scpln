@@ -11,6 +11,7 @@
       <tr>
         <th></th>
         <th>run_id</th>
+        <th>meta</th>
         <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="開始時刻で並び替え">started_at</button></th>
         <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="所要時間で並び替え">dur(ms)</button></th>
         <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="スキーマで並び替え">schema</button></th>
@@ -24,7 +25,7 @@
     <tbody id="runs-tbody">
       {% for r in rows %}
       <tr>
-        <td><input class="pick" type="checkbox" value="{{ r.run_id }}" /></td>
+        <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" /></td>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
         <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
         <td>{{ r.duration_ms }}</td>
@@ -35,7 +36,7 @@
         <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
         <td>
           <a role="button" href="/ui/runs/{{ r.run_id }}">Detail</a>
-          
+          <button type="button" class="secondary create-plan" data-run-id="{{ r.run_id }}" data-scenario-id="{{ r.scenario_id or '' }}" title="このRunからPlanを作成" aria-label="このRunからPlanを作成">Plan</button>
         </td>
       </tr>
       {% endfor %}
@@ -61,7 +62,15 @@
   </div>
   <div id="bulk-actions" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
     <button id="delete-selected" type="button" class="contrast" aria-label="選択したランを削除">Delete selected</button>
+    <button id="plan-selected" type="button" aria-label="選択したランからPlanを作成（同期）">Plan selected</button>
+    <button id="plan-selected-jobs" type="button" class="secondary" aria-label="選択したランからPlanをジョブ投入で作成（非同期）">Plan selected (jobs)</button>
+    <span style="margin:0 8px;">｜</span>
+    <label>Version prefix
+      <input id="ver-prefix" type="text" placeholder="run-" style="width:10em" />
+    </label>
+    <label><input id="ver-ts" type="checkbox" checked /> Timestamp</label>
   </div>
+  <div id="bulk-result" style="margin-top:8px; display:none;"></div>
   <div id="filters" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
     <label>Sort
       <select id="sort-select">
@@ -85,8 +94,42 @@
     <label>Scenario ID
       <input id="scenario-filter" type="number" placeholder="" min="1" style="width:7em" />
     </label>
+    <label><input id="hide-archived" type="checkbox" checked> Hide archived</label>
     <button id="apply-filter" type="button" class="secondary" aria-label="フィルタを適用">Apply</button>
     <button id="clear-filter" type="button" class="secondary" aria-label="フィルタをクリア">Clear</button>
+  </div>
+  <div id="saved-views" style="margin-top:8px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+    <label>保存ビュー
+      <select id="views-select">
+        <option value="">(選択)</option>
+      </select>
+    </label>
+    <button id="apply-view" type="button" class="secondary" aria-label="保存ビューを適用">Apply view</button>
+    <button id="delete-view" type="button" aria-label="保存ビューを削除">Delete view</button>
+    <label>名前
+      <input id="view-name" type="text" placeholder="今期S&OP など" />
+    </label>
+    <button id="save-view" type="button" aria-label="現在の条件を保存">Save current as view</button>
+    <button id="copy-link" type="button" class="secondary" aria-label="現在のURLをコピー">Copy link</button>
+    <span style="margin:0 12px;">｜</span>
+    <label>サーバビュー
+      <select id="views-select-server">
+        <option value="">(選択)</option>
+      </select>
+    </label>
+    <button id="apply-view-server" type="button" class="secondary" aria-label="サーバビューを適用">Apply server view</button>
+    <label><input id="server-view-shared" type="checkbox"> shared</label>
+    <label>scope
+      <select id="server-view-scope">
+        <option value="private" selected>private</option>
+        <option value="org">org</option>
+        <option value="public">public</option>
+      </select>
+    </label>
+    <label>名前
+      <input id="view-name-server" type="text" placeholder="共有ビュー名" />
+    </label>
+    <button id="save-view-server" type="button" aria-label="現在の条件をサーバ保存">Save to server</button>
   </div>
   {% else %}
     <p>まだランはありません。/simulation を叩いて生成してください。</p>
@@ -131,6 +174,321 @@
   if (window.RunsUI && typeof window.RunsUI.init === 'function') {
     window.RunsUI.init();
   }
+  // 保存ビュー（ローカル）
+  function loadViews(){
+    let views = [];
+    try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
+    const sel = document.getElementById('views-select');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">(選択)</option>' + views.map((v,i)=>`<option value="${i}">${v.name}</option>`).join('');
+    if (cur) sel.value = cur;
+  }
+  function getState(){ try { return JSON.parse(localStorage.getItem('runs_prefs')||'{}') } catch { return {} } }
+  function setState(s){ try { localStorage.setItem('runs_prefs', JSON.stringify(s)); } catch {} }
+  document.getElementById('save-view')?.addEventListener('click', function(){
+    const name = (document.getElementById('view-name')?.value || '').trim();
+    if (!name) { alert('名前を入力してください'); return; }
+    const s = getState();
+    const rec = { name, params: s };
+    let views = [];
+    try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
+    views.push(rec);
+    try { localStorage.setItem('runs_views', JSON.stringify(views)); } catch {}
+    loadViews();
+    alert('保存しました');
+  });
+  document.getElementById('apply-view')?.addEventListener('click', function(){
+    const sel = document.getElementById('views-select');
+    const idx = Number(sel?.value||'');
+    let views = [];
+    try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
+    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('ビューを選択してください'); return; }
+    const p = views[idx].params || {};
+    const s = getState();
+    const merged = { ...s, ...p };
+    setState(merged);
+    // 画面反映は RunsUI.reloadRuns が内部で prefs を読み戻すため不要。ページを更新。
+    location.href = '/ui/runs';
+  });
+  document.getElementById('delete-view')?.addEventListener('click', function(){
+    const sel = document.getElementById('views-select');
+    const idx = Number(sel?.value||'');
+    let views = [];
+    try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
+    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('ビューを選択してください'); return; }
+    views.splice(idx,1);
+    try { localStorage.setItem('runs_views', JSON.stringify(views)); } catch {}
+    loadViews();
+  });
+  document.getElementById('copy-link')?.addEventListener('click', function(){
+    try { navigator.clipboard.writeText(location.href); alert('URLをコピーしました'); } catch { alert('コピーに失敗しました'); }
+  });
+  loadViews();
+  // サーバビュー
+  async function loadServerViews(){
+    try {
+      const res = await fetch('/views', { headers: getHeaders() });
+      if (!res.ok) return;
+      const js = await res.json();
+      const sel = document.getElementById('views-select-server');
+      if (!sel) return;
+      const rows = js.views || [];
+      sel.innerHTML = '<option value="">(選択)</option>' + rows.map(v=>`<option value="${v.id}">${v.name}${v.shared?' (shared)':''}</option>`).join('');
+      sel.setAttribute('data-views', JSON.stringify(rows));
+    } catch {}
+  }
+  document.getElementById('apply-view-server')?.addEventListener('click', function(){
+    const sel = document.getElementById('views-select-server');
+    const id = Number(sel?.value||'');
+    if (!Number.isFinite(id) || id<=0) { alert('ビューを選択してください'); return; }
+    try {
+      const rows = JSON.parse(sel.getAttribute('data-views')||'[]');
+      const v = rows.find(x=>x.id===id);
+      if (!v) { alert('ビューが見つかりません'); return; }
+      const merged = { ...getState(), ...(v.filters||{}) };
+      setState(merged);
+      location.href = '/ui/runs';
+    } catch { alert('適用に失敗しました'); }
+  });
+  document.getElementById('save-view-server')?.addEventListener('click', async function(){
+    const name = (document.getElementById('view-name-server')?.value||'').trim();
+    if (!name) { alert('名前を入力してください'); return; }
+    const shared = !!document.getElementById('server-view-shared')?.checked;
+    const scope = (document.getElementById('server-view-scope')?.value||'private');
+    const filters = getState();
+    try {
+      const res = await fetch('/views', { method:'POST', headers: { ...getHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name, shared, scope, filters }) });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      await loadServerViews();
+      alert('サーバに保存しました');
+    } catch(e) { console.error(e); alert('保存に失敗しました'); }
+  });
+  function getHeaders(){
+    const h = {};
+    try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+    try { const u = localStorage.getItem('user_email') || ''; if (u) h['X-User'] = u; } catch {}
+    try { const r = localStorage.getItem('user_role') || ''; if (r) h['X-Role'] = r; } catch {}
+    return h;
+  }
+  loadServerViews();
+
+  function tsId(){
+    const t = new Date();
+    const pad=n=>String(n).padStart(2,'0');
+    return t.getFullYear()+pad(t.getMonth()+1)+pad(t.getDate())+pad(t.getHours())+pad(t.getMinutes())+pad(t.getSeconds());
+  }
+  function getPrefs(){ try { return JSON.parse(localStorage.getItem('runs_prefs')||'{}') } catch { return {} } }
+  function setPrefs(s){ try { localStorage.setItem('runs_prefs', JSON.stringify(s)); } catch {} }
+  function versionFromRun(runId){
+    const s = getPrefs();
+    const prefix = (s.plan_version_prefix ?? 'run-');
+    const withTs = (typeof s.plan_version_ts === 'boolean') ? s.plan_version_ts : true;
+    let base = '';
+    try { const p = String(runId||'').replace(/[^a-zA-Z0-9]/g,''); base = prefix + p.slice(0,8); } catch { base = prefix + 'run'; }
+    return withTs ? (base + '-' + tsId()) : base;
+  }
+
+  // Run→Plan作成（クイックアクション）
+  async function createPlan(runId, scenarioId){
+    try {
+      const headers = getHeaders();
+      // config.json を取得（存在しない場合は既定値で補完）
+      let cfg = null;
+      try {
+        const r = await fetch(`/runs/${runId}/config.json`, { headers });
+        if (r.ok) cfg = await r.json();
+      } catch(e) { cfg = null; }
+      const payload = {
+        base_scenario_id: (scenarioId && !isNaN(Number(scenarioId))) ? Number(scenarioId) : undefined,
+        version_id: versionFromRun(runId),
+        weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
+        lt_unit: (cfg && cfg.lt_unit) || undefined,
+        cutover_date: (cfg && cfg.cutover_date) || undefined,
+        recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
+        anchor_policy: (cfg && cfg.anchor_policy) || undefined,
+        tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
+        tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
+        calendar_mode: (cfg && cfg.calendar_mode) || undefined,
+        carryover: (cfg && cfg.carryover) || undefined,
+        carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
+        apply_adjusted: (cfg && !!cfg.apply_adjusted) || false,
+        source_run_id: runId,
+        note: `created from run ${runId}`
+      };
+      const res = await fetch('/plans/integrated/run', { method:'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      if (data && data.version_id){ window.location.href = '/ui/plans/' + data.version_id; }
+      else { alert('Plan作成に失敗しました（version_idなし）'); }
+    } catch(e) { console.error(e); alert('Plan作成に失敗しました'); }
+  }
+  // Run→Plan作成（サイレント・バルク用）
+  async function createPlanSilent(runId, scenarioId){
+    try {
+      const headers = getHeaders();
+      let cfg = null;
+      try { const r = await fetch(`/runs/${runId}/config.json`, { headers }); if (r.ok) cfg = await r.json(); } catch {}
+      const payload = {
+        base_scenario_id: (scenarioId && !isNaN(Number(scenarioId))) ? Number(scenarioId) : undefined,
+        version_id: versionFromRun(runId),
+        weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
+        lt_unit: (cfg && cfg.lt_unit) || undefined,
+        cutover_date: (cfg && cfg.cutover_date) || undefined,
+        recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
+        anchor_policy: (cfg && cfg.anchor_policy) || undefined,
+        tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
+        tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
+        calendar_mode: (cfg && cfg.calendar_mode) || undefined,
+        carryover: (cfg && cfg.carryover) || undefined,
+        carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
+        apply_adjusted: (cfg && !!cfg.apply_adjusted) || false,
+        source_run_id: runId,
+        note: `created from run ${runId}`
+      };
+      const res = await fetch('/plans/integrated/run', { method:'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok) {
+        let msg = 'HTTP '+res.status;
+        try { const tx = await res.text(); if (tx) msg = tx; } catch {}
+        return { ok: false, run_id: runId, sid: (scenarioId||''), error: msg };
+      }
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+      if (data && data.version_id) return { ok: true, run_id: runId, sid: (scenarioId||''), version_id: data.version_id };
+      return { ok: false, run_id: runId, sid: (scenarioId||''), error: 'no version_id' };
+    } catch(e) { console.error(e); return { ok: false, run_id: runId, sid: (scenarioId||''), error: String(e && e.message || e) }; }
+  }
+  document.body.addEventListener('click', function(ev){
+    const el = ev.target;
+    if (el && el.classList && el.classList.contains('create-plan')){
+      const runId = el.getAttribute('data-run-id');
+      const sid = el.getAttribute('data-scenario-id');
+      createPlan(runId, sid);
+    }
+  });
+
+  // 設定UIの初期化と永続化
+  (function initVersionControls(){
+    const s = getPrefs();
+    const prefixEl = document.getElementById('ver-prefix');
+    const tsEl = document.getElementById('ver-ts');
+    if (prefixEl) prefixEl.value = s.plan_version_prefix ?? 'run-';
+    if (tsEl) tsEl.checked = (typeof s.plan_version_ts === 'boolean') ? s.plan_version_ts : true;
+    prefixEl?.addEventListener('change', function(){ const st = getPrefs(); st.plan_version_prefix = prefixEl.value || 'run-'; setPrefs(st); });
+    tsEl?.addEventListener('change', function(){ const st = getPrefs(); st.plan_version_ts = !!tsEl.checked; setPrefs(st); });
+  })();
+
+  // Bulk: 同期作成（順次）
+  async function planSelectedSync(){
+    const picks = Array.from(document.querySelectorAll('input.pick:checked'));
+    if (!picks.length){ alert('Runを選択してください'); return; }
+    if (!confirm(picks.length+'件のPlanを順次作成します。よろしいですか？')) return;
+    const versions = [];
+    const failures = [];
+    const bySid = {};
+    for (const el of picks){
+      const rid = el.value;
+      const sid = el.getAttribute('data-sid');
+      const r = await createPlanSilent(rid, sid);
+      if (r && r.ok) {
+        versions.push(r.version_id);
+        const key = String(r.sid||'');
+        if (!bySid[key]) bySid[key] = [];
+        bySid[key].push(r.version_id);
+      } else {
+        failures.push({ run_id: rid, error: r && r.error ? r.error : 'unknown' });
+      }
+    }
+    const box = document.getElementById('bulk-result');
+    if (box){
+      box.style.display = '';
+      if (versions.length){
+        const groups = Object.keys(bySid).map(sid => {
+          const lst = bySid[sid] || [];
+          const head = `<div><strong>scenario_id=${sid||'(なし)'}:</strong> ${lst.length} 件</div>`;
+          const body = `<div>${lst.map(v=>`<a href=\"/ui/plans/${v}\">${v}</a>`).join(' ｜ ')}</div>`;
+          return head + body;
+        }).join('<hr style=\"border:none;border-top:1px solid #eee; margin:6px 0;\"/>');
+        box.innerHTML = '<div style="background:#e7f5ff;padding:6px 8px;">'+
+          `<strong>Plan作成完了:</strong> ${versions.length} 件`+
+          (failures.length? (` ｜ <small>失敗: ${failures.length} 件</small>`) : '') +
+        '</div>'+
+        '<div style="padding:6px 8px;">'+groups+'</div>'+
+        (failures.length? ('<div style="background:#fff8e1;padding:6px 8px; margin-top:6px;">'+
+          failures.slice(0,10).map(f=>`<div class=\"mono\">${f.run_id}: ${f.error.replaceAll('<','&lt;')}</div>`).join('')+
+          (failures.length>10? `<div class=\"mono\">... and ${failures.length-10} more</div>`:'' )+
+        '</div>') : '');
+        setTimeout(()=>{ window.location.href = '/ui/plans'; }, 1200);
+      } else {
+        box.innerHTML = '<div style="background:#fff0f0;padding:6px 8px;">作成に失敗しました'+
+          (failures.length? ('<br/>'+failures.slice(0,10).map(f=>`<div class=\"mono\">${f.run_id}: ${f.error.replaceAll('<','&lt;')}</div>`).join('')):'')+
+        '</div>';
+      }
+    }
+  }
+  document.getElementById('plan-selected')?.addEventListener('click', planSelectedSync);
+
+  // Bulk: ジョブ投入（非同期）
+  async function planSelectedJobs(){
+    const picks = Array.from(document.querySelectorAll('input.pick:checked'));
+    if (!picks.length){ alert('Runを選択してください'); return; }
+    if (!confirm(picks.length+'件のPlan作成ジョブを投入します。/ui/jobs で進捗を確認してください。')) return;
+    const headers = getHeaders();
+    let ok = 0, ng = 0;
+    const failures = [];
+    for (const el of picks){
+      const runId = el.value;
+      const sid = el.getAttribute('data-sid');
+      let cfg = null;
+      try { const r = await fetch(`/runs/${runId}/config.json`, { headers }); if (r.ok) cfg = await r.json(); } catch {}
+      const body = {
+        pipeline: 'integrated',
+        async: true,
+        options: {
+          version_id: versionFromRun(runId),
+          base_scenario_id: (sid && !isNaN(Number(sid))) ? Number(sid) : undefined,
+          source_run_id: runId,
+          input_dir: (cfg && cfg.input_dir) || 'samples/planning',
+          weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : 4,
+          lt_unit: (cfg && cfg.lt_unit) || 'day',
+          cutover_date: (cfg && cfg.cutover_date) || undefined,
+          recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
+          anchor_policy: (cfg && cfg.anchor_policy) || undefined,
+          tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
+          tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
+          calendar_mode: (cfg && cfg.calendar_mode) || undefined,
+          carryover: (cfg && cfg.carryover) || undefined,
+          carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
+          apply_adjusted: (cfg && !!cfg.apply_adjusted) || false
+        }
+      };
+      try {
+        const res = await fetch('/runs', { method:'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.ok) {
+          try { const js = await res.json(); if (!(js && js.status === 'queued')) { failures.push({ run_id: runId, error: 'unexpected response' }); ng++; } else { ok++; } }
+          catch { ok++; }
+        } else {
+          let msg = 'HTTP '+res.status;
+          try { msg = await res.text(); } catch {}
+          failures.push({ run_id: runId, error: msg });
+          ng++;
+        }
+      } catch(e) { failures.push({ run_id: runId, error: String(e && e.message || e) }); ng++; }
+    }
+    const box = document.getElementById('bulk-result');
+    if (box){
+      box.style.display = '';
+      box.innerHTML = '<div style="background:#e7f5ff;padding:6px 8px;">'+
+        `<strong>ジョブ投入完了:</strong> success=${ok}, failed=${ng}`+
+      '</div>'+
+      (failures.length? ('<div style="background:#fff8e1;padding:6px 8px; margin-top:6px;">'+
+        failures.slice(0,10).map(f=>`<div class=\"mono\">${f.run_id}: ${f.error && String(f.error).replaceAll('<','&lt;')}</div>`).join('')+
+        (failures.length>10? `<div class=\"mono\">... and ${failures.length-10} more</div>`:'' )+
+      '</div>') : '');
+    }
+    setTimeout(()=>{ window.location.href = '/ui/jobs'; }, 1200);
+  }
+  document.getElementById('plan-selected-jobs')?.addEventListener('click', planSelectedJobs);
 })();
 </script>
 {% endblock %}
