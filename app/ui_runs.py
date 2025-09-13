@@ -123,17 +123,28 @@ def ui_run_detail(request: Request, run_id: str):
     except Exception:
         cfg_json_str = ""
     # Back link context (prefer explicit query from=jobs; fallback to Referer)
+    # Determine back link target
+    from_jobs = False
+    back_href = "/ui/runs"
     try:
-        from_jobs = (request.query_params.get("from") == "jobs")  # type: ignore[attr-defined]
-    except Exception:
-        from_jobs = False
-    try:
-        ref = request.headers.get("referer", "")
-        if (not from_jobs) and ("/ui/jobs" in ref):
-            from_jobs = True
+        # Highest priority: explicit back query
+        back_q = request.query_params.get("back")  # type: ignore[attr-defined]
+        if back_q and str(back_q).startswith("/ui/"):
+            back_href = str(back_q)
+            from_jobs = back_href.startswith("/ui/jobs")
+        else:
+            # Fallback: query from=jobs
+            if request.query_params.get("from") == "jobs":  # type: ignore[attr-defined]
+                from_jobs = True
+            # Fallback: Referer header
+            ref = request.headers.get("referer", "")
+            if (not from_jobs) and ("/ui/jobs" in ref):
+                from_jobs = True
+                back_href = ref
+            else:
+                back_href = "/ui/jobs" if from_jobs else "/ui/runs"
     except Exception:
         pass
-    back_href = "/ui/jobs" if from_jobs else "/ui/runs"
     return templates.TemplateResponse(
         "run_detail.html",
         {
