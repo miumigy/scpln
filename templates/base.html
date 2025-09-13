@@ -22,7 +22,7 @@
       </hgroup>
       <nav style="display:flex; gap:10px; flex-wrap:wrap;">
         <a href="/ui/plans" title="Planning Hub（推奨入口）">Planning Hub</a>
-        <a href="/ui/runs" id="navRuns" class="admin-only" title="診断（Admin）">診断</a>
+        <a href="/ui/runs" id="navRuns" title="ラン履歴">ラン履歴</a>
         <a href="/ui/scenarios">シナリオ一覧</a>
         <a href="/ui/configs">設定マスタ</a>
         <a href="/ui/jobs">ジョブ一覧</a>
@@ -45,13 +45,7 @@
       function qs(id){ return document.getElementById(id); }
       function show(){ var el = qs('hubBanner'); if (el) el.style.display=''; }
       function hide(){ var el = qs('hubBanner'); if (el) el.style.display='none'; }
-      function isAdmin(){ try { var r = (localStorage.getItem('user_role')||'').toLowerCase(); return r === 'admin'; } catch(e){ return false; } }
-      // 管理者専用リンクを非管理者から隠す
-      try {
-        if (!isAdmin()) {
-          document.querySelectorAll('.admin-only').forEach(function(el){ el.style.display='none'; });
-        }
-      } catch(e){}
+      // 管理者専用リンクの制御は現状なし（ラン履歴は一般公開）
       try {
         var hidden = localStorage.getItem('hideHubBanner') === '1';
         if (!hidden) {

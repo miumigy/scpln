@@ -71,7 +71,7 @@
   </section>
 
   <footer>
-    <a role="button" href="/ui/runs">← Back to runs</a>
+    <a role="button" id="back-link" href="/ui/runs">← Back to runs</a>
     <div style="float:right; display:flex; gap:6px; flex-wrap:wrap;">
       <button id="approve-run" type="button" data-action="approve">Approve</button>
       <button id="promote-baseline" type="button" data-action="promote">Promote baseline</button>
@@ -372,3 +372,16 @@
 })();
 </script>
 {% endblock %}
+  // Back link: if referer is jobs or query from=jobs, go back to jobs (or referrer)
+  (function(){
+    try {
+      var a = document.getElementById('back-link');
+      if (!a) return;
+      var ref = document.referrer || '';
+      var params = new URLSearchParams((location.search||'').replace(/^\?/,'') );
+      if ((ref.indexOf('/ui/jobs') >= 0) || (params.get('from') === 'jobs')){
+        a.textContent = '← Back to jobs';
+        a.setAttribute('href', ref.indexOf('/ui/jobs')>=0 ? ref : '/ui/jobs');
+      }
+    } catch(e) {}
+  })();

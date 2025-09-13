@@ -13,7 +13,7 @@
         <tr><th>submitted_at</th><td class="ts-ms" data-ms="{{ job.submitted_at }}">{{ job.submitted_at }}</td></tr>
         <tr><th>started_at</th><td class="ts-ms" data-ms="{{ job.started_at or '' }}">{{ job.started_at or '' }}</td></tr>
         <tr><th>finished_at</th><td class="ts-ms" data-ms="{{ job.finished_at or '' }}">{{ job.finished_at or '' }}</td></tr>
-        <tr><th>run_id</th><td class="mono">{% if job.run_id %}<a href="/ui/runs/{{ job.run_id }}">{{ job.run_id }}</a>{% endif %}</td></tr>
+        <tr><th>run_id</th><td class="mono">{% if job.run_id %}<a href="/ui/runs/{{ job.run_id }}?from=jobs">{{ job.run_id }}</a>{% endif %}</td></tr>
         <tr><th>error</th><td><pre>{{ job.error or '' }}</pre></td></tr>
       </tbody>
     </table>
