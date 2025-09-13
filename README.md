@@ -169,6 +169,9 @@ Render Freeでは一定時間アクセスがないとスピンダウンされま
   - チェックボックス → Compare フォームに反映（Use selected）
   - ページャ: 画面下の Prev/Next/Limit で `offset/limit` を制御（サーバは `total/offset/limit` を返却）
   - ソート/フィルタ: Sort/Order セレクトと Schema/Config ID で条件を指定（APIの `sort/order/schema_version/config_id` に連動）
+  - フェーズ1統合: Planning Hub（`/ui/plans`）の冒頭に「最近のラン（直近5件）」を表示します（`GET /runs?limit=5&sort=started_at&order=desc`）。主要KPI（`fill_rate/profit_total`）と詳細リンクを表示。
+  - フェーズ2追加: 「保存ビュー」をサポート（ローカル保存）。現在のURLコピーで共有可能。
+  - フェーズ3追加: meta列（BASE/APP/AR）、Hide archived トグルを追加
 - ラン詳細: `GET /ui/runs/{run_id}`
   - Summary 表示、Artifacts 件数
   - CSV/JSON リンク（results/pl/summary/trace, config.json/config.csv）
@@ -183,8 +186,10 @@ Render Freeでは一定時間アクセスがないとスピンダウンされま
   - ステータス・タイムスタンプ・`run_id`リンク・`error`表示
   - 失敗時は [Retry] ボタン、キュー中は [Cancel] ボタンが表示
 - 比較UI: `POST /ui/compare`（run_ids カンマ区切り）で metrics/diffs 表示
+  - 共有用 GET ページ: `GET /ui/compare/show?run_ids={id1},{id2}&base_id={id1}&threshold=5&keys=fill_rate,profit_total`
   - Base/Threshold: 比較画面でベースRunと閾値(%)を指定可能（閾値超えをハイライト）
   - CSV: metrics.csv / diffs.csv をダウンロード（Base/Thresholdをメタ行として含む）
+  - ショートカット: ラン詳細の「Baselineと比較」でベースラインとの比較ページを開く
 - シナリオ一覧: `GET /ui/scenarios`
   - シナリオの新規作成、編集、削除が可能。
   - 各シナリオに対して、既存の設定（Config）を選択してシミュレーションを実行できる。
@@ -220,6 +225,23 @@ Render Freeでは一定時間アクセスがないとスピンダウンされま
 
 - `DELETE /runs/{run_id}`
   - 指定したRunを削除（メモリ/DBいずれも対応）。運用注意（認可未実装）
+
+- メタ（承認/ベースライン/アーカイブ）
+  - `GET /runs/{run_id}/meta`, `GET /runs/meta?run_ids=a,b`
+  - `POST /runs/{run_id}/approve`（ヘッダ `X-User` 任意）
+  - `POST /runs/{run_id}/promote-baseline`
+  - `POST /runs/{run_id}/archive` / `POST /runs/{run_id}/unarchive`
+  - `POST /runs/{run_id}/note` メモ保存（承認依頼の下書き等）
+  - `GET /runs/baseline?scenario_id=...` シナリオのベースラインRunの取得
+
+### Saved Views（ラン一覧の保存ビュー）
+- 概要: ラン一覧のフィルタ/並び条件をサーバに保存し、後から適用や共有（shared）が可能です。
+- `GET /views`: ユーザー所有＋共有ビューの一覧（ヘッダ `X-User` 任意）
+- `POST /views`: 追加（ボディ: `name`, `filters`, `shared`）
+- `GET /views/{id}`: 単一ビュー取得
+- `PUT /views/{id}`: 更新（所有者/管理者のみ）
+- `DELETE /views/{id}`: 削除（所有者/管理者のみ）
+
 
 ### Compare
 - 概要: 実行結果のKPI比較やプリセット比較UIを提供します。
@@ -513,6 +535,39 @@ SIM_LOG_JSON=1 uvicorn main:app \
 - v2ポリシー（DET_near/AGG_far/blend）やパラメタの意味は整合ガイドを参照
 - スモーク: `python scripts/spill_smoke.py -i out/plan_final.json`
 
+### 計画立案フロー（簡略）
+
+- Draft: 集約入力を確認（family×period）
+- Disaggregate: SKU×週へ配賦（需要/供給/在庫）
+- Schedule: MRPで予定オーダ生成（能力・在庫制約反映）
+- Reconcile: cutover/anchor/tolerance で整合（調整後DETは任意）
+- Execute: PlanをもとにRunを実施、KPI確認、承認/ベースライン化
+
+```mermaid
+graph LR
+  subgraph Entries
+    H[Planning Hub (/ui/plans)]
+    R[Run Detail (/ui/runs/{id})]
+  end
+  H --> A[Draft]
+  R -->|seed from run| A
+  A --> B[Disaggregate]
+  B --> C[Schedule]
+  C --> D[Reconcile]
+  D --> E[Execute (Plan→Run)]
+  E -->|Compare/Approve| F[(Baseline)]
+```
+
+### UI導線（最小）
+
+- Planning Hub: `/ui/plans`（推奨入口）
+- Run詳細: 「このRunからPlanを作成」ボタン（scenario_id と config_json を可能な範囲で引継ぎ、Planバージョンを即時作成→Plan詳細へ遷移）
+- Plan詳細: 「再整合」「統合Run（新規Plan作成）」「Plan & Run（自動補完）」を用意。必要に応じてジョブ投入（非同期）も可能
+
+命名規則（Run起点）
+- version_id: `run-{runId先頭8}-{YYYYMMDDHHmmss}`（UIで自動付与。重複回避のため時刻サフィックス付）
+- カスタマイズ: Run一覧のバルク操作欄で `Version prefix` と `Timestamp` を設定可能（ローカル保存）。Run詳細の作成ボタンも同設定を参照
+
 ## 図解
 
 ### 簡易アーキテクチャ
@@ -665,6 +720,18 @@ classDiagram
   }
   RunRecord "*" o-- "0..1" Scenario : optional
 ```
+
+## RBAC と通知（オプション）
+
+- RBAC 有効化: `RBAC_ENABLED=1`
+  - 承認/昇格/アーカイブの許可ロール（カンマ区切り）
+    - `RBAC_APPROVE_ROLES`（既定: `approver,lead,admin`）
+    - `RBAC_PROMOTE_ROLES`（既定: `approver,lead,admin`）
+    - `RBAC_ARCHIVE_ROLES`（既定: `planner,admin`）
+  - ヘッダ: `X-Role`, `X-User` を付与
+- 通知（Webhook）
+  - `NOTIFY_WEBHOOK_URLS` にカンマ区切りでURL指定
+  - 送出イベント: `run_approved`, `run_promoted_baseline`, `run_archived`, `run_unarchived`
 
 ### 時系列フロー（シーケンス）
 

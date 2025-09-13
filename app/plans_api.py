@@ -307,6 +307,17 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         t = _load(out_dir / name)
         if t is not None:
             db.upsert_plan_artifact(version_id, name, t)
+    # Optional: record source linkage (e.g., created from run)
+    try:
+        src_run = _get_param(body, "source_run_id")
+        if src_run:
+            db.upsert_plan_artifact(
+                version_id,
+                "source.json",
+                json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+            )
+    except Exception:
+        pass
     return {
         "version_id": version_id,
         "out_dir": str(out_dir.relative_to(BASE_DIR)),
@@ -331,6 +342,38 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
 @app.get("/plans")
 def get_plans(limit: int = 100):
     return {"plans": db.list_plan_versions(limit)}
+
+
+@app.get("/plans/by_base")
+def get_plans_by_base(
+    base_scenario_id: int = Query(...),
+    limit: int = Query(5),
+    sort: str = Query("created_desc"),
+):
+    rows = db.list_plan_versions_by_base(int(base_scenario_id), max(1, int(limit)))
+    # apply sort option
+    if sort == "created_asc":
+        rows.sort(key=lambda r: r.get("created_at") or 0)
+    elif sort == "status":
+        rows.sort(key=lambda r: (str(r.get("status") or ""), -int(r.get("created_at") or 0)), reverse=False)
+    # default: created_desc already from DB
+    # enrich KPIs (lightweight): capacity/utilization totals from weekly_summary
+    enriched = []
+    for r in rows:
+        ver = r.get("version_id")
+        cap_total = adj_total = util_pct = None
+        try:
+            pf = db.get_plan_artifact(str(ver), "plan_final.json") or {}
+            ws = list((pf.get("weekly_summary") or []))
+            cap = sum(float(x.get("capacity") or 0) for x in ws)
+            adj = sum(float(x.get("adjusted_load") or 0) for x in ws)
+            cap_total = cap
+            adj_total = adj
+            util_pct = (adj / cap * 100.0) if cap else None
+        except Exception:
+            pass
+        enriched.append({**r, "capacity_total": cap_total, "adjusted_total": adj_total, "util_pct": util_pct})
+    return {"plans": enriched}
 
 
 @app.get("/plans/{version_id}/summary")
