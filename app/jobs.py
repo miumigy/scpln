@@ -575,11 +575,13 @@ class JobManager:
                     objective=cfg.get("objective"),
                     note=cfg.get("note"),
                 )
+
                 def _read(p: Path) -> str | None:
                     try:
                         return p.read_text(encoding="utf-8") if p.exists() else None
                     except Exception:
                         return None
+
                 for name in (
                     "aggregate.json",
                     "sku_week.json",
@@ -601,13 +603,18 @@ class JobManager:
                         db.upsert_plan_artifact(
                             version_id,
                             "source.json",
-                            json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+                            json.dumps(
+                                {"source_run_id": str(src_run)}, ensure_ascii=False
+                            ),
                         )
                     except Exception:
                         pass
             except Exception:
                 # DBへの保存に失敗してもジョブ自体は継続
-                logging.exception("planning_job_persist_failed", extra={"job_id": job_id, "version_id": version_id})
+                logging.exception(
+                    "planning_job_persist_failed",
+                    extra={"job_id": job_id, "version_id": version_id},
+                )
 
             result = {
                 "out_dir": str(out_dir.relative_to(base)),

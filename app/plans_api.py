@@ -355,7 +355,10 @@ def get_plans_by_base(
     if sort == "created_asc":
         rows.sort(key=lambda r: r.get("created_at") or 0)
     elif sort == "status":
-        rows.sort(key=lambda r: (str(r.get("status") or ""), -int(r.get("created_at") or 0)), reverse=False)
+        rows.sort(
+            key=lambda r: (str(r.get("status") or ""), -int(r.get("created_at") or 0)),
+            reverse=False,
+        )
     # default: created_desc already from DB
     # enrich KPIs (lightweight): capacity/utilization totals from weekly_summary
     enriched = []
@@ -372,7 +375,14 @@ def get_plans_by_base(
             util_pct = (adj / cap * 100.0) if cap else None
         except Exception:
             pass
-        enriched.append({**r, "capacity_total": cap_total, "adjusted_total": adj_total, "util_pct": util_pct})
+        enriched.append(
+            {
+                **r,
+                "capacity_total": cap_total,
+                "adjusted_total": adj_total,
+                "util_pct": util_pct,
+            }
+        )
     return {"plans": enriched}
 
 

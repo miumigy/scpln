@@ -206,7 +206,9 @@ def init_db() -> None:
         )
         # 既存DBへの後方互換: 追加カラム
         try:
-            c.execute("ALTER TABLE run_views ADD COLUMN scope TEXT NOT NULL DEFAULT 'private'")
+            c.execute(
+                "ALTER TABLE run_views ADD COLUMN scope TEXT NOT NULL DEFAULT 'private'"
+            )
         except Exception:
             pass
 
@@ -517,7 +519,10 @@ def list_plan_versions(limit: int = 100) -> List[Dict[str, Any]]:
         ).fetchall()
         return [dict(r) for r in rows]
 
-def list_plan_versions_by_base(base_scenario_id: int, limit: int = 5) -> List[Dict[str, Any]]:
+
+def list_plan_versions_by_base(
+    base_scenario_id: int, limit: int = 5
+) -> List[Dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
             "SELECT version_id, status, cutover_date, recon_window_days, created_at FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
@@ -564,7 +569,9 @@ def upsert_run_meta(run_id: str, **fields: Any) -> None:
     # ensure row exists
     with _conn() as c:
         now = int(time.time() * 1000)
-        row = c.execute("SELECT run_id FROM runs_meta WHERE run_id=?", (run_id,)).fetchone()
+        row = c.execute(
+            "SELECT run_id FROM runs_meta WHERE run_id=?", (run_id,)
+        ).fetchone()
         if not row:
             c.execute(
                 "INSERT INTO runs_meta(run_id, approved_at, approved_by, baseline, archived, note) VALUES(?,?,?,?,?,?)",
@@ -581,11 +588,15 @@ def upsert_run_meta(run_id: str, **fields: Any) -> None:
             sets.append(f"{k}=?")
             params.append(fields[k])
         params.append(run_id)
-        c.execute(f"UPDATE runs_meta SET {', '.join(sets)} WHERE run_id=?", tuple(params))
+        c.execute(
+            f"UPDATE runs_meta SET {', '.join(sets)} WHERE run_id=?", tuple(params)
+        )
 
 
 def approve_run(run_id: str, approved_by: str | None = None) -> None:
-    upsert_run_meta(run_id, approved_at=int(time.time() * 1000), approved_by=approved_by)
+    upsert_run_meta(
+        run_id, approved_at=int(time.time() * 1000), approved_by=approved_by
+    )
 
 
 def set_archived(run_id: str, archived: bool) -> None:
@@ -595,18 +606,30 @@ def set_archived(run_id: str, archived: bool) -> None:
 def set_baseline(run_id: str) -> None:
     # 同一シナリオ内で単一ベースラインにする（DBで解決）
     with _conn() as c:
-        row = c.execute("SELECT scenario_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        row = c.execute(
+            "SELECT scenario_id FROM runs WHERE run_id=?", (run_id,)
+        ).fetchone()
         if not row:
             return
         sid = row["scenario_id"]
         if sid is not None:
             # 同一シナリオの既存ベースラインを解除
-            q = c.execute("SELECT run_id FROM runs WHERE scenario_id=?", (sid,)).fetchall()
+            q = c.execute(
+                "SELECT run_id FROM runs WHERE scenario_id=?", (sid,)
+            ).fetchall()
             for r in q:
-                c.execute("INSERT OR IGNORE INTO runs_meta(run_id, baseline, archived) VALUES(?,0,0)", (r["run_id"],))
-                c.execute("UPDATE runs_meta SET baseline=0 WHERE run_id=?", (r["run_id"],))
+                c.execute(
+                    "INSERT OR IGNORE INTO runs_meta(run_id, baseline, archived) VALUES(?,0,0)",
+                    (r["run_id"],),
+                )
+                c.execute(
+                    "UPDATE runs_meta SET baseline=0 WHERE run_id=?", (r["run_id"],)
+                )
         # 対象をベースライン化
-        c.execute("INSERT OR IGNORE INTO runs_meta(run_id, baseline, archived) VALUES(?,0,0)", (run_id,))
+        c.execute(
+            "INSERT OR IGNORE INTO runs_meta(run_id, baseline, archived) VALUES(?,0,0)",
+            (run_id,),
+        )
         c.execute("UPDATE runs_meta SET baseline=1 WHERE run_id=?", (run_id,))
 
 
@@ -615,7 +638,9 @@ def get_runs_meta_bulk(run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         return {}
     with _conn() as c:
         ph = ",".join(["?"] * len(run_ids))
-        rows = c.execute(f"SELECT * FROM runs_meta WHERE run_id IN ({ph})", tuple(run_ids)).fetchall()
+        rows = c.execute(
+            f"SELECT * FROM runs_meta WHERE run_id IN ({ph})", tuple(run_ids)
+        ).fetchall()
         out = {}
         for r in rows:
             out[r["run_id"]] = dict(r)
@@ -627,14 +652,18 @@ def get_runs_meta_bulk(run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
 
 
 # --- Run views (server-side saved views) ---
-def list_run_views(owner: str | None = None, *, org: str | None = None) -> List[Dict[str, Any]]:
+def list_run_views(
+    owner: str | None = None, *, org: str | None = None
+) -> List[Dict[str, Any]]:
     with _conn() as c:
         # 可視性: 自分のもの、public、同一orgかつscope=org
         cond = ["(owner = ?)"] if owner else ["0"]
         params: list[Any] = [owner] if owner else []
         cond.append("scope = 'public'")
         if org:
-            cond.append("(scope = 'org' AND owner IN (SELECT owner FROM run_views WHERE 1=1))")
+            cond.append(
+                "(scope = 'org' AND owner IN (SELECT owner FROM run_views WHERE 1=1))"
+            )
             # 簡易実装: org毎の所有者紐付けは外部ディレクトリが無い前提のため省略
             # 組織単位共有はUI/運用の約束で運用（将来ユーザテーブル導入時に厳格化）
         where_sql = " WHERE (" + " OR ".join(cond) + ")"
@@ -644,25 +673,41 @@ def list_run_views(owner: str | None = None, *, org: str | None = None) -> List[
         ).fetchall()
         out: List[Dict[str, Any]] = []
         for r in rows:
-            out.append({
-                "id": r["id"],
-                "name": r["name"],
-                "owner": r["owner"],
-                "filters": json.loads(r["filters"] or "{}"),
-                "shared": bool(r["shared"]),
-                "scope": r["scope"],
-                "created_at": r["created_at"],
-                "updated_at": r["updated_at"],
-            })
+            out.append(
+                {
+                    "id": r["id"],
+                    "name": r["name"],
+                    "owner": r["owner"],
+                    "filters": json.loads(r["filters"] or "{}"),
+                    "shared": bool(r["shared"]),
+                    "scope": r["scope"],
+                    "created_at": r["created_at"],
+                    "updated_at": r["updated_at"],
+                }
+            )
         return out
 
 
-def create_run_view(name: str, filters: Dict[str, Any], owner: str | None, shared: bool, scope: str = 'private') -> int:
+def create_run_view(
+    name: str,
+    filters: Dict[str, Any],
+    owner: str | None,
+    shared: bool,
+    scope: str = "private",
+) -> int:
     now = int(time.time() * 1000)
     with _conn() as c:
         cur = c.execute(
             "INSERT INTO run_views(name, owner, filters, shared, scope, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
-            (name, owner, json.dumps(filters, ensure_ascii=False), 1 if shared else 0, scope, now, now),
+            (
+                name,
+                owner,
+                json.dumps(filters, ensure_ascii=False),
+                1 if shared else 0,
+                scope,
+                now,
+                now,
+            ),
         )
         return int(cur.lastrowid)
 

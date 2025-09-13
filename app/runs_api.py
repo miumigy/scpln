@@ -71,38 +71,68 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     if pipeline not in ("integrated",):
         return JSONResponse(status_code=400, content={"detail": "unsupported pipeline"})
     if options["weeks"] is None or options["weeks"] <= 0:
-        return JSONResponse(status_code=400, content={"detail": "weeks must be positive integer"})
+        return JSONResponse(
+            status_code=400, content={"detail": "weeks must be positive integer"}
+        )
     if options["lt_unit"] not in ("day", "week"):
-        return JSONResponse(status_code=400, content={"detail": "lt_unit must be 'day' or 'week'"})
+        return JSONResponse(
+            status_code=400, content={"detail": "lt_unit must be 'day' or 'week'"}
+        )
     rm = options.get("round_mode") or "int"
     if rm not in ("none", "int", "dec1", "dec2"):
-        return JSONResponse(status_code=400, content={"detail": "round_mode must be one of none|int|dec1|dec2"})
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "round_mode must be one of none|int|dec1|dec2"},
+        )
     ap = options.get("anchor_policy")
     if ap is not None and ap != "" and ap not in ("DET_near", "AGG_far", "blend"):
-        return JSONResponse(status_code=400, content={"detail": "anchor_policy must be one of DET_near|AGG_far|blend"})
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "anchor_policy must be one of DET_near|AGG_far|blend"},
+        )
     cm = options.get("calendar_mode")
     if cm is not None and cm != "" and cm not in ("simple", "iso"):
-        return JSONResponse(status_code=400, content={"detail": "calendar_mode must be one of simple|iso"})
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "calendar_mode must be one of simple|iso"},
+        )
     co = options.get("carryover")
     if co is not None and co != "" and co not in ("auto", "prev", "next", "both"):
-        return JSONResponse(status_code=400, content={"detail": "carryover must be one of auto|prev|next|both"})
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "carryover must be one of auto|prev|next|both"},
+        )
     if options.get("carryover_split") is not None:
         cs = float(options["carryover_split"])
         if cs < 0 or cs > 1:
-            return JSONResponse(status_code=400, content={"detail": "carryover_split must be between 0 and 1"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "carryover_split must be between 0 and 1"},
+            )
     if options.get("tol_abs") is not None and float(options["tol_abs"]) < 0:
         return JSONResponse(status_code=400, content={"detail": "tol_abs must be >= 0"})
     if options.get("tol_rel") is not None and float(options["tol_rel"]) < 0:
         return JSONResponse(status_code=400, content={"detail": "tol_rel must be >= 0"})
-    if options.get("max_adjust_ratio") is not None and float(options["max_adjust_ratio"]) < 0:
-        return JSONResponse(status_code=400, content={"detail": "max_adjust_ratio must be >= 0"})
+    if (
+        options.get("max_adjust_ratio") is not None
+        and float(options["max_adjust_ratio"]) < 0
+    ):
+        return JSONResponse(
+            status_code=400, content={"detail": "max_adjust_ratio must be >= 0"}
+        )
     if options.get("blend_split_next") is not None:
         bs = float(options["blend_split_next"])
         if bs < 0 or bs > 1:
-            return JSONResponse(status_code=400, content={"detail": "blend_split_next must be between 0 and 1"})
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "blend_split_next must be between 0 and 1"},
+            )
     bwm = options.get("blend_weight_mode")
     if bwm is not None and bwm != "" and bwm not in ("tri", "lin", "quad"):
-        return JSONResponse(status_code=400, content={"detail": "blend_weight_mode must be one of tri|lin|quad"})
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "blend_weight_mode must be one of tri|lin|quad"},
+        )
 
     if pipeline not in ("integrated",):
         return JSONResponse(status_code=400, content={"detail": "unsupported pipeline"})
