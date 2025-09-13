@@ -517,7 +517,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
 設計と詳細手順は整合ガイドに集約しています。READMEでは最小限の実行方法のみを示します。
 
 - 整合ガイド: [集約↔詳細 計画の統合・整合ガイド](docs/AGG_DET_RECONCILIATION_JA.md)（擬似コード／パラメタ早見／FAQ／サンプル）
-- サンプル入力: samples/planning/（2025-01〜2025-04の月次を含み、約100日分をカバー）
+- サンプル入力: samples/planning/（2025-01〜2025-12の月次を含み、年内フル≒365日をカバー）
 
 -実行方法（最小）
 - UI: `/ui/plans` → 「新規Plan作成（統合Run）」で実行（作成後に詳細へ）
