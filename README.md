@@ -545,17 +545,15 @@ SIM_LOG_JSON=1 uvicorn main:app \
 
 ```mermaid
 graph LR
-  subgraph Entries
-    H[Planning Hub (/ui/plans)]
-    R[Run Detail (/ui/runs/{id})]
-  end
+  H[Planning Hub (/ui/plans)]
+  R[Run Detail (/ui/runs/:id)]
   H --> A[Draft]
-  R -->|seed from run| A
+  R --> A
   A --> B[Disaggregate]
   B --> C[Schedule]
   C --> D[Reconcile]
-  D --> E[Execute (Plan→Run)]
-  E -->|Compare/Approve| F[(Baseline)]
+  D --> E[Execute (Plan-Run)]
+  E --> F[Baseline]
 ```
 
 ### UI導線（最小）
