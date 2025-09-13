@@ -545,14 +545,14 @@ SIM_LOG_JSON=1 uvicorn main:app \
 
 ```mermaid
 flowchart LR
-  H[Planning Hub (/ui/plans)]
-  R[Run Detail (/ui/runs/:id)]
+  H[Planning Hub]
+  R[Run Detail]
   H --> A[Draft]
   R --> A
   A --> B[Disaggregate]
   B --> C[Schedule]
   C --> D[Reconcile]
-  D --> E[Execute (Plan-Run)]
+  D --> E[Execute]
   E --> F[Baseline]
 ```
 
