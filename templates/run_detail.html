@@ -128,18 +128,34 @@
     } catch (e) { console.error(e); alert('Failed to delete run.'); }
   }
   if (delBtn) delBtn.addEventListener('click', del);
-  async function act(url){
+  function withActionHeaders(action){
+    const h = getHeaders();
+    // デフォルトの役割を補完（RBAC_ENABLED=1 の場合に403を避ける）
+    const role = (h['X-Role']||'').trim().toLowerCase();
+    if (!role){
+      if (action === 'approve' || action === 'promote') h['X-Role'] = 'approver';
+      else if (action === 'archive') h['X-Role'] = 'planner';
+    }
+    if (!h['X-User'] || !String(h['X-User']).trim()) h['X-User'] = 'ui@local';
+    return h;
+  }
+
+  async function act(url, action){
     try {
-      const res = await fetch(url, { method: 'POST', headers: getHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(url, { method: 'POST', headers: withActionHeaders(action) });
+      if (!res.ok){
+        let body = '';
+        try { body = await res.text(); } catch {}
+        throw new Error(`HTTP ${res.status} ${body||''}`);
+      }
       await loadMeta();
       banner('操作が完了しました');
-    } catch (e) { console.error(e); alert('操作に失敗しました'); }
+    } catch (e) { console.error(e); alert('操作に失敗しました\n'+(e && e.message ? e.message : '')); }
   }
-  if (approveBtn) approveBtn.addEventListener('click', () => act(`/runs/${runId}/approve`));
-  if (promoteBtn) promoteBtn.addEventListener('click', () => act(`/runs/${runId}/promote-baseline`));
-  if (archBtn) archBtn.addEventListener('click', () => act(`/runs/${runId}/archive`));
-  if (unarchBtn) unarchBtn.addEventListener('click', () => act(`/runs/${runId}/unarchive`));
+  if (approveBtn) approveBtn.addEventListener('click', () => act(`/runs/${runId}/approve`, 'approve'));
+  if (promoteBtn) promoteBtn.addEventListener('click', () => act(`/runs/${runId}/promote-baseline`, 'promote'));
+  if (archBtn) archBtn.addEventListener('click', () => act(`/runs/${runId}/archive`, 'archive'));
+  if (unarchBtn) unarchBtn.addEventListener('click', () => act(`/runs/${runId}/unarchive`, 'archive'));
 
   function tsId(){
     const t = new Date();
