@@ -126,12 +126,17 @@ def ui_run_detail(request: Request, run_id: str):
     # Determine back link target
     from_jobs = False
     back_href = "/ui/runs"
+    back_label = "\u2190 Back to runs"  # default with left arrow
     try:
         # Highest priority: explicit back query
         back_q = request.query_params.get("back")  # type: ignore[attr-defined]
         if back_q and str(back_q).startswith("/ui/"):
             back_href = str(back_q)
             from_jobs = back_href.startswith("/ui/jobs")
+            if back_href.startswith("/ui/jobs/"):
+                back_label = "\u2190 Back to job detail"
+            elif back_href.startswith("/ui/jobs"):
+                back_label = "\u2190 Back to jobs"
         else:
             # Fallback: query from=jobs
             if request.query_params.get("from") == "jobs":  # type: ignore[attr-defined]
@@ -141,8 +146,14 @@ def ui_run_detail(request: Request, run_id: str):
             if (not from_jobs) and ("/ui/jobs" in ref):
                 from_jobs = True
                 back_href = ref
+                if "/ui/jobs/" in ref:
+                    back_label = "\u2190 Back to job detail"
+                else:
+                    back_label = "\u2190 Back to jobs"
             else:
                 back_href = "/ui/jobs" if from_jobs else "/ui/runs"
+                if from_jobs:
+                    back_label = "\u2190 Back to jobs"
     except Exception:
         pass
     return templates.TemplateResponse(
@@ -158,5 +169,6 @@ def ui_run_detail(request: Request, run_id: str):
             "subtitle": "Run Viewer",
             "from_jobs": from_jobs,
             "back_href": back_href,
+            "back_label": back_label,
         },
     )

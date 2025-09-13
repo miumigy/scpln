@@ -71,7 +71,7 @@
   </section>
 
   <footer>
-    <a role="button" id="back-link" href="{{ back_href }}">← {% if from_jobs %}Back to jobs{% else %}Back to runs{% endif %}</a>
+    <a role="button" id="back-link" href="{{ back_href }}">{{ back_label }}</a>
     <div style="float:right; display:flex; gap:6px; flex-wrap:wrap;">
       <button id="approve-run" type="button" data-action="approve">Approve</button>
       <button id="promote-baseline" type="button" data-action="promote">Promote baseline</button>
