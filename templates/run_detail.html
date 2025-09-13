@@ -142,11 +142,25 @@
 
   async function act(url, action){
     try {
-      const res = await fetch(url, { method: 'POST', headers: withActionHeaders(action) });
-      if (!res.ok){
-        let body = '';
-        try { body = await res.text(); } catch {}
-        throw new Error(`HTTP ${res.status} ${body||''}`);
+      const h = withActionHeaders(action);
+      // fetchがない環境向けフォールバック
+      if (typeof window.fetch === 'function'){
+        const res = await fetch(url, { method: 'POST', headers: h });
+        if (!res.ok){
+          let body = '';
+          try { body = await res.text(); } catch {}
+          throw new Error(`HTTP ${res.status} ${body||''}`);
+        }
+      } else {
+        await new Promise(function(resolve, reject){
+          try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            try { for (var k in h){ if (Object.prototype.hasOwnProperty.call(h,k)) xhr.setRequestHeader(k, h[k]); } } catch(e){}
+            xhr.onreadystatechange = function(){ if (xhr.readyState === 4){ if (xhr.status >=200 && xhr.status <300) resolve(); else reject(new Error('HTTP '+xhr.status+' '+(xhr.responseText||''))); } };
+            xhr.send();
+          } catch(e){ reject(e); }
+        });
       }
       await loadMeta();
       banner('操作が完了しました');
@@ -228,9 +242,23 @@
 
   async function loadMeta(){
     try {
-      const res = await fetch(`/runs/${runId}/meta`, { headers: getHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const m = await res.json();
+      var m = null;
+      if (typeof window.fetch === 'function'){
+        const res = await fetch(`/runs/${runId}/meta`, { headers: getHeaders() });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        m = await res.json();
+      } else {
+        m = await new Promise(function(resolve, reject){
+          try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', `/runs/${runId}/meta`, true);
+            var h = getHeaders();
+            try { for (var k in h){ if (Object.prototype.hasOwnProperty.call(h,k)) xhr.setRequestHeader(k, h[k]); } } catch(e){}
+            xhr.onreadystatechange = function(){ if (xhr.readyState === 4){ if (xhr.status >=200 && xhr.status <300){ try { resolve(JSON.parse(xhr.responseText||'{}')); } catch(e){ resolve({}); } } else { reject(new Error('HTTP '+xhr.status)); } } };
+            xhr.send();
+          } catch(e){ reject(e); }
+        });
+      }
       if (badges) {
         badges.innerHTML = '';
         if (m.baseline) badges.innerHTML += '<span class="secondary">BASELINE</span>';
