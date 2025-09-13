@@ -174,12 +174,13 @@
 
   async function createPlanFromRun(){
     try {
-      const sidTxt = document.querySelector('table tbody tr:nth-child(2) td')?.textContent||'';
+      var sidCell = document.querySelector('table tbody tr:nth-child(2) td');
+      const sidTxt = sidCell ? (sidCell.textContent||'') : '';
       const scenarioId = parseInt(sidTxt, 10);
       // config_json を画面から取得（存在しない/不正は無視）
       let cfg = null;
       try {
-        const pre = document.querySelector('table pre.mono');
+        var pre = document.querySelector('table pre.mono');
         if (pre && pre.textContent) cfg = JSON.parse(pre.textContent);
       } catch(e) { cfg = null; }
       const payload = {
@@ -286,7 +287,7 @@
 
   function fillTemplate(){
     try {
-      const sTbl = document.getElementById('summary-table');
+      var sTbl = document.getElementById('summary-table');
       const rows = sTbl ? Array.from(sTbl.querySelectorAll('tbody tr')) : [];
       const sum = {};
       rows.forEach(r => { const k = r.querySelector('th')?.textContent||''; const v = r.querySelector('td')?.textContent||''; if (k) sum[k]=v; });
@@ -303,8 +304,8 @@
     } catch {}
   }
   fillTemplate();
-  copyBtn?.addEventListener('click', () => { try { navigator.clipboard.writeText(noteEl.value||''); alert('コピーしました'); } catch { alert('コピーに失敗しました'); } });
-  saveNoteBtn?.addEventListener('click', async () => {
+  if (copyBtn) copyBtn.addEventListener('click', function(){ try { navigator.clipboard.writeText(noteEl.value||''); alert('コピーしました'); } catch (e) { alert('コピーに失敗しました'); } });
+  if (saveNoteBtn) saveNoteBtn.addEventListener('click', async function(){
     try {
       const res = await fetch(`/runs/${runId}/note`, { method:'POST', headers: { ...getHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({ note: noteEl.value||'' }) });
       if (!res.ok) throw new Error('HTTP '+res.status);
@@ -326,7 +327,7 @@
       location.href = '/ui/compare/show?' + q.toString();
     } catch(e){ console.error(e); alert('比較リンクの生成に失敗しました'); }
   }
-  cmpBaseBtn?.addEventListener('click', openCompareWithBaseline);
+  if (cmpBaseBtn) cmpBaseBtn.addEventListener('click', openCompareWithBaseline);
 
 })();
 </script>
