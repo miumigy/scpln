@@ -60,13 +60,13 @@ if not ok:
   sys.exit(1)
 print('[ok] artifact structure verified')
 PY
-      - name: Run quick tests
+      - name: Run quick tests (parallel)
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q tests/test_planning_pipeline.py::test_aggregate_supply_backlog
-          pytest -q tests/test_ui_*.py
-          pytest -q tests/test_simulation_endpoint.py
+          pytest -q -n auto tests/test_planning_pipeline.py::test_aggregate_supply_backlog
+          pytest -q -n auto tests/test_ui_*.py
+          pytest -q -n auto tests/test_simulation_endpoint.py
       - name: Upload pipeline outputs (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
