@@ -73,10 +73,10 @@
   <footer>
     <a role="button" href="/ui/runs">← Back to runs</a>
     <div style="float:right; display:flex; gap:6px; flex-wrap:wrap;">
-      <button id="approve-run" type="button">Approve</button>
-      <button id="promote-baseline" type="button">Promote baseline</button>
-      <button id="archive-run" type="button" class="secondary">Archive</button>
-      <button id="unarchive-run" type="button" class="secondary">Unarchive</button>
+      <button id="approve-run" type="button" data-action="approve">Approve</button>
+      <button id="promote-baseline" type="button" data-action="promote">Promote baseline</button>
+      <button id="archive-run" type="button" class="secondary" data-action="archive">Archive</button>
+      <button id="unarchive-run" type="button" class="secondary" data-action="unarchive">Unarchive</button>
       <button id="delete-run" class="contrast">Delete</button>
     </div>
   </footer>
@@ -156,6 +156,18 @@
   if (promoteBtn) promoteBtn.addEventListener('click', () => act(`/runs/${runId}/promote-baseline`, 'promote'));
   if (archBtn) archBtn.addEventListener('click', () => act(`/runs/${runId}/archive`, 'archive'));
   if (unarchBtn) unarchBtn.addEventListener('click', () => act(`/runs/${runId}/unarchive`, 'archive'));
+
+  // イベント委譲（フォールバック）
+  document.addEventListener('click', function(ev){
+    var t = ev.target || ev.srcElement;
+    if (!t || !t.getAttribute) return;
+    var a = t.getAttribute('data-action');
+    if (!a) return;
+    if (a === 'approve') act(`/runs/${runId}/approve`, 'approve');
+    else if (a === 'promote') act(`/runs/${runId}/promote-baseline`, 'promote');
+    else if (a === 'archive') act(`/runs/${runId}/archive`, 'archive');
+    else if (a === 'unarchive') act(`/runs/${runId}/unarchive`, 'archive');
+  });
 
   function tsId(){
     const t = new Date();
