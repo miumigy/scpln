@@ -30,9 +30,9 @@ def ui_jobs(
         except Exception:
             pass
     return templates.TemplateResponse(
+        request,
         "jobs.html",
         {
-            "request": request,
             "rows": rows,
             "total": data.get("total", 0),
             "offset": data.get("offset", 0),
@@ -56,6 +56,7 @@ def ui_job_detail(request: Request, job_id: str):
     except Exception:
         result = None
     return templates.TemplateResponse(
+        request,
         "job_detail.html",
-        {"request": request, "job": row, "result": result, "subtitle": "Jobs"},
+        {"job": row, "result": result, "subtitle": "Jobs"},
     )

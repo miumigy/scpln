@@ -118,9 +118,9 @@ def ui_compare(
             diffs.append(diff)
 
     return templates.TemplateResponse(
+        request,
         "compare.html",
         {
-            "request": request,
             "rows": rows,
             "diffs": diffs,
             "keys": use_keys,
@@ -345,9 +345,9 @@ def ui_compare_preset(
                 diff[k] = {"abs": d, "pct": pct}
             diffs.append(diff)
     return templates.TemplateResponse(
+        request,
         "compare.html",
         {
-            "request": request,
             "rows": rows,
             "diffs": diffs,
             "keys": use_keys,

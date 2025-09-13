@@ -66,7 +66,9 @@ def ui_runs(request: Request):
             for r in rows
         ]
         return templates.TemplateResponse(
-            "runs.html", {"request": request, "rows": rows, "subtitle": "Run Viewer"}
+            request,
+            "runs.html",
+            {"rows": rows, "subtitle": "Run Viewer"},
         )
     except Exception:
         logging.exception("ui_runs_render_failed")
@@ -157,9 +159,9 @@ def ui_run_detail(request: Request, run_id: str):
     except Exception:
         pass
     return templates.TemplateResponse(
+        request,
         "run_detail.html",
         {
-            "request": request,
             "run_id": run_id,
             "summary": summary,
             "counts": counts,

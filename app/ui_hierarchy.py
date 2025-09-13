@@ -15,9 +15,9 @@ def ui_hierarchy(request: Request):
     pmap = db.get_product_hierarchy()
     lmap = db.get_location_hierarchy()
     return templates.TemplateResponse(
+        request,
         "hierarchy.html",
         {
-            "request": request,
             "pjson": json.dumps(pmap, ensure_ascii=False, indent=2),
             "ljson": json.dumps(lmap, ensure_ascii=False, indent=2),
             "subtitle": "Hierarchy Master",

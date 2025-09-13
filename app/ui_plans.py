@@ -71,9 +71,9 @@ def ui_plans(request: Request):
             }
         )
     return templates.TemplateResponse(
+        request,
         "plans.html",
         {
-            "request": request,
             "subtitle": "プランバージョン一覧",
             "plans": rows,
         },
@@ -85,9 +85,9 @@ def ui_plan_detail(version_id: str, request: Request):
     ver = db.get_plan_version(version_id)
     if not ver:
         return templates.TemplateResponse(
+            request,
             "plans_detail.html",
             {
-                "request": request,
                 "subtitle": "プラン詳細",
                 "error": "version not found",
             },
@@ -304,9 +304,9 @@ def ui_plan_detail(version_id: str, request: Request):
     except Exception:
         pass
     return templates.TemplateResponse(
+        request,
         "plans_detail.html",
         {
-            "request": request,
             "subtitle": f"プラン詳細 {version_id}",
             "version_id": version_id,
             "version": ver,

@@ -17,8 +17,9 @@ def ui_scenarios(request: Request):
     rows = db.list_scenarios(500)
     cfgs = db.list_configs(200)
     return templates.TemplateResponse(
+        request,
         "scenarios.html",
-        {"request": request, "rows": rows, "configs": cfgs, "subtitle": "Scenarios"},
+        {"rows": rows, "configs": cfgs, "subtitle": "Scenarios"},
     )
 
 

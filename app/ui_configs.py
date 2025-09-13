@@ -18,17 +18,18 @@ def ui_configs_list(request: Request):
         r["updated_at_str"] = ms_to_jst_str(r.get("updated_at"))
         r["created_at_str"] = ms_to_jst_str(r.get("created_at"))
     return templates.TemplateResponse(
+        request,
         "configs_list.html",
-        {"request": request, "rows": rows, "subtitle": "設定マスタ"},
+        {"rows": rows, "subtitle": "設定マスタ"},
     )
 
 
 @app.get("/ui/configs/new", response_class=HTMLResponse)
 def ui_configs_new(request: Request):
     return templates.TemplateResponse(
+        request,
         "configs_edit.html",
         {
-            "request": request,
             "mode": "create",
             "rec": {"name": "", "json_text": ""},
             "subtitle": "設定マスタ",
@@ -48,8 +49,9 @@ def ui_configs_edit(request: Request, cfg_id: int):
     if not rec:
         raise HTTPException(status_code=404, detail="config not found")
     return templates.TemplateResponse(
+        request,
         "configs_edit.html",
-        {"request": request, "mode": "edit", "rec": rec, "subtitle": "設定マスタ"},
+        {"mode": "edit", "rec": rec, "subtitle": "設定マスタ"},
     )
 
 
