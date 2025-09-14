@@ -34,6 +34,8 @@
   - [クラス図（主要要素）](#クラス図主要要素)
   - [時系列フロー（シーケンス）](#時系列フローシーケンス)
 - [拡張戦略（残る拡張のみ）](#拡張戦略残る拡張のみ)
+- [PSI 編集ワークフロー](#psi-workflow)
+  - [Lock Manager（検索・一括操作）](#lock-manager)
 
 ## 概要
 
@@ -805,6 +807,7 @@ sequenceDiagram
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
 
+<a id="psi-workflow"></a>
 ## PSI 編集ワークフロー（MVP/フェーズ2）
 
 - 目的: 各粒度（Aggregate: family×period、Detail: sku×week）のPSI（需要/供給/在庫/バックログ）をUIで参照・編集し、差分をサーバに保存。必要に応じて再整合（adjusted/MRP）を実行。
