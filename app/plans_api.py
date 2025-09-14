@@ -155,6 +155,29 @@ def _auth_ok(req: Request) -> bool:
         return False
 
 
+def _has_edit(req: Request) -> bool:
+    k_edit = os.environ.get("API_KEY_EDIT")
+    k_any = os.environ.get("API_KEY_VALUE")
+    if not k_edit and not k_any:
+        return True
+    try:
+        val = req.headers.get("X-API-Key")
+        return bool(val) and (val == k_edit or val == k_any)
+    except Exception:
+        return False
+
+
+def _has_approve(req: Request) -> bool:
+    k_app = os.environ.get("API_KEY_APPROVE")
+    if k_app:
+        try:
+            return req.headers.get("X-API-Key") == k_app
+        except Exception:
+            return False
+    # fallback to edit key
+    return _has_edit(req)
+
+
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
@@ -526,7 +549,7 @@ def get_plan_psi(
 
 @app.patch("/plans/{version_id}/psi")
 def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
-    if not _auth_ok(request):
+    if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     level = body.get("level") or "aggregate"
     edits = list(body.get("edits") or [])
@@ -795,7 +818,7 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
 
 @app.post("/plans/{version_id}/psi/reconcile")
 def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
-    if not _auth_ok(request):
+    if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
     agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
