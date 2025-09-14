@@ -1,4 +1,31 @@
 {% extends "base.html" %}
+{% block head %}
+  <style>
+    /* PSI テーブルの編集可能セル可視化 */
+    #tblPSI td[contenteditable],
+    #tblPSI td.editable {
+      background-color: #FFFDF5; /* わずかに色を付けて可視化 */
+      border: 1px dashed #C7C7C7;
+      cursor: text;
+      position: relative;
+    }
+    #tblPSI td.editable::after {
+      content: "✎";
+      position: absolute;
+      top: 2px;
+      right: 6px;
+      font-size: 0.8em;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+    #tblPSI td[contenteditable]:hover,
+    #tblPSI td.editable:hover { background-color: #FFF8E6; }
+    #tblPSI td[contenteditable]:focus,
+    #tblPSI td.editable:focus { outline: 2px solid #0d6efd; background-color: #FFFFFF; }
+    #tblPSI td.ro { background-color: #F2F4F7; color: #6B7280; }
+    #tblPSI td.dirty { background-color: #FFF3BF; border-color: #F08C00; }
+  </style>
+{% endblock %}
 {% block content %}
 <section>
   <h2>プラン詳細</h2>
@@ -116,6 +143,7 @@
         <button id="psiUnlockCell" type="button" class="secondary">Unlock cell</button>
         <button id="psiUnlockAll" type="button" class="secondary">Unlock all</button>
         <small class="mono" id="psiMeta"></small>
+        <small class="mono" id="psiLegend">凡例: ✎ 編集可能セル / グレー=参照専用 / 黄色=未保存変更</small>
       </div>
       <div style="overflow:auto;">
         <table id="tblPSI" style="min-width:960px;"></table>
@@ -301,10 +329,14 @@
       const tds = cols.map(c=>{
           const val = r[c.k];
           const ro = c.ro || rowLocked || locks.has(`${k}:field=${c.k}`);
-          const attr = ro? 'data-ro="1"' : 'contenteditable';
-            const cls = ro? 'class="ro"' : '';
-            const dv = fmt(val);
-            return `<td ${attr} ${cls} data-field="${c.k}" data-key="${k}" data-value="${dv}">${dv}</td>`;
+          const dv = fmt(val);
+          if (ro) {
+            const title = '参照専用（ロック/対象外）';
+            return `<td data-ro="1" class="ro" data-field="${c.k}" data-key="${k}" data-value="${dv}" title="${title}" aria-label="${title}">${dv}</td>`;
+          } else {
+            const title = `編集可能: ${c.k}`;
+            return `<td contenteditable tabindex="0" class="editable" data-field="${c.k}" data-key="${k}" data-value="${dv}" title="${title}" aria-label="${title}">${dv}</td>`;
+          }
           }).join('');
           const lk = rowLocked? 'checked' : '';
           return `<tr>${tds}<td><input type="checkbox" class="psi-lock" data-key="${k}" ${lk}></td></tr>`;
