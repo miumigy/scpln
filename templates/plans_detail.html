@@ -112,6 +112,8 @@
             <option value="toggle">toggle</option>
           </select>
         </label>
+        <button id="psiLockCell" type="button" class="secondary">Lock cell</button>
+        <button id="psiUnlockCell" type="button" class="secondary">Unlock cell</button>
         <small class="mono" id="psiMeta"></small>
       </div>
       <div style="overflow:auto;">
@@ -163,6 +165,29 @@
         <p class="mono">注: adjusted 実行には anchor_policy と cutover_date の指定が必要です。MRP再計算は apply_adjusted と組み合わせます。</p>
       </details>
       <details>
+        <summary>分配オプション（Aggregate→Detail）</summary>
+        <div class="grid" style="align-items:end;">
+          <label>weight_mode
+            <select id="psiWeight">
+              <option value="current" selected>current（現値比例）</option>
+              <option value="equal">equal（均等）</option>
+              <option value="demand">demandに比例</option>
+              <option value="supply_plan">supply_planに比例</option>
+            </select>
+          </label>
+          <label>round demand
+            <input type="number" id="psiRoundDemand" placeholder="step（例: 1）">
+          </label>
+          <label>round supply_plan
+            <input type="number" id="psiRoundSupply" placeholder="step（例: 1）">
+          </label>
+          <label>round backlog
+            <input type="number" id="psiRoundBacklog" placeholder="step（例: 1）">
+          </label>
+        </div>
+        <p class="mono">注: Aggregateを保存した時に適用。step指定時は最寄りの倍数に丸めます（総和は再スケール）。</p>
+      </details>
+      <details>
         <summary>CSVインポート（ヘッダ付き, 既定列のみ）</summary>
         <p class="mono">aggregate: period,family,demand,supply,backlog ｜ det: week,sku,demand,supply_plan,backlog,on_hand_start,on_hand_end</p>
         <textarea id="psiCsvText" rows="6" placeholder="CSVを貼り付け"></textarea>
@@ -188,12 +213,27 @@
           <table id="tblPSIAudit" style="min-width:960px;"></table>
         </div>
       </details>
+      <details>
+        <summary>承認ワークフロー</summary>
+        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+          <label>note<input id="psiSubmitNote" type="text" placeholder="提出メモ"></label>
+          <button id="psiSubmit" type="button">Submit（提出）</button>
+          <label><input type="checkbox" id="psiApproveRecon"> 承認後に整合実行</label>
+          <button id="psiApprove" type="button" class="secondary">Approve（承認）</button>
+          <small class="mono">注: ApproveにはAPIキーが必要です（localStorage.api_key）。</small>
+        </div>
+      </details>
       <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。</p>
     </details>
     <script>
     (function(){
       const ver = {{ version_id | tojson | safe }};
       const tbl = document.getElementById('tblPSI');
+      function getHeaders(){
+        const h = {'Content-Type':'application/json'};
+        try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+        return h;
+      }
       const levelEl = document.getElementById('psiLevel');
       const qEl = document.getElementById('psiQ');
       const limEl = document.getElementById('psiLimit');
@@ -235,6 +275,7 @@
         tbl.innerHTML = thead + '<tbody>'+body+'</tbody>';
         // 変更検知
         tbl.querySelectorAll('td[contenteditable]').forEach(td=>{
+          td.addEventListener('focus', ev=>{ window.__psiLastCell = ev.currentTarget; });
           td.addEventListener('blur', ev=>{
             const el = ev.currentTarget; const key = el.getAttribute('data-key'); const f = el.getAttribute('data-field');
             const before = el.getAttribute('data-value')||''; const after = el.textContent.trim();
@@ -272,8 +313,23 @@
         }
         const edits = Array.from(grouped.values());
         const lock = lockEl.value || undefined;
+        // 分配オプション（aggregate時のみ）
+        let distribute = undefined;
+        if (level === 'aggregate'){
+          const wm = document.getElementById('psiWeight');
+          const rd = document.getElementById('psiRoundDemand');
+          const rs = document.getElementById('psiRoundSupply');
+          const rb = document.getElementById('psiRoundBacklog');
+          const round = {};
+          if (rd && rd.value) round['demand'] = { mode:'nearest', step: Number(rd.value) };
+          if (rs && rs.value) round['supply_plan'] = { mode:'nearest', step: Number(rs.value) };
+          if (rb && rb.value) round['backlog'] = { mode:'nearest', step: Number(rb.value) };
+          distribute = { weight_mode: (wm && wm.value)||'current', round };
+        }
         if (edits.length===0 && !lock){ return; }
-        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level, edits, lock }) });
+        const body = { level, edits, lock };
+        if (distribute) body['distribute'] = distribute;
+        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:getHeaders(), body: JSON.stringify(body) });
         if (!res.ok){ alert('save failed'); return; }
         pending.clear(); await load();
       }
@@ -305,7 +361,7 @@
         body.carryover = cov && cov.value ? cov.value : undefined;
         body.carryover_split = csv && csv.value!=='' ? Number(csv.value) : undefined;
         body.input_dir = idir && idir.value ? idir.value : 'samples/planning';
-        const res = await fetch(`/plans/${ver}/psi/reconcile`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const res = await fetch(`/plans/${ver}/psi/reconcile`, { method:'POST', headers:getHeaders(), body: JSON.stringify(body) });
         if (!res.ok){ alert('reconcile failed'); return; }
         const js = await res.json();
         alert('reconciled: violations='+(js.summary && (js.summary.violations||js.summary.tol_violations||0)));
@@ -313,6 +369,16 @@
       document.getElementById('psiReload')?.addEventListener('click', load);
       document.getElementById('psiSave')?.addEventListener('click', save);
       document.getElementById('psiRecon')?.addEventListener('click', recon);
+      function lockCell(mode){
+        const el = window.__psiLastCell; if (!el){ alert('セルを選択してください'); return; }
+        const key = el.getAttribute('data-key'); const f = el.getAttribute('data-field');
+        if (!key || !f){ return; }
+        const lock_keys = [`${key}:field=${f}`];
+        fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:getHeaders(), body: JSON.stringify({ level: levelEl.value, edits: [], lock: mode, lock_keys }) })
+          .then(()=> load());
+      }
+      document.getElementById('psiLockCell')?.addEventListener('click', ()=> lockCell('lock'));
+      document.getElementById('psiUnlockCell')?.addEventListener('click', ()=> lockCell('unlock'));
       document.getElementById('psiCsvApply')?.addEventListener('click', async function(){
         const level = levelEl.value;
         const ta = document.getElementById('psiCsvText'); const txt = (ta && ta.value)||''; if(!txt.trim()) return;
@@ -334,7 +400,7 @@
             edits.push({ key, fields });
           }
         }
-        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level, edits }) });
+        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:getHeaders(), body: JSON.stringify({ level, edits }) });
         if (!res.ok){ alert('CSV適用に失敗しました'); return; }
         ta.value=''; await load();
       });
@@ -359,6 +425,18 @@
         tblA.innerHTML = head + '<tbody>'+body+'</tbody>';
       }
       document.getElementById('psiAuditReload')?.addEventListener('click', loadAudit);
+      document.getElementById('psiSubmit')?.addEventListener('click', async function(){
+        const note = (document.getElementById('psiSubmitNote')?.value)||'';
+        const res = await fetch(`/plans/${ver}/psi/submit`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ note }) });
+        if (!res.ok){ alert('submit failed'); return; }
+        alert('submitted');
+      });
+      document.getElementById('psiApprove')?.addEventListener('click', async function(){
+        const auto = !!(document.getElementById('psiApproveRecon')?.checked);
+        const res = await fetch(`/plans/${ver}/psi/approve`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ auto_reconcile: auto }) });
+        if (!res.ok){ alert('approve failed'); return; }
+        alert('approved');
+      });
       // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
       tbl.addEventListener('change', ev=>{
         const t = ev.target; if (!t || !t.classList || !t.classList.contains('psi-lock')) return;
