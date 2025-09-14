@@ -223,6 +223,30 @@
         </div>
       </details>
       <details>
+        <summary>Lock Manager（検索・一括操作）</summary>
+        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+          <label>family<input id="lmFamily" type="text" placeholder="family"></label>
+          <label>week_prefix<input id="lmWeek" type="text" placeholder="YYYY-W"></label>
+          <label>field
+            <select id="lmField">
+              <option value="">(any)</option>
+              <option value="demand">demand</option>
+              <option value="supply_plan">supply_plan</option>
+              <option value="backlog">backlog</option>
+              <option value="on_hand_start">on_hand_start</option>
+              <option value="on_hand_end">on_hand_end</option>
+            </select>
+          </label>
+          <button id="lmLoad" type="button">Load locks</button>
+          <button id="lmLockFiltered" type="button" class="secondary">Lock filtered</button>
+          <button id="lmUnlockFiltered" type="button" class="secondary">Unlock filtered</button>
+          <button id="lmUnlockSelected" type="button">Unlock selected</button>
+        </div>
+        <div style="overflow:auto; max-height:260px;">
+          <table id="tblLocks" style="min-width:960px;"></table>
+        </div>
+      </details>
+      <details>
         <summary>承認ワークフロー</summary>
         <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
           <label>note<input id="psiSubmitNote" type="text" placeholder="提出メモ"></label>
