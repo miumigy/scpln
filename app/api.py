@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 import logging
+import json
 
 # 詳細なログ設定
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +45,53 @@ _BASE_DIR = Path(__file__).resolve().parents[1]
 static_path = _BASE_DIR / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+
+@app.on_event("startup")
+async def seed_defaults_if_empty() -> None:
+    """Render 無料版などでDBが空のとき、最小のシナリオ/設定を投入する。
+    - シナリオ: 'default'（タグ: seed）
+    - 設定: /static/default_input.json を 'default_input' 名でconfigsへ登録
+    既に1件以上ある場合は何もしない（冪等）。
+    """
+    try:
+        from app import db  # 遅延import（起動順の安定化）
+
+        # 1) シナリオのシード
+        try:
+            scenarios = db.list_scenarios(limit=1)
+            if not scenarios:
+                sid = db.create_scenario(
+                    name="default",
+                    parent_id=None,
+                    tag="seed",
+                    description="auto-seeded for empty DB",
+                    locked=False,
+                )
+                logger.info(f"seed: created default scenario id={sid}")
+        except Exception as e:
+            logger.warning(f"seed: scenario seed skipped: {e}")
+
+        # 2) 設定のシード（/static/default_input.json）
+        try:
+            cfgs = db.list_configs(limit=1)
+            if not cfgs:
+                p = static_path / "default_input.json"
+                if p.exists():
+                    txt = p.read_text(encoding="utf-8")
+                    # JSON整形の妥当性チェック（失敗してもそのまま保存可）
+                    try:
+                        _ = json.loads(txt)
+                    except Exception:
+                        pass
+                    cid = db.create_config(name="default_input", json_text=txt)
+                    logger.info(f"seed: created default config id={cid}")
+                else:
+                    logger.warning("seed: static/default_input.json not found; skip config seed")
+        except Exception as e:
+            logger.warning(f"seed: config seed skipped: {e}")
+    except Exception as e:
+        logger.warning(f"seed: startup seeding failed: {e}")
 
 
 @app.get("/healthz")
