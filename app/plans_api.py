@@ -1158,6 +1158,64 @@ def post_plan_psi_locks_unlock(version_id: str, request: Request, body: Dict[str
     return {"ok": True, "changed": changed}
 
 
+@app.post("/plans/{version_id}/psi/locks/lock")
+def post_plan_psi_locks_lock(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    if not _has_edit(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    level = body.get("level") or "det"
+    family = body.get("family")
+    week_prefix = body.get("week_prefix")
+    field = body.get("field")  # optional cell-only
+    locks = _get_locks(version_id)
+    keys_to_lock: set[str] = set()
+    if level == "det" and (family or week_prefix or field):
+        det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+        for r in det.get("rows") or []:
+            if family and r.get("family") != family:
+                continue
+            if week_prefix and not str(r.get("week")).startswith(str(week_prefix)):
+                continue
+            base = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+            if field:
+                keys_to_lock.add(f"{base}:field={field}")
+            else:
+                keys_to_lock.add(base)
+    for k in list(body.get("keys") or []):
+        keys_to_lock.add(str(k))
+    changed = 0
+    for k in list(keys_to_lock):
+        if k not in locks:
+            locks.add(k)
+            changed += 1
+    _save_locks(version_id, locks)
+    return {"ok": True, "changed": changed}
+
+
+@app.get("/plans/{version_id}/psi/locks_detail")
+def get_plan_psi_locks_detail(version_id: str, family: Optional[str] = Query(None), week_prefix: Optional[str] = Query(None), field: Optional[str] = Query(None)):
+    locks = sorted(list(_get_locks(version_id)))
+    det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    index: Dict[str, Dict[str, Any]] = {}
+    for r in det.get("rows") or []:
+        base = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+        index[base] = {"week": r.get("week"), "sku": r.get("sku"), "family": r.get("family")}
+    rows: list[Dict[str, Any]] = []
+    for k in locks:
+        typ = "cell" if ":field=" in k else "row"
+        base, f = (k.split(":field=", 1) + [None])[:2]
+        meta = index.get(base, {})
+        rec = {"key": k, "type": typ, "week": meta.get("week"), "sku": meta.get("sku"), "family": meta.get("family"), "field": f}
+        rows.append(rec)
+    # filter
+    if family:
+        rows = [r for r in rows if r.get("family") == family]
+    if week_prefix:
+        rows = [r for r in rows if str(r.get("week") or "").startswith(str(week_prefix))]
+    if field:
+        rows = [r for r in rows if r.get("field") == field]
+    return {"rows": rows}
+
+
 @app.get("/plans/{version_id}/psi/diff")
 def get_plan_psi_diff(version_id: str):
     agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
