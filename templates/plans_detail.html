@@ -480,12 +480,6 @@
         if (!res.ok){ alert('approve failed'); return; }
         alert('approved');
       });
-      document.getElementById('psiShowDiff')?.addEventListener('click', async function(){
-        const res = await fetch(`/plans/${ver}/psi/diff`); if(!res.ok) return;
-        const js = await res.json();
-        const d = document.getElementById('psiDiff'); if (!d) return;
-        d.textContent = `agg changed=${js.aggregate.changed} delta=${JSON.stringify(js.aggregate.delta)} | det changed=${js.detail.changed} delta=${JSON.stringify(js.detail.delta)}`;
-      });
       document.getElementById('psiWeightsApply')?.addEventListener('click', async function(){
         const ta = document.getElementById('psiWeightsCsv'); const txt = (ta && ta.value) || '';
         if (!txt.trim()) return;
