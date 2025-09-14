@@ -32,6 +32,80 @@ def _run_py(args: list[str]) -> None:
     subprocess.run(["python3", *args], cwd=str(BASE_DIR), env=env, check=True)
 
 
+# --- PSI overlay/lock helpers (MVP) ---
+def _psi_overlay_key_agg(period: Any, family: Any) -> str:
+    return f"agg:period={period},family={family}"
+
+
+def _psi_overlay_key_det(week: Any, sku: Any) -> str:
+    return f"det:week={week},sku={sku}"
+
+
+def _get_overlay(version_id: str) -> Dict[str, Any]:
+    obj = db.get_plan_artifact(version_id, "psi_overrides.json") or {}
+    return {
+        "aggregate": list(obj.get("aggregate") or []),
+        "det": list(obj.get("det") or []),
+    }
+
+
+def _save_overlay(version_id: str, data: Dict[str, Any]) -> None:
+    db.upsert_plan_artifact(
+        version_id, "psi_overrides.json", json.dumps(data, ensure_ascii=False)
+    )
+
+
+def _get_locks(version_id: str) -> set[str]:
+    obj = db.get_plan_artifact(version_id, "psi_locks.json") or {}
+    return set(obj.get("locks") or [])
+
+
+def _save_locks(version_id: str, locks: set[str]) -> None:
+    db.upsert_plan_artifact(
+        version_id,
+        "psi_locks.json",
+        json.dumps({"locks": sorted(list(locks))}, ensure_ascii=False),
+    )
+
+
+def _apply_overlay(level: str, base_rows: list[Dict[str, Any]], overlay_rows: list[Dict[str, Any]]):
+    """Return new list with overlay fields applied by key."""
+    out: list[Dict[str, Any]] = []
+    if level == "aggregate":
+        omap: Dict[str, Dict[str, Any]] = {}
+        for r in overlay_rows:
+            k = _psi_overlay_key_agg(r.get("period"), r.get("family"))
+            omap[k] = r
+        for r in base_rows:
+            k = _psi_overlay_key_agg(r.get("period"), r.get("family"))
+            o = omap.get(k) or {}
+            nr = dict(r)
+            for fn in ("demand", "supply", "backlog", "inventory"):
+                if fn in o and o.get(fn) is not None:
+                    nr[fn] = o.get(fn)
+            out.append(nr)
+    else:
+        omap: Dict[str, Dict[str, Any]] = {}
+        for r in overlay_rows:
+            k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+            omap[k] = r
+        for r in base_rows:
+            k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+            o = omap.get(k) or {}
+            nr = dict(r)
+            for fn in (
+                "demand",
+                "supply_plan",
+                "backlog",
+                "on_hand_start",
+                "on_hand_end",
+            ):
+                if fn in o and o.get(fn) is not None:
+                    nr[fn] = o.get(fn)
+            out.append(nr)
+    return out
+
+
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
@@ -337,6 +411,395 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             if (out_dir / name).exists()
         ],
     }
+
+@app.get("/plans/{version_id}/psi")
+def get_plan_psi(
+    version_id: str,
+    level: str = Query("aggregate"),
+    q: Optional[str] = Query(None),
+    limit: int = Query(200),
+    offset: int = Query(0),
+):
+    level = level if level in ("aggregate", "det") else "aggregate"
+    agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    base_rows: list[Dict[str, Any]]
+    if level == "aggregate":
+        base_rows = list(agg.get("rows") or [])
+        # 統一的に必要なキーのみサブセット
+        base_rows = [
+            {
+                "period": r.get("period"),
+                "family": r.get("family"),
+                "demand": r.get("demand"),
+                "supply": r.get("supply"),
+                "backlog": r.get("backlog"),
+            }
+            for r in base_rows
+        ]
+    else:
+        base_rows = list(det.get("rows") or [])
+        base_rows = [
+            {
+                "week": r.get("week"),
+                "sku": r.get("sku"),
+                "demand": r.get("demand"),
+                "supply_plan": r.get("supply_plan"),
+                "backlog": r.get("backlog"),
+                "on_hand_start": r.get("on_hand_start"),
+                "on_hand_end": r.get("on_hand_end"),
+            }
+            for r in base_rows
+        ]
+    overlay = _get_overlay(version_id)
+    locks = _get_locks(version_id)
+    rows = _apply_overlay(level, base_rows, overlay.get(level) or [])
+    # フィルタ
+    if q:
+        s = (q or "").lower().strip()
+        rows = [
+            r
+            for r in rows
+            if s in json.dumps(r, ensure_ascii=False).lower()
+        ]
+    total = len(rows)
+    # ページング
+    start = max(0, int(offset))
+    end = max(start, start + max(1, int(limit)))
+    rows = rows[start:end]
+    return {
+        "level": level,
+        "total": total,
+        "rows": rows,
+        "locks": sorted(list(locks)),
+    }
+
+
+@app.patch("/plans/{version_id}/psi")
+def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+    level = body.get("level") or "aggregate"
+    edits = list(body.get("edits") or [])
+    lock_mode = body.get("lock")  # 'lock'|'unlock'|'toggle'|None
+    if level not in ("aggregate", "det"):
+        return JSONResponse(status_code=400, content={"detail": "invalid level"})
+    overlay = _get_overlay(version_id)
+    locks = _get_locks(version_id)
+    # index overlay by key
+    if level == "aggregate":
+        def mk(row):
+            return _psi_overlay_key_agg(row.get("period"), row.get("family"))
+    else:
+        def mk(row):
+            return _psi_overlay_key_det(row.get("week"), row.get("sku"))
+    omap: Dict[str, Dict[str, Any]] = {}
+    for r in overlay.get(level) or []:
+        omap[mk(r)] = dict(r)
+    updated = 0
+    skipped: list[str] = []
+    affected_keys: set[str] = set()
+    # 監査ログの準備
+    import time as _time
+    audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
+    events = list(audit.get("events") or [])
+    for e in edits:
+        key = mk(e.get("key") or {})
+        if not key:
+            continue
+        affected_keys.add(key)
+        # ロック判定（行ロックのみMVP）
+        if key in locks:
+            skipped.append(key)
+            continue
+        row = omap.get(key) or {}
+        # key項目を保持
+        for k in ("period", "family", "week", "sku"):
+            if k in (e.get("key") or {}):
+                row[k] = (e.get("key") or {}).get(k)
+        fields: Dict[str, Any] = dict(e.get("fields") or {})
+        for fn, val in fields.items():
+            if val is None:
+                # None指定でその上書きを削除
+                if fn in row:
+                    row.pop(fn, None)
+            else:
+                try:
+                    row[fn] = float(val)
+                except Exception:
+                    row[fn] = val
+        omap[key] = row
+        updated += 1
+        # 監査イベント追加
+        events.append(
+            {
+                "ts": int(_time.time() * 1000),
+                "level": level,
+                "key": e.get("key") or {},
+                "fields": fields,
+                "lock": None,
+            }
+        )
+    # rebuild overlay list
+    new_rows: list[Dict[str, Any]] = []
+    for v in omap.values():
+        # キー以外が空なら除外
+        payload = {k: v.get(k) for k in v.keys()}
+        new_rows.append(payload)
+    overlay[level] = new_rows
+    _save_overlay(version_id, overlay)
+    # lock operation
+    if lock_mode in ("lock", "unlock", "toggle") and affected_keys:
+        for k in affected_keys:
+            if lock_mode == "lock":
+                locks.add(k)
+            elif lock_mode == "unlock":
+                if k in locks:
+                    locks.discard(k)
+            else:  # toggle
+                if k in locks:
+                    locks.discard(k)
+                else:
+                    locks.add(k)
+        _save_locks(version_id, locks)
+        # 監査イベント（ロック）
+        events.append(
+            {
+                "ts": int(_time.time() * 1000),
+                "level": level,
+                "keys": sorted(list(affected_keys)),
+                "fields": {},
+                "lock": lock_mode,
+            }
+        )
+    # 監査保存
+    try:
+        db.upsert_plan_artifact(
+            version_id,
+            "psi_audit.json",
+            json.dumps({"events": events[-10000:]}, ensure_ascii=False),
+        )
+    except Exception:
+        pass
+    return {"updated": updated, "skipped": skipped, "locked": sorted(list(locks))}
+
+
+@app.post("/plans/{version_id}/psi/reconcile")
+def post_plan_psi_reconcile(version_id: str, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+    # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
+    agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    overlay = _get_overlay(version_id)
+    agg_rows = list(agg.get("rows") or [])
+    det_rows = list(det.get("rows") or [])
+    agg_rows2 = _apply_overlay("aggregate", agg_rows, overlay.get("aggregate") or [])
+    det_rows2 = _apply_overlay("det", det_rows, overlay.get("det") or [])
+    out_dir = Path(BASE_DIR / "out" / f"psi_apply_{version_id}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "aggregate.json").write_text(
+        json.dumps({"rows": agg_rows2}, ensure_ascii=False), encoding="utf-8"
+    )
+    (out_dir / "sku_week.json").write_text(
+        json.dumps({"rows": det_rows2}, ensure_ascii=False), encoding="utf-8"
+    )
+    # 再整合（before の差分ログ）
+    _run_py(
+        [
+            "scripts/reconcile_levels.py",
+            "-i",
+            str(out_dir / "aggregate.json"),
+            str(out_dir / "sku_week.json"),
+            "-o",
+            str(out_dir / "reconciliation_log.json"),
+            "--version",
+            version_id,
+            "--tol-abs",
+            str(body.get("tol_abs") or "1e-6"),
+            "--tol-rel",
+            str(body.get("tol_rel") or "1e-6"),
+        ]
+    )
+    # 成果物を更新
+    db.upsert_plan_artifact(
+        version_id,
+        "reconciliation_log.json",
+        (out_dir / "reconciliation_log.json").read_text(encoding="utf-8"),
+    )
+    # オプション: adjusted と MRP再計算
+    cutover_date = body.get("cutover_date")
+    anchor_policy = body.get("anchor_policy")
+    recon_window_days = body.get("recon_window_days")
+    calendar_mode = body.get("calendar_mode")
+    carryover = body.get("carryover")
+    carryover_split = body.get("carryover_split")
+    tol_abs = body.get("tol_abs")
+    tol_rel = body.get("tol_rel")
+    weeks = str(body.get("weeks") or "4")
+    lt_unit = body.get("lt_unit") or "day"
+    apply_adjusted = bool(body.get("apply_adjusted") or False)
+    recalc_mrp = bool(body.get("recalc_mrp") or False)
+    if apply_adjusted and anchor_policy and cutover_date:
+        input_dir = body.get("input_dir") or "samples/planning"
+        _run_py(
+            [
+                "scripts/anchor_adjust.py",
+                "-i",
+                str(out_dir / "aggregate.json"),
+                str(out_dir / "sku_week.json"),
+                "-o",
+                str(out_dir / "sku_week_adjusted.json"),
+                "--cutover-date",
+                str(cutover_date),
+                "--anchor-policy",
+                str(anchor_policy),
+                *(
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
+                    else []
+                ),
+                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
+                *(["--carryover", str(carryover)] if carryover else []),
+                *(
+                    ["--carryover-split", str(carryover_split)]
+                    if (carryover_split is not None)
+                    else []
+                ),
+                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
+                "-I",
+                input_dir,
+            ]
+        )
+        _run_py(
+            [
+                "scripts/reconcile_levels.py",
+                "-i",
+                str(out_dir / "aggregate.json"),
+                str(out_dir / "sku_week_adjusted.json"),
+                "-o",
+                str(out_dir / "reconciliation_log_adjusted.json"),
+                "--version",
+                f"{version_id}-adjusted",
+                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                *(
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
+                    else []
+                ),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                *(
+                    ["--tol-abs", str(tol_abs)]
+                    if tol_abs is not None
+                    else ["--tol-abs", "1e-6"]
+                ),
+                *(
+                    ["--tol-rel", str(tol_rel)]
+                    if tol_rel is not None
+                    else ["--tol-rel", "1e-6"]
+                ),
+            ]
+        )
+        db.upsert_plan_artifact(
+            version_id,
+            "sku_week_adjusted.json",
+            (out_dir / "sku_week_adjusted.json").read_text(encoding="utf-8"),
+        )
+        db.upsert_plan_artifact(
+            version_id,
+            "reconciliation_log_adjusted.json",
+            (out_dir / "reconciliation_log_adjusted.json").read_text(encoding="utf-8"),
+        )
+        if recalc_mrp:
+            _run_py(
+                [
+                    "scripts/mrp.py",
+                    "-i",
+                    str(out_dir / "sku_week_adjusted.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "mrp_adjusted.json"),
+                    "--lt-unit",
+                    lt_unit,
+                    "--weeks",
+                    weeks,
+                ]
+            )
+            _run_py(
+                [
+                    "scripts/reconcile.py",
+                    "-i",
+                    str(out_dir / "sku_week_adjusted.json"),
+                    str(out_dir / "mrp_adjusted.json"),
+                    "-I",
+                    input_dir,
+                    "-o",
+                    str(out_dir / "plan_final_adjusted.json"),
+                    "--weeks",
+                    weeks,
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                    *(
+                        ["--recon-window-days", str(recon_window_days)]
+                        if recon_window_days is not None
+                        else []
+                    ),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                ]
+            )
+            db.upsert_plan_artifact(
+                version_id,
+                "mrp_adjusted.json",
+                (out_dir / "mrp_adjusted.json").read_text(encoding="utf-8"),
+            )
+            db.upsert_plan_artifact(
+                version_id,
+                "plan_final_adjusted.json",
+                (out_dir / "plan_final_adjusted.json").read_text(encoding="utf-8"),
+            )
+    # 参考: 必要に応じて executed に遷移（UI側の進行感）
+    try:
+        db.update_plan_version(version_id, status="executed")
+    except Exception:
+        pass
+    recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
+    return {
+        "ok": True,
+        "updated_artifacts": [
+            "reconciliation_log.json",
+            *(["reconciliation_log_adjusted.json"] if (apply_adjusted and anchor_policy and cutover_date) else []),
+            *(["mrp_adjusted.json", "plan_final_adjusted.json"] if (apply_adjusted and anchor_policy and cutover_date and recalc_mrp) else []),
+        ],
+        "summary": (recon.get("summary") or {}),
+    }
+
+
+@app.get("/plans/{version_id}/psi.csv", response_class=PlainTextResponse)
+def get_plan_psi_csv(
+    version_id: str,
+    level: str = Query("aggregate"),
+    q: Optional[str] = Query(None),
+    limit: int = Query(10000),
+    offset: int = Query(0),
+):
+    data = get_plan_psi(version_id, level, q, limit, offset)
+    rows = data.get("rows") or []
+    if data.get("level") == "aggregate":
+        header = ["period", "family", "demand", "supply", "backlog"]
+    else:
+        header = [
+            "week",
+            "sku",
+            "demand",
+            "supply_plan",
+            "backlog",
+            "on_hand_start",
+            "on_hand_end",
+        ]
+    import io, csv
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=header)
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: r.get(k) for k in header})
+    return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
 
 
 @app.get("/plans")

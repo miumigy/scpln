@@ -337,29 +337,33 @@ def ui_plan_detail(version_id: str, request: Request):
 @app.post("/ui/plans/{version_id}/reconcile")
 def ui_plan_reconcile(
     version_id: str,
-    request,
-    cutover_date: str | None = None,
-    recon_window_days: int | None = None,
-    anchor_policy: str | None = None,
-    tol_abs: float | None = None,
-    tol_rel: float | None = None,
-    calendar_mode: str | None = None,
-    carryover: str | None = None,
-    carryover_split: float | None = None,
-    input_dir: str | None = "samples/planning",
-    apply_adjusted: int | None = None,
-    weeks: int | None = 4,
-    lt_unit: str | None = "day",
+    request: Request,
+    # フォーム入力（空文字はNoneとして扱う）
+    cutover_date: str | None = Form(""),
+    recon_window_days: str | None = Form(""),
+    anchor_policy: str | None = Form(""),
+    tol_abs: str | None = Form(""),
+    tol_rel: str | None = Form(""),
+    calendar_mode: str | None = Form(""),
+    carryover: str | None = Form(""),
+    carryover_split: str | None = Form(""),
+    input_dir: str = Form("samples/planning"),
+    apply_adjusted: int | None = Form(default=None),
+    weeks: int = Form(4),
+    lt_unit: str = Form("day"),
 ):
+    # 空文字はNoneへ正規化
+    def _nz(v: str | None):
+        return None if (v is None or v == "") else v
     body = {
-        "cutover_date": cutover_date,
-        "recon_window_days": recon_window_days,
-        "anchor_policy": anchor_policy,
-        "tol_abs": tol_abs,
-        "tol_rel": tol_rel,
-        "calendar_mode": calendar_mode,
-        "carryover": carryover,
-        "carryover_split": carryover_split,
+        "cutover_date": _nz(cutover_date),
+        "recon_window_days": _nz(recon_window_days),
+        "anchor_policy": _nz(anchor_policy),
+        "tol_abs": _nz(tol_abs),
+        "tol_rel": _nz(tol_rel),
+        "calendar_mode": _nz(calendar_mode),
+        "carryover": _nz(carryover),
+        "carryover_split": _nz(carryover_split),
         "input_dir": input_dir,
         "apply_adjusted": bool(apply_adjusted),
         "weeks": weeks,
@@ -367,6 +371,29 @@ def ui_plan_reconcile(
     }
     try:
         _plans_api.post_plan_reconcile(version_id, body)  # reuse handler
+        # 実行ステートを自動前進（MVP）
+        try:
+            state = db.get_plan_artifact(version_id, "state.json") or {
+                "state": "draft",
+                "invalid": [],
+            }
+            state["state"] = "executed"
+            inv = set(state.get("invalid") or [])
+            # executed までの無効フラグをクリア
+            for s in ["draft", "aggregated", "disaggregated", "scheduled", "executed"]:
+                inv.discard(s)
+                if s == "executed":
+                    break
+            state["invalid"] = sorted(list(inv))
+            db.upsert_plan_artifact(
+                version_id, "state.json", json.dumps(state, ensure_ascii=False)
+            )
+            try:
+                db.update_plan_version(version_id, status="executed")
+            except Exception:
+                pass
+        except Exception:
+            pass
         try:
             logging.info(
                 "plan_executed",

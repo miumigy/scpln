@@ -1,0 +1,203 @@
+{
+  "schema_version": "agg-1.0",
+  "note": "PR2: 需要と能力に基づく粗粒度供給（不足時は比例配分）。",
+  "inputs_summary": {
+    "demand_rows": 24,
+    "capacity_rows": 12,
+    "mix_rows": 3
+  },
+  "rows": [
+    {
+      "family": "F1",
+      "period": "2025-01",
+      "demand": 100.0,
+      "supply": 83.333333,
+      "backlog": 16.666667,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-02",
+      "demand": 120.0,
+      "supply": 85.714286,
+      "backlog": 34.285714,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-03",
+      "demand": 140.0,
+      "supply": 87.5,
+      "backlog": 52.5,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-04",
+      "demand": 160.0,
+      "supply": 88.888889,
+      "backlog": 71.111111,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-05",
+      "demand": 170.0,
+      "supply": 87.931034,
+      "backlog": 82.068966,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-06",
+      "demand": 180.0,
+      "supply": 87.096774,
+      "backlog": 92.903226,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-07",
+      "demand": 190.0,
+      "supply": 86.363636,
+      "backlog": 103.636364,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-08",
+      "demand": 200.0,
+      "supply": 85.714286,
+      "backlog": 114.285714,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-09",
+      "demand": 210.0,
+      "supply": 85.135135,
+      "backlog": 124.864865,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-10",
+      "demand": 220.0,
+      "supply": 84.615385,
+      "backlog": 135.384615,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-11",
+      "demand": 230.0,
+      "supply": 84.146341,
+      "backlog": 145.853659,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F1",
+      "period": "2025-12",
+      "demand": 240.0,
+      "supply": 83.72093,
+      "backlog": 156.27907,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-01",
+      "demand": 80.0,
+      "supply": 66.666667,
+      "backlog": 13.333333,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-02",
+      "demand": 90.0,
+      "supply": 64.285714,
+      "backlog": 25.714286,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-03",
+      "demand": 100.0,
+      "supply": 62.5,
+      "backlog": 37.5,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-04",
+      "demand": 110.0,
+      "supply": 61.111111,
+      "backlog": 48.888889,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-05",
+      "demand": 120.0,
+      "supply": 62.068966,
+      "backlog": 57.931034,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-06",
+      "demand": 130.0,
+      "supply": 62.903226,
+      "backlog": 67.096774,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-07",
+      "demand": 140.0,
+      "supply": 63.636364,
+      "backlog": 76.363636,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-08",
+      "demand": 150.0,
+      "supply": 64.285714,
+      "backlog": 85.714286,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-09",
+      "demand": 160.0,
+      "supply": 64.864865,
+      "backlog": 95.135135,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-10",
+      "demand": 170.0,
+      "supply": 65.384615,
+      "backlog": 104.615385,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-11",
+      "demand": 180.0,
+      "supply": 65.853659,
+      "backlog": 114.146341,
+      "capacity_total": 150.0
+    },
+    {
+      "family": "F2",
+      "period": "2025-12",
+      "demand": 190.0,
+      "supply": 66.27907,
+      "backlog": 123.72093,
+      "capacity_total": 150.0
+    }
+  ]
+}
