@@ -853,6 +853,15 @@ sequenceDiagram
 - セルロック: セルを選択→[Lock cell]/[Unlock cell]
 - 内部キー例: `det:week=2025-W01,sku=SKU1`（行）、`det:week=2025-W01,sku=SKU1:field=demand`（セル）
 
+##### Lock Manager（検索・一括操作）
+- 画面内の Lock Manager セクションで、family/週接頭辞（YYYY-W）/field で検索→ロック一覧表示
+- 一括操作:
+  - Lock filtered / Unlock filtered（検索条件に一致する行/セルをまとめてロック/解除）
+  - Unlock selected（一覧でチェックした項目のみ解除）
+- API: 
+  - `GET /plans/{id}/psi/locks_detail?family=F1&week_prefix=2025-W01&field=demand`
+  - `POST /plans/{id}/psi/locks/lock` / `.../unlock`（body: { level:'det', family?, week_prefix?, field?, keys? })
+
 #### 承認ワークフロー（MVP）
 - APIキー（X-API-Key）
   - 環境変数 `API_KEY_VALUE` を設定すると、PATCH/approve/reconcile にAPIキーが必須
