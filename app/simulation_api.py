@@ -190,6 +190,7 @@ def post_simulation(
     }
     return resp
 
+
 # FastAPI appへルーターを登録（import時の副作用で有効化）
 try:
     from app.api import app as _app  # 循環依存を避けるため遅延import

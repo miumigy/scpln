@@ -87,7 +87,9 @@ async def seed_defaults_if_empty() -> None:
                     cid = db.create_config(name="default_input", json_text=txt)
                     logger.info(f"seed: created default config id={cid}")
                 else:
-                    logger.warning("seed: static/default_input.json not found; skip config seed")
+                    logger.warning(
+                        "seed: static/default_input.json not found; skip config seed"
+                    )
         except Exception as e:
             logger.warning(f"seed: config seed skipped: {e}")
     except Exception as e:

@@ -355,6 +355,7 @@ def ui_plan_reconcile(
     # 空文字はNoneへ正規化
     def _nz(v: str | None):
         return None if (v is None or v == "") else v
+
     body = {
         "cutover_date": _nz(cutover_date),
         "recon_window_days": _nz(recon_window_days),

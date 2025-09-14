@@ -87,7 +87,9 @@ def _save_weights(version_id: str, weights: dict[str, float]) -> None:
     )
 
 
-def _apply_overlay(level: str, base_rows: list[Dict[str, Any]], overlay_rows: list[Dict[str, Any]]):
+def _apply_overlay(
+    level: str, base_rows: list[Dict[str, Any]], overlay_rows: list[Dict[str, Any]]
+):
     """Return new list with overlay fields applied by key."""
     out: list[Dict[str, Any]] = []
     if level == "aggregate":
@@ -484,6 +486,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         ],
     }
 
+
 @app.get("/plans/{version_id}/psi")
 def get_plan_psi(
     version_id: str,
@@ -529,11 +532,7 @@ def get_plan_psi(
     # フィルタ
     if q:
         s = (q or "").lower().strip()
-        rows = [
-            r
-            for r in rows
-            if s in json.dumps(r, ensure_ascii=False).lower()
-        ]
+        rows = [r for r in rows if s in json.dumps(r, ensure_ascii=False).lower()]
     total = len(rows)
     # ページング
     start = max(0, int(offset))
@@ -548,7 +547,9 @@ def get_plan_psi(
 
 
 @app.patch("/plans/{version_id}/psi")
-def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+def patch_plan_psi(
+    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
+):  # noqa: C901
     if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     level = body.get("level") or "aggregate"
@@ -560,11 +561,15 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
     locks = _get_locks(version_id)
     # index overlay by key
     if level == "aggregate":
+
         def mk(row):
             return _psi_overlay_key_agg(row.get("period"), row.get("family"))
+
     else:
+
         def mk(row):
             return _psi_overlay_key_det(row.get("week"), row.get("sku"))
+
     omap: Dict[str, Dict[str, Any]] = {}
     for r in overlay.get(level) or []:
         omap[mk(r)] = dict(r)
@@ -573,6 +578,7 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
     affected_keys: set[str] = set()
     # 監査ログの準備
     import time as _time
+
     audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
     events = list(audit.get("events") or [])
     distribute = body.get("distribute") or {}
@@ -655,7 +661,9 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
             explicit_lock_keys.add(str(lk))
         except Exception:
             pass
-    if lock_mode in ("lock", "unlock", "toggle") and (affected_keys or explicit_lock_keys):
+    if lock_mode in ("lock", "unlock", "toggle") and (
+        affected_keys or explicit_lock_keys
+    ):
         keys_to_apply = set(affected_keys) | set(explicit_lock_keys)
         for k in keys_to_apply:
             if lock_mode == "lock":
@@ -724,7 +732,9 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
                 # pick matching det rows (same family and same month of the week)
                 idxs = []
                 for r in det_rows:
-                    if (r.get("family") == fam) and (_week_to_month(str(r.get("week"))) == per):
+                    if (r.get("family") == fam) and (
+                        _week_to_month(str(r.get("week"))) == per
+                    ):
                         idxs.append(r)
                 if not idxs:
                     continue
@@ -744,7 +754,9 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
                     cur = cur_tot.get(fn_d, 0.0)
                     # choose weights
                     base_vals = []
-                    if weight_mode == "equal" or (cur <= 0 and tgt is not None and weight_mode == "current"):
+                    if weight_mode == "equal" or (
+                        cur <= 0 and tgt is not None and weight_mode == "current"
+                    ):
                         base_vals = [1.0] * len(idxs)
                     else:
                         if weight_mode == "weights":
@@ -761,7 +773,11 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
                                     except Exception:
                                         base_vals.append(0.0)
                         else:
-                            src_field = fn_d if weight_mode in ("current", fn_d) else weight_mode
+                            src_field = (
+                                fn_d
+                                if weight_mode in ("current", fn_d)
+                                else weight_mode
+                            )
                             for r in idxs:
                                 try:
                                     base_vals.append(float(r.get(src_field) or 0.0))
@@ -785,7 +801,10 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
                     for i in unlocked_idx:
                         r = idxs[i]
                         k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
-                        row = det_map.get(k) or {"week": r.get("week"), "sku": r.get("sku")}
+                        row = det_map.get(k) or {
+                            "week": r.get("week"),
+                            "sku": r.get("sku"),
+                        }
                         row[fn_d] = new_vals[i] * scale
                         det_map[k] = row
             # save det overlay (with optional rounding)
@@ -817,7 +836,9 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
 
 
 @app.post("/plans/{version_id}/psi/reconcile")
-def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+def post_plan_psi_reconcile(
+    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
+):  # noqa: C901
     if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
@@ -949,10 +970,10 @@ def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, A
                     "scripts/mrp.py",
                     "-i",
                     str(out_dir / "sku_week_adjusted.json"),
-                "-I",
-                input_dir,
-                "-o",
-                str(out_dir / "mrp_adjusted.json"),
+                    "-I",
+                    input_dir,
+                    "-o",
+                    str(out_dir / "mrp_adjusted.json"),
                     "--lt-unit",
                     lt_unit,
                     "--weeks",
@@ -1000,8 +1021,16 @@ def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, A
         "ok": True,
         "updated_artifacts": [
             "reconciliation_log.json",
-            *(["reconciliation_log_adjusted.json"] if (apply_adjusted and anchor_policy and cutover_date) else []),
-            *(["mrp_adjusted.json", "plan_final_adjusted.json"] if (apply_adjusted and anchor_policy and cutover_date and recalc_mrp) else []),
+            *(
+                ["reconciliation_log_adjusted.json"]
+                if (apply_adjusted and anchor_policy and cutover_date)
+                else []
+            ),
+            *(
+                ["mrp_adjusted.json", "plan_final_adjusted.json"]
+                if (apply_adjusted and anchor_policy and cutover_date and recalc_mrp)
+                else []
+            ),
         ],
         "summary": (recon.get("summary") or {}),
     }
@@ -1029,13 +1058,17 @@ def get_plan_psi_csv(
             "on_hand_start",
             "on_hand_end",
         ]
-    import io, csv
+    import io
+    import csv
+
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=header)
     w.writeheader()
     for r in rows:
         w.writerow({k: r.get(k) for k in header})
-    return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
+    return PlainTextResponse(
+        content=buf.getvalue(), media_type="text/csv; charset=utf-8"
+    )
 
 
 @app.get("/plans/{version_id}/psi/audit")
@@ -1068,7 +1101,9 @@ def get_plan_psi_weights(version_id: str):
 
 
 @app.post("/plans/{version_id}/psi/weights")
-def post_plan_psi_weights(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+def post_plan_psi_weights(
+    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
+):  # noqa: E501
     if not _auth_ok(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     weights: dict[str, float] = {}
@@ -1081,12 +1116,18 @@ def post_plan_psi_weights(version_id: str, request: Request, body: Dict[str, Any
                 continue
             weights[k] = v
     elif isinstance(body.get("csv"), str):
-        import csv, io
+        import csv
+        import io
+
         txt = body.get("csv")
         f = io.StringIO(txt)
         rd = csv.DictReader(f)
         for r in rd:
-            k = r.get("key") or (f"det:week={r.get('week')},sku={r.get('sku')}" if r.get("week") and r.get("sku") else None)
+            k = r.get("key") or (
+                f"det:week={r.get('week')},sku={r.get('sku')}"
+                if r.get("week") and r.get("sku")
+                else None
+            )
             if not k:
                 continue
             try:
@@ -1101,34 +1142,52 @@ def post_plan_psi_weights(version_id: str, request: Request, body: Dict[str, Any
 
 
 @app.post("/plans/{version_id}/psi/submit")
-def post_plan_psi_submit(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+def post_plan_psi_submit(
+    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
+):  # noqa: E501
     # だれでも提出可（APIキー設定時は推奨）
     state = db.get_plan_artifact(version_id, "psi_state.json") or {}
-    state.update({
-        "status": "pending",
-        "note": body.get("note"),
-        "submitted_at": int(__import__("time").time() * 1000),
-    })
-    db.upsert_plan_artifact(version_id, "psi_state.json", json.dumps(state, ensure_ascii=False))
+    state.update(
+        {
+            "status": "pending",
+            "note": body.get("note"),
+            "submitted_at": int(__import__("time").time() * 1000),
+        }
+    )
+    db.upsert_plan_artifact(
+        version_id, "psi_state.json", json.dumps(state, ensure_ascii=False)
+    )
     # 監査
     audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
     ev = list(audit.get("events") or [])
-    ev.append({"ts": state.get("submitted_at"), "event": "submit", "note": body.get("note")})
-    db.upsert_plan_artifact(version_id, "psi_audit.json", json.dumps({"events": ev[-10000:]}, ensure_ascii=False))
+    ev.append(
+        {"ts": state.get("submitted_at"), "event": "submit", "note": body.get("note")}
+    )
+    db.upsert_plan_artifact(
+        version_id,
+        "psi_audit.json",
+        json.dumps({"events": ev[-10000:]}, ensure_ascii=False),
+    )
     return {"ok": True, "status": state.get("status")}
 
 
 @app.post("/plans/{version_id}/psi/approve")
-def post_plan_psi_approve(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+def post_plan_psi_approve(
+    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
+):  # noqa: E501
     if not _auth_ok(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     state = db.get_plan_artifact(version_id, "psi_state.json") or {}
     now = int(__import__("time").time() * 1000)
-    state.update({
-        "status": "approved",
-        "approved_at": now,
-    })
-    db.upsert_plan_artifact(version_id, "psi_state.json", json.dumps(state, ensure_ascii=False))
+    state.update(
+        {
+            "status": "approved",
+            "approved_at": now,
+        }
+    )
+    db.upsert_plan_artifact(
+        version_id, "psi_state.json", json.dumps(state, ensure_ascii=False)
+    )
     # 自動整合（任意）
     if bool(body.get("auto_reconcile") or False):
         # デフォルトは差分ログのみ
@@ -1136,8 +1195,18 @@ def post_plan_psi_approve(version_id: str, request: Request, body: Dict[str, Any
     # 監査
     audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
     ev = list(audit.get("events") or [])
-    ev.append({"ts": now, "event": "approve", "auto_reconcile": bool(body.get("auto_reconcile") or False)})
-    db.upsert_plan_artifact(version_id, "psi_audit.json", json.dumps({"events": ev[-10000:]}, ensure_ascii=False))
+    ev.append(
+        {
+            "ts": now,
+            "event": "approve",
+            "auto_reconcile": bool(body.get("auto_reconcile") or False),
+        }
+    )
+    db.upsert_plan_artifact(
+        version_id,
+        "psi_audit.json",
+        json.dumps({"events": ev[-10000:]}, ensure_ascii=False),
+    )
     return {"ok": True, "status": state.get("status")}
 
 

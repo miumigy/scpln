@@ -71,7 +71,9 @@ def _notify(event: str, payload: dict) -> None:
     - NOTIFY_WEBHOOK_URLS にカンマ区切りで指定
     - タイムアウト短め、失敗は無視
     """
-    urls = [u.strip() for u in os.getenv("NOTIFY_WEBHOOK_URLS", "").split(",") if u.strip()]
+    urls = [
+        u.strip() for u in os.getenv("NOTIFY_WEBHOOK_URLS", "").split(",") if u.strip()
+    ]
     if not urls:
         return
     body = {"event": event, **payload}
@@ -80,7 +82,8 @@ def _notify(event: str, payload: dict) -> None:
     secret = os.getenv("NOTIFY_WEBHOOK_SECRET", "")
     if secret:
         try:
-            import hmac, hashlib
+            import hmac
+            import hashlib
 
             sig = hmac.new(secret.encode("utf-8"), data, hashlib.sha256).hexdigest()
             headers["X-Scpln-Signature"] = f"sha256={sig}"
@@ -126,7 +129,9 @@ def post_approve(run_id: str, request: Request) -> Dict[str, Any]:
     _require_role(request, action="approve")
     user = request.headers.get("X-User") or request.headers.get("X-Email") or ""
     db.approve_run(run_id, approved_by=user or None)
-    logging.info("run_approved", extra={"event": "run_approved", "run_id": run_id, "user": user})
+    logging.info(
+        "run_approved", extra={"event": "run_approved", "run_id": run_id, "user": user}
+    )
     _notify("run_approved", {"run_id": run_id, "user": user})
     return {"status": "approved", "run_id": run_id, "approved_by": user}
 
@@ -136,7 +141,10 @@ def post_promote_baseline(run_id: str, request: Request) -> Dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="promote")
     db.set_baseline(run_id)
-    logging.info("run_promoted_baseline", extra={"event": "run_promoted_baseline", "run_id": run_id})
+    logging.info(
+        "run_promoted_baseline",
+        extra={"event": "run_promoted_baseline", "run_id": run_id},
+    )
     _notify("run_promoted_baseline", {"run_id": run_id})
     return {"status": "baseline", "run_id": run_id}
 
@@ -162,7 +170,9 @@ def post_unarchive(run_id: str, request: Request) -> Dict[str, Any]:
 
 
 @app.post("/runs/{run_id}/note")
-def post_note(run_id: str, request: Request, body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+def post_note(
+    run_id: str, request: Request, body: Dict[str, Any] = Body(...)
+) -> Dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="note")
     note = (body.get("note") or "").strip()
@@ -176,4 +186,3 @@ def get_baseline(scenario_id: int) -> Dict[str, Any]:
     # DBからbaseline取得
     rid = db.get_baseline_run_id(int(scenario_id))
     return {"run_id": rid}
-
