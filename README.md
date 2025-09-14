@@ -839,6 +839,29 @@ sequenceDiagram
 - 表示項目: ts（ISO8601）、level（aggregate|det）、type（edit|lock）、key(s)、fields/lock
 - 保存対象: plan_artifacts の `psi_audit.json` に追記（最大1万件を保持）
 
+#### 分配オプション（Aggregate→Detail）
+- 目的: Aggregate（family×period）で編集した需要/供給/バックログをDetail（sku×week）へ比例配分で投影
+- 設定:
+  - weight_mode: current（現値比例, 既定）/ equal（均等）/ demand / supply_plan
+  - 丸め: demand/supply_plan/backlog 各フィールドに step を指定可（最寄りの倍数に丸め、総和は再スケール）
+- 注意:
+  - detの行ロック/セルロックは配分対象外（アンロック分へ再正規化）
+  - 週→月の紐付けはISO週（週の月曜日）で月を判定
+
+#### ロック（行/セル）
+- 行ロック: PSIタブの鍵チェック＋ロックモード（lock/unlock/toggle）で保存
+- セルロック: セルを選択→[Lock cell]/[Unlock cell]
+- 内部キー例: `det:week=2025-W01,sku=SKU1`（行）、`det:week=2025-W01,sku=SKU1:field=demand`（セル）
+
+#### 承認ワークフロー（MVP）
+- APIキー（X-API-Key）
+  - 環境変数 `API_KEY_VALUE` を設定すると、PATCH/approve/reconcile にAPIキーが必須
+  - UIは `localStorage.api_key` を自動付与
+- 手順:
+  - Submit: PSIタブでメモを付けて提出（/psi/submit）→ 状態は pending
+  - Approve: 承認（/psi/approve）。チェックONで承認後に自動整合（差分ログ/オプション反映）
+  - 状態は `psi_state.json` に保存、監査も `psi_audit.json` に追記
+
 ### 計画プロセス（PSIを含む）Mermaid
 
 ```mermaid

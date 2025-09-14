@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import Body, Query
+from fastapi import Body, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_SCHEDULE
 
@@ -104,6 +104,36 @@ def _apply_overlay(level: str, base_rows: list[Dict[str, Any]], overlay_rows: li
                     nr[fn] = o.get(fn)
             out.append(nr)
     return out
+
+
+def _week_to_month(week: str | None) -> str | None:
+    """Convert ISO week (YYYY-Www) to YYYY-MM (month of Monday in that ISO week)."""
+    if not week or not isinstance(week, str):
+        return None
+    try:
+        if "-W" in week:
+            y, w = week.split("-W", 1)
+            year = int(y)
+            wk = int(w)
+            import datetime as _dt
+
+            d = _dt.date.fromisocalendar(year, wk, 1)
+            return f"{d.year:04d}-{d.month:02d}"
+    except Exception:
+        return None
+    return None
+
+
+def _auth_ok(req: Request) -> bool:
+    """Optional API-key check. If env API_KEY_VALUE is set, require header X-API-Key to match."""
+    key = os.environ.get("API_KEY_VALUE")
+    if not key:
+        return True
+    try:
+        val = req.headers.get("X-API-Key")
+        return bool(val) and (val == key)
+    except Exception:
+        return False
 
 
 @app.post("/plans/integrated/run")
@@ -476,7 +506,9 @@ def get_plan_psi(
 
 
 @app.patch("/plans/{version_id}/psi")
-def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+    if not _auth_ok(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     level = body.get("level") or "aggregate"
     edits = list(body.get("edits") or [])
     lock_mode = body.get("lock")  # 'lock'|'unlock'|'toggle'|None
@@ -501,6 +533,34 @@ def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  #
     import time as _time
     audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
     events = list(audit.get("events") or [])
+    distribute = body.get("distribute") or {}
+    weight_mode = str(distribute.get("weight_mode") or "current")
+    round_map = distribute.get("round") or {}
+
+    def _round_value(val: float, cfg: Dict[str, Any] | None) -> float:
+        if not cfg:
+            return val
+        try:
+            step = float(cfg.get("step") or 0)
+            mode = str(cfg.get("mode") or "nearest")
+            if step and step > 0:
+                q = val / step
+                if mode == "floor":
+                    from math import floor
+
+                    return floor(q) * step
+                if mode == "ceil":
+                    from math import ceil
+
+                    return ceil(q) * step
+                # nearest
+                from math import floor
+
+                return round(q) * step
+        except Exception:
+            return val
+        return val
+
     for e in edits:
         key = mk(e.get("key") or {})
         if not key:
@@ -547,8 +607,15 @@ def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  #
     overlay[level] = new_rows
     _save_overlay(version_id, overlay)
     # lock operation
-    if lock_mode in ("lock", "unlock", "toggle") and affected_keys:
-        for k in affected_keys:
+    explicit_lock_keys = set()
+    for lk in list(body.get("lock_keys") or []):
+        try:
+            explicit_lock_keys.add(str(lk))
+        except Exception:
+            pass
+    if lock_mode in ("lock", "unlock", "toggle") and (affected_keys or explicit_lock_keys):
+        keys_to_apply = set(affected_keys) | set(explicit_lock_keys)
+        for k in keys_to_apply:
             if lock_mode == "lock":
                 locks.add(k)
             elif lock_mode == "unlock":
@@ -565,11 +632,122 @@ def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  #
             {
                 "ts": int(_time.time() * 1000),
                 "level": level,
-                "keys": sorted(list(affected_keys)),
+                "keys": sorted(list(keys_to_apply)),
                 "fields": {},
                 "lock": lock_mode,
             }
         )
+    # 自動分配（Aggregate→Detail, 比例配分・セル/行ロック尊重）
+    try:
+        if level == "aggregate" and updated > 0 and not body.get("no_auto"):
+            # 調整対象フィールドのマッピング: agg -> det
+            field_map = {
+                "demand": "demand",
+                "supply": "supply_plan",
+                "backlog": "backlog",
+            }
+            # base det rows
+            det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+            det_rows = list(det.get("rows") or [])
+            # current det overlay map
+            det_overlay = _get_overlay(version_id).get("det") or []
+            det_map: Dict[str, Dict[str, Any]] = {}
+            for r in det_overlay:
+                k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+                det_map[k] = dict(r)
+            # locks (row/cell)
+            locks = _get_locks(version_id)
+            # rebuild aggregate overlay index
+            agg_overlay = _get_overlay(version_id).get("aggregate") or []
+            agg_idx: Dict[tuple, Dict[str, Any]] = {}
+            for r in agg_overlay:
+                agg_idx[(r.get("period"), r.get("family"))] = r
+            # For each affected key, distribute edited fields
+            for e in edits:
+                keyd = e.get("key") or {}
+                per = keyd.get("period")
+                fam = keyd.get("family")
+                if not per or not fam:
+                    continue
+                # target values (only fields explicitly in request)
+                targets: Dict[str, float] = {}
+                for fn_a, fn_d in field_map.items():
+                    if fn_a in (e.get("fields") or {}):
+                        try:
+                            targets[fn_d] = float((e.get("fields") or {}).get(fn_a))
+                        except Exception:
+                            pass
+                if not targets:
+                    continue
+                # pick matching det rows (same family and same month of the week)
+                idxs = []
+                for r in det_rows:
+                    if (r.get("family") == fam) and (_week_to_month(str(r.get("week"))) == per):
+                        idxs.append(r)
+                if not idxs:
+                    continue
+                # current totals
+                cur_tot: Dict[str, float] = {}
+                for fn_d in targets.keys():
+                    s = 0.0
+                    for r in idxs:
+                        v = r.get(fn_d)
+                        try:
+                            s += float(v or 0)
+                        except Exception:
+                            pass
+                    cur_tot[fn_d] = s
+                # distribute per field
+                for fn_d, tgt in targets.items():
+                    cur = cur_tot.get(fn_d, 0.0)
+                    # choose weights
+                    base_vals = []
+                    if weight_mode == "equal" or (cur <= 0 and tgt is not None and weight_mode == "current"):
+                        base_vals = [1.0] * len(idxs)
+                    else:
+                        src_field = fn_d if weight_mode in ("current", fn_d) else weight_mode
+                        for r in idxs:
+                            try:
+                                base_vals.append(float(r.get(src_field) or 0.0))
+                            except Exception:
+                                base_vals.append(0.0)
+                    total_base = sum(base_vals) or 1.0
+                    # compute new values vector
+                    new_vals = [tgt * (bv / total_base) for bv in base_vals]
+                    # honor locks: skip locked rows/cells, re-normalize to unlocked
+                    unlocked_idx = []
+                    for i, r in enumerate(idxs):
+                        krow = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+                        kcell = f"{krow}:field={fn_d}"
+                        if (krow in locks) or (kcell in locks):
+                            continue
+                        unlocked_idx.append(i)
+                    if not unlocked_idx:
+                        continue
+                    sum_unlocked = sum(new_vals[i] for i in unlocked_idx) or 1.0
+                    scale = (tgt or 0.0) / sum_unlocked
+                    for i in unlocked_idx:
+                        r = idxs[i]
+                        k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+                        row = det_map.get(k) or {"week": r.get("week"), "sku": r.get("sku")}
+                        row[fn_d] = new_vals[i] * scale
+                        det_map[k] = row
+            # save det overlay (with optional rounding)
+            det_rows_new = list(det_map.values())
+            # apply rounding per field if configured
+            if isinstance(round_map, dict) and det_rows_new:
+                for r in det_rows_new:
+                    for f, cfg in round_map.items():
+                        if f in r and r.get(f) is not None:
+                            try:
+                                r[f] = _round_value(float(r.get(f)), cfg)
+                            except Exception:
+                                pass
+            ov = _get_overlay(version_id)
+            ov["det"] = det_rows_new
+            _save_overlay(version_id, ov)
+    except Exception:
+        pass
     # 監査保存
     try:
         db.upsert_plan_artifact(
@@ -583,7 +761,9 @@ def patch_plan_psi(version_id: str, body: Dict[str, Any] = Body(default={})):  #
 
 
 @app.post("/plans/{version_id}/psi/reconcile")
-def post_plan_psi_reconcile(version_id: str, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
+    if not _auth_ok(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
     agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
     det = db.get_plan_artifact(version_id, "sku_week.json") or {}
@@ -821,6 +1001,47 @@ def get_plan_psi_audit(
     rows = rows[-max(1, int(limit)) :]
     rows.reverse()
     return {"events": rows}
+
+
+@app.post("/plans/{version_id}/psi/submit")
+def post_plan_psi_submit(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    # だれでも提出可（APIキー設定時は推奨）
+    state = db.get_plan_artifact(version_id, "psi_state.json") or {}
+    state.update({
+        "status": "pending",
+        "note": body.get("note"),
+        "submitted_at": int(__import__("time").time() * 1000),
+    })
+    db.upsert_plan_artifact(version_id, "psi_state.json", json.dumps(state, ensure_ascii=False))
+    # 監査
+    audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
+    ev = list(audit.get("events") or [])
+    ev.append({"ts": state.get("submitted_at"), "event": "submit", "note": body.get("note")})
+    db.upsert_plan_artifact(version_id, "psi_audit.json", json.dumps({"events": ev[-10000:]}, ensure_ascii=False))
+    return {"ok": True, "status": state.get("status")}
+
+
+@app.post("/plans/{version_id}/psi/approve")
+def post_plan_psi_approve(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    if not _auth_ok(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    state = db.get_plan_artifact(version_id, "psi_state.json") or {}
+    now = int(__import__("time").time() * 1000)
+    state.update({
+        "status": "approved",
+        "approved_at": now,
+    })
+    db.upsert_plan_artifact(version_id, "psi_state.json", json.dumps(state, ensure_ascii=False))
+    # 自動整合（任意）
+    if bool(body.get("auto_reconcile") or False):
+        # デフォルトは差分ログのみ
+        post_plan_psi_reconcile(version_id, request, body)
+    # 監査
+    audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
+    ev = list(audit.get("events") or [])
+    ev.append({"ts": now, "event": "approve", "auto_reconcile": bool(body.get("auto_reconcile") or False)})
+    db.upsert_plan_artifact(version_id, "psi_audit.json", json.dumps({"events": ev[-10000:]}, ensure_ascii=False))
+    return {"ok": True, "status": state.get("status")}
 
 
 @app.get("/plans")
