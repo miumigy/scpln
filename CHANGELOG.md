@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v0.6.0 (2025-09-14)
+
+PSI（Production/Sales/Inventory）の参照・編集・整合フローを大幅拡張。
+
+- PSIタブ: スプレッドシート表示/セル編集、監査ログ表示、CSV Export/Import
+- 再整合オプション: apply_adjusted/recalc_mrp/lt_unit/weeks など
+- 分配: Aggregate→Detail 比例配分（weight_mode=current/equal/demand/supply_plan/weights）、丸め（step/min）
+- 制約: lot/min/max をCSVで登録（per-cell）
+- ロック: 行/セルロック、Lock Manager（検索・一括ロック/解除）
+- 承認: Submit/Approve（承認後の自動整合オプション）、RBAC（編集/承認キー）
+- API: /plans/{id}/psi（GET/PATCH/CSV）, /psi/reconcile, /psi/audit, /psi/weights, /psi/constraints, /psi/locks(一覧/lock/unlock), /psi/diff 追加
+
 - feat(samples): 計画サンプルを2025-12まで拡張（年内フル）
 - fix(api): /simulation ルーターをFastAPIアプリへ登録（404解消）
 - refactor(ui): TemplateResponseの新API形式へ移行（requestを第1引数化）
