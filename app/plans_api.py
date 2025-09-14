@@ -68,6 +68,25 @@ def _save_locks(version_id: str, locks: set[str]) -> None:
     )
 
 
+def _get_weights(version_id: str) -> dict[str, float]:
+    obj = db.get_plan_artifact(version_id, "psi_weights.json") or {}
+    out: dict[str, float] = {}
+    for k, v in (obj.get("weights") or {}).items():
+        try:
+            out[str(k)] = float(v)
+        except Exception:
+            pass
+    return out
+
+
+def _save_weights(version_id: str, weights: dict[str, float]) -> None:
+    db.upsert_plan_artifact(
+        version_id,
+        "psi_weights.json",
+        json.dumps({"weights": weights}, ensure_ascii=False),
+    )
+
+
 def _apply_overlay(level: str, base_rows: list[Dict[str, Any]], overlay_rows: list[Dict[str, Any]]):
     """Return new list with overlay fields applied by key."""
     out: list[Dict[str, Any]] = []
@@ -705,12 +724,26 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
                     if weight_mode == "equal" or (cur <= 0 and tgt is not None and weight_mode == "current"):
                         base_vals = [1.0] * len(idxs)
                     else:
-                        src_field = fn_d if weight_mode in ("current", fn_d) else weight_mode
-                        for r in idxs:
-                            try:
-                                base_vals.append(float(r.get(src_field) or 0.0))
-                            except Exception:
-                                base_vals.append(0.0)
+                        if weight_mode == "weights":
+                            wm = _get_weights(version_id)
+                            for r in idxs:
+                                k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+                                base_vals.append(float(wm.get(k, 0.0)))
+                            if sum(base_vals) <= 0:
+                                # fallback to current field
+                                base_vals = []
+                                for r in idxs:
+                                    try:
+                                        base_vals.append(float(r.get(fn_d) or 0.0))
+                                    except Exception:
+                                        base_vals.append(0.0)
+                        else:
+                            src_field = fn_d if weight_mode in ("current", fn_d) else weight_mode
+                            for r in idxs:
+                                try:
+                                    base_vals.append(float(r.get(src_field) or 0.0))
+                                except Exception:
+                                    base_vals.append(0.0)
                     total_base = sum(base_vals) or 1.0
                     # compute new values vector
                     new_vals = [tgt * (bv / total_base) for bv in base_vals]
@@ -1001,6 +1034,47 @@ def get_plan_psi_audit(
     rows = rows[-max(1, int(limit)) :]
     rows.reverse()
     return {"events": rows}
+
+
+@app.get("/plans/{version_id}/psi/weights")
+def get_plan_psi_weights(version_id: str):
+    w = _get_weights(version_id)
+    # as rows [{key, weight}]
+    rows = [{"key": k, "weight": v} for k, v in w.items()]
+    return {"rows": rows}
+
+
+@app.post("/plans/{version_id}/psi/weights")
+def post_plan_psi_weights(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    if not _auth_ok(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    weights: dict[str, float] = {}
+    if isinstance(body.get("rows"), list):
+        for r in body.get("rows"):
+            k = str(r.get("key"))
+            try:
+                v = float(r.get("weight"))
+            except Exception:
+                continue
+            weights[k] = v
+    elif isinstance(body.get("csv"), str):
+        import csv, io
+        txt = body.get("csv")
+        f = io.StringIO(txt)
+        rd = csv.DictReader(f)
+        for r in rd:
+            k = r.get("key") or (f"det:week={r.get('week')},sku={r.get('sku')}" if r.get("week") and r.get("sku") else None)
+            if not k:
+                continue
+            try:
+                v = float(r.get("weight"))
+            except Exception:
+                continue
+            weights[str(k)] = v
+    else:
+        return JSONResponse(status_code=400, content={"detail": "rows or csv required"})
+    _save_weights(version_id, weights)
+    return {"ok": True, "count": len(weights)}
 
 
 @app.post("/plans/{version_id}/psi/submit")

@@ -114,6 +114,7 @@
         </label>
         <button id="psiLockCell" type="button" class="secondary">Lock cell</button>
         <button id="psiUnlockCell" type="button" class="secondary">Unlock cell</button>
+        <button id="psiUnlockAll" type="button" class="secondary">Unlock all</button>
         <small class="mono" id="psiMeta"></small>
       </div>
       <div style="overflow:auto;">
@@ -163,6 +164,14 @@
           <label>input_dir<input type="text" id="psiInputDir" value="samples/planning"></label>
         </div>
         <p class="mono">注: adjusted 実行には anchor_policy と cutover_date の指定が必要です。MRP再計算は apply_adjusted と組み合わせます。</p>
+      </details>
+      <details>
+        <summary>Weights（CSVインポート）</summary>
+        <p class="mono">ヘッダ付き: key,weight（または week,sku,weight）。key例: det:week=2025-W01,sku=SKU1</p>
+        <textarea id="psiWeightsCsv" rows="4" placeholder="key,weight\ndet:week=2025-W01,sku=SKU1,1\ndet:week=2025-W01,sku=SKU2,2"></textarea>
+        <div>
+          <button id="psiWeightsApply" type="button">Weightsを適用</button>
+        </div>
       </details>
       <details>
         <summary>分配オプション（Aggregate→Detail）</summary>
@@ -261,10 +270,10 @@
         const body = rows.map(r=>{
           const k = mkKey(level,r);
           const rowLocked = locks.has(k);
-          const tds = cols.map(c=>{
-            const val = r[c.k];
-            const ro = c.ro || rowLocked;
-            const attr = ro? 'data-ro="1"' : 'contenteditable';
+      const tds = cols.map(c=>{
+          const val = r[c.k];
+          const ro = c.ro || rowLocked || locks.has(`${k}:field=${c.k}`);
+          const attr = ro? 'data-ro="1"' : 'contenteditable';
             const cls = ro? 'class="ro"' : '';
             const dv = fmt(val);
             return `<td ${attr} ${cls} data-field="${c.k}" data-key="${k}" data-value="${dv}">${dv}</td>`;
@@ -379,6 +388,12 @@
       }
       document.getElementById('psiLockCell')?.addEventListener('click', ()=> lockCell('lock'));
       document.getElementById('psiUnlockCell')?.addEventListener('click', ()=> lockCell('unlock'));
+      document.getElementById('psiUnlockAll')?.addEventListener('click', async ()=>{
+        const keys = Array.from(locks);
+        if (!keys.length) return;
+        await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:getHeaders(), body: JSON.stringify({ level: levelEl.value, edits: [], lock: 'unlock', lock_keys: keys }) });
+        await load();
+      });
       document.getElementById('psiCsvApply')?.addEventListener('click', async function(){
         const level = levelEl.value;
         const ta = document.getElementById('psiCsvText'); const txt = (ta && ta.value)||''; if(!txt.trim()) return;
@@ -436,6 +451,13 @@
         const res = await fetch(`/plans/${ver}/psi/approve`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ auto_reconcile: auto }) });
         if (!res.ok){ alert('approve failed'); return; }
         alert('approved');
+      });
+      document.getElementById('psiWeightsApply')?.addEventListener('click', async function(){
+        const ta = document.getElementById('psiWeightsCsv'); const txt = (ta && ta.value) || '';
+        if (!txt.trim()) return;
+        const res = await fetch(`/plans/${ver}/psi/weights`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ csv: txt }) });
+        if (!res.ok){ alert('weights failed'); return; }
+        alert('weights applied');
       });
       // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
       tbl.addEventListener('change', ev=>{
