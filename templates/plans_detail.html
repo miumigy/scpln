@@ -170,6 +170,24 @@
           <button id="psiCsvApply" type="button">CSVを適用（保存）</button>
         </div>
       </details>
+      <details>
+        <summary>監査ログ（直近）</summary>
+        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+          <label>level
+            <select id="psiAuditLevel">
+              <option value="">(全て)</option>
+              <option value="aggregate">aggregate</option>
+              <option value="det">det</option>
+            </select>
+          </label>
+          <label>q<input id="psiAuditQ" type="search" placeholder="フィルタ（テキスト）"></label>
+          <label>limit<input id="psiAuditLimit" type="number" min="10" value="200"></label>
+          <button id="psiAuditReload" type="button">再読込</button>
+        </div>
+        <div style="overflow:auto; max-height:320px;">
+          <table id="tblPSIAudit" style="min-width:960px;"></table>
+        </div>
+      </details>
       <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。</p>
     </details>
     <script>
@@ -320,6 +338,27 @@
         if (!res.ok){ alert('CSV適用に失敗しました'); return; }
         ta.value=''; await load();
       });
+      async function loadAudit(){
+        const level = document.getElementById('psiAuditLevel')?.value || '';
+        const q = (document.getElementById('psiAuditQ')?.value||'').trim();
+        const limit = Number(document.getElementById('psiAuditLimit')?.value||'200');
+        const url = new URL(`/plans/${ver}/psi/audit`, location.origin);
+        if (level) url.searchParams.set('level', level); if (q) url.searchParams.set('q', q); url.searchParams.set('limit', String(limit));
+        const res = await fetch(url.toString()); if (!res.ok) return;
+        const js = await res.json();
+        const rows = js.events||[];
+        const tblA = document.getElementById('tblPSIAudit'); if(!tblA) return;
+        const head = '<thead><tr><th>ts</th><th>level</th><th>type</th><th>key(s)</th><th>fields/lock</th></tr></thead>';
+        const body = rows.map(r=>{
+          const ts = r.ts? new Date(Number(r.ts)).toISOString(): '';
+          const typ = r.lock ? 'lock' : 'edit';
+          const keys = r.keys? JSON.stringify(r.keys): JSON.stringify(r.key);
+          const meta = r.lock? r.lock : JSON.stringify(r.fields);
+          return `<tr><td class="mono">${ts}</td><td class="mono">${r.level||''}</td><td class="mono">${typ}</td><td class="mono">${keys||''}</td><td class="mono">${meta||''}</td></tr>`;
+        }).join('');
+        tblA.innerHTML = head + '<tbody>'+body+'</tbody>';
+      }
+      document.getElementById('psiAuditReload')?.addEventListener('click', loadAudit);
       // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
       tbl.addEventListener('change', ev=>{
         const t = ev.target; if (!t || !t.classList || !t.classList.contains('psi-lock')) return;

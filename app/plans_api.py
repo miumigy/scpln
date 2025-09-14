@@ -802,6 +802,27 @@ def get_plan_psi_csv(
     return PlainTextResponse(content=buf.getvalue(), media_type="text/csv; charset=utf-8")
 
 
+@app.get("/plans/{version_id}/psi/audit")
+def get_plan_psi_audit(
+    version_id: str,
+    level: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    limit: int = Query(200),
+):
+    """PSI編集/ロックの監査ログ（最新順）を返す。"""
+    obj = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
+    rows: list[dict] = list(obj.get("events") or [])
+    # 絞り込み
+    if level in ("aggregate", "det"):
+        rows = [r for r in rows if (r.get("level") == level)]
+    if q:
+        s = q.lower().strip()
+        rows = [r for r in rows if s in json.dumps(r, ensure_ascii=False).lower()]
+    rows = rows[-max(1, int(limit)) :]
+    rows.reverse()
+    return {"events": rows}
+
+
 @app.get("/plans")
 def get_plans(limit: int = 100):
     return {"plans": db.list_plan_versions(limit)}
