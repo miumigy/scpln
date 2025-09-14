@@ -223,6 +223,30 @@
         </div>
       </details>
       <details>
+        <summary>Lock Manager（検索・一括操作）</summary>
+        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+          <label>family<input id="lmFamily" type="text" placeholder="family"></label>
+          <label>week_prefix<input id="lmWeek" type="text" placeholder="YYYY-W"></label>
+          <label>field
+            <select id="lmField">
+              <option value="">(any)</option>
+              <option value="demand">demand</option>
+              <option value="supply_plan">supply_plan</option>
+              <option value="backlog">backlog</option>
+              <option value="on_hand_start">on_hand_start</option>
+              <option value="on_hand_end">on_hand_end</option>
+            </select>
+          </label>
+          <button id="lmLoad" type="button">Load locks</button>
+          <button id="lmLockFiltered" type="button" class="secondary">Lock filtered</button>
+          <button id="lmUnlockFiltered" type="button" class="secondary">Unlock filtered</button>
+          <button id="lmUnlockSelected" type="button">Unlock selected</button>
+        </div>
+        <div style="overflow:auto; max-height:260px;">
+          <table id="tblLocks" style="min-width:960px;"></table>
+        </div>
+      </details>
+      <details>
         <summary>承認ワークフロー</summary>
         <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
           <label>note<input id="psiSubmitNote" type="text" placeholder="提出メモ"></label>
@@ -230,6 +254,10 @@
           <label><input type="checkbox" id="psiApproveRecon"> 承認後に整合実行</label>
           <button id="psiApprove" type="button" class="secondary">Approve（承認）</button>
           <small class="mono">注: ApproveにはAPIキーが必要です（localStorage.api_key）。</small>
+        </div>
+        <div style="margin-top:6px;">
+          <button id="psiShowDiff" type="button" class="secondary">Diffを表示</button>
+          <div id="psiDiff" class="mono" style="margin-top:6px;"></div>
         </div>
       </details>
       <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。</p>
@@ -452,12 +480,58 @@
         if (!res.ok){ alert('approve failed'); return; }
         alert('approved');
       });
+      document.getElementById('psiShowDiff')?.addEventListener('click', async function(){
+        const res = await fetch(`/plans/${ver}/psi/diff`); if(!res.ok) return;
+        const js = await res.json();
+        const d = document.getElementById('psiDiff'); if (!d) return;
+        d.textContent = `agg changed=${js.aggregate.changed} delta=${JSON.stringify(js.aggregate.delta)} | det changed=${js.detail.changed} delta=${JSON.stringify(js.detail.delta)}`;
+      });
       document.getElementById('psiWeightsApply')?.addEventListener('click', async function(){
         const ta = document.getElementById('psiWeightsCsv'); const txt = (ta && ta.value) || '';
         if (!txt.trim()) return;
         const res = await fetch(`/plans/${ver}/psi/weights`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ csv: txt }) });
         if (!res.ok){ alert('weights failed'); return; }
         alert('weights applied');
+      });
+      // Lock Manager
+      async function loadLocks(){
+        const fam = (document.getElementById('lmFamily')?.value)||'';
+        const wk = (document.getElementById('lmWeek')?.value)||'';
+        const fd = (document.getElementById('lmField')?.value)||'';
+        const url = new URL(`/plans/${ver}/psi/locks_detail`, location.origin);
+        if (fam) url.searchParams.set('family', fam);
+        if (wk) url.searchParams.set('week_prefix', wk);
+        if (fd) url.searchParams.set('field', fd);
+        const res = await fetch(url.toString()); if (!res.ok) return;
+        const js = await res.json(); const rows = js.rows||[];
+        const head = '<thead><tr><th><input type="checkbox" id="lmAll"></th><th>type</th><th>family</th><th>week</th><th>sku</th><th>field</th><th>key</th></tr></thead>';
+        const body = rows.map(r=>`<tr><td><input type="checkbox" class="lmRow" data-key="${r.key}"></td><td class="mono">${r.type||''}</td><td class="mono">${r.family||''}</td><td class="mono">${r.week||''}</td><td class="mono">${r.sku||''}</td><td class="mono">${r.field||''}</td><td class="mono">${r.key}</td></tr>`).join('');
+        document.getElementById('tblLocks').innerHTML = head + '<tbody>'+body+'</tbody>';
+        document.getElementById('lmAll')?.addEventListener('change', (ev)=>{
+          const on = ev.currentTarget.checked; document.querySelectorAll('.lmRow').forEach(cb=>{ cb.checked = on; });
+        });
+      }
+      async function opLocks(action){
+        const fam = (document.getElementById('lmFamily')?.value)||'';
+        const wk = (document.getElementById('lmWeek')?.value)||'';
+        const fd = (document.getElementById('lmField')?.value)||'';
+        const keys = Array.from(document.querySelectorAll('.lmRow:checked')).map(el=>el.getAttribute('data-key')).filter(Boolean);
+        const url = action==='lock' ? `/plans/${ver}/psi/locks/lock` : `/plans/${ver}/psi/locks/unlock`;
+        const body = { level:'det' };
+        if (fam) body.family = fam; if (wk) body.week_prefix = wk; if (fd) body.field = fd;
+        if (keys.length) body.keys = keys;
+        const res = await fetch(url, { method:'POST', headers:getHeaders(), body: JSON.stringify(body) });
+        if (!res.ok){ alert(`${action} failed`); return; }
+        await loadLocks(); await load();
+      }
+      document.getElementById('lmLoad')?.addEventListener('click', loadLocks);
+      document.getElementById('lmLockFiltered')?.addEventListener('click', ()=> opLocks('lock'));
+      document.getElementById('lmUnlockFiltered')?.addEventListener('click', ()=> opLocks('unlock'));
+      document.getElementById('lmUnlockSelected')?.addEventListener('click', async ()=>{
+        const keys = Array.from(document.querySelectorAll('.lmRow:checked')).map(el=>el.getAttribute('data-key')).filter(Boolean);
+        if (!keys.length) return;
+        await fetch(`/plans/${ver}/psi/locks/unlock`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ level:'det', keys }) });
+        await loadLocks(); await load();
       });
       // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
       tbl.addEventListener('change', ev=>{
