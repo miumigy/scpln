@@ -155,6 +155,29 @@ def _auth_ok(req: Request) -> bool:
         return False
 
 
+def _has_edit(req: Request) -> bool:
+    k_edit = os.environ.get("API_KEY_EDIT")
+    k_any = os.environ.get("API_KEY_VALUE")
+    if not k_edit and not k_any:
+        return True
+    try:
+        val = req.headers.get("X-API-Key")
+        return bool(val) and (val == k_edit or val == k_any)
+    except Exception:
+        return False
+
+
+def _has_approve(req: Request) -> bool:
+    k_app = os.environ.get("API_KEY_APPROVE")
+    if k_app:
+        try:
+            return req.headers.get("X-API-Key") == k_app
+        except Exception:
+            return False
+    # fallback to edit key
+    return _has_edit(req)
+
+
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
@@ -526,7 +549,7 @@ def get_plan_psi(
 
 @app.patch("/plans/{version_id}/psi")
 def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
-    if not _auth_ok(request):
+    if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     level = body.get("level") or "aggregate"
     edits = list(body.get("edits") or [])
@@ -795,7 +818,7 @@ def patch_plan_psi(version_id: str, request: Request, body: Dict[str, Any] = Bod
 
 @app.post("/plans/{version_id}/psi/reconcile")
 def post_plan_psi_reconcile(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: C901
-    if not _auth_ok(request):
+    if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
     agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
@@ -1034,6 +1057,134 @@ def get_plan_psi_audit(
     rows = rows[-max(1, int(limit)) :]
     rows.reverse()
     return {"events": rows}
+
+
+def _get_constraints(version_id: str) -> Dict[str, Dict[str, Any]]:
+    obj = db.get_plan_artifact(version_id, "psi_constraints.json") or {}
+    return dict(obj.get("constraints") or {})
+
+
+def _save_constraints(version_id: str, data: Dict[str, Dict[str, Any]]):
+    db.upsert_plan_artifact(
+        version_id,
+        "psi_constraints.json",
+        json.dumps({"constraints": data}, ensure_ascii=False),
+    )
+
+
+@app.post("/plans/{version_id}/psi/constraints")
+def post_plan_psi_constraints(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    if not _has_edit(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    cons: Dict[str, Dict[str, Any]] = {}
+    if isinstance(body.get("rows"), list):
+        for r in body.get("rows"):
+            k = str(r.get("key"))
+            field = str(r.get("field"))
+            if not k or not field:
+                continue
+            cfg = cons.setdefault(k, {})
+            fcfg = cfg.setdefault(field, {})
+            for name in ("lot", "min", "max"):
+                if r.get(name) is not None:
+                    try:
+                        fcfg[name] = float(r.get(name))
+                    except Exception:
+                        pass
+    elif isinstance(body.get("csv"), str):
+        import csv, io
+        f = io.StringIO(body.get("csv"))
+        rd = csv.DictReader(f)
+        for r in rd:
+            key = r.get("key") or (f"det:week={r.get('week')},sku={r.get('sku')}" if r.get("week") and r.get("sku") else None)
+            field = r.get("field")
+            if not key or not field:
+                continue
+            cfg = cons.setdefault(str(key), {})
+            fcfg = cfg.setdefault(str(field), {})
+            for name in ("lot", "min", "max"):
+                if r.get(name) not in (None, ""):
+                    try:
+                        fcfg[name] = float(r.get(name))
+                    except Exception:
+                        pass
+    else:
+        return JSONResponse(status_code=400, content={"detail": "rows or csv required"})
+    # merge with existing
+    cur = _get_constraints(version_id)
+    for k, v in cons.items():
+        base = cur.setdefault(k, {})
+        base.update(v)
+    _save_constraints(version_id, cur)
+    return {"ok": True, "count": sum(len(v) for v in cur.values())}
+
+
+@app.get("/plans/{version_id}/psi/locks")
+def get_plan_psi_locks(version_id: str):
+    return {"locks": sorted(list(_get_locks(version_id)))}
+
+
+@app.post("/plans/{version_id}/psi/locks/unlock")
+def post_plan_psi_locks_unlock(version_id: str, request: Request, body: Dict[str, Any] = Body(default={})):  # noqa: E501
+    if not _has_edit(request):
+        return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    level = body.get("level") or "det"
+    family = body.get("family")
+    week_prefix = body.get("week_prefix")
+    field = body.get("field")  # optional cell-only
+    locks = _get_locks(version_id)
+    keys_to_unlock: set[str] = set()
+    if level == "det" and (family or week_prefix or field):
+        det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+        for r in det.get("rows") or []:
+            if family and r.get("family") != family:
+                continue
+            if week_prefix and not str(r.get("week")).startswith(str(week_prefix)):
+                continue
+            base = _psi_overlay_key_det(r.get("week"), r.get("sku"))
+            if field:
+                keys_to_unlock.add(f"{base}:field={field}")
+            else:
+                keys_to_unlock.add(base)
+    # explicit list
+    for k in list(body.get("keys") or []):
+        keys_to_unlock.add(str(k))
+    changed = 0
+    for k in list(keys_to_unlock):
+        if k in locks:
+            locks.discard(k)
+            changed += 1
+    _save_locks(version_id, locks)
+    return {"ok": True, "changed": changed}
+
+
+@app.get("/plans/{version_id}/psi/diff")
+def get_plan_psi_diff(version_id: str):
+    agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    ov = _get_overlay(version_id)
+    agg_rows = _apply_overlay("aggregate", list(agg.get("rows") or []), ov.get("aggregate") or [])
+    det_rows = _apply_overlay("det", list(det.get("rows") or []), ov.get("det") or [])
+    # simple diff summary vs base
+    def _sum_delta(rows_new, rows_base, keys, id_fn):
+        from collections import defaultdict
+        m = {id_fn(r): r for r in rows_base}
+        cnt = 0
+        sums = defaultdict(float)
+        for r in rows_new:
+            b = m.get(id_fn(r)) or {}
+            changed = False
+            for k in keys:
+                dv = float(r.get(k) or 0) - float(b.get(k) or 0)
+                if abs(dv) > 1e-12:
+                    sums[k] += dv
+                    changed = True
+            if changed:
+                cnt += 1
+        return cnt, dict(sums)
+    a_cnt, a_sums = _sum_delta(agg_rows, agg.get("rows") or [], ["demand", "supply", "backlog"], lambda r: (r.get("period"), r.get("family")))
+    d_cnt, d_sums = _sum_delta(det_rows, det.get("rows") or [], ["demand", "supply_plan", "backlog"], lambda r: (r.get("week"), r.get("sku")))
+    return {"aggregate": {"changed": a_cnt, "delta": a_sums}, "detail": {"changed": d_cnt, "delta": d_sums}}
 
 
 @app.get("/plans/{version_id}/psi/weights")
