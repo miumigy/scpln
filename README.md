@@ -804,3 +804,60 @@ sequenceDiagram
 今後の拡張項目（認証/予測/最適化/外部統合/SRE など）は、下記ドキュメントに「残る拡張のみ」を絞って掲載しています。
 
 - [docs/EXPANSION_STRATEGY_JA.md](docs/EXPANSION_STRATEGY_JA.md)
+
+## PSI 編集ワークフロー（MVP/フェーズ2）
+
+- 目的: 各粒度（Aggregate: family×period、Detail: sku×week）のPSI（需要/供給/在庫/バックログ）をUIで参照・編集し、差分をサーバに保存。必要に応じて再整合（adjusted/MRP）を実行。
+- UI: `/ui/plans/{id}` の PSI タブ
+  - 表示/編集: スプレッドシート状。セル編集→「変更を保存」で差分を `psi_overrides.json` に保存
+  - ロック: 行ロック対応（鍵チェック＋lockモードで保存）。ロックは `psi_locks.json`
+  - 再整合: 「適用して整合を実行」で差分ログ（`reconciliation_log.json`）を更新
+  - オプション: apply_adjusted / recalc_mrp / lt_unit / weeks / anchor_policy / cutover_date / recon_window_days / tol_abs / tol_rel / calendar_mode / carryover / carryover_split / input_dir を指定可能
+  - CSV: Export/Import（ヘッダ付CSV）
+- API（Plans）
+  - `GET /plans/{version_id}/psi`: level=aggregate|det, q, limit, offset。オーバレイ適用後を返却
+  - `PATCH /plans/{version_id}/psi`: { level, edits:[{key, fields}], lock? }。監査は `psi_audit.json` に追記
+  - `POST /plans/{version_id}/psi/reconcile`: オーバレイ適用→reconcile_levels、必要に応じて adjusted/MRP を実行
+  - `GET /plans/{version_id}/psi.csv`: 現在levelのCSV出力
+
+注意: CSVインポートは簡易パーサ（クオート/エスケープ非対応）。単純カンマ区切りで運用してください。
+
+### PSI の使い方（UI手順）
+- /ui/plans/{version_id} → PSI タブを開く
+- 表示切替: level（aggregate|detail）、テキストフィルタ、limit で件数調整
+- 編集: セルを直接編集→黄色ハイライト→「変更を保存」
+  - 行ロック: 行の鍵チェック＋ロックモード（lock/unlock/toggle）を選び保存
+  - CSV: Exportで現在表示をCSVダウンロード、貼付欄でCSVをインポートし「CSVを適用（保存）」
+- 再整合: 「再整合オプション」（必要時）を設定し「適用して整合を実行」
+  - 既定: reconcile_levels（before差分）を更新
+  - adjusted: apply_adjusted をON＋anchor_policy と cutover_date を指定（windowやtoleranceも任意）
+  - MRP: recalc_mrp をON（apply_adjustedと併用）。lt_unit/weeks を必要に応じて指定
+  - 実行後: Diff/Validate で結果を確認。Artifactsに *_adjusted.json が追加されます
+
+### 計画プロセス（PSIを含む）Mermaid
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as PSI UI (Plans)
+    participant API
+    participant DB
+    participant S as scripts/*
+
+    User->>UI: セル編集（aggregate/det）
+    UI->>API: PATCH /plans/{id}/psi (edits, lock)
+    API->>DB: upsert psi_overrides.json / psi_locks.json / psi_audit.json
+    User->>UI: 適用して整合を実行（オプション指定）
+    UI->>API: POST /plans/{id}/psi/reconcile (apply_adjusted, recalc_mrp, ...)
+    API->>S: reconcile_levels (aggregate.json × sku_week.json)
+    alt apply_adjusted
+        API->>S: anchor_adjust (aggregate×det)
+        API->>S: reconcile_levels (adjusted)
+        opt recalc_mrp
+            API->>S: mrp (adjusted)
+            API->>S: reconcile (adjusted → plan_final_adjusted.json)
+        end
+    end
+    API->>DB: upsert reconciliation_log*.json, *_adjusted.json
+    API-->>UI: OK { updated_artifacts, summary }
+```

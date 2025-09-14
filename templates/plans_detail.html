@@ -13,6 +13,7 @@
       <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開" aria-label="詳細展開タブ">Disaggregate</a>
       <a role="button" class="secondary" data-tab="schedule" title="予定オーダ" aria-label="予定オーダタブ">Schedule</a>
       <a role="button" class="secondary" data-tab="validate" title="検証" aria-label="検証タブ">Validate</a>
+      <a role="button" class="secondary" data-tab="psi" title="PSI" aria-label="PSIタブ">PSI</a>
       <a role="button" class="secondary" data-tab="execute" title="実行" aria-label="実行タブ">Execute</a>
       <a role="button" class="secondary" data-tab="results" title="結果" aria-label="結果タブ">Results</a>
       <a role="button" class="secondary" data-tab="diff" title="差分" aria-label="差分タブ">Diff</a>
@@ -84,6 +85,249 @@
       document.getElementById('diff-apply')?.addEventListener('click', applyDiffLinks);
       // 初期ロード
       loadRelated().then(applyDiffLinks).catch(()=>{});
+    })();
+    </script>
+    </div>
+    <div id="tab-psi" class="tab-pane" style="display:none;">
+    <details open>
+      <summary>PSI（参照・編集）</summary>
+      <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+        <label>level
+          <select id="psiLevel">
+            <option value="aggregate">aggregate（family×period）</option>
+            <option value="det">detail（sku×week）</option>
+          </select>
+        </label>
+        <label>q<input id="psiQ" type="search" placeholder="フィルタ（テキスト）"></label>
+        <label>limit<input id="psiLimit" type="number" min="10" value="200"></label>
+        <button id="psiReload" type="button">再読込</button>
+        <button id="psiSave" type="button" class="secondary">変更を保存</button>
+        <button id="psiRecon" type="button">適用して整合を実行</button>
+        <a id="psiCsvExport" class="secondary" href="#" download>Export CSV</a>
+        <label style="margin-left:8px;">ロック
+          <select id="psiLockMode">
+            <option value="">(なし)</option>
+            <option value="lock">lock</option>
+            <option value="unlock">unlock</option>
+            <option value="toggle">toggle</option>
+          </select>
+        </label>
+        <small class="mono" id="psiMeta"></small>
+      </div>
+      <div style="overflow:auto;">
+        <table id="tblPSI" style="min-width:960px;"></table>
+      </div>
+      <details>
+        <summary>再整合オプション（adjusted/MRP）</summary>
+        <div class="grid" style="align-items:end;">
+          <label><input type="checkbox" id="psiAdj"> apply_adjusted</label>
+          <label><input type="checkbox" id="psiMRP"> recalc_mrp</label>
+          <label>lt_unit
+            <select id="psiLtUnit">
+              <option value="day" selected>day</option>
+              <option value="week">week</option>
+            </select>
+          </label>
+          <label>weeks<input type="number" id="psiWeeks" min="1" value="4"></label>
+          <label>cutover_date<input type="date" id="psiCutover"></label>
+          <label>recon_window_days<input type="number" id="psiRwd" min="0"></label>
+          <label>anchor_policy
+            <select id="psiAnchor">
+              <option value="">(未指定)</option>
+              <option value="DET_near">DET_near</option>
+              <option value="AGG_far">AGG_far</option>
+              <option value="blend">blend</option>
+            </select>
+          </label>
+          <label>tol_abs<input type="number" step="0.000001" id="psiTolAbs" placeholder="1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" id="psiTolRel" placeholder="1e-6"></label>
+          <label>calendar_mode
+            <select id="psiCal">
+              <option value="">(未指定)</option>
+              <option value="simple">simple</option>
+              <option value="iso">iso</option>
+            </select>
+          </label>
+          <label>carryover
+            <select id="psiCarry">
+              <option value="">(未指定)</option>
+              <option value="auto">auto</option>
+              <option value="prev">prev</option>
+              <option value="next">next</option>
+              <option value="both">both</option>
+            </select>
+          </label>
+          <label>carryover_split<input type="number" min="0" max="1" step="0.05" id="psiCarrySplit"></label>
+          <label>input_dir<input type="text" id="psiInputDir" value="samples/planning"></label>
+        </div>
+        <p class="mono">注: adjusted 実行には anchor_policy と cutover_date の指定が必要です。MRP再計算は apply_adjusted と組み合わせます。</p>
+      </details>
+      <details>
+        <summary>CSVインポート（ヘッダ付き, 既定列のみ）</summary>
+        <p class="mono">aggregate: period,family,demand,supply,backlog ｜ det: week,sku,demand,supply_plan,backlog,on_hand_start,on_hand_end</p>
+        <textarea id="psiCsvText" rows="6" placeholder="CSVを貼り付け"></textarea>
+        <div>
+          <button id="psiCsvApply" type="button">CSVを適用（保存）</button>
+        </div>
+      </details>
+      <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。</p>
+    </details>
+    <script>
+    (function(){
+      const ver = {{ version_id | tojson | safe }};
+      const tbl = document.getElementById('tblPSI');
+      const levelEl = document.getElementById('psiLevel');
+      const qEl = document.getElementById('psiQ');
+      const limEl = document.getElementById('psiLimit');
+      const metaEl = document.getElementById('psiMeta');
+      const lockEl = document.getElementById('psiLockMode');
+      const pending = new Map(); // key+field -> value
+      let locks = new Set();
+      function mkKey(level, r){ return level==='aggregate' ? `agg:period=${r.period},family=${r.family}` : `det:week=${r.week},sku=${r.sku}`; }
+      function colSpec(level){
+        if (level==='aggregate'){
+          return [
+            {k:'period', ro:true}, {k:'family', ro:true},
+            {k:'demand'}, {k:'supply'}, {k:'backlog'}
+          ];
+        }
+        return [
+          {k:'week', ro:true}, {k:'sku', ro:true},
+          {k:'demand'}, {k:'supply_plan'}, {k:'backlog'}, {k:'on_hand_start'}, {k:'on_hand_end'}
+        ];
+      }
+      function fmt(n){ if(n===null||n===undefined||n==='') return ''; const x=Number(n); return Number.isFinite(x)? String(x): String(n); }
+      function render(level, rows){
+        const cols = colSpec(level);
+        const thead = '<thead><tr>'+cols.map(c=>`<th>${c.k}</th>`).join('')+`<th>lock</th></tr></thead>`;
+        const body = rows.map(r=>{
+          const k = mkKey(level,r);
+          const rowLocked = locks.has(k);
+          const tds = cols.map(c=>{
+            const val = r[c.k];
+            const ro = c.ro || rowLocked;
+            const attr = ro? 'data-ro="1"' : 'contenteditable';
+            const cls = ro? 'class="ro"' : '';
+            const dv = fmt(val);
+            return `<td ${attr} ${cls} data-field="${c.k}" data-key="${k}" data-value="${dv}">${dv}</td>`;
+          }).join('');
+          const lk = rowLocked? 'checked' : '';
+          return `<tr>${tds}<td><input type="checkbox" class="psi-lock" data-key="${k}" ${lk}></td></tr>`;
+        }).join('');
+        tbl.innerHTML = thead + '<tbody>'+body+'</tbody>';
+        // 変更検知
+        tbl.querySelectorAll('td[contenteditable]').forEach(td=>{
+          td.addEventListener('blur', ev=>{
+            const el = ev.currentTarget; const key = el.getAttribute('data-key'); const f = el.getAttribute('data-field');
+            const before = el.getAttribute('data-value')||''; const after = el.textContent.trim();
+            if (after===before){ el.classList.remove('dirty'); pending.delete(key+"::"+f); return; }
+            el.classList.add('dirty'); pending.set(key+"::"+f, after);
+          });
+        });
+      }
+      async function load(){
+        const level = levelEl.value; const q = (qEl.value||'').trim(); const limit = parseInt(limEl.value||'200',10);
+        const url = new URL(`/plans/${ver}/psi`, location.origin);
+        url.searchParams.set('level', level); if(q) url.searchParams.set('q', q); url.searchParams.set('limit', String(limit)); url.searchParams.set('offset', '0');
+        const res = await fetch(url.toString()); if(!res.ok) return;
+        const js = await res.json(); locks = new Set(js.locks||[]);
+        metaEl.textContent = `rows=${js.total}`;
+        render(js.level, js.rows||[]);
+        const a = document.getElementById('psiCsvExport');
+        if (a){ const u = new URL(`/plans/${ver}/psi.csv`, location.origin); u.searchParams.set('level', level); a.setAttribute('href', u.toString()); a.setAttribute('download', `psi_${level}_${ver}.csv`); }
+      }
+      async function save(){
+        const level = levelEl.value;
+        // 変更を行単位にまとめる
+        const grouped = new Map();
+        for (const [kf, val] of pending.entries()){
+          const [key, field] = kf.split('::');
+          const g = grouped.get(key) || { key: {}, fields: {} };
+          // keyを復元
+          if (key.startsWith('agg:')){
+            const m = /period=([^,]+),family=(.+)$/.exec(key); if (m){ g.key.period=m[1]; g.key.family=m[2]; }
+          } else {
+            const m = /week=([^,]+),sku=(.+)$/.exec(key); if (m){ g.key.week=m[1]; g.key.sku=m[2]; }
+          }
+          g.fields[field] = (val==='')? null : Number(val);
+          grouped.set(key, g);
+        }
+        const edits = Array.from(grouped.values());
+        const lock = lockEl.value || undefined;
+        if (edits.length===0 && !lock){ return; }
+        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level, edits, lock }) });
+        if (!res.ok){ alert('save failed'); return; }
+        pending.clear(); await load();
+      }
+      async function recon(){
+        const body = {};
+        const adj = document.getElementById('psiAdj');
+        const mrp = document.getElementById('psiMRP');
+        const lt = document.getElementById('psiLtUnit');
+        const w = document.getElementById('psiWeeks');
+        const cut = document.getElementById('psiCutover');
+        const rwd = document.getElementById('psiRwd');
+        const anc = document.getElementById('psiAnchor');
+        const ta = document.getElementById('psiTolAbs');
+        const tr = document.getElementById('psiTolRel');
+        const cal = document.getElementById('psiCal');
+        const cov = document.getElementById('psiCarry');
+        const csv = document.getElementById('psiCarrySplit');
+        const idir = document.getElementById('psiInputDir');
+        body.apply_adjusted = !!(adj && adj.checked);
+        body.recalc_mrp = !!(mrp && mrp.checked);
+        body.lt_unit = lt ? lt.value : 'day';
+        body.weeks = w ? Number(w.value||4) : 4;
+        body.cutover_date = cut && cut.value ? cut.value : undefined;
+        body.recon_window_days = rwd && rwd.value!=='' ? Number(rwd.value) : undefined;
+        body.anchor_policy = anc && anc.value ? anc.value : undefined;
+        body.tol_abs = ta && ta.value!=='' ? Number(ta.value) : undefined;
+        body.tol_rel = tr && tr.value!=='' ? Number(tr.value) : undefined;
+        body.calendar_mode = cal && cal.value ? cal.value : undefined;
+        body.carryover = cov && cov.value ? cov.value : undefined;
+        body.carryover_split = csv && csv.value!=='' ? Number(csv.value) : undefined;
+        body.input_dir = idir && idir.value ? idir.value : 'samples/planning';
+        const res = await fetch(`/plans/${ver}/psi/reconcile`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if (!res.ok){ alert('reconcile failed'); return; }
+        const js = await res.json();
+        alert('reconciled: violations='+(js.summary && (js.summary.violations||js.summary.tol_violations||0)));
+      }
+      document.getElementById('psiReload')?.addEventListener('click', load);
+      document.getElementById('psiSave')?.addEventListener('click', save);
+      document.getElementById('psiRecon')?.addEventListener('click', recon);
+      document.getElementById('psiCsvApply')?.addEventListener('click', async function(){
+        const level = levelEl.value;
+        const ta = document.getElementById('psiCsvText'); const txt = (ta && ta.value)||''; if(!txt.trim()) return;
+        const lines = txt.trim().split(/\r?\n/); if(lines.length<2){ alert('ヘッダ+1行以上が必要です'); return; }
+        const header = lines[0].split(',').map(s=>s.trim());
+        const idx = (name)=> header.indexOf(name);
+        const edits = [];
+        for (let i=1;i<lines.length;i++){
+          const cols = lines[i].split(',');
+          if (level==='aggregate'){
+            const key = { period: cols[idx('period')], family: cols[idx('family')] };
+            const fields = {};
+            ['demand','supply','backlog'].forEach(k=>{ const j = idx(k); if(j>=0){ const v = cols[j].trim(); fields[k] = v===''? null: Number(v); }});
+            edits.push({ key, fields });
+          } else {
+            const key = { week: cols[idx('week')], sku: cols[idx('sku')] };
+            const fields = {};
+            ['demand','supply_plan','backlog','on_hand_start','on_hand_end'].forEach(k=>{ const j = idx(k); if(j>=0){ const v = cols[j].trim(); fields[k] = v===''? null: Number(v); }});
+            edits.push({ key, fields });
+          }
+        }
+        const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ level, edits }) });
+        if (!res.ok){ alert('CSV適用に失敗しました'); return; }
+        ta.value=''; await load();
+      });
+      // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
+      tbl.addEventListener('change', ev=>{
+        const t = ev.target; if (!t || !t.classList || !t.classList.contains('psi-lock')) return;
+        // ロック/解除は保存時に lockMode が空だと反映されないので、toggleを既定に案内
+        if (!lockEl.value) lockEl.value = 'toggle';
+      });
+      // 初期ロード
+      load().catch(()=>{});
     })();
     </script>
     </div>
@@ -794,7 +1038,7 @@
   // タブ切替
   (function(){
     function activate(tab){
-      ['overview','aggregate','disaggregate','schedule','validate','execute','results','diff'].forEach(function(k){
+      ['overview','aggregate','disaggregate','schedule','validate','psi','execute','results','diff'].forEach(function(k){
         var el = document.getElementById('tab-'+k);
         if (el) el.style.display = (k===tab)?'':'none';
       });
