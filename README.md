@@ -831,8 +831,13 @@ sequenceDiagram
 - 再整合: 「再整合オプション」（必要時）を設定し「適用して整合を実行」
   - 既定: reconcile_levels（before差分）を更新
   - adjusted: apply_adjusted をON＋anchor_policy と cutover_date を指定（windowやtoleranceも任意）
-  - MRP: recalc_mrp をON（apply_adjustedと併用）。lt_unit/weeks を必要に応じて指定
+- MRP: recalc_mrp をON（apply_adjustedと併用）。lt_unit/weeks を必要に応じて指定
   - 実行後: Diff/Validate で結果を確認。Artifactsに *_adjusted.json が追加されます
+
+#### 監査ログ（PSIタブ）
+- 監査セクションを開いて、level/q/limit を指定→「再読込」
+- 表示項目: ts（ISO8601）、level（aggregate|det）、type（edit|lock）、key(s)、fields/lock
+- 保存対象: plan_artifacts の `psi_audit.json` に追記（最大1万件を保持）
 
 ### 計画プロセス（PSIを含む）Mermaid
 
