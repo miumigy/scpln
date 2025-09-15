@@ -128,7 +128,7 @@ def _apply_overlay(
 
 
 def _week_to_month(week: str | None) -> str | None:
-    """Convert ISO week (YYYY-Www) to YYYY-MM (month of Monday in that ISO week)."""
+    """Convert ISO week (YYYY-Www) to YYYY-MM (month of Thursday in that ISO week)."""
     if not week or not isinstance(week, str):
         return None
     try:
@@ -138,7 +138,8 @@ def _week_to_month(week: str | None) -> str | None:
             wk = int(w)
             import datetime as _dt
 
-            d = _dt.date.fromisocalendar(year, wk, 1)
+            # Use Thursday (4) so that ISO W01 that starts in Dec maps to Jan
+            d = _dt.date.fromisocalendar(year, wk, 4)
             return f"{d.year:04d}-{d.month:02d}"
     except Exception:
         return None
