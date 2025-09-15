@@ -162,9 +162,19 @@ def main() -> None:
         per = str(per)
         families.add(fam)
         periods.add(per)
-        det_map[(fam, per)]["demand"] += float(r.get("demand", 0) or 0)
-        det_map[(fam, per)]["supply"] += float(r.get("supply", 0) or 0)
-        det_map[(fam, per)]["backlog"] += float(r.get("backlog", 0) or 0)
+        # DETの供給は 'supply' または 'supply_plan' いずれかを受け入れる
+        dem = float(r.get("demand", 0) or 0)
+        sup = r.get("supply", None)
+        if sup is None:
+            sup = r.get("supply_plan", 0)
+        try:
+            supf = float(sup or 0)
+        except Exception:
+            supf = 0.0
+        bac = float(r.get("backlog", 0) or 0)
+        det_map[(fam, per)]["demand"] += dem
+        det_map[(fam, per)]["supply"] += supf
+        det_map[(fam, per)]["backlog"] += bac
 
     # 差分算出
     metrics = ("demand", "supply", "backlog")
