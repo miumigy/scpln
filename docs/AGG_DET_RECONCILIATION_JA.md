@@ -63,6 +63,35 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
   - 能力: 工程/リソース負荷を上限内に。DETでの超過はAGGに戻し抑制（mix見直し）。
   - BOM: 上位需要→下位展開量の整合、原材料在庫/リードタイム制約の逆伝播。
 
+### 実装上の互換性と注意（PSI/分配・ロールアップ）
+
+- 期間キーの互換（Aggregate.period と DETの対応）
+  - 実装では、`(family, period)` の一致判定に以下を許容（いずれか一致で同一期間とみなす）：
+    - `det.period == agg.period`（ISO週キー同士の一致、例: `2025-W03`）
+    - `det.week == agg.period`（Aggregate側がISO週キーをperiodに持つ場合）
+    - `_week_to_month(det.week) == agg.period`（週→月変換での一致、例: `2025-W01` → `2025-01`）
+  - 目的: UI/CSV等で period 表記が `YYYY-MM` と `YYYY-Www` の混在でも、分配/ロールアップが途切れないようにするため。
+
+- DETの供給フィールド名の互換
+  - ロールアップ（reconcile_levels）では、DET側の供給は `supply` を優先、無ければ `supply_plan` を合算対象として使用。
+  - PSI（detail）ではフィールド名 `supply_plan` を用いるため、AGGの `supply` と比較時は上記互換で集計される。
+
+- 分配（Aggregate→Detail）の挙動
+  - 標準は比例配分。重みは以下から選択（UI: weight_mode）
+    - `current`（既存値比; 既存合計が0かつ目標>0のとき`equal`にフォールバック）
+    - `equal`（等分）
+    - `weights`（PSI Weightsに登録されたキー別重み; 合計0なら`current`へフォールバック）
+    - 任意フィールド名（例: `demand`）を指定してその値比
+  - ロック尊重: 行ロック/セルロックは分配対象外とし、未ロック行のみで再正規化して按分。
+  - 丸め: フィールド別に丸め設定（nearest/floor/ceil + step）を適用可能。丸め後の残差は未ロック行で吸収する。
+
+- トラブルシュートの要点（violationが残る/分配されない）
+  - 期間キーの不一致: 上記互換が効くことを前提に、AggregateのperiodとDETのweek/period表記を確認。
+  - ロック: Lock Managerで該当family×periodにロックが残っていないか確認。
+  - 供給フィールド: DETが`supply_plan`のみでも合算される（reconcile_levels対応済）。
+  - Tol: `tol_abs`/`tol_rel` を適切に設定して差分の性質を確認。
+  - 認証: APIキー有効時は整合にも `X-API-Key` が必要（UIでは `localStorage.api_key`）。
+
 ### v2 ヒューリスティク（擬似コード）
 - 週リスト `weeks` を `pre(<cutover)`, `at(=cutover月)`, `post(>cutover)` に分割。
 - `adjust_segment(weeks, start_slack, start_spill, mode)` を用意。
