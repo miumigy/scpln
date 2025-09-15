@@ -519,6 +519,25 @@ SIM_LOG_JSON=1 uvicorn main:app \
 設計と詳細手順は整合ガイドに集約しています。READMEでは最小限の実行方法のみを示します。
 
 - 整合ガイド: [集約↔詳細 計画の統合・整合ガイド](docs/AGG_DET_RECONCILIATION_JA.md)（擬似コード／パラメタ早見／FAQ／サンプル）
+
+### 整合トラブルシュート（PSI/分配）
+
+- violationが解消されない／分配されない場合の確認点
+  - ロック確認: 行/セルがロックされていると分配対象外（Lock Managerで解除）
+  - period表記の整合: Aggregate.period が `YYYY-MM` または `YYYY-Www` でも、DET抽出は以下を許容（実装済）
+    - `det.period == per`（ISO週キー同士の一致）
+    - `det.week == per`（Aggregate側がISO週キーをperiodに持つ場合）
+    - `_week_to_month(det.week) == per`（週→月の対応）
+  - 供給フィールド: DETの供給は `supply` が無ければ `supply_plan` を集計（reconcile_levels で対応済）
+  - Tol設定: UIの TolAbs/TolRel を一時的に緩めて差分の性質を確認
+  - 認証: 環境変数でAPIキーが有効な場合、UI実行時にも `localStorage.api_key` が必要
+
+- 単体検証（コマンド例）
+  - 差分ログ生成（適用後の一時出力を使用）
+    - `PYTHONPATH=. python3 scripts/reconcile_levels.py -i out/psi_apply_<version>/aggregate.json out/psi_apply_<version>/sku_week.json -o out/psi_apply_<version>/reconciliation_log.json --version <version> --tol-abs 1e-6 --tol-rel 1e-6`
+  - before/after比較CSV出力
+    - `PYTHONPATH=. python3 scripts/export_reconcile_csv.py -i out/reconciliation_log.json -o out/reconciliation_before.csv --label before`
+    - adjusted がある場合: `-j out/reconciliation_log_adjusted.json --label2 after`
 - サンプル入力: samples/planning/（2025-01〜2025-12の月次を含み、年内フル≒365日をカバー）
 
 -実行方法（最小）
