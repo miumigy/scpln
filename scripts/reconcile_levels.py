@@ -21,12 +21,27 @@ from typing import Any, Dict, List, Tuple, DefaultDict
 
 
 def _period_from_week(week_key: str) -> str:
-    """簡易に週キーから期間キー（YYYY-MM）を推定。
-    期待形式: 'YYYY-MM-WkX' または 'YYYY-MM' を想定。
+    """週キーから期間キー（YYYY-MM）を推定。
+    許容形式:
+      - ISO週: 'YYYY-Www' → そのISO週の月(週の月曜日付の月) を返す
+      - 'YYYY-MM' または 'YYYY-MM-...': 先頭7桁を返す
     """
-    s = str(week_key)
-    if len(s) >= 7 and s[4] == "-":
-        return s[:7]
+    s = str(week_key or "")
+    try:
+        if "-W" in s:  # ISO週形式
+            y, w = s.split("-W", 1)
+            year = int(y)
+            wk = int(w[:2])
+            import datetime as _dt
+
+            # ISO週の「木曜日」を属する月とする（月の跨ぎを直感的に月側へ寄せる）
+            d = _dt.date.fromisocalendar(year, wk, 4)
+            return f"{d.year:04d}-{d.month:02d}"
+        # フォールバック: 'YYYY-MM' / 'YYYY-MM-...' は先頭7桁
+        if len(s) >= 7 and s[4] == "-":
+            return s[:7]
+    except Exception:
+        pass
     return s
 
 
