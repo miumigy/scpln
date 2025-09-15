@@ -7,7 +7,9 @@ from pathlib import Path
 
 def _run_recon(tmp: Path, agg_rows, det_rows, cutover: str | None = None):
     base = Path.cwd()
-    (tmp / "aggregate.json").write_text(json.dumps({"rows": agg_rows}), encoding="utf-8")
+    (tmp / "aggregate.json").write_text(
+        json.dumps({"rows": agg_rows}), encoding="utf-8"
+    )
     (tmp / "det.json").write_text(json.dumps({"rows": det_rows}), encoding="utf-8")
     env = {"PYTHONPATH": str(base)}
     outp = tmp / "recon.json"
@@ -31,7 +33,13 @@ def _run_recon(tmp: Path, agg_rows, det_rows, cutover: str | None = None):
 def test_supply_plan_fallback_month(tmp_path: Path):
     # AGGはYYYY-MM、DETはsupply_planのみを持つケース
     agg_rows = [
-        {"family": "F", "period": "2025-01", "demand": 10.0, "supply": 20.0, "backlog": 0.0}
+        {
+            "family": "F",
+            "period": "2025-01",
+            "demand": 10.0,
+            "supply": 20.0,
+            "backlog": 0.0,
+        }
     ]
     det_rows = [
         {
@@ -79,6 +87,6 @@ def test_period_iso_week_match(tmp_path: Path):
     assert out.get("summary", {}).get("tol_violations", 1) == 0
     # 境界タグも機能（cutoverに対応するISO週）
     assert any(
-        (r.get("period") == "2025-W03") and r.get("boundary_period") for r in out.get("deltas", [])
+        (r.get("period") == "2025-W03") and r.get("boundary_period")
+        for r in out.get("deltas", [])
     )
-
