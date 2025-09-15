@@ -729,11 +729,21 @@ def patch_plan_psi(
                             pass
                 if not targets:
                     continue
-                # pick matching det rows (same family and same month of the week)
+                # pick matching det rows
+                # 条件: family一致 かつ 次のいずれか
+                #   - det.period が per と一致（ISO週キー同士の一致）
+                #   - det.week が per と一致（aggregate側がISO週キーをperiodに持つ場合）
+                #   - _week_to_month(det.week) が per と一致（月キーとISO週の対応）
                 idxs = []
                 for r in det_rows:
-                    if (r.get("family") == fam) and (
-                        _week_to_month(str(r.get("week"))) == per
+                    if r.get("family") != fam:
+                        continue
+                    per_det = str(r.get("period")) if r.get("period") is not None else None
+                    wk_det = str(r.get("week")) if r.get("week") is not None else None
+                    if (
+                        (per_det is not None and per_det == per)
+                        or (wk_det is not None and wk_det == per)
+                        or (wk_det is not None and _week_to_month(wk_det) == per)
                     ):
                         idxs.append(r)
                 if not idxs:

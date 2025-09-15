@@ -288,7 +288,7 @@
           <div id="psiDiff" class="mono" style="margin-top:6px;"></div>
         </div>
       </details>
-      <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。</p>
+      <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。APIキー環境変数が設定されている場合、整合の実行にもAPIキー（localStorage.api_key）が必要です。</p>
     </details>
     <script>
     (function(){
@@ -431,7 +431,12 @@
         body.carryover_split = csv && csv.value!=='' ? Number(csv.value) : undefined;
         body.input_dir = idir && idir.value ? idir.value : 'samples/planning';
         const res = await fetch(`/plans/${ver}/psi/reconcile`, { method:'POST', headers:getHeaders(), body: JSON.stringify(body) });
-        if (!res.ok){ alert('reconcile failed'); return; }
+        if (!res.ok){
+          let msg = '';
+          try { msg = await res.text(); } catch(e) { msg = ''; }
+          alert(`reconcile failed: ${res.status} ${msg?.slice(0,300) || ''}`);
+          return;
+        }
         const js = await res.json();
         alert('reconciled: violations='+(js.summary && (js.summary.violations||js.summary.tol_violations||0)));
       }
@@ -1388,5 +1393,5 @@
       }
     });
   })();
-</script>
+\n</script>
 {% endblock %}
