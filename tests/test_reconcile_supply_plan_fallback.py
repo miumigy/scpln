@@ -30,20 +30,21 @@ def _run_recon(tmp: Path, agg_rows, det_rows, cutover: str | None = None):
 
 def test_supply_plan_fallback_month(tmp_path: Path):
     # AGGはYYYY-MM、DETはsupply_planのみを持つケース
+    # 週は月内に完全に含まれる週（W03/W04）を使用し、年跨ぎの影響を排除
     agg_rows = [
         {"family": "F", "period": "2025-01", "demand": 10.0, "supply": 20.0, "backlog": 0.0}
     ]
     det_rows = [
         {
             "family": "F",
-            "week": "2025-W01",
+            "week": "2025-W03",
             "demand": 5.0,
             "supply_plan": 7.0,
             "backlog": 0.0,
         },
         {
             "family": "F",
-            "week": "2025-W02",
+            "week": "2025-W04",
             "demand": 5.0,
             "supply_plan": 13.0,
             "backlog": 0.0,
@@ -81,4 +82,3 @@ def test_period_iso_week_match(tmp_path: Path):
     assert any(
         (r.get("period") == "2025-W03") and r.get("boundary_period") for r in out.get("deltas", [])
     )
-
