@@ -739,7 +739,9 @@ def patch_plan_psi(
                 for r in det_rows:
                     if r.get("family") != fam:
                         continue
-                    per_det = str(r.get("period")) if r.get("period") is not None else None
+                    per_det = (
+                        str(r.get("period")) if r.get("period") is not None else None
+                    )
                     wk_det = str(r.get("week")) if r.get("week") is not None else None
                     if (
                         (per_det is not None and per_det == per)
