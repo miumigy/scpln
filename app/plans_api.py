@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 from pathlib import Path
+from collections import defaultdict
 from typing import Any, Dict, Optional
 
 from fastapi import Body, Query, Request
@@ -688,6 +689,129 @@ def patch_plan_psi(
                 "lock": lock_mode,
             }
         )
+    # 自動集計（Detail→Aggregate, 編集対象のみロールアップ）
+    try:
+        if level == "det" and updated > 0 and not body.get("no_auto"):
+            agg_base = db.get_plan_artifact(version_id, "aggregate.json") or {}
+            agg_rows = list(agg_base.get("rows") or [])
+            if agg_rows:
+                det_base = db.get_plan_artifact(version_id, "sku_week.json") or {}
+                det_rows = list(det_base.get("rows") or [])
+                if det_rows:
+                    overlay_full = _get_overlay(version_id)
+                    det_rows_applied = _apply_overlay(
+                        "det", det_rows, overlay_full.get("det") or []
+                    )
+                    agg_overlay_rows = overlay_full.get("aggregate") or []
+                    agg_key_candidates: set[tuple[str, str]] = set()
+                    for row in agg_rows + agg_overlay_rows:
+                        per = row.get("period")
+                        fam = row.get("family")
+                        if per is None or fam is None:
+                            continue
+                        agg_key_candidates.add((str(per), str(fam)))
+                    if agg_key_candidates:
+                        det_to_agg: Dict[str, tuple[str, str]] = {}
+                        for row in det_rows_applied:
+                            fam = row.get("family")
+                            if fam is None:
+                                continue
+                            fam_s = str(fam)
+                            candidates: list[str] = []
+                            per = row.get("period")
+                            if per is not None:
+                                candidates.append(str(per))
+                            wk = row.get("week")
+                            if wk:
+                                wk_s = str(wk)
+                                candidates.append(wk_s)
+                                m = _week_to_month(wk_s)
+                                if m:
+                                    candidates.append(m)
+                            seen: set[str] = set()
+                            for cand in candidates:
+                                if cand in seen:
+                                    continue
+                                seen.add(cand)
+                                key = (cand, fam_s)
+                                if key in agg_key_candidates:
+                                    det_key = _psi_overlay_key_det(
+                                        row.get("week"), row.get("sku")
+                                    )
+                                    if det_key:
+                                        det_to_agg[det_key] = key
+                                    break
+                        if det_to_agg:
+                            target_aggs: set[tuple[str, str]] = set()
+                            for e in edits:
+                                key_d = e.get("key") or {}
+                                det_key = _psi_overlay_key_det(
+                                    key_d.get("week"), key_d.get("sku")
+                                )
+                                if det_key and det_key in det_to_agg:
+                                    target_aggs.add(det_to_agg[det_key])
+                            if target_aggs:
+                                agg_sums: Dict[tuple[str, str], Dict[str, float]] = defaultdict(dict)
+                                rollup_map = {
+                                    "demand": ("demand",),
+                                    "supply": ("supply_plan", "supply"),
+                                    "backlog": ("backlog",),
+                                }
+                                for row in det_rows_applied:
+                                    det_key = _psi_overlay_key_det(
+                                        row.get("week"), row.get("sku")
+                                    )
+                                    if not det_key:
+                                        continue
+                                    agg_key = det_to_agg.get(det_key)
+                                    if not agg_key or agg_key not in target_aggs:
+                                        continue
+                                    for agg_field, src_fields in rollup_map.items():
+                                        val = None
+                                        for src in src_fields:
+                                            if row.get(src) is not None:
+                                                val = row.get(src)
+                                                break
+                                        if val is None:
+                                            continue
+                                        try:
+                                            cur = agg_sums[agg_key].get(agg_field, 0.0)
+                                            agg_sums[agg_key][agg_field] = cur + float(val)
+                                        except Exception:
+                                            continue
+                                if agg_sums:
+                                    locks = _get_locks(version_id)
+                                    agg_overlay_map: Dict[str, Dict[str, Any]] = {}
+                                    for row in agg_overlay_rows:
+                                        key = _psi_overlay_key_agg(
+                                            row.get("period"), row.get("family")
+                                        )
+                                        if key:
+                                            agg_overlay_map[key] = dict(row)
+                                    for (period, family), fields in agg_sums.items():
+                                        krow = _psi_overlay_key_agg(period, family)
+                                        if not krow or krow in locks:
+                                            continue
+                                        row = agg_overlay_map.get(krow) or {
+                                            "period": period,
+                                            "family": family,
+                                        }
+                                        updated_any = False
+                                        for agg_field, total in fields.items():
+                                            kcell = f"{krow}:field={agg_field}"
+                                            if kcell in locks:
+                                                continue
+                                            row[agg_field] = total
+                                            updated_any = True
+                                        if updated_any:
+                                            agg_overlay_map[krow] = row
+                                    if agg_overlay_map:
+                                        overlay_full["aggregate"] = list(
+                                            agg_overlay_map.values()
+                                        )
+                                        _save_overlay(version_id, overlay_full)
+    except Exception:
+        pass
     # 自動分配（Aggregate→Detail, 比例配分・セル/行ロック尊重）
     try:
         if level == "aggregate" and updated > 0 and not body.get("no_auto"):
