@@ -528,6 +528,7 @@ SIM_LOG_JSON=1 uvicorn main:app \
     - `det.period == per`（ISO週キー同士の一致）
     - `det.week == per`（Aggregate側がISO週キーをperiodに持つ場合）
     - `_week_to_month(det.week) == per`（週→月の対応）
+  - 上り同期: DETセルを編集すると対応するAGG行へ自動ロールアップ（ロック済み行/セルは除外、APIパラメタ`no_auto`で無効化）
   - 供給フィールド: DETの供給は `supply` が無ければ `supply_plan` を集計（reconcile_levels で対応済）
   - Tol設定: UIの TolAbs/TolRel を一時的に緩めて差分の性質を確認
   - 認証: 環境変数でAPIキーが有効な場合、UI実行時にも `localStorage.api_key` が必要
