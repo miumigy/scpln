@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import json
 from typing import Any
 from uuid import uuid4
 
@@ -129,9 +128,7 @@ def test_detail_edit_rolls_up_to_aggregate(plan_client):
     det_rows = _load_rows(db_mod, version, "sku_week.json")
     agg_rows = _load_rows(db_mod, version, "aggregate.json")
     target = next(
-        r
-        for r in det_rows
-        if r.get("family") and r.get("period") and r.get("week")
+        r for r in det_rows if r.get("family") and r.get("period") and r.get("week")
     )
     period = str(target["period"])
     family = str(target["family"])
@@ -185,11 +182,7 @@ def test_aggregate_edit_distributes_to_detail(plan_client):
     client, version, db_mod, plans_api_mod = plan_client
     det_rows = _load_rows(db_mod, version, "sku_week.json")
     agg_rows = _load_rows(db_mod, version, "aggregate.json")
-    target = next(
-        r
-        for r in agg_rows
-        if r.get("family") and r.get("period")
-    )
+    target = next(r for r in agg_rows if r.get("family") and r.get("period"))
     period = str(target["period"])
     family = str(target["family"])
     new_demand = float(target.get("demand") or 0.0) + 25.0
@@ -233,4 +226,4 @@ def test_aggregate_edit_distributes_to_detail(plan_client):
     assert sum_demand == pytest.approx(new_demand, rel=1e-6, abs=1e-6)
     assert sum_supply == pytest.approx(new_supply, rel=1e-6, abs=1e-6)
     assert sum_backlog == pytest.approx(new_backlog, rel=1e-6, abs=1e-6)
-    assert (overlay.get("det") or []), "detail overlay should be populated"
+    assert overlay.get("det") or [], "detail overlay should be populated"
