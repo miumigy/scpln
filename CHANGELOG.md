@@ -1,6 +1,10 @@
 # 変更履歴
 
+このファイルはリリース単位の主要トピック（機能追加・互換性への影響・運用変更）を記録する公式な履歴です。詳細な設計や使い方は README からリンクされた各ドキュメントを参照し、細かな変更は PR/コミット履歴を確認してください。
+
 ## Unreleased
+
+- docs: README と集約関連ドキュメントを再構成し、`docs/release-notes-v0.5.0.md` を廃止（CHANGELOG を単一のリリースノートと位置付け）
 
 ## v0.6.0 (2025-09-14)
 
@@ -20,11 +24,6 @@ PSI（Production/Sales/Inventory）の参照・編集・整合フローを大幅
 - chore(ci): planning系クイックテスト追加、pipキャッシュ、成果物の軽量検証、失敗時アーティファクト収集
 - chore(ci): pytest-xdist導入で `-n auto` 並列実行
 - docs: READMEのサンプル期間説明を更新（2025-01〜2025-12）
-
-## v0.5.0 (2025-09-07)
-
-- feat(ui/plans): Planning Hub 詳細のアクセシビリティ改善（aria-label追加）
-- docs(planning): PLANNING-HUB-UX-PLAN のWBS整合（P-23/P-24 完了）と進捗追記
 
 ## v0.5.0 (2025-09-07)
 
