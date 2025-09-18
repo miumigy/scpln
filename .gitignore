@@ -8,7 +8,11 @@ simulation.log
 __pycache__/
 *.pyc
 test-results/
+test_run_output*.txt
 backup/
+bk_GEMINI.md
+index.html
 .env
 out/
+out_w*/
 data/*.db
