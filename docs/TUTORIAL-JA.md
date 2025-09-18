@@ -1,6 +1,12 @@
 # ハンズオン: Planning Hub チュートリアル（P-24）
 
-本ガイドでは、Planning Hub（/ui/plans）を使って「作成→プレビュー→実行→結果確認」までを体験します。
+本ガイドの目的と範囲:
+
+- Planning Hub（/ui/plans）の基本操作を手順に沿って体験する
+- 計画パイプラインやアルゴリズムの詳細は `docs/AGG_DET_RECONCILIATION_JA.md` を参照
+- UI設計やロードマップは `docs/PLANNING-HUB-UX-PLAN.md` に集約済み
+
+操作フローと用語を把握した上で、必要に応じて README の「ドキュメントマップ」から他資料へ遷移してください。
 
 ## 前提
 - サーバ起動済み（例）: `uvicorn main:app --reload`
