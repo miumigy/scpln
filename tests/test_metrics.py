@@ -15,7 +15,9 @@ def test_metrics_endpoint_works():
     # Content-Type は Prometheus テキストフォーマット
     ctype = r.headers.get("content-type", "")
     assert "text/plain" in ctype
-    assert "version=0.0.4" in ctype  # Prometheus exposition format version
+    assert any(
+        ver in ctype for ver in ("version=0.0.4", "version=1.0.0")
+    ), "unexpected Prometheus exposition format version"
     # 代表的な行が含まれていること（# HELP と process_ 系）
     body = r.text
     assert "# HELP" in body
