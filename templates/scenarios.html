@@ -1,26 +1,33 @@
 {% extends "base.html" %}
-{% block content %}
-<section>
+{% block page_header %}
   <h2>Scenarios</h2>
-  <form id="scn-filter" onsubmit="return false;" style="display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin:8px 0;">
+  <p>Catalog scenario variations, apply filters, and launch targeted planning runs.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>Scenario Library</h3>
+    <p>Filter saved scenarios and add new variations for experiment tracking.</p>
+  </div>
+  <form id="scn-filter" class="toolbar gap-bottom-sm" onsubmit="return false;">
     <label>Search (name/desc)
-      <input type="text" id="f-q" placeholder="keyword" aria-label="シナリオ検索" />
+      <input type="text" id="f-q" placeholder="keyword" aria-label="Search scenarios" />
     </label>
     <label>Tag
-      <input type="text" id="f-tag" list="tag-list" placeholder="tag" aria-label="タグフィルタ" />
+      <input type="text" id="f-tag" list="tag-list" placeholder="tag" aria-label="Filter by tag" />
       <datalist id="tag-list"></datalist>
     </label>
     <label>Locked
-      <select id="f-locked" aria-label="ロック状態フィルタ">
+      <select id="f-locked" aria-label="Filter by lock state">
         <option value="">(all)</option>
         <option value="1">locked</option>
         <option value="0">unlocked</option>
       </select>
     </label>
-    <button type="button" class="secondary" id="f-apply" aria-label="フィルタを適用">Apply</button>
-    <button type="button" class="secondary" id="f-clear" aria-label="フィルタをクリア">Clear</button>
+    <button type="button" class="secondary" id="f-apply" aria-label="Apply filters">Apply</button>
+    <button type="button" class="secondary" id="f-clear" aria-label="Clear filters">Clear</button>
   </form>
-  <form method="post" action="/ui/scenarios" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
+  <form method="post" action="/ui/scenarios" class="grid-form gap-bottom-sm">
     <label>Name
       <input type="text" name="name" placeholder="Scenario name" required />
     </label>
@@ -30,12 +37,15 @@
     <label>Tag
       <input type="text" name="tag" />
     </label>
-    <label style="grid-column:1 / -1;">Description
-      <textarea name="description" rows="3" style="width:100%"></textarea>
+    <label class="span-full">Description
+      <textarea name="description" rows="3"></textarea>
     </label>
-    <div><button type="submit" aria-label="シナリオを追加">Add</button></div>
+    <div>
+      <button type="submit" aria-label="Add scenario">Add</button>
+    </div>
   </form>
   {% if rows %}
+  <div class="table-wrapper">
   <table role="grid">
     <thead>
       <tr>
@@ -45,7 +55,7 @@
         <th>parent_id</th>
         <th>locked</th>
         <th>updated_at</th>
-        <th style="min-width:240px;">description</th>
+        <th class="col-wide">description</th>
         <th>Run</th>
         <th>Edit/Delete</th>
       </tr>
@@ -59,9 +69,9 @@
         <td>{{ r.parent_id or '' }}</td>
         <td>{{ r.locked }}</td>
         <td class="format-datetime">{{ r.updated_at }}</td>
-        <td title="{{ r.description or '' }}" style="text-align:left; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.description or '' }}</td>
+        <td title="{{ r.description or '' }}" class="truncate-text">{{ r.description or '' }}</td>
         <td>
-          <form method="post" action="/ui/scenarios/{{ r.id }}/run" style="display:flex; gap:6px; align-items:center;">
+          <form method="post" action="/ui/scenarios/{{ r.id }}/run" class="toolbar">
             <label>
               <select name="config_id" required>
                 <option value="" disabled selected>Select config</option>
@@ -70,13 +80,13 @@
                 {% endfor %}
               </select>
             </label>
-            <button type="submit" aria-label="このシナリオで実行">Run</button>
+            <button type="submit" aria-label="Run scenario">Run</button>
           </form>
         </td>
         <td>
           <details>
             <summary>Edit</summary>
-            <form method="post" action="/ui/scenarios/{{ r.id }}/edit" style="display:grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap:6px; align-items:end; margin-top:6px;">
+            <form method="post" action="/ui/scenarios/{{ r.id }}/edit" class="grid-form grid-2 gap-top-sm">
               <label>Name
                 <input type="text" name="name" value="{{ r.name }}" required />
               </label>
@@ -89,15 +99,15 @@
               <label>Locked
                 <input type="checkbox" name="locked" {% if r.locked %}checked{% endif %} />
               </label>
-              <label style="grid-column:1 / -1;">Description
-                <textarea name="description" rows="3" style="width:100%">{{ r.description or '' }}</textarea>
+              <label class="span-full">Description
+                <textarea name="description" rows="3">{{ r.description or '' }}</textarea>
               </label>
-              <div style="grid-column:1 / -1; display:flex; gap:6px;">
-                <button type="submit" aria-label="シナリオを更新">Update</button>
+              <div class="toolbar span-full">
+                <button type="submit" aria-label="Update scenario">Update</button>
               </div>
             </form>
-            <form method="post" action="/ui/scenarios/{{ r.id }}/delete" onsubmit="return confirm('Delete scenario #{{ r.id }}?');" style="margin-top:6px;">
-              <button type="submit" class="contrast" aria-label="シナリオを削除">Delete</button>
+            <form method="post" action="/ui/scenarios/{{ r.id }}/delete" class="gap-top-sm" onsubmit="return confirm('Delete scenario #{{ r.id }}?');">
+              <button type="submit" class="contrast" aria-label="Delete scenario">Delete</button>
             </form>
           </details>
         </td>
@@ -105,6 +115,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p>No scenarios.</p>
   {% endif %}

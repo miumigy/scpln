@@ -1,10 +1,17 @@
 {% extends "base.html" %}
-{% block content %}
-<section>
+{% block page_header %}
   <h2>Jobs</h2>
+  <p>Monitor asynchronous tasks and manage aggregate calculations for plan data.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>Aggregate Job Builder</h3>
+    <p>Configure aggregation parameters and enqueue processing jobs.</p>
+  </div>
   <details open>
     <summary>Create Aggregate Job</summary>
-    <form id="agg-form" onsubmit="return submitAggregateJob(event)" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:8px; align-items:end; margin:8px 0;">
+    <form id="agg-form" class="grid-form gap-bottom-sm" onsubmit="return submitAggregateJob(event)">
       <label>run_id
         <input type="text" id="agg-run-id" required placeholder="<run_id>" />
       </label>
@@ -36,14 +43,14 @@
       <label>location_level
         <input type="text" id="agg-location-level" placeholder="region" />
       </label>
-      <label style="grid-column: 1 / -1;">product_map (JSON)
-        <textarea id="agg-product-map" rows="3" placeholder='{"SKU1":{"category":"C1"}}' style="width:100%;"></textarea>
+      <label class="span-full">product_map (JSON)
+        <textarea id="agg-product-map" rows="3" placeholder='{"SKU1":{"category":"C1"}}'></textarea>
       </label>
-      <label style="grid-column: 1 / -1;">location_map (JSON)
-        <textarea id="agg-location-map" rows="3" placeholder='{"S1":{"region":"R1"}}' style="width:100%;"></textarea>
+      <label class="span-full">location_map (JSON)
+        <textarea id="agg-location-map" rows="3" placeholder='{"S1":{"region":"R1"}}'></textarea>
       </label>
-      <div style="grid-column: 1 / -1; display:flex; gap:8px;">
-        <button type="button" class="secondary" onclick="formatAggJson()" aria-label="JSONを整形">Format JSON</button>
+      <div class="toolbar span-full">
+        <button type="button" class="secondary" onclick="formatAggJson()" aria-label="Format JSON fields">Format JSON</button>
       </div>
       <label>date_field
         <input type="text" id="agg-date-field" placeholder="date" />
@@ -58,22 +65,29 @@
         </select>
       </label>
       <div>
-        <button type="submit" aria-label="ジョブをキューに投入">Enqueue</button>
+        <button type="submit" aria-label="Enqueue aggregate job">Enqueue</button>
       </div>
     </form>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 12px;">
+    <div class="toolbar gap-bottom-sm">
       <label>Preset name
         <input type="text" id="agg-preset-name" placeholder="my-preset" />
       </label>
-      <button type="button" class="secondary" onclick="saveAggPreset()" aria-label="プリセットを保存">Save preset</button>
+      <button type="button" class="secondary" onclick="saveAggPreset()" aria-label="Save preset">Save preset</button>
       <label>Presets
         <select id="agg-preset-select"></select>
       </label>
-      <button type="button" class="secondary" onclick="applyAggPreset()" aria-label="プリセットを適用">Apply</button>
-      <button type="button" class="secondary" onclick="deleteAggPreset()" aria-label="プリセットを削除">Delete</button>
+      <button type="button" class="secondary" onclick="applyAggPreset()" aria-label="Apply preset">Apply</button>
+      <button type="button" class="secondary" onclick="deleteAggPreset()" aria-label="Delete preset">Delete</button>
     </div>
   </details>
-  <form method="get" action="/ui/jobs" style="display:flex; gap:8px; align-items:center; margin:8px 0;">
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Job Monitor</h3>
+    <p>Filter job history, retry failures, and drill into detailed execution logs.</p>
+  </div>
+  <form method="get" action="/ui/jobs" class="toolbar gap-bottom-sm">
     <label>Status
       <select name="status">
         <option value="" {% if not status %}selected{% endif %}>(all)</option>
@@ -82,13 +96,14 @@
         {% endfor %}
       </select>
     </label>
-    <button type="submit" class="secondary" aria-label="設定を適用">Apply</button>
+    <button type="submit" class="secondary" aria-label="Apply filters">Apply</button>
   </form>
   {% if rows %}
-  <table role="grid">
-    <thead>
-      <tr>
-        <th>job_id</th>
+  <div class="table-wrapper">
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>job_id</th>
         <th>type</th>
         <th>status</th>
         <th>submitted_at</th>
@@ -134,11 +149,12 @@
       </tr>
       {% endfor %}
     </tbody>
-  </table>
+    </table>
+  </div>
   {% else %}
   <p>No jobs.</p>
   {% endif %}
-  <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+  <div class="toolbar gap-top-sm">
     {% set prev = (offset - limit) if (offset - limit) > 0 else 0 %}
     {% set next = (offset + limit) if (offset + limit) < total else offset %}
     <a role="button" class="secondary" href="/ui/jobs?status={{ status }}&offset={{ prev }}&limit={{ limit }}">Prev</a>
@@ -149,7 +165,7 @@
 {% endblock %}
 {% block scripts %}
 <script>
-// JSTフォーマット（ms epoch → YYYY/MM/DD HH:mm:ss）
+// Format timestamps into JST (ms epoch → YYYY/MM/DD HH:mm:ss)
 function fmtJst(ms){
   var n = Number(ms);
   if (!Number.isFinite(n)) return '';
@@ -198,10 +214,10 @@ async function submitAggregateJob(e){
   if(week_start_offset !== '') body.week_start_offset = Number(week_start_offset);
   if(month_len !== '') body.month_len = Number(month_len);
   if(product_map_txt){
-    try { body.product_map = JSON.parse(product_map_txt); } catch(e){ alert('product_map JSON が不正です'); return false; }
+    try { body.product_map = JSON.parse(product_map_txt); } catch(e){ alert('Invalid product_map JSON'); return false; }
   }
   if(location_map_txt){
-    try { body.location_map = JSON.parse(location_map_txt); } catch(e){ alert('location_map JSON が不正です'); return false; }
+    try { body.location_map = JSON.parse(location_map_txt); } catch(e){ alert('Invalid location_map JSON'); return false; }
   }
   try{
     const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -336,7 +352,7 @@ function formatAggJson(){
     if (!el) continue;
     const txt = (el.value||'').trim();
     if (!txt) continue;
-    try { const obj = JSON.parse(txt); el.value = JSON.stringify(obj, null, 2);} catch(e){ alert(id+': JSONが不正です'); return; }
+    try { const obj = JSON.parse(txt); el.value = JSON.stringify(obj, null, 2);} catch(e){ alert(id+': invalid JSON'); return; }
   }
 }
 function _loadAggSuggestions(){

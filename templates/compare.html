@@ -1,26 +1,29 @@
 {% extends "base.html" %}
+{% block page_header %}
+  <h2>Compare Runs</h2>
+  <p>Evaluate KPIs across selected runs and highlight differences against a baseline.</p>
+{% endblock %}
 {% block content %}
-<section>
-  <h2>Compare</h2>
+<section class="page-section">
   <p style="display:none" id="run-ids-debug" class="mono">{{ run_ids_str }}</p>
-  <details style="margin:6px 0;">
+  <details class="gap-top-sm">
     <summary>Scenario presets</summary>
-    <form method="get" action="/ui/compare/preset" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:8px;">
+    <form method="get" action="/ui/compare/preset" class="tab-toolbar align-end">
       <label>Base scenario
-        <input type="number" name="base_scenario" min="1" value="{{ base_scenario or '' }}" required style="width:8em;" />
+        <input type="number" name="base_scenario" min="1" value="{{ base_scenario or '' }}" required class="input-compact-md" />
       </label>
       <label>Target scenarios (comma)
-        <input type="text" name="target_scenarios" value="{{ target_scenarios or '' }}" placeholder="202,203" style="min-width:16em;" />
+        <input type="text" name="target_scenarios" value="{{ target_scenarios or '' }}" placeholder="202,203" />
       </label>
       <label>Limit per scenario
-        <input type="number" name="limit" min="1" value="1" style="width:6em;" />
+        <input type="number" name="limit" min="1" value="1" class="input-compact-sm" />
       </label>
       <button type="submit">Load latest runs</button>
     </form>
   </details>
-  <form method="post" action="/ui/compare" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+  <form method="post" action="/ui/compare" class="tab-toolbar align-end">
     <label>Run IDs
-      <input class="mono" type="text" name="run_ids" value="{{ run_ids_str }}" style="min-width:26em;" />
+      <input class="mono" type="text" name="run_ids" value="{{ run_ids_str }}" />
     </label>
     <label>Base
       <select name="base_id">
@@ -46,11 +49,14 @@
     <button type="submit">Apply</button>
   </form>
   {% if rows %}
-  <h3>Metrics</h3>
+  <div class="section-header gap-top-md">
+    <h3>Metrics</h3>
+  </div>
   <p>
     <a role="button" class="secondary" href="/ui/compare/metrics.csv?run_ids={{ run_ids_str }}{% if base_id %}&base_id={{ base_id }}{% endif %}">Download metrics.csv</a>
     <a role="button" class="secondary" href="/ui/compare/diffs.csv?run_ids={{ run_ids_str }}{% if base_id %}&base_id={{ base_id }}{% endif %}{% if threshold is not none %}&threshold={{ threshold }}{% endif %}">Download diffs.csv</a>
   </p>
+  <div class="table-wrapper">
   <table>
     <thead>
       <tr>
@@ -69,9 +75,13 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 
   {% if diffs %}
-  <h3>Diffs (base = {{ diffs[0].base }}{% if threshold is not none %}, threshold = {{ '%.2f'|format(threshold) }}%{% endif %})</h3>
+  <div class="section-header gap-top-md">
+    <h3>Diffs (base = {{ diffs[0].base }}{% if threshold is not none %}, threshold = {{ '%.2f'|format(threshold) }}%{% endif %})</h3>
+  </div>
+  <div class="table-wrapper">
   <table>
     <thead>
       <tr>
@@ -95,6 +105,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
   {% else %}
     <p>No rows.</p>

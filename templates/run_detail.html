@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% block page_header %}
+  <h2>Run Detail</h2>
+  <p class="mono">{{ run_id }}</p>
+{% endblock %}
 {% block content %}
-<article>
-  <header>
-    <h2>Run Detail</h2>
-    <p class="mono">{{ run_id }}</p>
+<article class="page-section">
+  <header style="margin-bottom:1rem;">
     <div id="meta-badges" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
   </header>
 
@@ -35,13 +37,13 @@
   </section>
 
   <section>
-    <h3>承認依頼</h3>
-    <p>承認依頼用のテンプレートを編集してコピーできます。必要に応じてメモとして保存できます。</p>
+    <h3>Approval Request</h3>
+    <p>Edit and copy the approval template, or store notes for later reference.</p>
     <textarea id="approval-note" rows="5" style="width:100%;"></textarea>
     <div style="margin-top:6px; display:flex; gap:8px;">
-      <button id="copy-approval" type="button" class="secondary">テンプレをコピー</button>
-      <button id="save-note" type="button">メモを保存</button>
-      <button id="compare-baseline" type="button" class="secondary">Baselineと比較</button>
+      <button id="copy-approval" type="button" class="secondary">Copy template</button>
+      <button id="save-note" type="button">Save note</button>
+      <button id="compare-baseline" type="button" class="secondary">Compare with baseline</button>
     </div>
   </section>
 
@@ -63,10 +65,10 @@
 
   <section>
     <h3>Planning</h3>
-    <p>このRunの <code>scenario_id</code> と <code>config_json</code> を可能な範囲で引き継いで Plan バージョンを作成します。</p>
+    <p>Create a new plan version using this run’s <code>scenario_id</code> and <code>config_json</code> when available.</p>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-      <button id="create-plan" type="button">このRunからPlanを作成</button>
-      <a class="secondary" href="/ui/plans" target="_blank">Planning Hub を開く</a>
+      <button id="create-plan" type="button">Create plan from this run</button>
+      <a class="secondary" href="/ui/plans" target="_blank" rel="noopener">Open Planning Hub</a>
     </div>
   </section>
 
@@ -130,7 +132,7 @@
   if (delBtn) delBtn.addEventListener('click', del);
   function withActionHeaders(action){
     const h = getHeaders();
-    // デフォルトの役割を補完（RBAC_ENABLED=1 の場合に403を避ける）
+    // Provide default roles to avoid 403 when RBAC is enabled
     const role = (h['X-Role']||'').trim().toLowerCase();
     if (!role){
       if (action === 'approve' || action === 'promote') h['X-Role'] = 'approver';
@@ -143,7 +145,7 @@
   async function act(url, action){
     try {
       const h = withActionHeaders(action);
-      // fetchがない環境向けフォールバック
+      // Fallback for environments without fetch support
       if (typeof window.fetch === 'function'){
         const res = await fetch(url, { method: 'POST', headers: h });
         if (!res.ok){
@@ -163,15 +165,15 @@
         });
       }
       await loadMeta();
-      banner('操作が完了しました');
-    } catch (e) { console.error(e); alert('操作に失敗しました\n'+(e && e.message ? e.message : '')); }
+      banner('Action completed.');
+    } catch (e) { console.error(e); alert('Action failed\n'+(e && e.message ? e.message : '')); }
   }
   if (approveBtn) approveBtn.addEventListener('click', () => act(`/runs/${runId}/approve`, 'approve'));
   if (promoteBtn) promoteBtn.addEventListener('click', () => act(`/runs/${runId}/promote-baseline`, 'promote'));
   if (archBtn) archBtn.addEventListener('click', () => act(`/runs/${runId}/archive`, 'archive'));
   if (unarchBtn) unarchBtn.addEventListener('click', () => act(`/runs/${runId}/unarchive`, 'archive'));
 
-  // イベント委譲（フォールバック）
+  // Event delegation fallback
   document.addEventListener('click', function(ev){
     var t = ev.target || ev.srcElement;
     if (!t || !t.getAttribute) return;
@@ -203,7 +205,7 @@
       var sidCell = document.querySelector('table tbody tr:nth-child(2) td');
       const sidTxt = sidCell ? (sidCell.textContent||'') : '';
       const scenarioId = parseInt(sidTxt, 10);
-      // config_json を画面から取得（存在しない/不正は無視）
+      // Read config_json from the table if present
       let cfg = null;
       try {
         var pre = document.querySelector('table pre.mono');
@@ -212,7 +214,7 @@
       const payload = {
         base_scenario_id: Number.isFinite(scenarioId) ? scenarioId : undefined,
         version_id: versionFromRun(runId),
-        // 既存config_jsonに近いキーがあれば転記（なければ既定値はAPI側が補完）
+        // Copy matching keys when possible; API fills remaining defaults
         weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
         lt_unit: (cfg && cfg.lt_unit) || undefined,
         cutover_date: (cfg && cfg.cutover_date) || undefined,
@@ -232,10 +234,10 @@
       if (!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       if (data && data.version_id){ window.location.href = '/ui/plans/' + data.version_id; }
-      else { alert('Plan作成に失敗しました（version_idなし）'); }
+      else { alert('Plan creation failed (missing version_id).'); }
     } catch(e) {
       console.error('createPlanFromRun failed', e);
-      alert('Plan作成に失敗しました');
+      alert('Plan creation failed.');
     }
   }
   if (createPlanBtn) createPlanBtn.addEventListener('click', createPlanFromRun);
@@ -327,45 +329,50 @@
 
   function fillTemplate(){
     try {
-      var sTbl = document.getElementById('summary-table');
+      const sTbl = document.getElementById('summary-table');
       const rows = sTbl ? Array.from(sTbl.querySelectorAll('tbody tr')) : [];
       const sum = {};
-      rows.forEach(r => { const k = r.querySelector('th')?.textContent||''; const v = r.querySelector('td')?.textContent||''; if (k) sum[k]=v; });
+      rows.forEach(r => {
+        const k = r.querySelector('th')?.textContent || '';
+        const v = r.querySelector('td')?.textContent || '';
+        if (k) sum[k] = v;
+      });
       const url = location.origin + '/ui/runs/' + runId;
+      const scenario = document.querySelector('table tbody tr:nth-child(2) td')?.textContent || '';
       const lines = [
-        `承認依頼: Run ${runId}`,
+        `Approval request: Run ${runId}`,
         `- URL: ${url}`,
-        `- scenario_id: ${document.querySelector('table tbody tr:nth-child(2) td')?.textContent||''}`,
-        `- fill_rate: ${sum.fill_rate||''}`,
-        `- profit_total: ${sum.profit_total||''}`,
-        `- 備考: （必要に応じて追記）`
+        `- scenario_id: ${scenario}`,
+        `- fill_rate: ${sum.fill_rate || ''}`,
+        `- profit_total: ${sum.profit_total || ''}`,
+        `- Notes: (add details as needed)`
       ];
       noteEl.value = lines.join('\n');
     } catch {}
   }
   fillTemplate();
-  if (copyBtn) copyBtn.addEventListener('click', function(){ try { navigator.clipboard.writeText(noteEl.value||''); alert('コピーしました'); } catch (e) { alert('コピーに失敗しました'); } });
+  if (copyBtn) copyBtn.addEventListener('click', function(){ try { navigator.clipboard.writeText(noteEl.value||''); alert('Copied.'); } catch (e) { alert('Copy failed.'); } });
   if (saveNoteBtn) saveNoteBtn.addEventListener('click', async function(){
     try {
       const res = await fetch(`/runs/${runId}/note`, { method:'POST', headers: { ...getHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({ note: noteEl.value||'' }) });
       if (!res.ok) throw new Error('HTTP '+res.status);
-      banner('メモを保存しました');
-    } catch(e){ console.error(e); alert('保存に失敗しました'); }
+      banner('Note saved.');
+    } catch(e){ console.error(e); alert('Failed to save note.'); }
   });
 
   async function openCompareWithBaseline(){
     try {
       const sidTxt = document.querySelector('table tbody tr:nth-child(2) td')?.textContent||'';
       const sid = parseInt(sidTxt, 10);
-      if (!sid){ alert('scenario_id がありません'); return; }
+      if (!sid){ alert('scenario_id is missing.'); return; }
       const r = await fetch(`/runs/baseline?scenario_id=${sid}`, { headers: getHeaders() });
       if (!r.ok) throw new Error('HTTP '+r.status);
       const js = await r.json();
       const base = js.run_id;
-      if (!base){ alert('ベースラインが見つかりません'); return; }
+      if (!base){ alert('Baseline not found.'); return; }
       const q = new URLSearchParams({ run_ids: `${base},${runId}`, base_id: base });
       location.href = '/ui/compare/show?' + q.toString();
-    } catch(e){ console.error(e); alert('比較リンクの生成に失敗しました'); }
+    } catch(e){ console.error(e); alert('Failed to generate comparison link.'); }
   }
   if (cmpBaseBtn) cmpBaseBtn.addEventListener('click', openCompareWithBaseline);
 
