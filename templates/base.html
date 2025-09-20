@@ -249,14 +249,19 @@
     }
     .table-actions {
       display: flex;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       align-items: center;
       gap: 0.5rem;
-      overflow-x: auto;
-      max-width: 100%;
+      row-gap: 0.35rem;
     }
     .table-actions > * {
       white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .table-actions .shortcut-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .table-actions form {
       margin: 0;

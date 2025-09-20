@@ -164,12 +164,18 @@
               {% endif %}
             </td>
             <td class="table-actions">
-              <a class="btn-link" href="/plans/{{ p.version_id }}/summary" target="_blank">Summary</a>
-              <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" aria-label="Copy summary URL">Copy</button>
-              <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">Compare</a>
-              <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" aria-label="Copy compare URL">Copy</button>
-              <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">Violations</a>
-              <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" aria-label="Copy violations URL">Copy</button>
+              <div class="shortcut-group">
+                <a class="btn-link" href="/plans/{{ p.version_id }}/summary" target="_blank">Summary</a>
+                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" aria-label="Copy summary URL">Copy</button>
+              </div>
+              <div class="shortcut-group">
+                <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">Compare</a>
+                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" aria-label="Copy compare URL">Copy</button>
+              </div>
+              <div class="shortcut-group">
+                <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">Violations</a>
+                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" aria-label="Copy violations URL">Copy</button>
+              </div>
               <button type="button" class="secondary copy-all" data-version="{{ p.version_id }}" aria-label="Copy all URLs">Copy All</button>
             </td>
           </tr>
