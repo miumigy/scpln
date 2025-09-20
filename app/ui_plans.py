@@ -74,7 +74,7 @@ def ui_plans(request: Request):
         request,
         "plans.html",
         {
-            "subtitle": "プランバージョン一覧",
+            "subtitle": "Plan Versions",
             "plans": rows,
         },
     )
