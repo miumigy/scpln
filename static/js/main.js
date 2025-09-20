@@ -154,7 +154,7 @@
         }
 
         async function runSimulation() {
-            resultsOutput.innerHTML = 'シミュレーションを実行中...';
+            resultsOutput.innerHTML = 'Running simulation...';
             profitLossOutput.innerHTML = '';
             openTab(null, 'results'); // Switch to results tab immediately
 
@@ -162,7 +162,7 @@
             try {
                 requestBody = JSON.parse(editor.value);
             } catch (e) {
-                resultsOutput.innerHTML = `<div class="error-message">JSONの形式が正しくありません: ${e.message}</div>`;
+                resultsOutput.innerHTML = `<div class="error-message">Invalid JSON format: ${e.message}</div>`;
                 return;
             }
 
@@ -199,7 +199,7 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    let errorText = `HTTPエラー: ${response.status}`;
+                    let errorText = `HTTP error: ${response.status}`;
                     if (data.detail) {
                         errorText += `\n${JSON.stringify(data.detail, null, 4)}`;
                     }
@@ -217,7 +217,7 @@
                 displaySummary(fullSummary);
 
             } catch (error) {
-                resultsOutput.innerHTML = `<div class="error-message">エラーが発生しました: ${error.message}</div>`;
+                resultsOutput.innerHTML = `<div class="error-message">An error occurred: ${error.message}</div>`;
             }
         }
 
@@ -279,7 +279,7 @@
 
         function displayResultsTable(results) {
             if (!results || results.length === 0) {
-                resultsOutput.innerHTML = '条件に一致する結果がありません。';
+                resultsOutput.innerHTML = 'No results match the current filters.';
                 return;
             }
             let tableHtml = '<table><thead><tr><th>Day</th><th>Node</th><th>Item</th><th>Start Stock</th><th>Incoming</th><th>Demand</th><th>Sales</th><th>Consumption</th><th>Produced</th><th>Shortage</th><th>Backorder</th><th>End Stock</th><th>Ordered</th></tr></thead><tbody>';
@@ -315,7 +315,7 @@
 
         function displayProfitLossTable(profitLoss) {
             if (!profitLoss || profitLoss.length === 0) {
-                profitLossOutput.innerHTML = '収支データがありません。';
+                profitLossOutput.innerHTML = 'No profit and loss data available.';
                 return;
             }
 
@@ -505,27 +505,27 @@
         }
 
         function displaySummary(summary) {
-            if (!summary) { summaryOutput.innerHTML = 'サマリがありません。'; return; }
+            if (!summary) { summaryOutput.innerHTML = 'No summary available.'; return; }
             const s = summary;
             let html = '';
             const summaryKpisTitle = document.getElementById('summary-kpis-title');
-            if (summaryKpisTitle) summaryKpisTitle.innerText = 'サマリKPIs';
+            if (summaryKpisTitle) summaryKpisTitle.innerText = 'Summary KPIs';
             html += '<table><tbody>';
-            html += `<tr><th class="kpi-header">計画日数</th><td>${s.planning_days}</td><th class="kpi-header">フィルレート</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
-            html += `<tr><th class="kpi-header">需要(店舗)</th><td>${formatNumber(s.store_demand_total)}</td><th class="kpi-header">販売(店舗)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
-            html += `<tr><th class="kpi-header">顧客欠品合計</th><td>${formatNumber(s.customer_shortage_total)}</td><th class="kpi-header">ネットワーク欠品合計</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
-            html += `<tr><th class="kpi-header">BOピーク</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th class="kpi-header">総収益</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
-            html += `<tr><th class="kpi-header">総コスト</th><td>${formatNumber(s.cost_total)}</td><th class="kpi-header">総利益</th><td>${formatNumber(s.profit_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">Planning Days</th><td>${s.planning_days}</td><th class="kpi-header">Fill Rate</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
+            html += `<tr><th class="kpi-header">Demand (Stores)</th><td>${formatNumber(s.store_demand_total)}</td><th class="kpi-header">Sales (Stores)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">Total Customer Shortage</th><td>${formatNumber(s.customer_shortage_total)}</td><th class="kpi-header">Total Network Shortage</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">Backorder Peak</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th class="kpi-header">Total Revenue</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">Total Cost</th><td>${formatNumber(s.cost_total)}</td><th class="kpi-header">Total Profit</th><td>${formatNumber(s.profit_total)}</td></tr>`;
             if (typeof s.penalty_total !== 'undefined') {
-                html += `<tr><th class="kpi-header">欠品ペナルティ合計</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th class="kpi-header">BOペナルティ合計</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;
-                html += `<tr><th class="kpi-header">ペナルティ合計</th><td>${formatNumber(s.penalty_total||0)}</td><th></th><td></td></tr>`;
+                html += `<tr><th class="kpi-header">Total Stockout Penalty</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th class="kpi-header">Total Backorder Penalty</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;
+                html += `<tr><th class="kpi-header">Total Penalty</th><td>${formatNumber(s.penalty_total||0)}</td><th></th><td></td></tr>`;
             }
-            html += `<tr><th class="kpi-header">平均日次利益</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
+            html += `<tr><th class="kpi-header">Average Daily Profit</th><td>${formatNumber(s.profit_per_day_avg)}</td><th></th><td></td></tr>`;
             html += '</tbody></table>';
 
-            // 平均在庫
+            // Average inventory
             if (s.avg_on_hand_by_type) {
-                html += '<h3>平均在庫（ノード種別）</h3>';
+                html += '<h3>Average Inventory (by Node Type)</h3>';
                 html += '<table><thead><tr><th>Type</th><th>Avg On Hand</th></tr></thead><tbody>';
                 Object.entries(s.avg_on_hand_by_type).forEach(([k,v]) => {
                     html += `<tr><td style="text-align:left;">${k}</td><td>${formatNumber(v)}</td></tr>`;
@@ -533,9 +533,9 @@
                 html += '</tbody></table>';
             }
 
-            // 欠品上位品目
+            // Top shortage items
             if (s.top_shortage_items && s.top_shortage_items.length) {
-                html += '<h3>欠品上位（店舗/品目）</h3>';
+                html += '<h3>Top Shortages (Store/Item)</h3>';
                 html += '<table><thead><tr><th>Item</th><th>Shortage</th></tr></thead><tbody>';
                 s.top_shortage_items.forEach(row => {
                     html += `<tr><td style="text-align:left;">${row.item}</td><td>${formatNumber(row.shortage)}</td></tr>`;

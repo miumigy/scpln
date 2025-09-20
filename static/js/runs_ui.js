@@ -64,7 +64,7 @@
     state.schema_version = sp.get('schema_version') || '';
     state.config_id = sp.get('config_id') || '';
     state.scenario_id = sp.get('scenario_id') || '';
-    // URLに指定がなければローカル保存のプリファレンスを適用
+    // If URL params are missing, fall back to locally stored preferences
     if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id')) {
       loadPrefs();
     }
@@ -165,7 +165,7 @@
       state.limit = Number(data.limit || state.limit);
       if (tbody) {
         tbody.innerHTML = rows.map(rowHtml).join('');
-        // 直近の選択を復元
+        // Restore the most recently saved selections
         try {
           const saved = JSON.parse(localStorage.getItem('runs_selected') || '[]');
           if (Array.isArray(saved) && saved.length) {
@@ -199,9 +199,9 @@
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
       const scenarioInput = document.getElementById('scenario-filter');
       if (scenarioInput && scenarioInput.value !== (state.scenario_id || '')) scenarioInput.value = state.scenario_id || '';
-      // URL更新
+      // Update the URL query string
       syncToUrl();
-      // ソート矢印表示
+      // Refresh sort indicators
       updateSortIndicators();
     } catch (e) {
       console.error('Failed to reload runs', e);
@@ -314,7 +314,7 @@
     reloadRuns();
   });
 
-  // 初期ロード: URL→state同期の上で読込
+  // Initial load: sync from URL before fetching data
   function init() { syncFromUrl(); updateSortIndicators(); reloadRuns(); }
   // expose for inline script to trigger initial load
   window.RunsUI = { reloadRuns, init };
