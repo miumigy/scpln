@@ -160,11 +160,11 @@ def main() -> int:
             # HTML: /ui/plans 一覧
             try:
                 rlist = s.get(f"{base}/ui/plans", timeout=30)
-                if rlist.status_code == 200 and ("プランバージョン一覧" in rlist.text):
+                if rlist.status_code == 200 and ("Plan Versions" in rlist.text):
                     if "aria-label=" in rlist.text:
-                        ok("HTML: /ui/plans が200で見出し/aria-labelを含む")
+                        ok("HTML: /ui/plans: code=200, title/aria-label OK")
                     else:
-                        ng("HTML: /ui/plans", "aria-label が見つかりません")
+                        ng("HTML: /ui/plans", "aria-label not found")
                 else:
                     ng("HTML: /ui/plans", f"code={rlist.status_code}")
             except Exception as e:
@@ -173,23 +173,24 @@ def main() -> int:
             try:
                 rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
                 if rdet.status_code == 200 and (
-                    "プラン詳細" in rdet.text or 'data-tab="overview"' in rdet.text
+                    "Plan Detail" in rdet.text or 'data-tab="overview"' in rdet.text
                 ):
-                    # 代表的なタブ aria-label を確認
+                    # Representative tab aria-labels
                     labels = [
-                        "概要タブ",
-                        "集約タブ",
-                        "詳細展開タブ",
-                        "予定オーダタブ",
-                        "検証タブ",
-                        "実行タブ",
-                        "結果タブ",
-                        "差分タブ",
+                        "Overview tab",
+                        "Aggregate tab",
+                        "Disaggregate tab",
+                        "Schedule tab",
+                        "Validate tab",
+                        "PSI tab",
+                        "Execute tab",
+                        "Results tab",
+                        "Diff tab",
                     ]
                     if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
-                        ok("HTML: /ui/plans/{id} が200でタブ aria-label を含む")
+                        ok("HTML: /ui/plans/{id}: code=200, tab aria-label OK")
                     else:
-                        ng("HTML: /ui/plans/{id}", "タブ aria-label が見つかりません")
+                        ng("HTML: /ui/plans/{id}", "tab aria-label not found")
                 else:
                     ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
             except Exception as e:
