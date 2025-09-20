@@ -1,20 +1,21 @@
 {% extends "base.html" %}
+{% block page_header %}
+  <h2>{{ 'Create Configuration' if mode=='create' else 'Edit Configuration' }}</h2>
+  <p>Capture reusable settings in JSON format for scenario execution.</p>
+{% endblock %}
 {% block content %}
-<article>
-  <header>
-    <h2>設定{{ '作成' if mode=='create' else '編集' }}</h2>
-  </header>
+<section class="page-section">
   <form method="post" action="{{ '/ui/configs/new' if mode=='create' else ('/ui/configs/' ~ rec.id ~ '/edit') }}">
-    <label>名前
+    <label>Name
       <input type="text" name="name" value="{{ rec.name }}" required />
     </label>
     <label>JSON
       <textarea name="json_text" rows="18" class="mono" required>{{ rec.json_text }}</textarea>
     </label>
-    <div>
-      <button type="submit" aria-label="設定を保存">保存</button>
-      <a role="button" class="secondary" href="/ui/configs">戻る</a>
+    <div class="toolbar gap-top-sm">
+      <button type="submit" aria-label="Save configuration">Save</button>
+      <a role="button" class="secondary" href="/ui/configs">Back</a>
     </div>
   </form>
-</article>
+</section>
 {% endblock %}

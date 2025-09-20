@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% block page_header %}
+  <h2>Job Detail</h2>
+  <p class="mono">{{ job.job_id }}</p>
+{% endblock %}
 {% block content %}
-<article>
-  <header>
-    <h2>Job Detail</h2>
-    <p class="mono">{{ job.job_id }}</p>
-  </header>
+<article class="page-section">
+  <header style="margin-bottom:1rem;"></header>
   <section>
     <table>
       <tbody>

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block head %}
   <style>
-    /* PSI テーブルの編集可能セル可視化 */
+    /* Highlight editable PSI cells */
     #tblPSI td[contenteditable],
     #tblPSI td.editable {
-      background-color: #FFFDF5; /* わずかに色を付けて可視化 */
-      border: 1px dashed #C7C7C7;
+      background-color: #fffdf5;
+      border: 1px dashed #c7c7c7;
       cursor: text;
       position: relative;
     }
@@ -19,35 +19,64 @@
       pointer-events: none;
     }
     #tblPSI td[contenteditable]:hover,
-    #tblPSI td.editable:hover { background-color: #FFF8E6; }
+    #tblPSI td.editable:hover { background-color: #fff8e6; }
     #tblPSI td[contenteditable]:focus,
-    #tblPSI td.editable:focus { outline: 2px solid #0d6efd; background-color: #FFFFFF; }
-    #tblPSI td.ro { background-color: #F2F4F7; color: #6B7280; }
-    #tblPSI td.dirty { background-color: #FFF3BF; border-color: #F08C00; }
+    #tblPSI td.editable:focus { outline: 2px solid #2563eb; background-color: #ffffff; }
+    #tblPSI td.ro { background-color: #f2f4f7; color: #475569; }
+    #tblPSI td.dirty { background-color: #fff3bf; border-color: #f08c00; }
+    .tab-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin: 0.75rem 0 1rem;
+    }
+    .tab-nav a {
+      min-width: 120px;
+      text-align: center;
+    }
+    .tab-pane details summary {
+      text-transform: none;
+    }
+    .tab-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-end;
+      margin: 0.75rem 0;
+    }
+    .tab-scroll {
+      overflow: auto;
+    }
+    .warn-text {
+      color: #b45309;
+    }
   </style>
 {% endblock %}
+{% block page_header %}
+  <h2>Plan Detail</h2>
+  <p>Inspect reconciliation outputs, edit PSI tables, and execute follow-up actions.</p>
+{% endblock %}
 {% block content %}
-<section>
-  <h2>プラン詳細</h2>
-  <p class="mono">ヘルプ: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md" target="_blank">整合ガイド（GitHub）</a></p>
+<section class="page-section">
+  <p class="mono">Help: <a href="https://github.com/miumigy/scpln/blob/main/docs/AGG_DET_RECONCILIATION_JA.md" target="_blank" rel="noopener">Reconciliation guide (GitHub)</a></p>
   {% if error %}
-    <article><mark>エラー</mark><pre class="mono">{{ error }}</pre></article>
+    <article><mark>Error</mark><pre class="mono">{{ error }}</pre></article>
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
-    <nav style="display:flex; gap:8px; flex-wrap:wrap; margin:8px 0;">
-      <a role="button" class="secondary" data-tab="overview" title="概要" aria-label="概要タブ">Overview</a>
-      <a role="button" class="secondary" data-tab="aggregate" title="集約" aria-label="集約タブ">Aggregate</a>
-      <a role="button" class="secondary" data-tab="disaggregate" title="詳細展開" aria-label="詳細展開タブ">Disaggregate</a>
-      <a role="button" class="secondary" data-tab="schedule" title="予定オーダ" aria-label="予定オーダタブ">Schedule</a>
-      <a role="button" class="secondary" data-tab="validate" title="検証" aria-label="検証タブ">Validate</a>
-      <a role="button" class="secondary" data-tab="psi" title="PSI" aria-label="PSIタブ">PSI</a>
-      <a role="button" class="secondary" data-tab="execute" title="実行" aria-label="実行タブ">Execute</a>
-      <a role="button" class="secondary" data-tab="results" title="結果" aria-label="結果タブ">Results</a>
-      <a role="button" class="secondary" data-tab="diff" title="差分" aria-label="差分タブ">Diff</a>
+    <nav class="tab-nav">
+      <a role="button" class="secondary" data-tab="overview" title="Overview" aria-label="Overview tab">Overview</a>
+      <a role="button" class="secondary" data-tab="aggregate" title="Aggregate" aria-label="Aggregate tab">Aggregate</a>
+      <a role="button" class="secondary" data-tab="disaggregate" title="Disaggregate" aria-label="Disaggregate tab">Disaggregate</a>
+      <a role="button" class="secondary" data-tab="schedule" title="Schedule" aria-label="Schedule tab">Schedule</a>
+      <a role="button" class="secondary" data-tab="validate" title="Validate" aria-label="Validate tab">Validate</a>
+      <a role="button" class="secondary" data-tab="psi" title="PSI" aria-label="PSI tab">PSI</a>
+      <a role="button" class="secondary" data-tab="execute" title="Execute" aria-label="Execute tab">Execute</a>
+      <a role="button" class="secondary" data-tab="results" title="Results" aria-label="Results tab">Results</a>
+      <a role="button" class="secondary" data-tab="diff" title="Diff" aria-label="Diff tab">Diff</a>
     </nav>
     <div id="tab-aggregate" class="tab-pane" style="display:none;">
     <details open>
-      <summary>Aggregate（family×period）</summary>
+      <summary>Aggregate (family × period)</summary>
       {% if aggregate and aggregate.rows %}
       <table>
         <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
@@ -65,7 +94,7 @@
         </tbody>
       </table>
       {% else %}
-      <p>データなし（このPlanの再整合や実行で生成されます）</p>
+      <p>No aggregate records yet. Run reconciliation or execution to populate this section.</p>
       {% endif %}
     </details>
     <script>
@@ -110,30 +139,30 @@
       }
       document.getElementById('rel-apply')?.addEventListener('click', async function(){ await loadRelated(); applyDiffLinks(); });
       document.getElementById('diff-apply')?.addEventListener('click', applyDiffLinks);
-      // 初期ロード
+      // Initial load
       loadRelated().then(applyDiffLinks).catch(()=>{});
     })();
     </script>
     </div>
     <div id="tab-psi" class="tab-pane" style="display:none;">
     <details open>
-      <summary>PSI（参照・編集）</summary>
-      <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
-        <label>level
+      <summary>PSI (view & edit)</summary>
+      <div class="tab-toolbar">
+        <label>Level
           <select id="psiLevel">
-            <option value="aggregate">aggregate（family×period）</option>
-            <option value="det">detail（sku×week）</option>
+            <option value="aggregate">aggregate (family × period)</option>
+            <option value="det">detail (sku × week)</option>
           </select>
         </label>
-        <label>q<input id="psiQ" type="search" placeholder="フィルタ（テキスト）"></label>
-        <label>limit<input id="psiLimit" type="number" min="10" value="200"></label>
-        <button id="psiReload" type="button">再読込</button>
-        <button id="psiSave" type="button" class="secondary">変更を保存</button>
-        <button id="psiRecon" type="button">適用して整合を実行</button>
+        <label>Filter<input id="psiQ" type="search" placeholder="Search text"></label>
+        <label>Limit<input id="psiLimit" type="number" min="10" value="200"></label>
+        <button id="psiReload" type="button">Reload</button>
+        <button id="psiSave" type="button" class="secondary">Save changes</button>
+        <button id="psiRecon" type="button">Apply &amp; reconcile</button>
         <a id="psiCsvExport" class="secondary" href="#" download>Export CSV</a>
-        <label style="margin-left:8px;">ロック
+        <label>Lock mode
           <select id="psiLockMode">
-            <option value="">(なし)</option>
+            <option value="">(none)</option>
             <option value="lock">lock</option>
             <option value="unlock">unlock</option>
             <option value="toggle">toggle</option>
@@ -143,13 +172,13 @@
         <button id="psiUnlockCell" type="button" class="secondary">Unlock cell</button>
         <button id="psiUnlockAll" type="button" class="secondary">Unlock all</button>
         <small class="mono" id="psiMeta"></small>
-        <small class="mono" id="psiLegend">凡例: ✎ 編集可能セル（破線枠） / グレー=参照専用 / 黄色=未保存変更</small>
+        <small class="mono" id="psiLegend">Legend: ✎ editable / gray = read-only / yellow = unsaved edits</small>
       </div>
-      <div style="overflow:auto;">
+      <div class="tab-scroll">
         <table id="tblPSI" style="min-width:960px;"></table>
       </div>
       <details>
-        <summary>再整合オプション（adjusted/MRP）</summary>
+        <summary>Reconciliation options (adjusted / MRP)</summary>
         <div class="grid" style="align-items:end;">
           <label><input type="checkbox" id="psiAdj"> apply_adjusted</label>
           <label><input type="checkbox" id="psiMRP"> recalc_mrp</label>
@@ -164,7 +193,7 @@
           <label>recon_window_days<input type="number" id="psiRwd" min="0"></label>
           <label>anchor_policy
             <select id="psiAnchor">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="DET_near">DET_near</option>
               <option value="AGG_far">AGG_far</option>
               <option value="blend">blend</option>
@@ -174,14 +203,14 @@
           <label>tol_rel<input type="number" step="0.000001" id="psiTolRel" placeholder="1e-6"></label>
           <label>calendar_mode
             <select id="psiCal">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="simple">simple</option>
               <option value="iso">iso</option>
             </select>
           </label>
           <label>carryover
             <select id="psiCarry">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="auto">auto</option>
               <option value="prev">prev</option>
               <option value="next">next</option>
@@ -191,68 +220,68 @@
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" id="psiCarrySplit"></label>
           <label>input_dir<input type="text" id="psiInputDir" value="samples/planning"></label>
         </div>
-        <p class="mono">注: adjusted 実行には anchor_policy と cutover_date の指定が必要です。MRP再計算は apply_adjusted と組み合わせます。</p>
+        <p class="mono warn-text">Note: set anchor_policy and cutover_date when running adjusted mode. Combine recalc_mrp with apply_adjusted.</p>
       </details>
       <details>
-        <summary>Weights（CSVインポート）</summary>
-        <p class="mono">ヘッダ付き: key,weight（または week,sku,weight）。key例: det:week=2025-W01,sku=SKU1</p>
+        <summary>Weights (CSV import)</summary>
+        <p class="mono">Headers: key,weight (or week,sku,weight). Example key: det:week=2025-W01,sku=SKU1</p>
         <textarea id="psiWeightsCsv" rows="4" placeholder="key,weight\ndet:week=2025-W01,sku=SKU1,1\ndet:week=2025-W01,sku=SKU2,2"></textarea>
-        <div>
-          <button id="psiWeightsApply" type="button">Weightsを適用</button>
+        <div class="tab-toolbar">
+          <button id="psiWeightsApply" type="button">Apply weights</button>
         </div>
       </details>
       <details>
-        <summary>分配オプション（Aggregate→Detail）</summary>
+        <summary>Distribution options (Aggregate → Detail)</summary>
         <div class="grid" style="align-items:end;">
           <label>weight_mode
             <select id="psiWeight">
-              <option value="current" selected>current（現値比例）</option>
-              <option value="equal">equal（均等）</option>
-              <option value="demand">demandに比例</option>
-              <option value="supply_plan">supply_planに比例</option>
+              <option value="current" selected>current (proportional to current)</option>
+              <option value="equal">equal</option>
+              <option value="demand">proportional to demand</option>
+              <option value="supply_plan">proportional to supply_plan</option>
             </select>
           </label>
           <label>round demand
-            <input type="number" id="psiRoundDemand" placeholder="step（例: 1）">
+            <input type="number" id="psiRoundDemand" placeholder="step (e.g. 1)">
           </label>
           <label>round supply_plan
-            <input type="number" id="psiRoundSupply" placeholder="step（例: 1）">
+            <input type="number" id="psiRoundSupply" placeholder="step (e.g. 1)">
           </label>
           <label>round backlog
-            <input type="number" id="psiRoundBacklog" placeholder="step（例: 1）">
+            <input type="number" id="psiRoundBacklog" placeholder="step (e.g. 1)">
           </label>
         </div>
-        <p class="mono">注: Aggregateを保存した時に適用。step指定時は最寄りの倍数に丸めます（総和は再スケール）。</p>
+        <p class="mono warn-text">Note: applied when aggregate rows are saved. Step values round to nearest multiples with totals rescaled.</p>
       </details>
       <details>
-        <summary>CSVインポート（ヘッダ付き, 既定列のみ）</summary>
-        <p class="mono">aggregate: period,family,demand,supply,backlog ｜ det: week,sku,demand,supply_plan,backlog,on_hand_start,on_hand_end</p>
-        <textarea id="psiCsvText" rows="6" placeholder="CSVを貼り付け"></textarea>
-        <div>
-          <button id="psiCsvApply" type="button">CSVを適用（保存）</button>
+        <summary>CSV import (with headers, default columns)</summary>
+        <p class="mono">aggregate: period,family,demand,supply,backlog | det: week,sku,demand,supply_plan,backlog,on_hand_start,on_hand_end</p>
+        <textarea id="psiCsvText" rows="6" placeholder="Paste CSV"></textarea>
+        <div class="tab-toolbar">
+          <button id="psiCsvApply" type="button">Apply CSV (save)</button>
         </div>
       </details>
       <details>
-        <summary>監査ログ（直近）</summary>
-        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
-          <label>level
+        <summary>Audit log (recent)</summary>
+        <div class="tab-toolbar">
+          <label>Level
             <select id="psiAuditLevel">
-              <option value="">(全て)</option>
+              <option value="">(all)</option>
               <option value="aggregate">aggregate</option>
               <option value="det">det</option>
             </select>
           </label>
-          <label>q<input id="psiAuditQ" type="search" placeholder="フィルタ（テキスト）"></label>
-          <label>limit<input id="psiAuditLimit" type="number" min="10" value="200"></label>
-          <button id="psiAuditReload" type="button">再読込</button>
+          <label>Filter<input id="psiAuditQ" type="search" placeholder="Search text"></label>
+          <label>Limit<input id="psiAuditLimit" type="number" min="10" value="200"></label>
+          <button id="psiAuditReload" type="button">Reload</button>
         </div>
-        <div style="overflow:auto; max-height:320px;">
+        <div class="tab-scroll" style="max-height:320px;">
           <table id="tblPSIAudit" style="min-width:960px;"></table>
         </div>
       </details>
       <details>
-        <summary>Lock Manager（検索・一括操作）</summary>
-        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
+        <summary>Lock manager</summary>
+        <div class="tab-toolbar">
           <label>family<input id="lmFamily" type="text" placeholder="family"></label>
           <label>week_prefix<input id="lmWeek" type="text" placeholder="YYYY-W"></label>
           <label>field
@@ -270,25 +299,25 @@
           <button id="lmUnlockFiltered" type="button" class="secondary">Unlock filtered</button>
           <button id="lmUnlockSelected" type="button">Unlock selected</button>
         </div>
-        <div style="overflow:auto; max-height:260px;">
+        <div class="tab-scroll" style="max-height:260px;">
           <table id="tblLocks" style="min-width:960px;"></table>
         </div>
       </details>
       <details>
-        <summary>承認ワークフロー</summary>
-        <div style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin:6px 0;">
-          <label>note<input id="psiSubmitNote" type="text" placeholder="提出メモ"></label>
-          <button id="psiSubmit" type="button">Submit（提出）</button>
-          <label><input type="checkbox" id="psiApproveRecon"> 承認後に整合実行</label>
-          <button id="psiApprove" type="button" class="secondary">Approve（承認）</button>
-          <small class="mono">注: ApproveにはAPIキーが必要です（localStorage.api_key）。</small>
+        <summary>Approval workflow</summary>
+        <div class="tab-toolbar">
+          <label>note<input id="psiSubmitNote" type="text" placeholder="Submission note"></label>
+          <button id="psiSubmit" type="button">Submit</button>
+          <label><input type="checkbox" id="psiApproveRecon"> Run reconciliation after approval</label>
+          <button id="psiApprove" type="button" class="secondary">Approve</button>
+          <small class="mono warn-text">API key (localStorage.api_key) is required to approve.</small>
         </div>
-        <div style="margin-top:6px;">
-          <button id="psiShowDiff" type="button" class="secondary">Diffを表示</button>
+        <div class="tab-toolbar">
+          <button id="psiShowDiff" type="button" class="secondary">Show diff</button>
           <div id="psiDiff" class="mono" style="margin-top:6px;"></div>
         </div>
       </details>
-      <p class="mono" id="psiNote">注: PSIの編集は一時オーバレイとして保存され、[適用して整合を実行]で差分ログが更新されます（MVP）。APIキー環境変数が設定されている場合、整合の実行にもAPIキー（localStorage.api_key）が必要です。</p>
+      <p class="mono warn-text" id="psiNote">PSI edits are stored as an overlay until you run "Apply &amp; reconcile". API keys are required when executing reconciliation.</p>
     </details>
     <script>
     (function(){
@@ -331,10 +360,10 @@
           const ro = c.ro || rowLocked || locks.has(`${k}:field=${c.k}`);
           const dv = fmt(val);
           if (ro) {
-            const title = '参照専用（ロック/対象外）';
+            const title = 'Read-only (locked or excluded)';
             return `<td data-ro="1" class="ro" data-field="${c.k}" data-key="${k}" data-value="${dv}" title="${title}" aria-label="${title}">${dv}</td>`;
           } else {
-            const title = `編集可能: ${c.k}`;
+            const title = `Editable: ${c.k}`;
             return `<td contenteditable tabindex="0" class="editable" data-field="${c.k}" data-key="${k}" data-value="${dv}" title="${title}" aria-label="${title}">${dv}</td>`;
           }
           }).join('');
@@ -342,7 +371,7 @@
           return `<tr>${tds}<td><input type="checkbox" class="psi-lock" data-key="${k}" ${lk}></td></tr>`;
         }).join('');
         tbl.innerHTML = thead + '<tbody>'+body+'</tbody>';
-        // 変更検知
+        // Track dirty cells
         tbl.querySelectorAll('td[contenteditable]').forEach(td=>{
           td.addEventListener('focus', ev=>{ window.__psiLastCell = ev.currentTarget; });
           td.addEventListener('blur', ev=>{
@@ -366,12 +395,12 @@
       }
       async function save(){
         const level = levelEl.value;
-        // 変更を行単位にまとめる
+        // Aggregate changes per key
         const grouped = new Map();
         for (const [kf, val] of pending.entries()){
           const [key, field] = kf.split('::');
           const g = grouped.get(key) || { key: {}, fields: {} };
-          // keyを復元
+          // Restore key fields
           if (key.startsWith('agg:')){
             const m = /period=([^,]+),family=(.+)$/.exec(key); if (m){ g.key.period=m[1]; g.key.family=m[2]; }
           } else {
@@ -382,7 +411,7 @@
         }
         const edits = Array.from(grouped.values());
         const lock = lockEl.value || undefined;
-        // 分配オプション（aggregate時のみ）
+        // Distribution options (aggregate only)
         let distribute = undefined;
         if (level === 'aggregate'){
           const wm = document.getElementById('psiWeight');
@@ -444,7 +473,7 @@
       document.getElementById('psiSave')?.addEventListener('click', save);
       document.getElementById('psiRecon')?.addEventListener('click', recon);
       function lockCell(mode){
-        const el = window.__psiLastCell; if (!el){ alert('セルを選択してください'); return; }
+        const el = window.__psiLastCell; if (!el){ alert('Select a cell first.'); return; }
         const key = el.getAttribute('data-key'); const f = el.getAttribute('data-field');
         if (!key || !f){ return; }
         const lock_keys = [`${key}:field=${f}`];
@@ -462,7 +491,8 @@
       document.getElementById('psiCsvApply')?.addEventListener('click', async function(){
         const level = levelEl.value;
         const ta = document.getElementById('psiCsvText'); const txt = (ta && ta.value)||''; if(!txt.trim()) return;
-        const lines = txt.trim().split(/\r?\n/); if(lines.length<2){ alert('ヘッダ+1行以上が必要です'); return; }
+        const lines = txt.trim().split(/\r?\n/);
+        if(lines.length<2){ alert('Header plus at least one row is required.'); return; }
         const header = lines[0].split(',').map(s=>s.trim());
         const idx = (name)=> header.indexOf(name);
         const edits = [];
@@ -481,7 +511,7 @@
           }
         }
         const res = await fetch(`/plans/${ver}/psi`, { method:'PATCH', headers:getHeaders(), body: JSON.stringify({ level, edits }) });
-        if (!res.ok){ alert('CSV適用に失敗しました'); return; }
+        if (!res.ok){ alert('Failed to apply CSV.'); return; }
         ta.value=''; await load();
       });
       async function loadAudit(){
@@ -508,29 +538,29 @@
       document.getElementById('psiSubmit')?.addEventListener('click', async function(){
         const note = (document.getElementById('psiSubmitNote')?.value)||'';
         const res = await fetch(`/plans/${ver}/psi/submit`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ note }) });
-        if (!res.ok){ alert('submit failed'); return; }
-        alert('submitted');
+        if (!res.ok){ alert('Submission failed.'); return; }
+        alert('Submitted.');
       });
       document.getElementById('psiApprove')?.addEventListener('click', async function(){
         const auto = !!(document.getElementById('psiApproveRecon')?.checked);
         const res = await fetch(`/plans/${ver}/psi/approve`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ auto_reconcile: auto }) });
-        if (!res.ok){ alert('approve failed'); return; }
-        alert('approved');
+        if (!res.ok){ alert('Approval failed.'); return; }
+        alert('Approved.');
       });
       document.getElementById('psiWeightsApply')?.addEventListener('click', async function(){
         const ta = document.getElementById('psiWeightsCsv'); const txt = (ta && ta.value) || '';
         if (!txt.trim()) return;
         const res = await fetch(`/plans/${ver}/psi/weights`, { method:'POST', headers:getHeaders(), body: JSON.stringify({ csv: txt }) });
-        if (!res.ok){ alert('weights failed'); return; }
-        alert('weights applied');
+        if (!res.ok){ alert('Weights application failed.'); return; }
+        alert('Weights applied.');
       });
-      // チェックでロックトグル（即時反映ではなく保存時にlockModeが指定されている場合に反映）
+      // Toggle lock state using checkboxes (applies when lockMode is provided)
       tbl.addEventListener('change', ev=>{
         const t = ev.target; if (!t || !t.classList || !t.classList.contains('psi-lock')) return;
-        // ロック/解除は保存時に lockMode が空だと反映されないので、toggleを既定に案内
+        // Default lock mode to toggle when unset so changes are applied
         if (!lockEl.value) lockEl.value = 'toggle';
       });
-      // 初期ロード
+      // Initial load
       load().catch(()=>{});
     })();
     </script>
@@ -538,12 +568,12 @@
 
     <div id="tab-disaggregate" class="tab-pane" style="display:none;">
     <details open>
-      <summary>Disaggregate（SKU×week）</summary>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
-        <input id="skuFilter" type="search" placeholder="SKUフィルタ（部分一致）" aria-label="SKUフィルタ（部分一致）">
-        <input id="weekFilter" type="search" placeholder="週フィルタ（例: 2025-W01）" aria-label="週フィルタ（例: 2025-W01）">
+      <summary>Disaggregate (SKU × week)</summary>
+      <div class="tab-toolbar">
+        <input id="skuFilter" type="search" placeholder="SKU filter" aria-label="SKU filter">
+        <input id="weekFilter" type="search" placeholder="Week filter (e.g. 2025-W01)" aria-label="Week filter">
         <small class="mono" id="disaggMeta"></small>
-        <small class="mono">表示は先頭200件（全{{ disagg_total or 0 }}件）</small>
+        <small class="mono">Showing first 200 rows ({{ disagg_total or 0 }} total)</small>
       </div>
       {% if disagg_rows %}
       <table id="tblDisagg">
@@ -563,21 +593,21 @@
         </tbody>
       </table>
       {% else %}
-      <p>データなし（このPlanの実行で生成されます）</p>
+      <p>No detail rows yet. Execute the plan to populate this table.</p>
       {% endif %}
     </details>
     </div>
 
     <div id="tab-schedule" class="tab-pane" style="display:none;">
     <details open>
-      <summary>予定オーダ（Scheduled Receipts）</summary>
-      <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0;">
-        <input id="schedSku" type="search" placeholder="SKUフィルタ（部分一致）" aria-label="SKUフィルタ（部分一致）">
-        <input id="schedWeek" type="search" placeholder="週フィルタ（例: 2025-W01）" aria-label="週フィルタ（例: 2025-W01）">
+      <summary>Scheduled receipts</summary>
+      <div class="tab-toolbar mono">
+        <input id="schedSku" type="search" placeholder="SKU filter" aria-label="SKU filter">
+        <input id="schedWeek" type="search" placeholder="Week filter (e.g. 2025-W01)" aria-label="Week filter">
         <small id="schedMeta"></small>
         <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank">schedule.csv</a>
-        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="URLをコピー" aria-label="schedule.csv のURLをコピー">copy</button>
-        <small>表示は先頭200件（全{{ schedule_total or 0 }}件）</small>
+        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="Copy URL" aria-label="Copy schedule.csv URL">copy</button>
+        <small>Showing first 200 rows ({{ schedule_total or 0 }} total)</small>
       </div>
       {% if schedule_rows %}
       <table id="tblSchedule">
@@ -595,68 +625,68 @@
         </tbody>
       </table>
       {% else %}
-      <p>データなし（このPlanの実行で生成されます）</p>
+      <p>No schedule rows yet. Execute the plan to populate this table.</p>
       {% endif %}
     </details>
     </div>
 
     <div id="tab-validate" class="tab-pane" style="display:none;">
     <details open>
-      <summary>検証（MVP）</summary>
+      <summary>Validation (MVP)</summary>
       {% if validate %}
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         <article>
-          <header>Tol違反（before/after）</header>
+          <header>Tolerance violations (before/after)</header>
           <strong class="mono">{{ validate.tol_violations_before if validate.tol_violations_before is not none else '-' }} → {{ validate.tol_violations_after if validate.tol_violations_after is not none else '-' }}</strong>
           <footer><a class="secondary" href="/plans/{{ version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank">compare (violations)</a></footer>
         </article>
         <article>
-          <header>負在庫行数</header>
+          <header>Negative inventory rows</header>
           <strong class="mono">{{ validate.neg_inventory_rows or 0 }}</strong>
           <footer><em class="mono">mrp rows={{ validate.mrp_total_rows or 0 }}</em></footer>
         </article>
         <article>
-          <header>予定受入の小数行</header>
+          <header>Fractional scheduled receipts</header>
           <strong class="mono">{{ validate.fractional_receipts_rows or 0 }}</strong>
         </article>
         <article>
-          <header>能力超過（週）</header>
+          <header>Capacity over-utilization (weeks)</header>
           <strong class="mono">{{ validate.capacity_over_weeks or 0 }}</strong>
           <footer><em class="mono">weekly rows={{ validate.weekly_total_rows or 0 }}</em></footer>
         </article>
       </div>
       {% else %}
-      <p>データなし（Planの実行後に検証が有効になります）</p>
+      <p>No validation metrics yet. Run the plan to populate these figures.</p>
       {% endif %}
     </details>
     </div>
     <div id="tab-execute" class="tab-pane" style="display:none;">
     <details open>
-      <summary>再整合（パラメータ指定）</summary>
+      <summary>Reconcile (parameter overrides)</summary>
       <form method="post" action="/ui/plans/{{ version_id }}/reconcile">
         <div class="grid">
           <label>cutover_date<input type="date" name="cutover_date" value="{{ version.cutover_date or '' }}"></label>
           <label>recon_window_days<input type="number" name="recon_window_days" min="0" value="{{ version.recon_window_days or '' }}"></label>
           <label>anchor_policy
             <select name="anchor_policy">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="DET_near">DET_near</option>
               <option value="AGG_far">AGG_far</option>
               <option value="blend">blend</option>
             </select>
           </label>
-          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
-          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6"></label>
           <label>calendar_mode
             <select name="calendar_mode">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="simple">simple</option>
               <option value="iso">iso</option>
             </select>
           </label>
           <label>carryover
             <select name="carryover">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="auto">auto</option>
               <option value="prev">prev</option>
               <option value="next">next</option>
@@ -674,12 +704,12 @@
             </select>
           </label>
         </div>
-        <button type="submit" aria-label="再整合を実行">再整合を実行</button>
+        <button type="submit" aria-label="Run reconciliation">Run reconciliation</button>
       </form>
     </details>
 
     <details>
-      <summary>統合Run（新規バージョン作成）</summary>
+      <summary>Integrated run (new plan version)</summary>
       <form method="post" action="/ui/plans/run">
         <div class="grid" style="align-items:end;">
           <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
@@ -694,24 +724,24 @@
           <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
           <label>anchor_policy
             <select name="anchor_policy">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="DET_near">DET_near</option>
               <option value="AGG_far">AGG_far</option>
               <option value="blend">blend</option>
             </select>
           </label>
-          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
-          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+          <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6"></label>
+          <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6"></label>
           <label>calendar_mode
             <select name="calendar_mode">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="simple">simple</option>
               <option value="iso">iso</option>
             </select>
           </label>
           <label>carryover
             <select name="carryover">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="auto">auto</option>
               <option value="prev">prev</option>
               <option value="next">next</option>
@@ -721,9 +751,9 @@
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit" aria-label="即時実行">Run Now（即時実行）</button>
+        <button type="submit" aria-label="Run immediately">Run now</button>
       </form>
-      <form id="queue-run-form" style="margin-top:8px;" onsubmit="return queueRunViaRunsApi(event)">
+      <form id="queue-run-form" class="grid-form gap-top-sm" onsubmit="return queueRunViaRunsApi(event)">
         <div class="grid" style="align-items:end;">
           <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
           <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
@@ -737,7 +767,7 @@
           <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
           <label>anchor_policy
             <select name="anchor_policy">
-              <option value="">(未指定)</option>
+              <option value="">(unspecified)</option>
               <option value="DET_near">DET_near</option>
               <option value="AGG_far">AGG_far</option>
               <option value="blend">blend</option>
@@ -745,8 +775,8 @@
           </label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit" class="secondary" aria-label="ジョブ投入">Queue Job（ジョブ投入）</button>
-        <p class="mono">ジョブ投入後は <a href="/ui/jobs" target="_blank">/ui/jobs</a> で進捗を確認できます。</p>
+        <button type="submit" class="secondary" aria-label="Queue job">Queue job</button>
+        <p class="mono">After queuing, monitor progress via <a href="/ui/jobs" target="_blank" rel="noopener">/ui/jobs</a>.</p>
       </form>
       <script>
       async function queueRunViaRunsApi(ev){
@@ -773,21 +803,21 @@
           const res = await fetch('/runs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
           if (!res.ok){
             const txt = await res.text();
-            alert('queue failed: '+txt);
+            alert('Queue failed: '+txt);
             return false;
           }
           const data = await res.json();
           if (data && data.location){ window.location.href = data.location; }
-          else { alert('queued'); }
-        }catch(e){ alert('queue failed'); }
+          else { alert('Queued.'); }
+        }catch(e){ alert('Queue failed.'); }
         return false;
       }
       </script>
     </details>
 
     <details>
-      <summary>Plan & Run（自動補完・新規バージョン作成）</summary>
-      <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+      <summary>Plan &amp; Run (auto completion)</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" class="toolbar gap-top-sm">
         <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
         <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
         <label>lt_unit
@@ -800,24 +830,24 @@
         <label>recon_window_days<input type="number" name="recon_window_days" min="0"></label>
         <label>anchor_policy
           <select name="anchor_policy">
-            <option value="">(未指定)</option>
+            <option value="">(unspecified)</option>
             <option value="DET_near">DET_near</option>
             <option value="AGG_far">AGG_far</option>
             <option value="blend">blend</option>
           </select>
         </label>
-        <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="既定=1e-6"></label>
-        <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="既定=1e-6"></label>
+        <label>tol_abs<input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6"></label>
+        <label>tol_rel<input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6"></label>
         <label>calendar_mode
           <select name="calendar_mode">
-            <option value="">(未指定)</option>
+            <option value="">(unspecified)</option>
             <option value="simple">simple</option>
             <option value="iso">iso</option>
           </select>
         </label>
         <label>carryover
           <select name="carryover">
-            <option value="">(未指定)</option>
+            <option value="">(unspecified)</option>
             <option value="auto">auto</option>
             <option value="prev">prev</option>
             <option value="next">next</option>
@@ -825,19 +855,19 @@
           </select>
         </label>
         <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
-        <label><input type="checkbox" name="apply_adjusted" value="1"> 調整後DETも計算</label>
-        <label><input type="checkbox" name="queue_job" value="1"> ジョブとして実行（非同期）</label>
-        <button type="submit" class="contrast" aria-label="Plan & Run を実行">Plan & Run を実行</button>
-        <small class="mono">注: 既存Planの cutover/window/policy を可能な範囲で引き継ぎます。</small>
+        <label><input type="checkbox" name="apply_adjusted" value="1"> Include adjusted detail</label>
+        <label><input type="checkbox" name="queue_job" value="1"> Execute as job (async)</label>
+        <button type="submit" class="contrast" aria-label="Run Plan & Run">Run Plan &amp; Run</button>
+        <small class="mono">Note: inherits cutover/window/policy from the current plan when possible.</small>
       </form>
     </details>
     </div>
 
     <div id="tab-overview" class="tab-pane">
     <details open>
-      <summary>要約</summary>
+      <summary>Summary</summary>
       <table>
-        <thead><tr><th>項目</th><th>値</th></tr></thead>
+        <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
           {% if created_from_run_id %}
@@ -853,36 +883,36 @@
             <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
             <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
           {% endif %}
-          <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} ｜ invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
+          <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} | invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
         </tbody>
       </table>
       {% if related_plans and related_plans|length > 0 %}
-      <div style="margin-top:6px;">
-        <strong>関連Plan（同一base_scenario, 最新）:</strong>
+      <div class="gap-top-sm">
+        <strong>Related plans (same base_scenario, latest):</strong>
         <ul>
           {% for p in related_plans %}
           <li class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a> <small>({{ p.status or '' }})</small>
-            ｜ <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank" title="現在のPlan基準の差分（violationsのみ、rel_desc）">diff</a>
+            | <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank" title="Diff against current plan (violations only, rel_desc)">diff</a>
           </li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
-      <div style="margin-top:6px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
-        <label>関連Plan 並び
+      <div class="tab-toolbar">
+        <label>Sort related plans
           <select id="rel-sort">
             <option value="created_desc" selected>created_desc</option>
             <option value="created_asc">created_asc</option>
             <option value="status">status</option>
           </select>
         </label>
-        <label>件数
-          <input id="rel-limit" type="number" min="1" max="50" value="5" style="width:6em;" />
+        <label>Limit
+          <input id="rel-limit" class="input-compact-sm" type="number" min="1" max="50" value="5" />
         </label>
         <button id="rel-apply" type="button" class="secondary">Apply</button>
       </div>
-      <ul id="rel-list" class="mono" style="margin-top:6px;"></ul>
-      <div style="margin-top:6px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
+      <ul id="rel-list" class="mono gap-top-sm"></ul>
+      <div class="tab-toolbar">
         <label>Diff sort
           <select id="diff-sort">
             <option value="rel_desc" selected>rel_desc</option>
@@ -892,13 +922,13 @@
           </select>
         </label>
         <label><input type="checkbox" id="diff-viol" checked> violations_only</label>
-        <button id="diff-apply" type="button" class="secondary">Apply to links</button>
+        <button id="diff-apply" type="button" class="secondary">Update links</button>
       </div>
     </details>
     <details>
-      <summary>State 管理（MVP）</summary>
-      <form method="post" action="/ui/plans/{{ version_id }}/state/advance" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
-        <label>advance to
+      <summary>State management (MVP)</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/state/advance" class="tab-toolbar">
+        <label>Advance to
           <select name="to">
             <option value="draft">draft</option>
             <option value="aggregated">aggregated</option>
@@ -909,8 +939,8 @@
         </label>
         <button type="submit">Advance</button>
       </form>
-      <form method="post" action="/ui/plans/{{ version_id }}/state/invalidate" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-top:6px;">
-        <label>invalidate from
+      <form method="post" action="/ui/plans/{{ version_id }}/state/invalidate" class="tab-toolbar">
+        <label>Invalidate from
           <select name="from_step">
             <option value="draft">draft</option>
             <option value="aggregated">aggregated</option>
@@ -923,85 +953,85 @@
       </form>
     </details>
     {% if kpi_preview %}
-    <section style="margin-top:8px;">
-      <h4>MVP: KPIプレビュー</h4>
+    <section class="gap-top-sm">
+      <h4>MVP: KPI preview</h4>
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         <article>
-          <header>能力合計</header>
+          <header>Total capacity</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.capacity_total or 0) }}</strong>
         </article>
         <article>
-          <header>負荷合計（adjusted）</header>
+          <header>Total load (adjusted)</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.adjusted_total or 0) }}</strong>
         </article>
         <article>
-          <header>能力利用率</header>
+          <header>Capacity utilization</header>
           <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.util_pct)) if kpi_preview.util_pct is not none else '-' }}</strong>
         </article>
         <article>
-          <header>spill_in 合計</header>
+          <header>Total spill_in</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_in_total or 0) }}</strong>
         </article>
         <article>
-          <header>spill_out 合計</header>
+          <header>Total spill_out</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_out_total or 0) }}</strong>
         </article>
         <article>
-          <header>違反件数 before/after</header>
+          <header>Violations before / after</header>
           <strong class="mono">{{ kpi_preview.viol_before or 0 }} → {{ kpi_preview.viol_after if kpi_preview.viol_after is not none else '-' }}</strong>
         </article>
         <article>
-          <header>需要合計（DET）</header>
+          <header>Total demand (DET)</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.det_demand_total or 0) }}</strong>
         </article>
         <article>
-          <header>発注合計（DET supply）</header>
+          <header>Total supply (DET)</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.det_supply_total or 0) }}</strong>
         </article>
         <article>
-          <header>サービスレベル（DET, 推定）</header>
+          <header>Service level (DET, est.)</header>
           <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.sl_pct)) if kpi_preview.sl_pct is not none else '-' }}</strong>
         </article>
         <article>
-          <header>欠品合計（DET backlog）</header>
+          <header>Total backlog (DET)</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.det_backlog_total or 0) }}</strong>
         </article>
         <article>
-          <header>在庫合計（初期, MRP）</header>
+          <header>Total inventory (MRP opening)</header>
           <strong class="mono">{{ '%.0f'|format(kpi_preview.inv_initial_total if kpi_preview.inv_initial_total is not none else 0) }}</strong>
         </article>
       </div>
       {% if kpi_preview.window_days %}
-        <p class="mono">window_days={{ kpi_preview.window_days }} ｜ policy={{ kpi_preview.anchor_policy or '(none)' }}</p>
+        <p class="mono">window_days={{ kpi_preview.window_days }} | policy={{ kpi_preview.anchor_policy or '(none)' }}</p>
       {% endif %}
     </section>
     {% endif %}
     <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-      <span>エクスポート:</span>
+      <span>Exports:</span>
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="URLをコピー" aria-label="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="Copy URL" aria-label="Copy URL">copy</button>
       |
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="Copy URL" aria-label="Copy URL">copy</button>
       |
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="URLをコピー" aria-label="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="Copy URL" aria-label="Copy URL">copy</button>
       |
       <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="URLをコピー" aria-label="URLをコピー">copy</button>
+      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="Copy URL" aria-label="Copy URL">copy</button>
       |
-      <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="主要リンクを一括コピー">copy all</button>
-      <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー">copy selected</button>
+      <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="Copy all primary links" aria-label="Copy all primary links">copy all</button>
+      <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
     </div>
     </div>
 
     <div id="tab-results" class="tab-pane" style="display:none;">
     <details open>
-      <summary>最新Run（base_scenario）</summary>
+      <summary>Latest runs (base_scenario)</summary>
       {% if version.base_scenario_id %}
         {% if latest_runs and latest_runs|length > 0 %}
           <table>
-            <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th><th>リンク</th></tr></thead>
+            <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th><th>link</th></tr></thead>
             <tbody>
               {% for r in latest_runs %}
               <tr>
@@ -1015,27 +1045,27 @@
             </tbody>
           </table>
           {% if latest_run_ids and latest_run_ids|length >= 2 %}
-          <form method="post" action="/ui/compare" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <form method="post" action="/ui/compare" class="tab-toolbar">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
-            <button type="submit" aria-label="最新2件を比較">最新2件を比較</button>
+            <button type="submit" aria-label="Compare latest two runs">Compare latest two runs</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="URLをコピー" aria-label="URLをコピー">copy</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="Copy URL" aria-label="Copy URL">copy</button>
             <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="URLをコピー" aria-label="URLをコピー">copy</button>
-            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="metrics/diffs の2リンクを一括コピー" aria-label="リンクを一括コピー">copy all</button>
-            <button type="button" class="secondary copy-selected" title="チェックしたリンクを一括コピー" aria-label="チェックしたリンクを一括コピー">copy selected</button>
+            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="Copy URL" aria-label="Copy URL">copy</button>
+            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="Copy both links" aria-label="Copy both links">copy all</button>
+            <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
           </form>
           {% endif %}
         {% else %}
-          <p>該当シナリオのRunが見つかりません。<a href="/ui/runs" target="_blank">/ui/runs</a> を参照してください。</p>
+          <p>No runs found for this scenario. Visit <a href="/ui/runs" target="_blank" rel="noopener">/ui/runs</a>.</p>
         {% endif %}
       {% else %}
-        <p>プランに base_scenario_id が未設定です。</p>
+        <p>This plan has no base_scenario_id.</p>
       {% endif %}
     </details>
     {% if weekly_summary %}
     <details>
-      <summary>能力サマリ（weekly_summary）</summary>
+      <summary>Capacity summary (weekly_summary)</summary>
       {% if boundary_summary %}
         <p class="mono">boundary: period={{ boundary_summary.period }} ｜ weeks={{ boundary_summary.weeks }} ｜ pre={{ boundary_summary.pre_weeks }} ｜ post={{ boundary_summary.post_weeks }} ｜ policy={{ boundary_summary.anchor_policy or '(none)' }} ｜ window={{ boundary_summary.window_days or 0 }} days</p>
       {% endif %}
@@ -1065,12 +1095,12 @@
 
     {% if deltas %}
     <details open>
-      <summary>before 差分（先頭50件）</summary>
-      <p class="mono"><a href="/plans/{{ version_id }}/compare.csv?sort=rel_desc&limit=1000" download>compare.csv</a> ｜ <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>violations_only.csv</a></p>
+      <summary>Before diff (top 50)</summary>
+      <p class="mono"><a href="/plans/{{ version_id }}/compare.csv?sort=rel_desc&limit=1000" download>compare.csv</a> | <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" download>violations_only.csv</a></p>
       <div class="grid" style="align-items:end;">
         <label>tol_abs<input id="tolAbsB" type="number" step="0.000001" value="{{ recon.tolerance.abs if recon and recon.tolerance else 0.000001 }}"></label>
         <label>tol_rel<input id="tolRelB" type="number" step="0.000001" value="{{ recon.tolerance.rel if recon and recon.tolerance else 0.000001 }}"></label>
-        <label><input type="checkbox" id="violOnlyB"> 違反のみ表示</label>
+        <label><input type="checkbox" id="violOnlyB"> Show violations only</label>
       </div>
       <table id="tblBefore">
         <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
@@ -1125,12 +1155,12 @@
     <div id="tab-diff" class="tab-pane" style="display:none;">
     {% if deltas_adj %}
     <details>
-      <summary>after 差分（先頭50件）</summary>
+      <summary>After diff (top 50)</summary>
       <p class="mono"><a href="/plans/{{ version_id }}/carryover.csv" download>carryover.csv</a></p>
       <div class="grid" style="align-items:end;">
         <label>tol_abs<input id="tolAbsA" type="number" step="0.000001" value="{{ recon_adj.tolerance.abs if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
         <label>tol_rel<input id="tolRelA" type="number" step="0.000001" value="{{ recon_adj.tolerance.rel if recon_adj and recon_adj.tolerance else 0.000001 }}"></label>
-        <label><input type="checkbox" id="violOnlyA"> 違反のみ表示</label>
+        <label><input type="checkbox" id="violOnlyA"> Show violations only</label>
       </div>
       <table id="tblAfter">
         <thead><tr><th>period</th><th>family</th><th>Δdemand</th><th>Δsupply</th><th>Δbacklog</th><th>ok</th></tr></thead>
@@ -1185,7 +1215,7 @@
   {% endif %}
 </section>
 <section id="chart-section" style="display:none;">
-  <h3>可視化</h3>
+  <h3>Visualization</h3>
   <canvas id="chartSpillZonePlan" height="100"></canvas>
   <canvas id="chartCapacityPlan" height="100" style="margin-top:16px"></canvas>
 </section>
@@ -1234,12 +1264,12 @@
         const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
       }
     }
-    // 遅延描画: Resultsタブで描画
+    // Lazy rendering: draw charts when the Results tab is active
     window.__renderCharts = function(){ try{ makeSpill(); makeCapacity(); }catch(e){} };
   })();
 </script>
 <script>
-  // タブ切替
+  // Tab switching
   (function(){
     function activate(tab){
       ['overview','aggregate','disaggregate','schedule','validate','psi','execute','results','diff'].forEach(function(k){
@@ -1266,7 +1296,7 @@
   })();
 </script>
 <script>
-  // Disaggregate簡易フィルタ
+  // Disaggregate quick filter
   (function(){
     function val(el){ return (el && el.value || '').toLowerCase().trim(); }
     function apply(){
@@ -1296,7 +1326,7 @@
   })();
 </script>
 <script>
-  // Schedule 簡易フィルタ
+  // Schedule quick filter
   (function(){
     function val(el){ return (el && el.value || '').toLowerCase().trim(); }
     function apply(){
@@ -1326,7 +1356,7 @@
   })();
 </script>
 <script>
-  // 固定リンクのコピー機能（一覧と同仕様）
+  // Link copy helpers (same behavior as list view)
   (function(){
     function copyUrl(href){
       var abs = (location && location.origin ? location.origin : '') + href;

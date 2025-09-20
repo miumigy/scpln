@@ -1,6 +1,6 @@
 # API概要（Planning Hub関連, P-23）
 
-本リポジトリで提供する主要エンドポイントの概要です。用語は `docs/TERMS-JA.md` に準拠します。
+本書は Planning Hub / 計画パイプラインで利用する主要REST・CSVエンドポイントを俯瞰するためのサマリです。詳細な用語は `docs/TERMS-JA.md`、ワークフローは `docs/TUTORIAL-JA.md` を参照してください。認証やシークレット運用は README と `docs/SECRET_ROTATION_JA.md` に整理しています。
 
 ## ヘルス/メトリクス
 - GET `/healthz` ヘルスチェック

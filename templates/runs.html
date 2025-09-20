@@ -1,54 +1,59 @@
 {% extends "base.html" %}
+{% block page_header %}
+  <h2>Run History</h2>
+  <p>Review orchestration results, inspect metrics, and create plan versions from past runs.</p>
+{% endblock %}
 {% block content %}
-<section>
-  <h2>Runs</h2>
-  <p>
-    <button id="reload-btn" type="button" aria-label="APIから再読み込み">Refresh from API</button>
-  </p>
+<section class="page-section">
+  <div class="toolbar justify-end gap-bottom-sm">
+    <button id="reload-btn" type="button" aria-label="Reload data from API">Refresh from API</button>
+  </div>
   {% if rows %}
-  <table role="grid">
-    <thead>
-      <tr>
-        <th></th>
-        <th>run_id</th>
-        <th>meta</th>
-        <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="開始時刻で並び替え">started_at</button></th>
-        <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="所要時間で並び替え">dur(ms)</button></th>
-        <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="スキーマで並び替え">schema</button></th>
-        <th>config_id</th>
-        <th>scenario_id</th>
-        <th>fill_rate</th>
-        <th>profit_total</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="runs-tbody">
-      {% for r in rows %}
-      <tr>
-        <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" /></td>
-        <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
-        <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
-        <td>{{ r.duration_ms }}</td>
-        <td>{{ r.schema_version }}</td>
-        <td>{{ r.config_id or '' }}</td>
-        <td>{{ r.scenario_id or '' }}</td>
-        <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
-        <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
-        <td>
-          <a role="button" href="/ui/runs/{{ r.run_id }}">Detail</a>
-          <button type="button" class="secondary create-plan" data-run-id="{{ r.run_id }}" data-scenario-id="{{ r.scenario_id or '' }}" title="このRunからPlanを作成" aria-label="このRunからPlanを作成">Plan</button>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <div id="pager" style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-    <button id="first-page" type="button" class="secondary" aria-label="最初のページへ">First</button>
-    <button id="prev-page" type="button" class="secondary" aria-label="前のページへ">Prev</button>
-    <button id="next-page" type="button" class="secondary" aria-label="次のページへ">Next</button>
-    <button id="last-page" type="button" class="secondary" aria-label="最後のページへ">Last</button>
+  <div class="table-wrapper">
+    <table role="grid">
+      <thead>
+        <tr>
+          <th></th>
+          <th>run_id</th>
+          <th>meta</th>
+          <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="Sort by start time">started_at</button></th>
+          <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
+          <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="Sort by schema version">schema</button></th>
+          <th>config_id</th>
+          <th>scenario_id</th>
+          <th>fill_rate</th>
+          <th>profit_total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="runs-tbody">
+        {% for r in rows %}
+        <tr>
+          <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" /></td>
+          <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
+          <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
+          <td>{{ r.duration_ms }}</td>
+          <td>{{ r.schema_version }}</td>
+          <td>{{ r.config_id or '' }}</td>
+          <td>{{ r.scenario_id or '' }}</td>
+          <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
+          <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
+          <td>
+            <a role="button" href="/ui/runs/{{ r.run_id }}">Detail</a>
+            <button type="button" class="secondary create-plan" data-run-id="{{ r.run_id }}" data-scenario-id="{{ r.scenario_id or '' }}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div id="pager" class="toolbar gap-top-sm">
+    <button id="first-page" type="button" class="secondary" aria-label="Go to first page">First</button>
+    <button id="prev-page" type="button" class="secondary" aria-label="Go to previous page">Prev</button>
+    <button id="next-page" type="button" class="secondary" aria-label="Go to next page">Next</button>
+    <button id="last-page" type="button" class="secondary" aria-label="Go to last page">Last</button>
     <span class="mono">Page</span>
-    <input id="page-number" type="number" min="1" value="1" style="width:5em" />
+    <input id="page-number" class="input-compact-sm" type="number" min="1" value="1" />
     <span class="mono">/ <span id="page-total">1</span></span>
     <label>Limit
       <select id="limit-select">
@@ -60,18 +65,18 @@
     </label>
     <span id="pager-info" class="mono"></span>
   </div>
-  <div id="bulk-actions" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-    <button id="delete-selected" type="button" class="contrast" aria-label="選択したランを削除">Delete selected</button>
-    <button id="plan-selected" type="button" aria-label="選択したランからPlanを作成（同期）">Plan selected</button>
-    <button id="plan-selected-jobs" type="button" class="secondary" aria-label="選択したランからPlanをジョブ投入で作成（非同期）">Plan selected (jobs)</button>
-    <span style="margin:0 8px;">｜</span>
+  <div id="bulk-actions" class="toolbar gap-top-sm">
+    <button id="delete-selected" type="button" class="contrast" aria-label="Delete selected runs">Delete selected</button>
+    <button id="plan-selected" type="button" aria-label="Create plans synchronously for selected runs">Plan selected</button>
+    <button id="plan-selected-jobs" type="button" class="secondary" aria-label="Create plans as jobs for selected runs">Plan selected (jobs)</button>
+    <span class="mono">|</span>
     <label>Version prefix
-      <input id="ver-prefix" type="text" placeholder="run-" style="width:10em" />
+      <input id="ver-prefix" class="input-compact-md" type="text" placeholder="run-" />
     </label>
     <label><input id="ver-ts" type="checkbox" checked /> Timestamp</label>
   </div>
-  <div id="bulk-result" style="margin-top:8px; display:none;"></div>
-  <div id="filters" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+  <div id="bulk-result" class="gap-top-sm" style="display:none;"></div>
+  <div id="filters" class="toolbar gap-top-sm">
     <label>Sort
       <select id="sort-select">
         <option value="started_at" selected>started_at</option>
@@ -86,67 +91,72 @@
       </select>
     </label>
     <label>Schema
-      <input id="schema-filter" type="text" placeholder="1.0" size="6" />
+      <input id="schema-filter" class="input-compact-sm" type="text" placeholder="1.0" />
     </label>
     <label>Config ID
-      <input id="config-filter" type="number" placeholder="" min="1" style="width:7em" />
+      <input id="config-filter" class="input-compact-sm" type="number" min="1" />
     </label>
     <label>Scenario ID
-      <input id="scenario-filter" type="number" placeholder="" min="1" style="width:7em" />
+      <input id="scenario-filter" class="input-compact-sm" type="number" min="1" />
     </label>
     <label><input id="hide-archived" type="checkbox" checked> Hide archived</label>
-    <button id="apply-filter" type="button" class="secondary" aria-label="フィルタを適用">Apply</button>
-    <button id="clear-filter" type="button" class="secondary" aria-label="フィルタをクリア">Clear</button>
+    <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>
+    <button id="clear-filter" type="button" class="secondary" aria-label="Clear filters">Clear</button>
   </div>
-  <div id="saved-views" style="margin-top:8px; display:flex; gap:8px; align-items:end; flex-wrap:wrap;">
-    <label>保存ビュー
+  <div id="saved-views" class="toolbar gap-top-sm align-end">
+    <label>Saved views
       <select id="views-select">
-        <option value="">(選択)</option>
+        <option value="">(select)</option>
       </select>
     </label>
-    <button id="apply-view" type="button" class="secondary" aria-label="保存ビューを適用">Apply view</button>
-    <button id="delete-view" type="button" aria-label="保存ビューを削除">Delete view</button>
-    <label>名前
-      <input id="view-name" type="text" placeholder="今期S&OP など" />
+    <button id="apply-view" type="button" class="secondary" aria-label="Apply saved view">Apply view</button>
+    <button id="delete-view" type="button" aria-label="Delete saved view">Delete view</button>
+    <label>Name
+      <input id="view-name" type="text" placeholder="Current S&OP focus" />
     </label>
-    <button id="save-view" type="button" aria-label="現在の条件を保存">Save current as view</button>
-    <button id="copy-link" type="button" class="secondary" aria-label="現在のURLをコピー">Copy link</button>
-    <span style="margin:0 12px;">｜</span>
-    <label>サーバビュー
+    <button id="save-view" type="button" aria-label="Save current filters as view">Save current as view</button>
+    <button id="copy-link" type="button" class="secondary" aria-label="Copy permalink for current filters">Copy link</button>
+    <span class="mono">|</span>
+    <label>Server views
       <select id="views-select-server">
-        <option value="">(選択)</option>
+        <option value="">(select)</option>
       </select>
     </label>
-    <button id="apply-view-server" type="button" class="secondary" aria-label="サーバビューを適用">Apply server view</button>
+    <button id="apply-view-server" type="button" class="secondary" aria-label="Apply shared server view">Apply server view</button>
     <label><input id="server-view-shared" type="checkbox"> shared</label>
-    <label>scope
+    <label>Scope
       <select id="server-view-scope">
         <option value="private" selected>private</option>
         <option value="org">org</option>
         <option value="public">public</option>
       </select>
     </label>
-    <label>名前
-      <input id="view-name-server" type="text" placeholder="共有ビュー名" />
+    <label>Name
+      <input id="view-name-server" type="text" placeholder="Shared view name" />
     </label>
-    <button id="save-view-server" type="button" aria-label="現在の条件をサーバ保存">Save to server</button>
+    <button id="save-view-server" type="button" aria-label="Save current filters to server">Save to server</button>
   </div>
   {% else %}
-    <p>まだランはありません。/simulation を叩いて生成してください。</p>
+  <p>No runs yet. Call <code>/simulation</code> to generate.</p>
   {% endif %}
 </section>
-<section>
-  <h3>Compare</h3>
+<section class="page-section">
+  <div class="section-header gap-bottom-sm">
+    <h3>Compare Runs</h3>
+    <p>Select one or more run IDs to compute comparative views.</p>
+  </div>
   <form method="post" action="/ui/compare" id="compare-form">
     <label>Run IDs (comma-separated)
       <input id="run-ids" class="mono" type="text" name="run_ids" placeholder="id1,id2" required />
     </label>
-    <small>上のチェックボックス選択を反映するには「Use selected」を押下</small>
-    <button id="use-selected" type="button" class="secondary" aria-label="選択したランを使用">Use selected</button>
-    <button type="submit" aria-label="比較を実行">Compare</button>
-    <button id="compare-selected" type="button" class="contrast" aria-label="選択したランを比較">Compare selected</button>
+    <small class="help-text">Use the buttons below to populate the field from your current selections.</small>
+    <div class="toolbar gap-top-sm">
+      <button id="use-selected" type="button" class="secondary" aria-label="Populate with selected runs">Use selected</button>
+      <button type="submit" aria-label="Submit comparison">Compare</button>
+      <button id="compare-selected" type="button" class="contrast" aria-label="Compare selected runs">Compare selected</button>
+    </div>
   </form>
-  </section>
+</section>
 {% endblock %}
 
 {% block scripts %}
@@ -170,25 +180,25 @@
     var txt = fmtJst(ms);
     if (txt) td.textContent = txt;
   });
-  // 初期ロード時にAPIからメタ情報(total/offset/limit)を取得してページャを更新
+  // Initialize metadata (total/offset/limit) from API when the page loads
   if (window.RunsUI && typeof window.RunsUI.init === 'function') {
     window.RunsUI.init();
   }
-  // 保存ビュー（ローカル）
+  // Local saved views
   function loadViews(){
     let views = [];
     try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
     const sel = document.getElementById('views-select');
     if (!sel) return;
     const cur = sel.value;
-    sel.innerHTML = '<option value="">(選択)</option>' + views.map((v,i)=>`<option value="${i}">${v.name}</option>`).join('');
+    sel.innerHTML = '<option value="">(select)</option>' + views.map((v,i)=>`<option value="${i}">${v.name}</option>`).join('');
     if (cur) sel.value = cur;
   }
   function getState(){ try { return JSON.parse(localStorage.getItem('runs_prefs')||'{}') } catch { return {} } }
   function setState(s){ try { localStorage.setItem('runs_prefs', JSON.stringify(s)); } catch {} }
   document.getElementById('save-view')?.addEventListener('click', function(){
     const name = (document.getElementById('view-name')?.value || '').trim();
-    if (!name) { alert('名前を入力してください'); return; }
+    if (!name) { alert('Please enter a name.'); return; }
     const s = getState();
     const rec = { name, params: s };
     let views = [];
@@ -196,19 +206,19 @@
     views.push(rec);
     try { localStorage.setItem('runs_views', JSON.stringify(views)); } catch {}
     loadViews();
-    alert('保存しました');
+    alert('Saved.');
   });
   document.getElementById('apply-view')?.addEventListener('click', function(){
     const sel = document.getElementById('views-select');
     const idx = Number(sel?.value||'');
     let views = [];
     try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
-    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('ビューを選択してください'); return; }
+    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('Select a saved view.'); return; }
     const p = views[idx].params || {};
     const s = getState();
     const merged = { ...s, ...p };
     setState(merged);
-    // 画面反映は RunsUI.reloadRuns が内部で prefs を読み戻すため不要。ページを更新。
+    // No need to rehydrate the form; reload the page to apply stored preferences.
     location.href = '/ui/runs';
   });
   document.getElementById('delete-view')?.addEventListener('click', function(){
@@ -216,16 +226,16 @@
     const idx = Number(sel?.value||'');
     let views = [];
     try { views = JSON.parse(localStorage.getItem('runs_views')||'[]'); } catch {}
-    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('ビューを選択してください'); return; }
+    if (!Number.isFinite(idx) || idx<0 || idx>=views.length) { alert('Select a saved view.'); return; }
     views.splice(idx,1);
     try { localStorage.setItem('runs_views', JSON.stringify(views)); } catch {}
     loadViews();
   });
   document.getElementById('copy-link')?.addEventListener('click', function(){
-    try { navigator.clipboard.writeText(location.href); alert('URLをコピーしました'); } catch { alert('コピーに失敗しました'); }
+    try { navigator.clipboard.writeText(location.href); alert('Copied URL.'); } catch { alert('Copy failed.'); }
   });
   loadViews();
-  // サーバビュー
+  // Server-side views
   async function loadServerViews(){
     try {
       const res = await fetch('/views', { headers: getHeaders() });
@@ -234,26 +244,26 @@
       const sel = document.getElementById('views-select-server');
       if (!sel) return;
       const rows = js.views || [];
-      sel.innerHTML = '<option value="">(選択)</option>' + rows.map(v=>`<option value="${v.id}">${v.name}${v.shared?' (shared)':''}</option>`).join('');
+      sel.innerHTML = '<option value="">(select)</option>' + rows.map(v=>`<option value="${v.id}">${v.name}${v.shared?' (shared)':''}</option>`).join('');
       sel.setAttribute('data-views', JSON.stringify(rows));
     } catch {}
   }
   document.getElementById('apply-view-server')?.addEventListener('click', function(){
     const sel = document.getElementById('views-select-server');
     const id = Number(sel?.value||'');
-    if (!Number.isFinite(id) || id<=0) { alert('ビューを選択してください'); return; }
+    if (!Number.isFinite(id) || id<=0) { alert('Select a server view.'); return; }
     try {
       const rows = JSON.parse(sel.getAttribute('data-views')||'[]');
       const v = rows.find(x=>x.id===id);
-      if (!v) { alert('ビューが見つかりません'); return; }
+      if (!v) { alert('View not found.'); return; }
       const merged = { ...getState(), ...(v.filters||{}) };
       setState(merged);
       location.href = '/ui/runs';
-    } catch { alert('適用に失敗しました'); }
+    } catch { alert('Failed to apply view.'); }
   });
   document.getElementById('save-view-server')?.addEventListener('click', async function(){
     const name = (document.getElementById('view-name-server')?.value||'').trim();
-    if (!name) { alert('名前を入力してください'); return; }
+    if (!name) { alert('Please enter a name.'); return; }
     const shared = !!document.getElementById('server-view-shared')?.checked;
     const scope = (document.getElementById('server-view-scope')?.value||'private');
     const filters = getState();
@@ -261,8 +271,8 @@
       const res = await fetch('/views', { method:'POST', headers: { ...getHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ name, shared, scope, filters }) });
       if (!res.ok) throw new Error('HTTP '+res.status);
       await loadServerViews();
-      alert('サーバに保存しました');
-    } catch(e) { console.error(e); alert('保存に失敗しました'); }
+      alert('Saved to server.');
+    } catch(e) { console.error(e); alert('Save failed.'); }
   });
   function getHeaders(){
     const h = {};
@@ -289,11 +299,11 @@
     return withTs ? (base + '-' + tsId()) : base;
   }
 
-  // Run→Plan作成（クイックアクション）
+  // Run → Plan conversion (quick action)
   async function createPlan(runId, scenarioId){
     try {
       const headers = getHeaders();
-      // config.json を取得（存在しない場合は既定値で補完）
+      // Fetch config.json to reuse defaults when available
       let cfg = null;
       try {
         const r = await fetch(`/runs/${runId}/config.json`, { headers });
@@ -320,10 +330,10 @@
       if (!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       if (data && data.version_id){ window.location.href = '/ui/plans/' + data.version_id; }
-      else { alert('Plan作成に失敗しました（version_idなし）'); }
-    } catch(e) { console.error(e); alert('Plan作成に失敗しました'); }
+      else { alert('Plan creation failed (missing version_id).'); }
+    } catch(e) { console.error(e); alert('Plan creation failed.'); }
   }
-  // Run→Plan作成（サイレント・バルク用）
+  // Run → Plan conversion (silent bulk helper)
   async function createPlanSilent(runId, scenarioId){
     try {
       const headers = getHeaders();
@@ -367,7 +377,7 @@
     }
   });
 
-  // 設定UIの初期化と永続化
+  // Persist version controls
   (function initVersionControls(){
     const s = getPrefs();
     const prefixEl = document.getElementById('ver-prefix');
@@ -378,11 +388,11 @@
     tsEl?.addEventListener('change', function(){ const st = getPrefs(); st.plan_version_ts = !!tsEl.checked; setPrefs(st); });
   })();
 
-  // Bulk: 同期作成（順次）
+  // Bulk: synchronous plan creation
   async function planSelectedSync(){
     const picks = Array.from(document.querySelectorAll('input.pick:checked'));
-    if (!picks.length){ alert('Runを選択してください'); return; }
-    if (!confirm(picks.length+'件のPlanを順次作成します。よろしいですか？')) return;
+    if (!picks.length){ alert('Select at least one run.'); return; }
+    if (!confirm(`Create ${picks.length} plan version(s) sequentially?`)) return;
     const versions = [];
     const failures = [];
     const bySid = {};
@@ -405,13 +415,13 @@
       if (versions.length){
         const groups = Object.keys(bySid).map(sid => {
           const lst = bySid[sid] || [];
-          const head = `<div><strong>scenario_id=${sid||'(なし)'}:</strong> ${lst.length} 件</div>`;
-          const body = `<div>${lst.map(v=>`<a href=\"/ui/plans/${v}\">${v}</a>`).join(' ｜ ')}</div>`;
+          const head = `<div><strong>scenario_id=${sid||'(none)'}:</strong> ${lst.length} created</div>`;
+          const body = `<div>${lst.map(v=>`<a href=\"/ui/plans/${v}\">${v}</a>`).join('<span class=\"mono\"> | </span>')}</div>`;
           return head + body;
         }).join('<hr style=\"border:none;border-top:1px solid #eee; margin:6px 0;\"/>');
         box.innerHTML = '<div style="background:#e7f5ff;padding:6px 8px;">'+
-          `<strong>Plan作成完了:</strong> ${versions.length} 件`+
-          (failures.length? (` ｜ <small>失敗: ${failures.length} 件</small>`) : '') +
+          `<strong>Plan creation complete:</strong> ${versions.length}`+
+          (failures.length? (` <small class=\"mono\">| failed: ${failures.length}</small>`) : '') +
         '</div>'+
         '<div style="padding:6px 8px;">'+groups+'</div>'+
         (failures.length? ('<div style="background:#fff8e1;padding:6px 8px; margin-top:6px;">'+
@@ -420,7 +430,7 @@
         '</div>') : '');
         setTimeout(()=>{ window.location.href = '/ui/plans'; }, 1200);
       } else {
-        box.innerHTML = '<div style="background:#fff0f0;padding:6px 8px;">作成に失敗しました'+
+        box.innerHTML = '<div style="background:#fff0f0;padding:6px 8px;">Plan creation failed'+
           (failures.length? ('<br/>'+failures.slice(0,10).map(f=>`<div class=\"mono\">${f.run_id}: ${f.error.replaceAll('<','&lt;')}</div>`).join('')):'')+
         '</div>';
       }
@@ -428,11 +438,11 @@
   }
   document.getElementById('plan-selected')?.addEventListener('click', planSelectedSync);
 
-  // Bulk: ジョブ投入（非同期）
+  // Bulk: enqueue plan creation jobs (async)
   async function planSelectedJobs(){
     const picks = Array.from(document.querySelectorAll('input.pick:checked'));
-    if (!picks.length){ alert('Runを選択してください'); return; }
-    if (!confirm(picks.length+'件のPlan作成ジョブを投入します。/ui/jobs で進捗を確認してください。')) return;
+    if (!picks.length){ alert('Select at least one run.'); return; }
+    if (!confirm(`Enqueue ${picks.length} plan creation job(s)? Monitor progress in /ui/jobs.`)) return;
     const headers = getHeaders();
     let ok = 0, ng = 0;
     const failures = [];
@@ -479,7 +489,7 @@
     if (box){
       box.style.display = '';
       box.innerHTML = '<div style="background:#e7f5ff;padding:6px 8px;">'+
-        `<strong>ジョブ投入完了:</strong> success=${ok}, failed=${ng}`+
+        `<strong>Job enqueue summary:</strong> success=${ok}, failed=${ng}`+
       '</div>'+
       (failures.length? ('<div style="background:#fff8e1;padding:6px 8px; margin-top:6px;">'+
         failures.slice(0,10).map(f=>`<div class=\"mono\">${f.run_id}: ${f.error && String(f.error).replaceAll('<','&lt;')}</div>`).join('')+

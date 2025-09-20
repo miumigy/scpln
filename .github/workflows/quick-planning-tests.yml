@@ -65,6 +65,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest -q -n auto tests/test_planning_pipeline.py::test_aggregate_supply_backlog
+          pytest -q -n auto tests/test_psi_sync.py
           pytest -q -n auto tests/test_ui_*.py
           pytest -q -n auto tests/test_simulation_endpoint.py
       - name: Upload pipeline outputs (on failure)

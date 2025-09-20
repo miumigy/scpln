@@ -36,4 +36,4 @@ def test_plan_run_auto_redirects_to_new_plan():
     )
     # TestClientはデフォルトでリダイレクトを追跡するため、最終的に詳細画面が200で開ける
     assert r2.status_code == 200
-    assert "プラン詳細" in r2.text
+    assert "Plan Detail" in r2.text

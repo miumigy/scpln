@@ -1,60 +1,451 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>サプライチェーンシミュレーション</title>
+  <title>Supply Chain Planning MVP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- PicoCSS (CDN) -->
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.min.css">
   <style>
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .truncate { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .active-sort { text-decoration: underline; font-weight: 600; }
+    :root {
+      --app-max-width: 1200px;
+      --brand-bg: #0f172a;
+      --brand-fg: #f8fafc;
+      --surface-bg: #ffffff;
+      --surface-border: #dde4f2;
+      --surface-shadow: 0 18px 32px rgba(15, 23, 42, 0.08);
+    }
+    body {
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      margin: 0;
+      background-color: #f5f7fb;
+      color: #1f2933;
+    }
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    .app-header {
+      background: var(--brand-bg);
+      color: var(--brand-fg);
+      padding: 1.2rem 1.5rem 1rem;
+    }
+    .app-header a {
+      color: inherit;
+    }
+    .app-bar {
+      max-width: var(--app-max-width);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      justify-content: space-between;
+    }
+    .brand-link {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .nav-toggle {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid rgba(248, 250, 252, 0.4);
+      background: transparent;
+      color: inherit;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .app-nav {
+      max-width: var(--app-max-width);
+      margin: 0.85rem auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.45rem 0.95rem;
+      border-radius: 999px;
+      text-decoration: none;
+      background: rgba(15, 23, 42, 0.2);
+      color: var(--brand-fg);
+      font-weight: 500;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .nav-link:hover,
+    .nav-link:focus {
+      background: rgba(15, 23, 42, 0.35);
+      transform: translateY(-1px);
+    }
+    .nav-link.active {
+      background: #2563eb;
+      color: #f8fafc;
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
+    }
+    .app-main {
+      flex: 1;
+    }
+    .page-wrapper {
+      max-width: var(--app-max-width);
+      margin: 0 auto;
+      padding: 2.25rem 1.5rem 3rem;
+    }
+    .page-header {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .page-header h2 {
+      margin: 0;
+      font-size: clamp(1.55rem, 2.2vw, 1.9rem);
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .page-header p {
+      margin: 0;
+      color: #61748f;
+      font-size: 0.95rem;
+    }
+    .page-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+    .page-section {
+      background: var(--surface-bg);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: var(--surface-shadow);
+      border: 1px solid rgba(221, 228, 242, 0.6);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .toolbar.justify-end {
+      justify-content: flex-end;
+    }
+    .toolbar .spacer {
+      flex: 1 1 auto;
+    }
+    .align-end {
+      align-items: flex-end;
+    }
+    .grid-form,
+    form.grid-form {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      align-items: end;
+    }
+    .grid-form.grid-2,
+    form.grid-form.grid-2 {
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="search"],
+    input[type="date"],
+    input[type="time"],
+    input[type="datetime-local"],
+    input[type="email"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 44px;
+    }
+    textarea {
+      min-height: 120px;
+    }
+    .span-full {
+      grid-column: 1 / -1;
+    }
+    .input-compact-sm {
+      max-width: 6rem;
+    }
+    .input-compact-md {
+      max-width: 10rem;
+    }
+    button,
+    [role="button"],
+    .btn-primary {
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      min-height: 44px;
+      padding: 0.6rem 1.1rem;
+    }
+    summary {
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    summary::marker {
+      color: #2563eb;
+    }
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-bottom: 1.35rem;
+    }
+    .section-header h3 {
+      margin: 0;
+      font-size: clamp(1.2rem, 1.9vw, 1.45rem);
+      font-weight: 600;
+      color: #1f2933;
+    }
+    .section-header p {
+      margin: 0;
+      color: #61748f;
+      font-size: 0.95rem;
+    }
+    .form-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: end;
+    }
+    label > span.label-title {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #5b6b82;
+    }
+    .label-title-inline {
+      display: block;
+      margin-bottom: 0;
+    }
+    .btn-primary {
+      padding: 0.75rem 1.5rem;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .btn-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      background: #eef2f8;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .table-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .table-actions form {
+      margin: 0;
+    }
+    .link-truncate {
+      display: inline-block;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .help-text {
+      color: #61748f;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    .truncate-text {
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid var(--surface-border);
+    }
+    .col-wide {
+      min-width: 240px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface-bg);
+    }
+    thead {
+      background: #f3f6fc;
+    }
+    th,
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e2e8f6;
+      text-align: left;
+      vertical-align: top;
+    }
+    th button.link {
+      background: none;
+      border: none;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .truncate {
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .input-cluster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .pill {
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: #e9eef7;
+      font-size: 0.8rem;
+      color: #475569;
+    }
+    .split-panel {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .split-panel > .panel {
+      flex: 1 1 320px;
+      min-width: 320px;
+    }
+    .gap-bottom-sm {
+      margin-bottom: 1rem;
+    }
+    .gap-bottom-md {
+      margin-bottom: 1.5rem;
+    }
+    .gap-top-sm {
+      margin-top: 1rem;
+    }
+    .gap-top-md {
+      margin-top: 1.5rem;
+    }
+    @media (max-width: 768px) {
+      .app-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .nav-toggle {
+        display: inline-flex;
+      }
+      .app-nav {
+        width: 100%;
+        flex-direction: column;
+        display: none;
+      }
+      .app-nav[data-open="true"] {
+        display: flex;
+      }
+      .nav-link {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .page-wrapper {
+        padding: 1.75rem 1rem 2.5rem;
+      }
+      .page-section {
+        padding: 1.35rem;
+      }
+      th,
+      td {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.92rem;
+      }
+    }
   </style>
   {% block head %}{% endblock %}
-  </head>
+</head>
 <body>
-  <main class="container">
-    <header>
-      <hgroup>
-        <h1>サプライチェーンシミュレーション</h1>
-        {% if subtitle %}<p class="mono">{{ subtitle }}</p>{% endif %}
-      </hgroup>
-      <nav style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a href="/ui/plans" title="Planning Hub（推奨入口）">Planning Hub</a>
-        <a href="/ui/runs" id="navRuns" title="ラン履歴">ラン履歴</a>
-        <a href="/ui/scenarios">シナリオ一覧</a>
-        <a href="/ui/configs">設定マスタ</a>
-        <a href="/ui/jobs">ジョブ一覧</a>
-        <a href="/ui/hierarchy">階層マスタ</a>
-        <a href="https://github.com/miumigy/scpln/blob/main/docs/TERMS-JA.md" target="_blank" title="用語表（GitHub）">用語</a>
-      </nav>
-      <div id="hubBanner" style="display:none; margin-top:8px;">
-        <article style="padding:8px 12px;">
-          <strong>Planning Hub に移行中:</strong>
-          入口は <a href="/ui/plans">/ui/plans</a> に統合しました（ベータ）。
-          <button id="hubBannerClose" class="secondary" style="float:right;">閉じる</button>
-        </article>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="app-bar">
+        <a class="brand-link" href="/ui/plans">Supply Chain Planning MVP</a>
+        <button id="navToggle" class="nav-toggle" type="button" aria-controls="primaryNav" aria-expanded="false">Menu</button>
       </div>
+      {% set current_path = request.url.path if request is defined else '' %}
+      <nav id="primaryNav" class="app-nav" data-open="false" aria-label="Primary navigation">
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/plans') else '' }}" href="/ui/plans">Planning Hub</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/runs') else '' }}" href="/ui/runs">Run History</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/scenarios') else '' }}" href="/ui/scenarios">Scenarios</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/configs') else '' }}" href="/ui/configs">Configurations</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/jobs') else '' }}" href="/ui/jobs">Jobs</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/hierarchy') else '' }}" href="/ui/hierarchy">Hierarchy</a>
+        <a class="nav-link" href="https://github.com/miumigy/scpln/blob/main/docs/TERMS-JA.md" target="_blank" rel="noopener">Glossary</a>
+      </nav>
     </header>
-    {% block content %}{% endblock %}
-  </main>
-  {% block scripts %}{% endblock %}
+    <main class="app-main">
+      <div class="page-wrapper">
+        {% set header_block %}
+          {% block page_header %}{% endblock %}
+        {% endset %}
+        {% if header_block.strip() %}
+        <section class="page-header">
+          {{ header_block }}
+        </section>
+        {% endif %}
+        <div class="page-content">
+          {% block content %}{% endblock %}
+        </div>
+      </div>
+    </main>
+  </div>
   <script>
-    (function(){
-      function qs(id){ return document.getElementById(id); }
-      function show(){ var el = qs('hubBanner'); if (el) el.style.display=''; }
-      function hide(){ var el = qs('hubBanner'); if (el) el.style.display='none'; }
-      // 管理者専用リンクの制御は現状なし（ラン履歴は一般公開）
-      try {
-        var hidden = localStorage.getItem('hideHubBanner') === '1';
-        if (!hidden) {
-          show();
+  (function() {
+    var toggle = document.getElementById('navToggle');
+    var nav = document.getElementById('primaryNav');
+    if (!toggle || !nav) {
+      return;
+    }
+    var links = nav.querySelectorAll('a.nav-link');
+    function closeMenu() {
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('data-open', 'false');
+    }
+    toggle.addEventListener('click', function() {
+      var expanded = toggle.getAttribute('aria-expanded') === 'true';
+      var next = (!expanded).toString();
+      toggle.setAttribute('aria-expanded', next);
+      nav.setAttribute('data-open', next);
+    });
+    links.forEach(function(link) {
+      link.addEventListener('click', function() {
+        if (window.matchMedia('(max-width: 768px)').matches) {
+          closeMenu();
         }
-        var btn = qs('hubBannerClose');
-        if (btn) btn.addEventListener('click', function(){ localStorage.setItem('hideHubBanner','1'); hide(); });
-      } catch(e) { show(); }
-    })();
+      });
+    });
+  })();
   </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

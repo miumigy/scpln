@@ -751,7 +751,9 @@ def patch_plan_psi(
                                 if det_key and det_key in det_to_agg:
                                     target_aggs.add(det_to_agg[det_key])
                             if target_aggs:
-                                agg_sums: Dict[tuple[str, str], Dict[str, float]] = defaultdict(dict)
+                                agg_sums: Dict[tuple[str, str], Dict[str, float]] = (
+                                    defaultdict(dict)
+                                )
                                 rollup_map = {
                                     "demand": ("demand",),
                                     "supply": ("supply_plan", "supply"),
@@ -776,7 +778,9 @@ def patch_plan_psi(
                                             continue
                                         try:
                                             cur = agg_sums[agg_key].get(agg_field, 0.0)
-                                            agg_sums[agg_key][agg_field] = cur + float(val)
+                                            agg_sums[agg_key][agg_field] = cur + float(
+                                                val
+                                            )
                                         except Exception:
                                             continue
                                 if agg_sums:
@@ -863,7 +867,9 @@ def patch_plan_psi(
                 for r in det_rows:
                     if r.get("family") != fam:
                         continue
-                    per_det = str(r.get("period")) if r.get("period") is not None else None
+                    per_det = (
+                        str(r.get("period")) if r.get("period") is not None else None
+                    )
                     wk_det = str(r.get("week")) if r.get("week") is not None else None
                     if (
                         (per_det is not None and per_det == per)
