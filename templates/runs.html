@@ -13,17 +13,16 @@
     <table role="grid">
       <thead>
         <tr>
-          <th></th>
-          <th>run_id</th>
-          <th>meta</th>
-          <th><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="Sort by start time">started_at</button></th>
-          <th><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
-          <th><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="Sort by schema version">schema</button></th>
-          <th>config_id</th>
-          <th>scenario_id</th>
-          <th>fill_rate</th>
-          <th>profit_total</th>
-          <th></th>
+          <th scope="col">Select</th>
+          <th scope="col">run_id</th>
+          <th scope="col"><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="Sort by start time">started_at (JST)</button></th>
+          <th scope="col"><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
+          <th scope="col"><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="Sort by schema version">schema</button></th>
+          <th scope="col">config_id</th>
+          <th scope="col">scenario_id</th>
+          <th scope="col">fill_rate</th>
+          <th scope="col">profit_total</th>
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody id="runs-tbody">
@@ -163,24 +162,41 @@
 <script src="/static/js/runs_ui.js"></script>
 <script>
 (function(){
-  function fmtJst(ms){
-    var n = Number(ms);
-    if (!Number.isFinite(n)) return '';
-    if (n < 1e12) n = n * 1000;
-    var t = new Date(n + 9*3600*1000);
-    var y = t.getUTCFullYear();
-    var mo = String(t.getUTCMonth()+1).padStart(2,'0');
-    var d = String(t.getUTCDate()).padStart(2,'0');
-    var h = String(t.getUTCHours()).padStart(2,'0');
-    var mi = String(t.getUTCMinutes()).padStart(2,'0');
-    var s = String(t.getUTCSeconds()).padStart(2,'0');
-    return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
+  function fallbackFormat(scope){
+    var root = scope || document;
+    root.querySelectorAll('td.ts-ms').forEach(function(td){
+      var raw = td.getAttribute('data-ms');
+      var txt = '';
+      if (raw) {
+        var n = Number(raw);
+        if (!Number.isFinite(n)) {
+          var parsed = Date.parse(raw);
+          if (Number.isFinite(parsed)) n = parsed;
+        }
+        if (Number.isFinite(n)) {
+          if (n < 1e12) n = n * 1000;
+          var t = new Date(n + 9*3600*1000);
+          var y = t.getUTCFullYear();
+          var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+          var d = String(t.getUTCDate()).padStart(2,'0');
+          var h = String(t.getUTCHours()).padStart(2,'0');
+          var mi = String(t.getUTCMinutes()).padStart(2,'0');
+          var s = String(t.getUTCSeconds()).padStart(2,'0');
+          txt = y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
+        }
+      }
+      if (!txt) {
+        txt = td.textContent || '';
+      }
+      if (txt) td.textContent = txt;
+    });
   }
-  document.querySelectorAll('td.ts-ms').forEach(function(td){
-    var ms = td.getAttribute('data-ms');
-    var txt = fmtJst(ms);
-    if (txt) td.textContent = txt;
-  });
+
+  var formatter = (window.RunsUI && typeof window.RunsUI.formatTimestamps === 'function')
+    ? window.RunsUI.formatTimestamps
+    : fallbackFormat;
+
+  formatter(document);
   // Initialize metadata (total/offset/limit) from API when the page loads
   if (window.RunsUI && typeof window.RunsUI.init === 'function') {
     window.RunsUI.init();

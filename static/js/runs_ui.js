@@ -23,6 +23,10 @@
   const pageNumInput = document.getElementById('page-number');
   const pageTotalSpan = document.getElementById('page-total');
 
+  const START_LABEL = 'started_at (JST)';
+  const DUR_LABEL = 'dur(ms)';
+  const SCHEMA_LABEL = 'schema';
+
   let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', scenario_id: '' };
 
   function loadPrefs() {
@@ -95,39 +99,73 @@
     // reset classes
     [thSortStarted, thSortDur, thSortSchema].forEach(el => { if (el) el.classList.remove('active-sort'); });
     if (thSortStarted) {
-      thSortStarted.textContent = 'started_at' + (state.sort === 'started_at' ? ' ' + arrow : '');
+      thSortStarted.textContent = START_LABEL + (state.sort === 'started_at' ? ' ' + arrow : '');
       if (state.sort === 'started_at') thSortStarted.classList.add('active-sort');
     }
     if (thSortDur) {
-      thSortDur.textContent = 'dur(ms)' + (state.sort === 'duration_ms' ? ' ' + arrow : '');
+      thSortDur.textContent = DUR_LABEL + (state.sort === 'duration_ms' ? ' ' + arrow : '');
       if (state.sort === 'duration_ms') thSortDur.classList.add('active-sort');
     }
     if (thSortSchema) {
-      thSortSchema.textContent = 'schema' + (state.sort === 'schema_version' ? ' ' + arrow : '');
+      thSortSchema.textContent = SCHEMA_LABEL + (state.sort === 'schema_version' ? ' ' + arrow : '');
       if (state.sort === 'schema_version') thSortSchema.classList.add('active-sort');
     }
   }
 
-  function fmtJst(ms) {
-    if (ms === null || ms === undefined) return '';
-    const n = Number(ms);
-    if (!Number.isFinite(n)) return '';
-    const t = new Date(n + 9 * 3600 * 1000); // shift to JST
-    const y = t.getUTCFullYear();
-    const mo = String(t.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(t.getUTCDate()).padStart(2, '0');
-    const h = String(t.getUTCHours()).padStart(2, '0');
-    const mi = String(t.getUTCMinutes()).padStart(2, '0');
-    const s = String(t.getUTCSeconds()).padStart(2, '0');
-    return `${y}/${mo}/${d} ${h}:${mi}:${s}`;
+  function fmtJst(value, fallback = '') {
+    let primary = value;
+    if (primary === null || primary === undefined || primary === '') {
+      primary = fallback;
+    }
+    if (primary === null || primary === undefined || primary === '') return '';
+
+    let msVal = Number(primary);
+    if (!Number.isFinite(msVal)) {
+      const parsed = Date.parse(primary);
+      if (Number.isFinite(parsed)) {
+        msVal = parsed;
+      }
+    }
+
+    if (Number.isFinite(msVal)) {
+      if (msVal < 1e12) msVal *= 1000;
+      const t = new Date(msVal + 9 * 3600 * 1000); // shift to JST
+      const y = t.getUTCFullYear();
+      const mo = String(t.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(t.getUTCDate()).padStart(2, '0');
+      const h = String(t.getUTCHours()).padStart(2, '0');
+      const mi = String(t.getUTCMinutes()).padStart(2, '0');
+      const s = String(t.getUTCSeconds()).padStart(2, '0');
+      return `${y}/${mo}/${d} ${h}:${mi}:${s} JST`;
+    }
+
+    const rawText = String(primary ?? fallback ?? '').trim();
+    return rawText;
+  }
+
+  function applyTimestampFormatting(scope) {
+    const root = scope || document;
+    root.querySelectorAll('.ts-ms').forEach((el) => {
+      const raw = el.getAttribute('data-ms');
+      const fallback = el.textContent || '';
+      const txt = fmtJst(raw || fallback, fallback);
+      if (txt) {
+        el.textContent = txt;
+      }
+    });
   }
 
   function rowHtml(r) {
+    const startedMsRaw = Number(r.started_at);
+    const hasMs = Number.isFinite(startedMsRaw);
+    const dataMs = hasMs ? String(startedMsRaw) : '';
+    const startedFallback = typeof r.started_at_str === 'string' ? r.started_at_str : '';
+    const startedDisplay = fmtJst(hasMs ? startedMsRaw : (startedFallback || ''), startedFallback);
     return `
       <tr>
-        <td><input class="pick" type="checkbox" value="${r.run_id}" /></td>
+        <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
         <td class="mono truncate" title="${r.run_id}">${r.run_id}</td>
-        <td>${fmtJst(r.started_at)}</td>
+        <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
         <td>${r.config_id ?? ''}</td>
@@ -136,7 +174,7 @@
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td>
           <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
-          
+          <button type="button" class="secondary create-plan" data-run-id="${r.run_id}" data-scenario-id="${r.scenario_id ?? ''}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
         </td>
       </tr>
     `;
@@ -165,6 +203,7 @@
       state.limit = Number(data.limit || state.limit);
       if (tbody) {
         tbody.innerHTML = rows.map(rowHtml).join('');
+        applyTimestampFormatting(tbody);
         // Restore the most recently saved selections
         try {
           const saved = JSON.parse(localStorage.getItem('runs_selected') || '[]');
@@ -315,9 +354,14 @@
   });
 
   // Initial load: sync from URL before fetching data
-  function init() { syncFromUrl(); updateSortIndicators(); reloadRuns(); }
+  function init() {
+    syncFromUrl();
+    updateSortIndicators();
+    applyTimestampFormatting(document);
+    reloadRuns();
+  }
   // expose for inline script to trigger initial load
-  window.RunsUI = { reloadRuns, init };
+  window.RunsUI = { reloadRuns, init, formatTimestamps: applyTimestampFormatting };
 
   function downloadCsv(ev) {
     ev.preventDefault();
