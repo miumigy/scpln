@@ -1036,7 +1036,7 @@
               {% for r in latest_runs %}
               <tr>
                 <td class="mono">{{ r.run_id }}</td>
-                <td class="mono">{{ r.started_at }}</td>
+                <td class="mono ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at or '' }}</td>
                 <td class="mono">{{ r.fill_rate }}</td>
                 <td class="mono">{{ r.profit_total }}</td>
                 <td><a class="secondary" href="/ui/runs/{{ r.run_id }}" target="_blank">open</a></td>
@@ -1266,6 +1266,28 @@
     }
     // Lazy rendering: draw charts when the Results tab is active
     window.__renderCharts = function(){ try{ makeSpill(); makeCapacity(); }catch(e){} };
+  })();
+  // Format millisecond timestamps as JST
+  (function(){
+    function fmtJst(ms){
+      var n = Number(ms);
+      if (!Number.isFinite(n)) return '';
+      if (n < 1e12) n = n * 1000; // accept epoch seconds as fallback
+      var t = new Date(n + 9*3600*1000);
+      var y = t.getUTCFullYear();
+      var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+      var d = String(t.getUTCDate()).padStart(2,'0');
+      var h = String(t.getUTCHours()).padStart(2,'0');
+      var mi = String(t.getUTCMinutes()).padStart(2,'0');
+      var s = String(t.getUTCSeconds()).padStart(2,'0');
+      return y + '/' + mo + '/' + d + ' ' + h + ':' + mi + ':' + s + ' JST';
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      document.querySelectorAll('.ts-ms').forEach(function(el){
+        var txt = fmtJst(el.getAttribute('data-ms'));
+        if (txt) el.textContent = txt;
+      });
+    });
   })();
 </script>
 <script>

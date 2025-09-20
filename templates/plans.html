@@ -194,6 +194,7 @@
 function fmtJst(ms){
   var n = Number(ms);
   if (!Number.isFinite(n)) return '';
+  if (n < 1e12) n = n * 1000;
   var t = new Date(n + 9*3600*1000); // Shift to JST before formatting via UTC getters
   var y = t.getUTCFullYear();
   var mo = String(t.getUTCMonth()+1).padStart(2,'0');
@@ -201,7 +202,7 @@ function fmtJst(ms){
   var h = String(t.getUTCHours()).padStart(2,'0');
   var mi = String(t.getUTCMinutes()).padStart(2,'0');
   var s = String(t.getUTCSeconds()).padStart(2,'0');
-  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s;
+  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
 }
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('td.ts-ms').forEach(function(td){
