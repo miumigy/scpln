@@ -255,9 +255,27 @@
       overflow-x: auto;
       max-width: 100%;
     }
+    td.table-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: nowrap;
+    }
     .table-actions > * {
       white-space: nowrap;
       flex: 0 0 auto;
+    }
+    td.table-actions > a[role="button"],
+    td.table-actions > button,
+    .table-actions > a[role="button"],
+    .table-actions > button {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto !important;
+      width: auto !important;
+      min-width: 0;
+      margin: 0 !important;
     }
     .table-actions .shortcut-group {
       display: inline-flex;
@@ -309,6 +327,12 @@
       border-bottom: 1px solid #e2e8f6;
       text-align: left;
       vertical-align: top;
+    }
+    td > button,
+    td > [role="button"] {
+      display: inline-flex!important;
+      width: auto!important;
+      margin: 0!important;
     }
     th button.link {
       background: none;

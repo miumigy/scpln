@@ -172,7 +172,7 @@
         <td>${r.scenario_id ?? ''}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
-        <td>
+        <td class="table-actions">
           <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
           <button type="button" class="secondary create-plan" data-run-id="${r.run_id}" data-scenario-id="${r.scenario_id ?? ''}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
         </td>

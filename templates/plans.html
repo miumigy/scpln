@@ -137,15 +137,25 @@
     <table id="tblPlans">
         <thead>
           <tr>
-            <th>Version</th>
-            <th data-sort="status" title="Sort by status">Status</th>
-            <th data-sort="cutover" title="Sort by cutover">Cutover</th>
-            <th>Window (days)</th>
-            <th data-sort="policy" title="Sort by policy">Policy</th>
-            <th data-sort="created_at" title="Sort by created at">Created</th>
-            <th data-sort="violations" title="Sort by violations">Violations</th>
-            <th>Max Δ (d/s/b)</th>
-            <th>Shortcuts</th>
+            <th scope="col">Version</th>
+            <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="status" data-label="Status" title="Sort by status" aria-label="Sort by status">Status</button>
+            </th>
+            <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="cutover" data-label="Cutover" title="Sort by cutover" aria-label="Sort by cutover">Cutover</button>
+            </th>
+            <th scope="col">Window (days)</th>
+            <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="policy" data-label="Policy" title="Sort by policy" aria-label="Sort by policy">Policy</button>
+            </th>
+            <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="created_at" data-label="Created" title="Sort by created at" aria-label="Sort by created at">Created</button>
+            </th>
+            <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="violations" data-label="Violations" title="Sort by violations" aria-label="Sort by violations">Violations</button>
+            </th>
+            <th scope="col">Max Δ (d/s/b)</th>
+            <th scope="col">Shortcuts</th>
           </tr>
         </thead>
         <tbody>
@@ -214,6 +224,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var meta = document.getElementById('meta');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
   var sortBadge = document.getElementById('sortBadge');
+  var sortButtons = Array.from(document.querySelectorAll('button.sort-trigger[data-sort]'));
   // Persist search filter in localStorage
   var KEY_Q = 'ui_plans_query';
   try {
@@ -256,55 +267,100 @@ document.addEventListener('DOMContentLoaded', function(){
   // Quick sort for common columns (status/created_at/violations)
   var KEY_SORT = 'ui_plans_sort';
   var KEY_SORT2 = 'ui_plans_sort2';
+  var SORT_LABELS = {
+    status: 'Status',
+    cutover: 'Cutover',
+    policy: 'Policy',
+    created_at: 'Created',
+    violations: 'Violations'
+  };
   function updateSortBadge(pkey, pdir, skey, sdir){
     if (!sortBadge) return;
     var txt = 'Sort: ' + (pkey||'-') + ' ' + (pdir||'-');
     if (skey) txt += ' | Secondary: ' + skey + ' ' + (sdir||'-');
     sortBadge.textContent = txt;
   }
-  function getCellValue(tr, idx){ var el = tr.children[idx]; return el ? el.textContent.trim() : ''; }
-  function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return isNaN(n)? null : n; }
+  function getCell(tr, idx){ return tr && Number.isInteger(idx) ? tr.children[idx] : null; }
+  function getCellValue(tr, idx){ var el = getCell(tr, idx); return el ? el.textContent.trim() : ''; }
+  function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)? n : null; }
   function cmp(a,b){ return a<b ? -1 : a>b ? 1 : 0; }
+  var COL_INDEX = {status:1, cutover:2, policy:4, created_at:5, violations:6};
+  function normalizeMs(n){
+    if (!Number.isFinite(n)) return null;
+    if (n < 1e12) n = n * 1000;
+    return n;
+  }
+  function getSortDatum(tr, key){
+    var idx = COL_INDEX[key];
+    var cell = getCell(tr, idx);
+    if (!cell) return {text:'', num:null};
+    if (key === 'created_at'){
+      var attr = cell.getAttribute('data-ms');
+      if (attr){
+        var n = normalizeMs(Number(attr));
+        if (n !== null) return {text: cell.textContent.trim(), num: n};
+      }
+    }
+    if (key === 'cutover'){
+      var raw = cell.textContent.trim();
+      var ts = Date.parse(raw.replace(/\//g,'-'));
+      if (Number.isFinite(ts)) return {text: raw, num: ts};
+      return {text: raw, num: null};
+    }
+    var txt = cell.textContent.trim();
+    var num = toNum(txt);
+    return {text: txt, num: num !== null ? num : null};
+  }
+  function compareByKey(ra, rb, key, dir){
+    if (!key) return 0;
+    var a = getSortDatum(ra, key);
+    var b = getSortDatum(rb, key);
+    var diff = 0;
+    if (a.num !== null && b.num !== null){
+      diff = a.num - b.num;
+    } else {
+      diff = cmp(a.text, b.text);
+    }
+    if (diff === 0) return 0;
+    return dir === 'asc' ? diff : -diff;
+  }
+  function renderSortIndicators(activeKey, activeDir){
+    var arrow = activeDir === 'asc' ? '↑' : '↓';
+    sortButtons.forEach(function(btn){
+      var key = btn.getAttribute('data-sort');
+      var base = btn.getAttribute('data-label') || SORT_LABELS[key] || btn.textContent.trim();
+      if (key === activeKey){
+        btn.textContent = base + ' ' + arrow;
+        btn.classList.add('active-sort');
+        var th = btn.closest('th');
+        if (th) th.setAttribute('aria-sort', activeDir === 'asc' ? 'ascending' : 'descending');
+      } else {
+        btn.textContent = base;
+        btn.classList.remove('active-sort');
+        var thClear = btn.closest('th');
+        if (thClear) thClear.setAttribute('aria-sort', 'none');
+      }
+    });
+  }
+
   function applySort(key, dir){
     var table = document.getElementById('tblPlans');
     if (!table) return;
     var tbody = table.querySelector('tbody');
     var rowsArr = Array.from(tbody.querySelectorAll('tr'));
-    // Column index map: 0:version 1:status 2:cutover 3:window 4:policy 5:created_at 6:violations 7:maxΔ 8:shortcuts
-    var colIdx = {status:1, cutover:2, policy:4, created_at:5, violations:6}[key];
-    if (colIdx == null) return;
+    if (!COL_INDEX.hasOwnProperty(key)) return;
     rowsArr.sort(function(ra, rb){
-      var va = getCellValue(ra, colIdx);
-      var vb = getCellValue(rb, colIdx);
-      if (key === 'created_at' || key === 'cutover'){
-        // Parse date-like strings before comparing
-        var da = Date.parse(va.replace(/\//g,'-')) || 0;
-        var db = Date.parse(vb.replace(/\//g,'-')) || 0;
-        return dir==='asc'? (da-db):(db-da);
-      }
-      var na = toNum(va); var nb = toNum(vb);
-      if (na!=null && nb!=null) return dir==='asc'? (na-nb):(nb-na);
-      return dir==='asc'? cmp(va,vb): cmp(vb,va);
+      return compareByKey(ra, rb, key, dir);
     });
     rowsArr.forEach(function(r){ tbody.appendChild(r); });
-    // Highlight active sort header
-    document.querySelectorAll('th[data-sort]').forEach(function(th){ th.classList.remove('active-sort'); });
-    var th = document.querySelector('th[data-sort="'+key+'"]'); if (th) th.classList.add('active-sort');
+    renderSortIndicators(key, dir);
     try { localStorage.setItem(KEY_SORT, JSON.stringify({key:key, dir:dir})); } catch(e) {}
-  }
-  function compareByKey(ra, rb, key, dir){
-    var colIdx = {status:1, cutover:2, policy:4, created_at:5, violations:6}[key];
-    if (colIdx == null) return 0;
-    var va = getCellValue(ra, colIdx);
-    var vb = getCellValue(rb, colIdx);
-    if (key === 'created_at' || key === 'cutover'){
-      var da = Date.parse(va.replace(/\//g,'-')) || 0;
-      var db = Date.parse(vb.replace(/\//g,'-')) || 0;
-      return dir==='asc'? (da-db):(db-da);
-    }
-    var na = toNum(va); var nb = toNum(vb);
-    if (na!=null && nb!=null) return dir==='asc'? (na-nb):(nb-na);
-    return dir==='asc'? cmp(va,vb): cmp(vb,va);
+    try { localStorage.setItem(KEY_SORT2, JSON.stringify({pkey:key, pdir:dir, skey:'', sdir:'desc'})); } catch(e) {}
+    var pk = document.getElementById('sortPKey'); if (pk) pk.value = key;
+    var pd = document.getElementById('sortPDir'); if (pd) pd.value = dir;
+    var sk = document.getElementById('sortSKey'); if (sk) sk.value = '';
+    var sd = document.getElementById('sortSDir'); if (sd) sd.value = 'desc';
+    updateSortBadge(key, dir, '', 'desc');
   }
   function applySort2(pkey, pdir, skey, sdir){
     var table = document.getElementById('tblPlans');
@@ -324,6 +380,8 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     rowsArr.forEach(function(r){ tbody.appendChild(r); });
     try { localStorage.setItem(KEY_SORT2, JSON.stringify({pkey, pdir, skey, sdir})); } catch(e) {}
+    try { localStorage.setItem(KEY_SORT, JSON.stringify({key:pkey, dir:pdir})); } catch(e) {}
+    renderSortIndicators(pkey, pdir);
   }
   function initSort(){
     var s2 = null; try { s2 = JSON.parse(localStorage.getItem(KEY_SORT2)||'null'); }catch(e){}
@@ -339,13 +397,13 @@ document.addEventListener('DOMContentLoaded', function(){
     var sd = document.getElementById('sortSDir'); if (sd) sd.value = sdir;
     applySort2(pkey, pdir, skey, sdir);
     updateSortBadge(pkey, pdir, skey, sdir);
+    renderSortIndicators(pkey, pdir);
   }
-  document.querySelectorAll('th[data-sort]').forEach(function(th){
-    th.style.cursor = 'pointer';
-    th.addEventListener('click', function(){
-      var key = th.getAttribute('data-sort');
+  sortButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var key = btn.getAttribute('data-sort');
       var saved = null; try { saved = JSON.parse(localStorage.getItem(KEY_SORT)||'null'); }catch(e){}
-      var dir = (saved && saved.key===key && saved.dir==='asc') ? 'desc' : 'asc';
+      var dir = (saved && saved.key === key && saved.dir === 'asc') ? 'desc' : 'asc';
       applySort(key, dir);
     });
   });
