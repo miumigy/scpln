@@ -108,7 +108,7 @@ Planning Hub UI の「新規Plan作成（統合Run）」から同等の処理を
 ## 計画パイプライン概要（要約）
 
 ```mermaid
-flowchart TD
+flowchart LR
   A[Aggregate] --> B[Allocate]
   B --> C[MRP]
   C --> D[Reconcile]
