@@ -13,6 +13,12 @@ from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_
 
 from app.api import app
 from app import db
+from core.config import build_planning_inputs
+from core.config.storage import (
+    CanonicalConfigNotFoundError,
+    load_canonical_config_from_db,
+)
+from app.jobs import _materialize_planning_inputs
 import subprocess
 import os
 
@@ -186,7 +192,7 @@ def _has_approve(req: Request) -> bool:
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
     version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
-    input_dir = _get_param(body, "input_dir") or "samples/planning"
+    input_dir_param = _get_param(body, "input_dir") or "samples/planning"
     out_dir = Path(
         _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
     )
@@ -207,6 +213,72 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    input_dir = input_dir_param
+    config_version_id = _get_param(body, "config_version_id")
+    canonical_config = None
+    planning_bundle = None
+    canonical_snapshot_path: Optional[Path] = None
+    planning_inputs_path: Optional[Path] = None
+
+    if config_version_id not in (None, ""):
+        try:
+            config_version_id = int(config_version_id)
+        except Exception:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "config_version_id must be integer"},
+            )
+        try:
+            canonical_config, validation = load_canonical_config_from_db(
+                config_version_id, validate=True
+            )
+        except CanonicalConfigNotFoundError as exc:
+            return JSONResponse(status_code=404, content={"detail": str(exc)})
+        if validation and validation.has_errors:
+            errors = [
+                {
+                    "code": issue.code,
+                    "message": issue.message,
+                    "context": issue.context,
+                }
+                for issue in validation.issues
+                if issue.severity == "error"
+            ]
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": {
+                        "message": "canonical config validation failed",
+                        "errors": errors,
+                    }
+                },
+            )
+        planning_bundle = build_planning_inputs(canonical_config)
+        temp_input_dir = out_dir / "canonical_inputs"
+        _materialize_planning_inputs(planning_bundle, temp_input_dir)
+        input_dir = str(temp_input_dir)
+        canonical_snapshot_path = out_dir / "canonical_snapshot.json"
+        canonical_snapshot_path.write_text(
+            canonical_config.model_dump_json(indent=2), encoding="utf-8"
+        )
+        planning_inputs_path = out_dir / "planning_inputs.json"
+        planning_inputs_path.write_text(
+            planning_bundle.aggregate_input.model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+        if planning_bundle.period_cost:
+            (out_dir / "period_cost.json").write_text(
+                json.dumps(planning_bundle.period_cost, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        if planning_bundle.period_score:
+            (out_dir / "period_score.json").write_text(
+                json.dumps(planning_bundle.period_score, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+    else:
+        config_version_id = None
+        input_dir = input_dir_param
     # 1) aggregate
     _run_py(
         [
@@ -436,6 +508,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         recon_window_days=recon_window_days,
         objective=body.get("objective"),
         note=body.get("note"),
+        config_version_id=config_version_id,
     )
 
     def _load(p: Path) -> Optional[str]:
@@ -457,6 +530,31 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         t = _load(out_dir / name)
         if t is not None:
             db.upsert_plan_artifact(version_id, name, t)
+    if canonical_config is not None:
+        if canonical_snapshot_path and canonical_snapshot_path.exists():
+            db.upsert_plan_artifact(
+                version_id,
+                "canonical_snapshot.json",
+                canonical_snapshot_path.read_text(encoding="utf-8"),
+            )
+        if planning_inputs_path and planning_inputs_path.exists():
+            db.upsert_plan_artifact(
+                version_id,
+                "planning_inputs.json",
+                planning_inputs_path.read_text(encoding="utf-8"),
+            )
+        if (out_dir / "period_cost.json").exists():
+            db.upsert_plan_artifact(
+                version_id,
+                "period_cost.json",
+                (out_dir / "period_cost.json").read_text(encoding="utf-8"),
+            )
+        if (out_dir / "period_score.json").exists():
+            db.upsert_plan_artifact(
+                version_id,
+                "period_score.json",
+                (out_dir / "period_score.json").read_text(encoding="utf-8"),
+            )
     # Optional: record source linkage (e.g., created from run)
     try:
         src_run = _get_param(body, "source_run_id")
@@ -468,24 +566,40 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             )
     except Exception:
         pass
+    artifacts = [
+        name
+        for name in (
+            "aggregate.json",
+            "sku_week.json",
+            "mrp.json",
+            "plan_final.json",
+            "reconciliation_log.json",
+            "sku_week_adjusted.json",
+            "mrp_adjusted.json",
+            "plan_final_adjusted.json",
+            "reconciliation_log_adjusted.json",
+        )
+        if (out_dir / name).exists()
+    ]
+    if canonical_config is not None:
+        for name in (
+            "canonical_snapshot.json",
+            "planning_inputs.json",
+            "period_cost.json",
+            "period_score.json",
+        ):
+            if (out_dir / name).exists():
+                artifacts.append(name)
+    try:
+        out_dir_display = str(out_dir.relative_to(BASE_DIR))
+    except ValueError:
+        out_dir_display = str(out_dir)
+
     return {
         "version_id": version_id,
-        "out_dir": str(out_dir.relative_to(BASE_DIR)),
-        "artifacts": [
-            name
-            for name in (
-                "aggregate.json",
-                "sku_week.json",
-                "mrp.json",
-                "plan_final.json",
-                "reconciliation_log.json",
-                "sku_week_adjusted.json",
-                "mrp_adjusted.json",
-                "plan_final_adjusted.json",
-                "reconciliation_log_adjusted.json",
-            )
-            if (out_dir / name).exists()
-        ],
+        "config_version_id": config_version_id,
+        "out_dir": out_dir_display,
+        "artifacts": artifacts,
     }
 
 

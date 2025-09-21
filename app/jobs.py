@@ -1,11 +1,13 @@
 import threading
 import queue
 import time
+import csv
 import json
 from uuid import uuid4
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import os
 import logging
+from pathlib import Path
 
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
@@ -13,6 +15,11 @@ from app.run_registry import REGISTRY
 from app import db
 from prometheus_client import Counter as _Counter, Histogram as _Histogram
 from engine.aggregation import aggregate_by_time, rollup_axis
+from core.config import PlanningDataBundle, build_planning_inputs
+from core.config.storage import (
+    CanonicalConfigNotFoundError,
+    load_canonical_config_from_db,
+)
 
 
 JOBS_ENABLED = os.getenv("JOBS_ENABLED", "1") == "1"
@@ -328,8 +335,6 @@ class JobManager:
         t0 = time.monotonic()
         try:
             import subprocess
-            import os
-            from pathlib import Path
 
             rec = db.get_job(job_id)
             cfg = json.loads(rec.get("params_json") or "{}") if rec else {}
@@ -338,7 +343,37 @@ class JobManager:
                 cfg.get("out_dir") or (base / "out" / f"job_planning_{job_id}")
             )
             out_dir.mkdir(parents=True, exist_ok=True)
-            input_dir = cfg.get("input_dir") or "samples/planning"
+
+            canonical_config = None
+            planning_bundle: Optional[PlanningDataBundle] = None
+            temp_input_dir: Optional[Path] = None
+
+            config_version_id = cfg.get("config_version_id")
+            if config_version_id is not None:
+                config_version_id = int(config_version_id)
+                try:
+                    canonical_config, validation = load_canonical_config_from_db(
+                        config_version_id, validate=True
+                    )
+                except CanonicalConfigNotFoundError as exc:
+                    raise RuntimeError(str(exc)) from exc
+
+                if validation and validation.has_errors:
+                    errors = ", ".join(
+                        f"{issue.code}:{issue.message}"
+                        for issue in validation.issues
+                        if issue.severity == "error"
+                    )
+                    raise RuntimeError(
+                        f"canonical config validation failed: {errors}"
+                    )
+
+                planning_bundle = build_planning_inputs(canonical_config)
+                temp_input_dir = out_dir / "canonical_inputs"
+                _materialize_planning_inputs(planning_bundle, temp_input_dir)
+                input_dir = str(temp_input_dir)
+            else:
+                input_dir = cfg.get("input_dir") or "samples/planning"
             weeks = str(cfg.get("weeks") or 4)
             round_mode = cfg.get("round_mode") or "int"
             lt_unit = cfg.get("lt_unit") or "day"
@@ -356,6 +391,31 @@ class JobManager:
             tol_rel = cfg.get("tol_rel")
             env = os.environ.copy()
             env.setdefault("PYTHONPATH", str(base))
+
+            canonical_snapshot_path: Optional[Path] = None
+            planning_inputs_path: Optional[Path] = None
+            if canonical_config is not None:
+                canonical_snapshot_path = out_dir / "canonical_snapshot.json"
+                planning_inputs_path = out_dir / "planning_inputs.json"
+                canonical_snapshot_path.write_text(
+                    canonical_config.model_dump_json(indent=2), encoding="utf-8"
+                )
+                planning_inputs_path.write_text(
+                    planning_bundle.aggregate_input.model_dump_json(indent=2),
+                    encoding="utf-8",
+                )
+
+                # persist period cost/score metadata for reference
+                if planning_bundle.period_cost:
+                    (out_dir / "period_cost.json").write_text(
+                        json.dumps(planning_bundle.period_cost, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                if planning_bundle.period_score:
+                    (out_dir / "period_score.json").write_text(
+                        json.dumps(planning_bundle.period_score, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
 
             def runpy(args: list[str]):
                 subprocess.run(["python3", *args], cwd=str(base), env=env, check=True)
@@ -455,6 +515,24 @@ class JobManager:
                     str(out_dir / "report.csv"),
                 ]
             )
+            if canonical_config is not None:
+                artifacts = {
+                    "canonical_snapshot.json": canonical_snapshot_path,
+                    "planning_inputs.json": planning_inputs_path,
+                    "aggregate.json": out_dir / "aggregate.json",
+                    "sku_week.json": out_dir / "sku_week.json",
+                    "mrp.json": out_dir / "mrp.json",
+                    "plan_final.json": out_dir / "plan_final.json",
+                }
+                for name, path in artifacts.items():
+                    if not path or not path.exists():
+                        continue
+                    db.upsert_plan_artifact(
+                        version_id,
+                        name,
+                        path.read_text(encoding="utf-8"),
+                    )
+
             # optional: anchor adjust and adjusted recalculation
             if anchor_policy and cutover_date:
                 args_anchor = [
@@ -574,6 +652,7 @@ class JobManager:
                     recon_window_days=recon_window_days,
                     objective=cfg.get("objective"),
                     note=cfg.get("note"),
+                    config_version_id=config_version_id,
                 )
 
                 def _read(p: Path) -> str | None:
@@ -647,6 +726,14 @@ class JobManager:
                 ],
                 "version_id": version_id,
             }
+            if config_version_id is not None:
+                result["config_version_id"] = config_version_id
+                result["files"].extend(
+                    [
+                        "canonical_snapshot.json",
+                        "planning_inputs.json",
+                    ]
+                )
             db.set_job_result(job_id, json.dumps(result, ensure_ascii=False))
             finished = int(time.time() * 1000)
             db.update_job_status(job_id, status="succeeded", finished_at=finished)
@@ -664,6 +751,41 @@ class JobManager:
                 JOBS_FAILED.labels(type="planning").inc()
             except Exception:
                 pass
+
+
+def _materialize_planning_inputs(bundle: PlanningDataBundle, dest: Path) -> None:
+    dest.mkdir(parents=True, exist_ok=True)
+    aggregate = bundle.aggregate_input
+    (dest / "aggregate_input.json").write_text(
+        aggregate.model_dump_json(indent=2), encoding="utf-8"
+    )
+
+    data = aggregate.model_dump()
+
+    _write_csv(dest / "demand_family.csv", data.get("demand_family"), ["family", "period", "demand"])
+    _write_csv(dest / "capacity.csv", data.get("capacity"), ["workcenter", "period", "capacity"])
+    _write_csv(dest / "mix_share.csv", data.get("mix_share"), ["family", "sku", "share"])
+    _write_csv(dest / "item.csv", data.get("item_master"), ["item", "lt", "lot", "moq"])
+    _write_csv(dest / "inventory.csv", data.get("inventory"), ["item", "loc", "qty"])
+    _write_csv(dest / "open_po.csv", data.get("open_po"), ["item", "due", "qty"])
+
+    if bundle.period_cost:
+        _write_csv(dest / "period_cost.csv", bundle.period_cost, ["period", "cost"])
+    if bundle.period_score:
+        _write_csv(dest / "period_score.csv", bundle.period_score, ["period", "score"])
+
+
+def _write_csv(path: Path, rows: Optional[list], columns: list[str]) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(fp, fieldnames=columns)
+        writer.writeheader()
+        for row in rows:
+            if not isinstance(row, dict):
+                row = dict(row)
+            writer.writerow({col: row.get(col) for col in columns})
 
 
 # singleton manager (workers will be started on app startup)

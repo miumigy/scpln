@@ -66,6 +66,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     options["tol_rel"] = _as_float(options_raw.get("tol_rel"))
     options["blend_split_next"] = _as_float(options_raw.get("blend_split_next"))
     options["blend_weight_mode"] = options_raw.get("blend_weight_mode")
+    options["config_version_id"] = _as_int(options_raw.get("config_version_id"))
 
     # 検証
     if pipeline not in ("integrated",):
@@ -187,6 +188,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
             "status": "succeeded",
             "run_type": "plan",
             "version_id": res.get("version_id"),
+            "config_version_id": res.get("config_version_id"),
             "artifacts": res.get("artifacts") or [],
             "location": f"/ui/plans/{res.get('version_id')}",
         }

@@ -44,6 +44,7 @@ def init_db() -> None:
                 daily_profit_loss TEXT NOT NULL,
                 cost_trace TEXT NOT NULL,
                 config_id INTEGER,
+                config_version_id INTEGER,
                 scenario_id INTEGER,
                 config_json TEXT,
                 created_at INTEGER NOT NULL,
@@ -79,9 +80,19 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_runs_config_id ON runs(config_id)
             """
         )
-        # 追加カラム（既存DBの後方互換）: scenario_id
+        # 追加カラム（既存DBの後方互換）: scenario_id/config_version_id
         try:
             c.execute("ALTER TABLE runs ADD COLUMN scenario_id INTEGER")
+        except Exception:
+            pass
+        try:
+            c.execute("ALTER TABLE runs ADD COLUMN config_version_id INTEGER")
+        except Exception:
+            pass
+        try:
+            c.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runs_config_version ON runs(config_version_id)"
+            )
         except Exception:
             pass
         try:
@@ -168,10 +179,15 @@ def init_db() -> None:
                 cutover_date TEXT,
                 recon_window_days INTEGER,
                 objective TEXT,
-                note TEXT
+                note TEXT,
+                config_version_id INTEGER
             )
             """
         )
+        try:
+            c.execute("ALTER TABLE plan_versions ADD COLUMN config_version_id INTEGER")
+        except Exception:
+            pass
         c.execute(
             """
             CREATE TABLE IF NOT EXISTS plan_artifacts (
@@ -465,11 +481,24 @@ def create_plan_version(
     recon_window_days: int | None = None,
     objective: str | None = None,
     note: str | None = None,
+    config_version_id: int | None = None,
 ) -> None:
     now = int(time.time() * 1000)
     with _conn() as c:
         c.execute(
-            "INSERT OR REPLACE INTO plan_versions(version_id, created_at, base_scenario_id, status, cutover_date, recon_window_days, objective, note) VALUES(?,?,?,?,?,?,?,?)",
+            """
+            INSERT OR REPLACE INTO plan_versions(
+                version_id,
+                created_at,
+                base_scenario_id,
+                status,
+                cutover_date,
+                recon_window_days,
+                objective,
+                note,
+                config_version_id
+            ) VALUES(?,?,?,?,?,?,?,?,?)
+            """,
             (
                 version_id,
                 now,
@@ -479,6 +508,7 @@ def create_plan_version(
                 recon_window_days,
                 objective,
                 note,
+                config_version_id,
             ),
         )
 
@@ -514,7 +544,7 @@ def get_plan_version(version_id: str) -> Dict[str, Any] | None:
 def list_plan_versions(limit: int = 100) -> List[Dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
-            "SELECT version_id, status, cutover_date, recon_window_days, created_at FROM plan_versions ORDER BY created_at DESC LIMIT ?",
+            "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at FROM plan_versions ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -525,7 +555,7 @@ def list_plan_versions_by_base(
 ) -> List[Dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
-            "SELECT version_id, status, cutover_date, recon_window_days, created_at FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
+            "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
             (base_scenario_id, limit),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -541,6 +571,7 @@ def update_plan_version(version_id: str, **fields: Any) -> None:
         "objective",
         "note",
         "base_scenario_id",
+        "config_version_id",
     }
     keys = [k for k in fields.keys() if k in allowed]
     if not keys:

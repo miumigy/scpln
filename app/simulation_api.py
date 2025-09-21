@@ -10,6 +10,13 @@ from engine.simulator import SupplyChainSimulator
 import time
 from app.metrics import RUNS_TOTAL, SIM_DURATION
 from app import run_latest as _run_latest
+from typing import Optional
+
+from core.config import build_simulation_input
+from core.config.storage import (
+    CanonicalConfigNotFoundError,
+    load_canonical_config_from_db,
+)
 
 router = APIRouter()
 
@@ -58,12 +65,51 @@ def _get_registry():
 
 @router.post("/simulation")
 def post_simulation(
-    payload: SimulationInput,
+    payload: SimulationInput | None = None,
     include_trace: bool = Query(False),
     config_id: int | None = Query(None),
     scenario_id: int | None = Query(None),
+    config_version_id: int | None = Query(
+        None,
+        description="Canonical設定のバージョンID。指定時はCanonicalから入力を生成",
+    ),
     request: Request = None,
 ):
+    canonical_version_id: Optional[int] = config_version_id
+    canonical_config = None
+    canonical_validation = None
+
+    if canonical_version_id is not None:
+        try:
+            canonical_config, canonical_validation = load_canonical_config_from_db(
+                canonical_version_id, validate=True
+            )
+        except CanonicalConfigNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+        if canonical_validation and canonical_validation.has_errors:
+            errors = [
+                {
+                    "code": issue.code,
+                    "message": issue.message,
+                    "context": issue.context,
+                }
+                for issue in canonical_validation.issues
+                if issue.severity == "error"
+            ]
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "canonical config validation failed",
+                    "errors": errors,
+                },
+            )
+
+        payload = build_simulation_input(canonical_config)
+
+    if payload is None:
+        raise HTTPException(status_code=400, detail="simulation payload is required")
+
     # RBAC（ライト）: 変更系のためロール/テナント必須（有効化時）
     import os
 
@@ -99,27 +145,32 @@ def post_simulation(
     # optional: attach config context (id and json) when provided
     # fallback: header X-Config-Id
     try:
-        if config_id is None and request is not None:
+        if config_id is None and canonical_version_id is None and request is not None:
             hdr = request.headers.get("X-Config-Id")
             if hdr:
                 config_id = int(hdr)
     except Exception:
         pass
-    # Attach config context: prefer explicit config_id's JSON; otherwise store payload as config_json for later backfill
+
     cfg_json = None
-    try:
-        if config_id is not None:
-            rec = db.get_config(int(config_id))
-            if rec and rec.get("json_text") is not None:
-                cfg_json = json.loads(rec.get("json_text"))
-    except Exception:
-        cfg_json = None
-    # fallback: store input payload for later matching if explicit config is not provided
-    try:
-        if cfg_json is None and payload is not None:
-            cfg_json = payload.model_dump()
-    except Exception:
-        pass
+    if canonical_config is not None:
+        try:
+            cfg_json = canonical_config.model_dump(mode="json")
+        except Exception:
+            cfg_json = None
+    else:
+        try:
+            if config_id is not None:
+                rec = db.get_config(int(config_id))
+                if rec and rec.get("json_text") is not None:
+                    cfg_json = json.loads(rec.get("json_text"))
+        except Exception:
+            cfg_json = None
+        try:
+            if cfg_json is None and payload is not None:
+                cfg_json = payload.model_dump()
+        except Exception:
+            pass
 
     REGISTRY, _BACKEND, _DB_MAX_ROWS = _get_registry()
     REGISTRY.put(
@@ -135,6 +186,7 @@ def post_simulation(
             "daily_profit_loss": daily_pl,
             "cost_trace": getattr(sim, "cost_trace", []),
             "config_id": config_id,
+            "config_version_id": canonical_version_id,
             "scenario_id": scenario_id,
             "config_json": cfg_json,
         },
@@ -188,6 +240,20 @@ def post_simulation(
         "summary": summary,
         "cost_trace": getattr(sim, "cost_trace", []),
     }
+    if canonical_version_id is not None:
+        resp["config_version_id"] = canonical_version_id
+        if canonical_validation:
+            warnings = [
+                {
+                    "code": issue.code,
+                    "message": issue.message,
+                    "context": issue.context,
+                }
+                for issue in canonical_validation.issues
+                if issue.severity == "warning"
+            ]
+            if warnings:
+                resp["validation_warnings"] = warnings
     return resp
 
 

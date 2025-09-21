@@ -19,6 +19,8 @@
           <th scope="col"><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
           <th scope="col"><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="Sort by schema version">schema</button></th>
           <th scope="col">config_id</th>
+          <th scope="col">config_version_id</th>
+          <th scope="col">config_version_id</th>
           <th scope="col">scenario_id</th>
           <th scope="col">fill_rate</th>
           <th scope="col">profit_total</th>
@@ -34,6 +36,8 @@
           <td>{{ r.duration_ms }}</td>
           <td>{{ r.schema_version }}</td>
           <td>{{ r.config_id or '' }}</td>
+          <td>{{ r.config_version_id or '' }}</td>
+          <td>{{ r.config_version_id or '' }}</td>
           <td>{{ r.scenario_id or '' }}</td>
           <td>{{ "%.3f"|format(r.fill_rate or 0) }}</td>
           <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
@@ -94,6 +98,9 @@
     </label>
     <label>Config ID
       <input id="config-filter" class="input-compact-sm" type="number" min="1" />
+    </label>
+    <label>Config Version
+      <input id="config-version-filter" class="input-compact-sm" type="number" min="1" />
     </label>
     <label>Scenario ID
       <input id="scenario-filter" class="input-compact-sm" type="number" min="1" />

@@ -18,6 +18,7 @@
   const thSortSchema = document.getElementById('th-sort-schema');
   const schemaInput = document.getElementById('schema-filter');
   const configInput = document.getElementById('config-filter');
+  const configVersionInput = document.getElementById('config-version-filter');
   const applyBtn = document.getElementById('apply-filter');
   const clearBtn = document.getElementById('clear-filter');
   const pageNumInput = document.getElementById('page-number');
@@ -27,7 +28,7 @@
   const DUR_LABEL = 'dur(ms)';
   const SCHEMA_LABEL = 'schema';
 
-  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', scenario_id: '' };
+  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', config_version_id: '', scenario_id: '' };
 
   function loadPrefs() {
     try {
@@ -40,6 +41,7 @@
         if (p.order) state.order = String(p.order);
         if (p.schema_version !== undefined) state.schema_version = String(p.schema_version || '');
         if (p.config_id !== undefined) state.config_id = String(p.config_id || '');
+        if (p.config_version_id !== undefined) state.config_version_id = String(p.config_version_id || '');
         if (p.scenario_id !== undefined) state.scenario_id = String(p.scenario_id || '');
       }
     } catch {}
@@ -53,6 +55,7 @@
         order: state.order,
         schema_version: state.schema_version,
         config_id: state.config_id,
+        config_version_id: state.config_version_id,
         scenario_id: state.scenario_id,
       };
       localStorage.setItem('runs_prefs', JSON.stringify(p));
@@ -67,9 +70,10 @@
     state.order = sp.get('order') || state.order;
     state.schema_version = sp.get('schema_version') || '';
     state.config_id = sp.get('config_id') || '';
+    state.config_version_id = sp.get('config_version_id') || '';
     state.scenario_id = sp.get('scenario_id') || '';
     // If URL params are missing, fall back to locally stored preferences
-    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id')) {
+    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id') && !sp.has('config_version_id')) {
       loadPrefs();
     }
   }
@@ -82,6 +86,7 @@
     if (state.order) sp.set('order', state.order);
     if (state.schema_version) sp.set('schema_version', state.schema_version);
     if (state.config_id) sp.set('config_id', state.config_id);
+    if (state.config_version_id) sp.set('config_version_id', state.config_version_id);
     if (state.scenario_id) sp.set('scenario_id', state.scenario_id);
     const url = location.pathname + '?' + sp.toString();
     history.replaceState(null, '', url);
@@ -169,6 +174,7 @@
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
         <td>${r.config_id ?? ''}</td>
+        <td>${r.config_version_id ?? ''}</td>
         <td>${r.scenario_id ?? ''}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
@@ -193,6 +199,7 @@
       if (state.order) q.set('order', state.order);
       if (state.schema_version) q.set('schema_version', state.schema_version);
       if (state.config_id) q.set('config_id', state.config_id);
+      if (state.config_version_id) q.set('config_version_id', state.config_version_id);
       if (state.scenario_id) q.set('scenario_id', state.scenario_id);
       const res = await fetch(`/runs?${q.toString()}`, { headers: getHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -236,6 +243,7 @@
       if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
       if (schemaInput && schemaInput.value !== (state.schema_version || '')) schemaInput.value = state.schema_version || '';
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
+      if (configVersionInput && configVersionInput.value !== (state.config_version_id || '')) configVersionInput.value = state.config_version_id || '';
       const scenarioInput = document.getElementById('scenario-filter');
       if (scenarioInput && scenarioInput.value !== (state.scenario_id || '')) scenarioInput.value = state.scenario_id || '';
       // Update the URL query string
@@ -333,9 +341,11 @@
   if (applyBtn) applyBtn.addEventListener('click', () => {
     state.schema_version = (schemaInput && schemaInput.value || '').trim();
     const cid = (configInput && configInput.value || '').trim();
+    const cvid = (configVersionInput && configVersionInput.value || '').trim();
     const sidEl = document.getElementById('scenario-filter');
     const sid = (sidEl && sidEl.value || '').trim();
     state.config_id = cid;
+    state.config_version_id = cvid;
     state.scenario_id = sid;
     state.offset = 0;
     savePrefs();
@@ -344,8 +354,10 @@
   if (clearBtn) clearBtn.addEventListener('click', () => {
     if (schemaInput) schemaInput.value = '';
     if (configInput) configInput.value = '';
+    if (configVersionInput) configVersionInput.value = '';
     state.schema_version = '';
     state.config_id = '';
+    state.config_version_id = '';
     const sidEl = document.getElementById('scenario-filter'); if (sidEl) sidEl.value = '';
     state.scenario_id = '';
     state.offset = 0;

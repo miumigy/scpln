@@ -870,6 +870,7 @@
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
+          <tr><td>config_version_id</td><td class="mono">{% if config_version_id %}<a href="/ui/plans?config_version_id={{ config_version_id }}">{{ config_version_id }}</a>{% else %}-{% endif %}</td></tr>
           {% if created_from_run_id %}
             <tr><td>created_from_run</td><td class="mono"><a href="/ui/runs/{{ created_from_run_id }}">{{ created_from_run_id }}</a></td></tr>
           {% endif %}
@@ -894,6 +895,50 @@
           <li class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a> <small>({{ p.status or '' }})</small>
             | <a class="secondary" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=200" target="_blank" title="Diff against current plan (violations only, rel_desc)">diff</a>
           </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if canonical_meta %}
+      <div class="gap-top-sm">
+        <strong>Canonical configuration</strong>
+        <table>
+          <tbody>
+            <tr><td>schema_version</td><td class="mono">{{ canonical_meta.get('schema_version', '') }}</td></tr>
+            <tr><td>name</td><td class="mono">{{ canonical_meta.get('name', '') }}</td></tr>
+            <tr><td>status</td><td class="mono">{{ canonical_meta.get('status', '') }}</td></tr>
+            <tr><td>description</td><td>{{ canonical_meta.get('description', '') }}</td></tr>
+            {% if canonical_counts %}
+              <tr><td colspan="2">
+                <small class="mono">counts: items={{ canonical_counts.get('items', 0) }}, nodes={{ canonical_counts.get('nodes', 0) }}, arcs={{ canonical_counts.get('arcs', 0) }}, bom={{ canonical_counts.get('bom', 0) }}, demands={{ canonical_counts.get('demands', 0) }}, capacities={{ canonical_counts.get('capacities', 0) }}</small>
+              </td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if planning_summary %}
+      <div class="gap-top-sm">
+        <strong>Planning inputs (aggregate)</strong>
+        <table>
+          <tbody>
+            <tr><td>schema_version</td><td class="mono">{{ planning_summary.get('schema_version', '') }}</td></tr>
+            <tr><td>demand_family</td><td class="mono">{{ planning_summary.get('demand_family', 0) }}</td></tr>
+            <tr><td>capacity</td><td class="mono">{{ planning_summary.get('capacity', 0) }}</td></tr>
+            <tr><td>mix_share</td><td class="mono">{{ planning_summary.get('mix_share', 0) }}</td></tr>
+            <tr><td>item_master</td><td class="mono">{{ planning_summary.get('item_master', 0) }}</td></tr>
+            <tr><td>inventory</td><td class="mono">{{ planning_summary.get('inventory', 0) }}</td></tr>
+            <tr><td>open_po</td><td class="mono">{{ planning_summary.get('open_po', 0) }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if config_runs and config_runs|length > 0 %}
+      <div class="gap-top-sm">
+        <strong>Recent runs using this config version</strong>
+        <ul>
+          {% for r in config_runs %}
+          <li class="mono"><a href="/ui/runs/{{ r.run_id }}">{{ r.run_id }}</a> <small>({{ r.started_at_str or r.started_at or '' }})</small></li>
           {% endfor %}
         </ul>
       </div>

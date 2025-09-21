@@ -18,6 +18,10 @@
           <input type="text" name="input_dir" value="samples/planning" />
         </label>
         <label>
+          <span class="label-title">Canonical Config Version</span>
+          <input type="number" name="config_version_id" min="1" value="" placeholder="optional" />
+        </label>
+        <label>
           <span class="label-title">Weeks</span>
           <input type="number" name="weeks" min="1" value="4" />
         </label>
@@ -142,6 +146,9 @@
               <button type="button" class="link sort-trigger" data-sort="status" data-label="Status" title="Sort by status" aria-label="Sort by status">Status</button>
             </th>
             <th scope="col">
+              <button type="button" class="link sort-trigger" data-sort="config_version" data-label="Config Ver" title="Sort by config version" aria-label="Sort by config version">Config Ver</button>
+            </th>
+            <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="cutover" data-label="Cutover" title="Sort by cutover" aria-label="Sort by cutover">Cutover</button>
             </th>
             <th scope="col">Window (days)</th>
@@ -163,6 +170,11 @@
           <tr>
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
             <td>{{ p.status or '' }}</td>
+            <td class="mono">
+              {% if p.config_version_id %}
+                <a href="/ui/configs/{{ p.config_version_id }}">{{ p.config_version_id }}</a>
+              {% else %}-{% endif %}
+            </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
             <td class="mono">{{ p.recon_window_days if p.recon_window_days is not none else 0 }}</td>
             <td class="mono">{{ p.policy or '(none)' }}</td>
@@ -269,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var KEY_SORT2 = 'ui_plans_sort2';
   var SORT_LABELS = {
     status: 'Status',
+    config_version: 'Config Ver',
     cutover: 'Cutover',
     policy: 'Policy',
     created_at: 'Created',
@@ -284,7 +297,14 @@ document.addEventListener('DOMContentLoaded', function(){
   function getCellValue(tr, idx){ var el = getCell(tr, idx); return el ? el.textContent.trim() : ''; }
   function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)? n : null; }
   function cmp(a,b){ return a<b ? -1 : a>b ? 1 : 0; }
-  var COL_INDEX = {status:1, cutover:2, policy:4, created_at:5, violations:6};
+  var COL_INDEX = {
+    status:1,
+    config_version:2,
+    cutover:3,
+    policy:5,
+    created_at:6,
+    violations:7
+  };
   function normalizeMs(n){
     if (!Number.isFinite(n)) return null;
     if (n < 1e12) n = n * 1000;

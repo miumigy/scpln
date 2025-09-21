@@ -86,6 +86,7 @@ def list_runs(
     order: str = Query("desc"),
     schema_version: str | None = Query(None),
     config_id: int | None = Query(None),
+    config_version_id: int | None = Query(None),
     scenario_id: int | None = Query(None),
 ):
     """ラン一覧を返す。
@@ -111,7 +112,7 @@ def list_runs(
             )
         # DBバックエンドはSQLでページング
         if hasattr(REGISTRY, "list_page"):
-            return REGISTRY.list_page(
+            resp = REGISTRY.list_page(
                 offset=offset,
                 limit=limit,
                 sort=sort,
@@ -121,9 +122,24 @@ def list_runs(
                 scenario_id=scenario_id,
                 detail=True,
             )
+            runs_list = resp.get("runs") or []
+            if config_version_id is not None:
+                runs_list = [
+                    r
+                    for r in runs_list
+                    if r.get("config_version_id") == config_version_id
+                ]
+                resp["runs"] = runs_list
+                resp["total"] = len(runs_list)
+            try:
+                RUNS_LIST_REQUESTS.labels(detail="true", backend=_BACKEND).inc()
+                RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
+            except Exception:
+                pass
+            return resp
         runs = REGISTRY.list()
         runs = _filter_and_sort(
-            runs, sort, order, schema_version, config_id, scenario_id
+            runs, sort, order, schema_version, config_id, config_version_id, scenario_id
         )
         total = len(runs)
         sliced = runs[offset : offset + limit]
@@ -163,6 +179,7 @@ def list_runs(
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
                 "config_id": cfg_id,
+                "config_version_id": rec.get("config_version_id"),
                 "scenario_id": rec.get("scenario_id"),
                 "created_at": rec.get("created_at", rec.get("started_at")),
                 "updated_at": rec.get(
@@ -193,6 +210,15 @@ def list_runs(
                         r["config_id"] = rid2
         except Exception:
             pass
+        runs_list = resp.get("runs") or []
+        if config_version_id is not None:
+            runs_list = [
+                r
+                for r in runs_list
+                if r.get("config_version_id") == config_version_id
+            ]
+            resp["runs"] = runs_list
+            resp["total"] = len(runs_list)
         try:
             RUNS_LIST_REQUESTS.labels(detail="false", backend=_BACKEND).inc()
             RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
@@ -219,6 +245,7 @@ def list_runs(
                     "schema_version": rec.get("schema_version"),
                     "summary": rec.get("summary", {}),
                     "config_id": cfg_id2,
+                    "config_version_id": rec.get("config_version_id"),
                     "scenario_id": rec.get("scenario_id"),
                     "created_at": rec.get("created_at", rec.get("started_at")),
                     "updated_at": rec.get(
@@ -228,7 +255,13 @@ def list_runs(
                 }
             )
         rows2 = _filter_and_sort(
-            rows2, sort, order, schema_version, config_id, scenario_id
+            rows2,
+            sort,
+            order,
+            schema_version,
+            config_id,
+            config_version_id,
+            scenario_id,
         )
         total2 = len(rows2)
         rows2 = rows2[offset : offset + limit]
@@ -238,7 +271,9 @@ def list_runs(
         except Exception:
             pass
         return {"runs": rows2, "total": total2, "offset": offset, "limit": limit}
-    out = _filter_and_sort(out, sort, order, schema_version, config_id, scenario_id)
+    out = _filter_and_sort(
+        out, sort, order, schema_version, config_id, config_version_id, scenario_id
+    )
     total = len(out)
     out = out[offset : offset + limit]
     try:
@@ -366,12 +401,15 @@ def _filter_and_sort(
     order: str,
     schema_version: str | None,
     config_id: int | None,
+    config_version_id: int | None,
     scenario_id: int | None,
 ) -> List[Dict[str, Any]]:
     def f(x: Dict[str, Any]) -> bool:
         if schema_version is not None and x.get("schema_version") != schema_version:
             return False
         if config_id is not None and x.get("config_id") != config_id:
+            return False
+        if config_version_id is not None and x.get("config_version_id") != config_version_id:
             return False
         if scenario_id is not None and x.get("scenario_id") != scenario_id:
             return False

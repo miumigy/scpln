@@ -11,6 +11,7 @@ from app import db
 from app import plans_api as _plans_api  # for reuse handlers
 from app import runs_api as _runs_api  # for Plan & Run adapter
 from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
+from app.utils import ms_to_jst_str
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -121,6 +122,50 @@ def ui_plan_detail(version_id: str, request: Request):
         schedule_rows_sample = []
         schedule_total = 0
 
+    config_version_id = ver.get("config_version_id")
+    canonical_snapshot = (
+        db.get_plan_artifact(version_id, "canonical_snapshot.json") or {}
+    )
+    canonical_meta = (
+        canonical_snapshot.get("meta")
+        if isinstance(canonical_snapshot, dict)
+        else {}
+    )
+    if hasattr(canonical_meta, "model_dump"):
+        canonical_meta = canonical_meta.model_dump()
+    canonical_counts: dict[str, int] = {}
+    if isinstance(canonical_snapshot, dict):
+        for key in (
+            "items",
+            "nodes",
+            "arcs",
+            "bom",
+            "demands",
+            "capacities",
+            "calendars",
+            "hierarchies",
+        ):
+            val = canonical_snapshot.get(key)
+            if isinstance(val, list):
+                canonical_counts[key] = len(val)
+
+    planning_inputs = db.get_plan_artifact(version_id, "planning_inputs.json") or {}
+    planning_summary = {}
+    if isinstance(planning_inputs, dict):
+        def _len(key: str) -> int:
+            val = planning_inputs.get(key)
+            return len(val) if isinstance(val, list) else 0
+
+        planning_summary = {
+            "schema_version": planning_inputs.get("schema_version"),
+            "demand_family": _len("demand_family"),
+            "capacity": _len("capacity"),
+            "mix_share": _len("mix_share"),
+            "item_master": _len("item_master"),
+            "inventory": _len("inventory"),
+            "open_po": _len("open_po"),
+        }
+
     # Validate summary (MVP)
     validate = {}
     try:
@@ -172,6 +217,7 @@ def ui_plan_detail(version_id: str, request: Request):
     latest_ids: list[str] = []
     base_sid = (ver or {}).get("base_scenario_id")
     related_plans: list[dict] = []
+    config_runs: list[dict] = []
     if base_sid is not None:
         try:
             from app.run_registry import REGISTRY  # type: ignore
@@ -227,6 +273,42 @@ def ui_plan_detail(version_id: str, request: Request):
             related_plans = [p for p in related if p.get("version_id") != version_id]
         except Exception:
             related_plans = []
+    if config_version_id is not None:
+        try:
+            from app.run_registry import REGISTRY  # type: ignore
+
+            run_rows = []
+            if hasattr(REGISTRY, "list_page"):
+                try:
+                    resp = REGISTRY.list_page(
+                        offset=0,
+                        limit=200,
+                        sort="started_at",
+                        order="desc",
+                        schema_version=None,
+                        config_id=None,
+                        scenario_id=None,
+                        detail=True,
+                    )
+                    run_rows = resp.get("runs") or []
+                except Exception:
+                    run_rows = []
+            if not run_rows:
+                run_rows = REGISTRY.list()
+            for r in run_rows:
+                if r.get("config_version_id") == config_version_id:
+                    config_runs.append(
+                        {
+                            "run_id": r.get("run_id"),
+                            "started_at": r.get("started_at"),
+                            "started_at_str": ms_to_jst_str(r.get("started_at")),
+                            "scenario_id": r.get("scenario_id"),
+                            "summary": r.get("summary") or {},
+                        }
+                    )
+            config_runs = config_runs[:10]
+        except Exception:
+            config_runs = []
     # KPI preview (MVP): capacity/utilization and spill totals
     kpi_preview = {}
     try:
@@ -330,6 +412,11 @@ def ui_plan_detail(version_id: str, request: Request):
             "schedule_total": schedule_total,
             "validate": validate,
             "plan_state": plan_state,
+            "config_version_id": config_version_id,
+            "canonical_meta": canonical_meta,
+            "canonical_counts": canonical_counts,
+            "planning_summary": planning_summary,
+            "config_runs": config_runs,
         },
     )
 

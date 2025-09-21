@@ -4,6 +4,8 @@ import json
 from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app import db
+from app.utils import ms_to_jst_str
 
 
 def _get_registry():
@@ -12,7 +14,6 @@ def _get_registry():
     return REGISTRY
 
 
-from app.utils import ms_to_jst_str
 from pathlib import Path
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -58,6 +59,7 @@ def ui_runs(request: Request):
                 "duration_ms": r.get("duration_ms"),
                 "schema_version": r.get("schema_version"),
                 "config_id": r.get("config_id"),
+                "config_version_id": r.get("config_version_id"),
                 "scenario_id": r.get("scenario_id"),
                 "summary": r.get("summary") or {},
                 "fill_rate": (r.get("summary") or {}).get("fill_rate"),
@@ -101,6 +103,11 @@ def ui_run_detail(request: Request, run_id: str):
                         ),
                         "cost_trace": _json.loads(row["cost_trace"] or "[]"),
                         "config_id": row["config_id"],
+                        "config_version_id": (
+                            row["config_version_id"]
+                            if "config_version_id" in row.keys()
+                            else None
+                        ),
                         "scenario_id": row["scenario_id"],
                     }
         except Exception:
@@ -114,6 +121,7 @@ def ui_run_detail(request: Request, run_id: str):
         "trace_len": len(rec.get("cost_trace") or []),
     }
     cfg_id = rec.get("config_id")
+    config_version_id = rec.get("config_version_id")
     cfg_json = rec.get("config_json")
     scenario_id = rec.get("scenario_id")
     try:
@@ -158,6 +166,24 @@ def ui_run_detail(request: Request, run_id: str):
                     back_label = "\u2190 Back to jobs"
     except Exception:
         pass
+    matching_plans: list[dict] = []
+    if config_version_id is not None:
+        try:
+            plans = db.list_plan_versions(limit=200)
+            for p in plans:
+                if p.get("config_version_id") == config_version_id:
+                    created = p.get("created_at")
+                    matching_plans.append(
+                        {
+                            "version_id": p.get("version_id"),
+                            "status": p.get("status"),
+                            "created_at": created,
+                            "created_at_str": ms_to_jst_str(created),
+                        }
+                    )
+        except Exception:
+            matching_plans = []
+
     return templates.TemplateResponse(
         request,
         "run_detail.html",
@@ -166,11 +192,13 @@ def ui_run_detail(request: Request, run_id: str):
             "summary": summary,
             "counts": counts,
             "config_id": cfg_id,
+            "config_version_id": config_version_id,
             "scenario_id": scenario_id,
             "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
             "from_jobs": from_jobs,
             "back_href": back_href,
             "back_label": back_label,
+            "matching_plans": matching_plans,
         },
     )
