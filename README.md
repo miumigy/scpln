@@ -59,11 +59,11 @@ flowchart LR
 - `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了しています。
 - Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済みで、Validate タブの高度化が残課題です。
 
-#### PSIシミュレーションとRunRegistryとの連携
-- Planning Hubから「Plan & Run」を実行すると、集約→詳細→再整合パイプラインの完了後に同じ入力を用いた日次PSIシミュレーション（Run）がキューされます。
-- 生成された `run_id` は Plan バージョンと突合され、RunRegistryに保存されるため、`/ui/plans/{version}` と `/ui/runs` どちらからでも KPI・ログ・成果物を再確認できます。
-- RunRegistryで得たサービスレベルや在庫・コストの実績値を、Plan側の差分/KPIプレビューと比較することで、集約・詳細計画の調整と業務シミュレーションを同じワークフローで回せます。
-- 需要や政策の変更案をドラフト（変更セット）で比較 → Plan内の差分プレビューで定量評価 → 必要に応じて Run を再実行し、シミュレーション結果をRunRegistryから取得 → Planバージョンを確定、というループが基本的な使い方です。
+#### A（PSIシミュレーション/RunRegistry）とB（Planning Hub統合Plan）の連携
+- B側のPlanning HubでPlanを編集し「Plan & Run」を実行すると、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
+- 生成された `version_id` ↔ `run_id` の対応が保証されるため、Plan詳細画面（B）とRun履歴（A）のどちらからでも同一シナリオのKPI・ログ・成果物にアクセスできます。
+- Aで得たサービスレベルや在庫・コストの実績値を、Bの差分/KPIプレビューと突き合わせて「計画（集約・詳細）→実行（PSIシミュレーション）→振り返り」のループを回せます。
+- 代表的な運用: ① Bで変更セットを作成→差分/KPIを確認 → ② 「Plan & Run」でRunを実行 → ③ AのRunRegistryで結果を検証 → ④ BのPlanを確定/再調整。
 
 
 ### 2. 計画パイプライン（Aggregate ↔ Detail）
@@ -71,11 +71,11 @@ flowchart LR
 - `docs/AGG_DET_RECONCILIATION_JA.md` にアルゴリズム、パラメタ、検証手順を整理。
 - `tests/test_psi_sync.py` でDET⇄AGG同期を回帰テスト化（CI `quick-planning-tests`）。
 
-### 3. シミュレーション & RunRegistry
+### 3. PSIシミュレーション & RunRegistry（Aコンポーネント）
 - `SimulationInput`（domain/models）をもとに `SupplyChainSimulator` が日次PSIとコストを算定。
 - Run結果は `data/scpln.db` の RunRegistry に保存し、`/runs` や `/ui/runs` から再参照可能。
 - Run比較API・トレースエクスポートでKPI分析を自動化。
-- Planning Hubの統合実行で使われたシナリオ・Planパラメタは RunRegistry にも紐付くため、計画とシミュレーションの結果を同じバージョンIDでトレースできます。
+- Planning Hub（B）から渡されたシナリオやcutover/anchor等のPlanパラメタをRunRegistryが保持することで、A⇔B間で同じバージョンIDを軸にトレースできます。
 
 ---
 
