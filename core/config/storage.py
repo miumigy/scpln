@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from collections import defaultdict
 from contextlib import closing
 from typing import Any, Dict, Iterable, List, Optional
@@ -226,6 +227,28 @@ def load_canonical_config_from_db(
     return config, validation
 
 
+def save_canonical_config(
+    config: CanonicalConfig,
+    *,
+    db_path: Optional[str] = None,
+) -> int:
+    """Canonical設定をDBへ保存し、新しいversion_idを返す。"""
+
+    path = _resolve_db_path(db_path)
+    with closing(_connect(path)) as conn, closing(conn.cursor()) as cur:
+        conn.execute("PRAGMA foreign_keys=ON")
+        version_id = _insert_canonical_snapshot(cur, config)
+        conn.commit()
+    # モデル側へ反映
+    config.meta.version_id = version_id
+    now_ms = int(time.time() * 1000)
+    if config.meta.created_at is None:
+        config.meta.created_at = now_ms
+    if config.meta.updated_at is None:
+        config.meta.updated_at = now_ms
+    return version_id
+
+
 # --- 内部ユーティリティ ---
 
 
@@ -420,16 +443,353 @@ def _row_to_calendar(row: sqlite3.Row) -> CalendarDefinition:
     )
 
 
+def _insert_canonical_snapshot(cur: sqlite3.Cursor, config: CanonicalConfig) -> int:
+    now_ms = int(time.time() * 1000)
+    meta = config.meta
+    created = meta.created_at or now_ms
+    updated = meta.updated_at or now_ms
+
+    cur.execute(
+        """
+        INSERT INTO canonical_config_versions(
+            name, schema_version, version_tag, status, description,
+            source_config_id, metadata_json, created_at, updated_at
+        ) VALUES(?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            meta.name,
+            meta.schema_version,
+            meta.version_tag,
+            meta.status,
+            meta.description,
+            meta.source_config_id,
+            json.dumps(meta.attributes or {}, ensure_ascii=False),
+            created,
+            updated,
+        ),
+    )
+    version_id = int(cur.lastrowid)
+
+    _insert_items(cur, version_id, config)
+    _insert_nodes(cur, version_id, config)
+    _insert_arcs(cur, version_id, config)
+    _insert_boms(cur, version_id, config)
+    _insert_demands(cur, version_id, config)
+    _insert_capacities(cur, version_id, config)
+    _insert_hierarchies(cur, version_id, config)
+    _insert_calendars(cur, version_id, config)
+
+    return version_id
+
+
+def _insert_items(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.items:
+        return
+    rows = [
+        (
+            version_id,
+            item.code,
+            item.name,
+            item.item_type,
+            item.uom,
+            item.lead_time_days,
+            item.lot_size,
+            item.min_order_qty,
+            item.safety_stock,
+            item.unit_cost,
+            json.dumps(item.attributes or {}, ensure_ascii=False),
+        )
+        for item in config.items
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_items(
+            config_version_id, item_code, item_name, item_type, uom,
+            lead_time_days, lot_size, min_order_qty, safety_stock, unit_cost,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_nodes(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.nodes:
+        return
+    node_rows = []
+    inv_rows = []
+    prod_rows = []
+    for node in config.nodes:
+        node_rows.append(
+            (
+                version_id,
+                node.code,
+                node.name,
+                node.node_type,
+                node.timezone,
+                node.region,
+                node.service_level,
+                node.lead_time_days,
+                node.storage_capacity,
+                1 if node.allow_storage_over_capacity else 0,
+                node.storage_cost_fixed,
+                node.storage_over_capacity_fixed_cost,
+                node.storage_over_capacity_variable_cost,
+                node.review_period_days,
+                json.dumps(node.attributes or {}, ensure_ascii=False),
+            )
+        )
+        for inv in node.inventory_policies:
+            inv_rows.append(
+                (
+                    version_id,
+                    node.code,
+                    inv.item_code,
+                    inv.initial_inventory,
+                    inv.reorder_point,
+                    inv.order_up_to,
+                    inv.min_order_qty,
+                    inv.order_multiple,
+                    inv.safety_stock,
+                    inv.storage_cost,
+                    inv.stockout_cost,
+                    inv.backorder_cost,
+                    inv.lead_time_days,
+                    json.dumps(inv.attributes or {}, ensure_ascii=False),
+                )
+            )
+        for prod in node.production_policies:
+            prod_rows.append(
+                (
+                    version_id,
+                    node.code,
+                    prod.item_code,
+                    prod.production_capacity,
+                    1 if prod.allow_over_capacity else 0,
+                    prod.over_capacity_fixed_cost,
+                    prod.over_capacity_variable_cost,
+                    prod.production_cost_fixed,
+                    prod.production_cost_variable,
+                    json.dumps(prod.attributes or {}, ensure_ascii=False),
+                )
+            )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_nodes(
+            config_version_id, node_code, node_name, node_type, timezone,
+            region, service_level, lead_time_days, storage_capacity,
+            allow_storage_over_capacity, storage_cost_fixed,
+            storage_over_capacity_fixed_cost,
+            storage_over_capacity_variable_cost, review_period_days,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        node_rows,
+    )
+
+    if inv_rows:
+        cur.executemany(
+            """
+            INSERT INTO canonical_node_items(
+                config_version_id, node_code, item_code, initial_inventory,
+                reorder_point, order_up_to, min_order_qty, order_multiple,
+                safety_stock, storage_cost, stockout_cost, backorder_cost,
+                lead_time_days, attributes_json
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            inv_rows,
+        )
+
+    if prod_rows:
+        cur.executemany(
+            """
+            INSERT INTO canonical_node_production(
+                config_version_id, node_code, item_code, production_capacity,
+                allow_over_capacity, over_capacity_fixed_cost,
+                over_capacity_variable_cost, production_cost_fixed,
+                production_cost_variable, attributes_json
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            prod_rows,
+        )
+
+
+def _insert_arcs(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.arcs:
+        return
+    rows = [
+        (
+            version_id,
+            arc.from_node,
+            arc.to_node,
+            arc.arc_type,
+            arc.lead_time_days,
+            arc.capacity_per_day,
+            1 if arc.allow_over_capacity else 0,
+            arc.transportation_cost_fixed,
+            arc.transportation_cost_variable,
+            json.dumps(arc.min_order_qty or {}, ensure_ascii=False),
+            json.dumps(arc.order_multiple or {}, ensure_ascii=False),
+            json.dumps(arc.attributes or {}, ensure_ascii=False),
+        )
+        for arc in config.arcs
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_arcs(
+            config_version_id, from_node, to_node, arc_type, lead_time_days,
+            capacity_per_day, allow_over_capacity, transportation_cost_fixed,
+            transportation_cost_variable, min_order_json, order_multiple_json,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_boms(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.bom:
+        return
+    rows = [
+        (
+            version_id,
+            row.parent_item,
+            row.child_item,
+            row.quantity,
+            row.scrap_rate,
+            json.dumps(row.attributes or {}, ensure_ascii=False),
+        )
+        for row in config.bom
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_boms(
+            config_version_id, parent_item, child_item, quantity, scrap_rate,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_demands(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.demands:
+        return
+    rows = [
+        (
+            version_id,
+            row.node_code,
+            row.item_code,
+            row.bucket,
+            row.demand_model,
+            row.mean,
+            row.std_dev,
+            row.min_qty,
+            row.max_qty,
+            json.dumps(row.attributes or {}, ensure_ascii=False),
+        )
+        for row in config.demands
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_demands(
+            config_version_id, node_code, item_code, bucket, demand_model,
+            mean, std_dev, min_qty, max_qty, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_capacities(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.capacities:
+        return
+    rows = [
+        (
+            version_id,
+            row.resource_code,
+            row.resource_type,
+            row.bucket,
+            row.capacity,
+            row.calendar_code,
+            json.dumps(row.attributes or {}, ensure_ascii=False),
+        )
+        for row in config.capacities
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_capacities(
+            config_version_id, resource_code, resource_type, bucket, capacity,
+            calendar_code, attributes_json
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_hierarchies(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.hierarchies:
+        return
+    rows = [
+        (
+            version_id,
+            row.hierarchy_type,
+            row.node_key,
+            row.parent_key,
+            row.level,
+            row.sort_order,
+            json.dumps(row.attributes or {}, ensure_ascii=False),
+        )
+        for row in config.hierarchies
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_hierarchies(
+            config_version_id, hierarchy_type, node_key, parent_key, level,
+            sort_order, attributes_json
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
+def _insert_calendars(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+    if not config.calendars:
+        return
+    rows = [
+        (
+            version_id,
+            row.calendar_code,
+            row.timezone,
+            json.dumps(row.definition or {}, ensure_ascii=False),
+            json.dumps(row.attributes or {}, ensure_ascii=False),
+        )
+        for row in config.calendars
+    ]
+    cur.executemany(
+        """
+        INSERT INTO canonical_calendars(
+            config_version_id, calendar_code, timezone, definition_json,
+            attributes_json
+        ) VALUES(?,?,?,?,?)
+        """,
+        rows,
+    )
+
+
 __all__ = [
     "CanonicalConfigNotFoundError",
     "list_canonical_versions",
     "get_canonical_config",
     "load_canonical_config_from_db",
+    "save_canonical_config",
 ]
+
+
 def _resolve_db_path(db_path: Optional[str]) -> str:
     if db_path:
         return db_path
     from app.db import DB_PATH  # lazy import to avoid circular dependency
 
     return DB_PATH
-
