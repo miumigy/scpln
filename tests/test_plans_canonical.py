@@ -5,8 +5,23 @@ from app.plans_api import post_plans_integrated_run
 from core.config import load_canonical_config
 from core.config.storage import save_canonical_config
 
+_SCHEMA_READY = False
+
+
+def _ensure_schema():
+    global _SCHEMA_READY
+    if _SCHEMA_READY:
+        return
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(Path("alembic.ini").resolve()))
+    command.upgrade(cfg, "head")
+    _SCHEMA_READY = True
+
 
 def test_post_plans_integrated_run_with_canonical(tmp_path):
+    _ensure_schema()
     version_id = f"test-plan-{Path(tmp_path).name}"
     out_dir = tmp_path / "plan_out"
     config, _ = load_canonical_config(
