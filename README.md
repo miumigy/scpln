@@ -59,7 +59,7 @@ flowchart LR
 - `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了しています。
 - Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済みで、Validate タブの高度化が残課題です。
 
-#### A（PSIシミュレーション/RunRegistry）とB（Planning Hub統合Plan）の連携
+#### PSIシミュレーション/Run Registry（A）とPlanning Hub統合Plan（B）の連携
 - B側のPlanning HubでPlanを編集し「Plan & Run」を実行すると、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
 - 生成された `version_id` ↔ `run_id` の対応が保証されるため、Plan詳細画面（B）とRun履歴（A）のどちらからでも同一シナリオのKPI・ログ・成果物にアクセスできます。
 - Aで得たサービスレベルや在庫・コストの実績値を、Bの差分/KPIプレビューと突き合わせて「計画（集約・詳細）→実行（PSIシミュレーション）→振り返り」のループを回せます。
