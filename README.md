@@ -54,9 +54,9 @@ flowchart LR
   H -->|破棄| A
 ```
 
-#### 導入フェーズのメモ
-- P1（併存期）で `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了。
-- P2（統合期）は Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済み。Validate タブの高度化が残課題。
+#### 現状の対応状況
+- `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了しています。
+- Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済みで、Validate タブの高度化が残課題です。
 
 
 ### 2. 計画パイプライン（Aggregate ↔ Detail）

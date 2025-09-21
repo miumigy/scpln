@@ -119,7 +119,7 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
   - Tol: `tol_abs`/`tol_rel` を適切に設定して差分の性質を確認。
   - 認証: APIキー有効時は整合にも `X-API-Key` が必要（UIでは `localStorage.api_key`）。
 
-### v2 ヒューリスティク（擬似コード）
+### 現行ヒューリスティク（擬似コード）
 - 週リスト `weeks` を `pre(<cutover)`, `at(=cutover月)`, `post(>cutover)` に分割。
 - `adjust_segment(weeks, start_slack, start_spill, mode)` を用意。
   - `mode=forward`: 従来どおり spill を次週へ。slack も次週へ。
@@ -176,11 +176,11 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
 - ソフトチェック: 期間別`Δ`、SKU×拠点×期間の偏差分布、丸め残差の最大/中央値。
 - KPI: fill rate、backlog days、inventory turns、capacity util、COGS/variance。
 
-## 実装ステップ（段階導入）
-1) v1: 既存パイプラインに `version_id` を通し、DET→AGGロールアップ比較・整合ログ出力を追加。
-2) v2: `cutover_date`/`recon_window_days`/`anchor_policy` を導入し、境界整合を実装。
-3) v3: API/UI 統合（統合実行・差分可視化・ロック編集）。
-4) v4: ヒューリスティク高度化（混雑コスト・優先度・サービスレベル最適化）。
+## 実装ステップの概観
+- 既存パイプラインに `version_id` を通し、DET→AGGロールアップ比較・整合ログ出力を追加。
+- `cutover_date`・`recon_window_days`・`anchor_policy` を導入し、境界整合を実装。
+- API/UI を統合して統合実行・差分可視化・ロック編集を提供。
+- ヒューリスティクを高度化し、混雑コスト・優先度・サービスレベル最適化に対応。
 
 ## 失敗時リカバリ
 - 仕様: idempotent再実行（同versionで一部上書き）。
@@ -199,15 +199,15 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
 - ロールアップ: DET合計=700、差分=0、境界 8/31 close = 9/1 open を満たす。
 
 ---
-以上をベースに、段階導入（v1→v4）で統合整合を進めます。既存スクリプト群（aggregate/allocate/mrp/reconcile）に `version_id` と `cutover`/`window` パラメタを順次付与し、整合ログを追加する実装を提案します。
+既存スクリプト群（aggregate/allocate/mrp/reconcile）に `version_id` と `cutover`/`window` パラメタを順次付与し、整合ログを追加する実装を前提に統合整合を進めます。
 
-## 実装対応状況（v1/v2）と使い方
+## 実装対応状況と使い方
 - スクリプト（CLI）:
   - `scripts/plan_aggregate.py`: 集約生成（サンプルCSV→`out/aggregate.json`）。
   - `scripts/allocate.py`: 集約→詳細按分（`out/sku_week.json`）。
   - `scripts/mrp.py`: MRPライト（LT/ロット/MOQ、`out/mrp.json`）。
 - `scripts/reconcile.py`: 能力を考慮した週次CRPライト整合（`out/plan_final.json`）。
-  - anchorポリシー（v2最小）: `--anchor-policy {DET_near|AGG_far|blend}`、`--cutover-date YYYY-MM-DD`、`--recon-window-days N`、`--blend-split-next r(0..1)`（blend時のpost比率; 未指定時は `N/at週数` に基づき動的算定、0.1〜0.9にクリップ）。
+  - anchorポリシー（現行実装）: `--anchor-policy {DET_near|AGG_far|blend}`、`--cutover-date YYYY-MM-DD`、`--recon-window-days N`、`--blend-split-next r(0..1)`（blend時のpost比率; 未指定時は `N/at週数` に基づき動的算定、0.1〜0.9にクリップ）。
   - `scripts/reconcile_levels.py`: AGG↔DETのロールアップ差分ログ（`out/reconciliation_log*.json`）。
   - `scripts/anchor_adjust.py`: anchor=DET_near のDET微調整（`out/sku_week_adjusted.json`）。
   - `scripts/export_reconcile_csv.py`: 差分ログをCSV出力（before/after/compare）。
@@ -244,7 +244,7 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
 ## 整合ログのスキーマ（確定）
 - `reconciliation_log.json`（scripts/reconcile_levels.py出力）:
   - `schema_version`: `recon-aggdet-1.0`
-  - `version_id`: 生成時に付与したバージョン名（例: `v1`, `ui`, `job-xxxx`）
+- `version_id`: 生成時に付与したバージョン名（例: `ver-2024`, `ui`, `job-xxxx`）
   - `cutover`: `{ cutover_date, recon_window_days, anchor_policy }`
   - `inputs_summary`: `{ aggregate_rows, det_rows, families, periods }`
   - `tolerance`: `{ abs, rel }`
@@ -259,7 +259,7 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
 ## anchor調整（DET_near）の出力（概要）
 - `sku_week_adjusted.json`（scripts/anchor_adjust.py 出力）:
   - `schema_version`: 元DETを継承（例: `agg-1.0`）
-  - `note`: `v2 anchor調整: ...`（自動付与）
+- `note`: `anchor調整: ...`（自動付与）
   - `cutover`: `{ cutover_date, anchor_policy, recon_window_days }`
   - `rows`: 元DETと同スキーマ。cutover月の `(family, period)` 合計が AGG と一致するよう `demand/supply/backlog` を微調整。
   - `carryover`: 隣接periodへ残差を移した場合のログ（`from_period/to_period/metrics`）。
@@ -295,21 +295,21 @@ graph TD;
   - `python scripts/spill_assert.py -i out/plan_final.json` で zone毎の `spill_in>eps` の週数が1以下であることを検証（セグメント先頭のみ流入がある想定）。
 
 ## 既知の制約/今後の改良
-- `reconcile.py` の `--cutover-date/--recon-window-days/--anchor-policy` は段階導入中（v2最小を実装）。
+- `reconcile.py` の `--cutover-date/--recon-window-days/--anchor-policy` は段階導入中（現行は基本機能を実装済み）。
   - DET_near: cutover月内のスピルは区間外（post）へ送る（pre/at/post分割、区間内へは持ち込まない）。
   - AGG_far: cutover月内のスピルを区間外（pre）へ戻す。preは at 由来のスピルを受けて再計算（従来比: post側の改変を抑制）。
   - blend: cutover月内スピルを pre/post に簡易分割（既定 50/50）。preを再計算し、postは at のスラック＋次期スピルを起点に前進。
-  - いずれも最小ヒューリスティク（v2）。将来は週内配分の重み関数やウィンドウ連動の比率、工程別能力の精緻化を予定。
+  - いずれも最小ヒューリスティク（現行仕様）。将来は週内配分の重み関数やウィンドウ連動の比率、工程別能力の精緻化を予定。
 - `anchor_adjust.py` は DET_near の最小版。能力・入荷・コストのヘッドルーム重みは簡易指標（CSVで拡張可能）。
 - `period` キーは `YYYY-MM` ないし `YYYY-Www` を想定。混在時は `reconcile_levels.py` が簡易推定するため、運用では一貫フォーマットを推奨。
 
 ## 運用ベストプラクティス（anchor_adjust × reconcile）
-- 基本順序: allocate → mrp → reconcile(v2) → reconcile_levels(before) → anchor_adjust(任意) → reconcile_levels(after) → （必要なら）mrp/reconcile再計算。
+- 基本順序: allocate → mrp → reconcile → reconcile_levels(before) → anchor_adjust(任意) → reconcile_levels(after) → （必要なら）mrp/reconcile再計算。
 - 目的分担:
-  - `reconcile(v2)`: 能力観点の「スピルの向き」を制御（DET_near/AGG_far/blend）。cutover月の負荷をどちら側に寄せるかの方針。
+- `reconcile`: 能力観点の「スピルの向き」を制御（DET_near/AGG_far/blend）。cutover月の負荷をどちら側に寄せるかの方針。
   - `anchor_adjust`: DET（SKU×週）を AGG（月×ファミリ）に合わせて微調整（総量保存、carryoverで隣接periodへ分配）。
 - 併用の推奨:
-  - 先に `reconcile(v2)` で能力整合の方向付け → `reconcile_levels` で偏差を把握 → 必要時に `anchor_adjust` でDET合計をAGGへ合わせる。
+  - 先に `reconcile` で能力整合の方向付け → `reconcile_levels` で偏差を把握 → 必要時に `anchor_adjust` でDET合計をAGGへ合わせる。
   - `apply_adjusted` を使う場合は、`sku_week_adjusted.json` に対して `mrp` → `reconcile` を再実行し、CRP観点の妥当性を再確認。
 - blend調整のコツ:
   - `--blend-weight-mode tri|lin|quad` と `--recon-window-days` で at週の中心・近接を強調。`--blend-split-next` を明示指定すると固定比で分配。
@@ -349,7 +349,7 @@ graph TD;
   - `weeks`: 既定 4（1期間の週数ヒント）。
   - `round_mode`: 既定 `int`（allocate丸め）。
   - `lt_unit`: 既定 `day`（`mrp.py`）。
-  - `cutover_date`: 例 `YYYY-MM-DD`。未指定時は v2動作は抑制（境界メタのみ無し）。
+  - `cutover_date`: 例 `YYYY-MM-DD`。未指定時は新しい整合ロジックが抑制され（境界メタのみ無し）。
   - `recon_window_days`: 既定なし（動作は実装側のデフォルトに依存）。blendの動的分割・in_window_* に影響。
   - `anchor_policy`: `DET_near|AGG_far|blend`。未指定なら従来（forward）。
   - `blend_split_next`: 0..1。未指定時は動的に算出。
@@ -377,7 +377,7 @@ graph TD;
 - 依存関係と優先順位
   - `anchor_policy` は `cutover_date` が指定された場合に有効（境界月が特定できないため）。
   - `blend_split_next` は `anchor_policy=blend` の時のみ意味を持つ。未指定時は動的分割。
-  - `recon_window_days` は v2動作（in_window_* や重み計算）に影響するが、未指定でも動作（実装既定値を使用）。
+  - `recon_window_days` は最新の整合ロジック（in_window_* や重み計算）に影響するが、未指定でも動作（実装既定値を使用）。
   - プリセット（pipelineの `--preset`）は「未指定の項目のみ」上書き。明示した値が優先。
   - `apply_adjusted=false` の場合、`mrp_adjusted.json` を生成せず、`plan_final_adjusted.json` も生成しない（整合は before のみ）。
 
@@ -385,7 +385,7 @@ graph TD;
 
 | パラメタ | CLI(主) | APIキー | UIフォーム | Jobs | 既定 | 備考 |
 |---|---|---|---|---|---|---|
-| cutover_date | reconcile.py `--cutover-date` | cutover_date | plans: 作成/詳細 | submit_planning | なし | 指定時のみ v2 有効 |
+| cutover_date | reconcile.py `--cutover-date` | cutover_date | plans: 作成/詳細 | submit_planning | なし | 指定時のみ境界整合ロジック有効 |
 | recon_window_days | reconcile.py `--recon-window-days` | recon_window_days | plans: 作成/詳細 | submit_planning | 実装既定 | in_window/重み計算に影響 |
 | anchor_policy | reconcile.py `--anchor-policy` | anchor_policy | plans: 作成/詳細 | submit_planning | なし | DET_near/AGG_far/blend |
 | blend_split_next | reconcile.py `--blend-split-next` | blend_split_next | plans: 作成/詳細 | submit_planning | 動的算定 | blend時のpost比率(0..1) |
