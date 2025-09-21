@@ -4,7 +4,7 @@
 
 - Planning Hub（/ui/plans）の基本操作を手順に沿って体験する
 - 計画パイプラインやアルゴリズムの詳細は `docs/AGG_DET_RECONCILIATION_JA.md` を参照
-- UI設計やロードマップは `docs/PLANNING-HUB-UX-PLAN.md` に集約済み
+- UI設計やロードマップは README の「Planning Hub」セクションに集約済み
 
 操作フローと用語を把握した上で、必要に応じて README の「ドキュメントマップ」から他資料へ遷移してください。
 

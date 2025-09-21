@@ -3,7 +3,7 @@
 本書の目的と範囲:
 
 - 集約（AGG）と詳細（DET）を同一 `plan_version` で整合させるための設計・アルゴリズム・検証手順を体系化
-- UI操作の流れは `docs/TUTORIAL-JA.md`、UX全体像は `docs/PLANNING-HUB-UX-PLAN.md` で補完
+- UI操作の流れは `docs/TUTORIAL-JA.md`、UX全体像は README の「Planning Hub」セクションで補完
 - APIの呼び出し口は `docs/API-OVERVIEW-JA.md` を参照
 
 ここでは保存則・カットオーバー・アンカー戦略・検証指針を詳細に扱い、README からリンクされる唯一の技術リファレンスとして整理しています。
@@ -16,6 +16,27 @@
 - 境界整合: 直近（詳細）と先々（集約）の境目で、在庫・需要・バックログ・WIPが連続する。
 - 保存則: 需要・供給・在庫収支のトータルは、レベル/粒度変換後も一致。
 - 運用: 再現性（idempotency）、段階的な導入、計算時間の制御、監査可能なログ。
+
+## Planning Hub 実行UXとRun API統一
+- 単一入口で「編集→差分プレビュー→ドライラン→本適用→結果確認」を回せるよう、Run API (`POST /runs`) に実行経路を統合しています。
+- 差分プレビューは需要・在庫・サービスレベル・MOQ/倍数・キャパシティ・PLを共通指標で提示し、ドライランの結果を確認した上で本適用へ遷移します。
+- Planは `draft → aggregated → disaggregated → scheduled → executed` の状態遷移を持ち、上流タスクを編集すると下流成果物に「再生成待ち」フラグを立てます。
+- 情報モデルはシナリオ（入力バージョン）、変更セット（ドラフト差分）、パイプライン（版管理DAG）、Run（シナリオ版×パイプライン版×条件）で構成し、監査ログ・アーティファクトをRun単位で保存します。
+- UIからRun APIを呼ぶ際は、`mode=dry`（副作用なし）と `mode=apply`（確定書き込み）の二段階を標準化しています。
+
+```mermaid
+sequenceDiagram
+  participant UI as Planning Hub UI
+  participant API as Run API
+  participant EXE as Executor
+  UI->>API: POST /runs {mode: dry, scope, versions}
+  API->>EXE: enqueue(run)
+  EXE-->>API: logs, artifacts, KPIs
+  UI->>API: GET /runs/:id (status, KPIs)
+  UI->>API: POST /runs {mode: apply, ref: dry_run_id}
+  API->>EXE: enqueue(run_apply)
+  EXE-->>API: result, write-ops
+```
 
 ## 用語・前提
 - レベル: `AGG`（集約）/`DET`（詳細）。

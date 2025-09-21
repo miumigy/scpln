@@ -22,6 +22,43 @@
 - PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
 - `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
 
+#### UX背景と狙い
+- 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
+- 実行前に差分とKPIインパクトを標準化されたプレビューで確認し、ドライランと本適用を安全に切り分け。
+- Run API を単一経路に統一し、履歴・比較・再実行の観測性と再現性を高める。
+
+#### 設計原則
+- 単一入口・文脈一貫・1アクション実行を徹底し、いつでも後戻りできる状態を維持。
+- 差分プレビューを需要・在庫・サービスレベル・MOQ・キャパシティ・PLの共通フォーマットで表示。
+- シナリオ、パイプライン、ラン、変更セット、バージョンといった用語を統一し、操作とデータモデルを揃える。
+
+#### Plan/Run情報モデル（抜粋）
+- シナリオ: 需要・在庫・政策・制約のバージョン集合。
+- 変更セット: シナリオに対する差分（ドラフト→レビュー→適用/破棄）。
+- Plan: Config/Run/Job を束ねる中核オブジェクト。`state` は `draft → aggregated → disaggregated → scheduled → executed` を遷移し、上流を編集した際は下流成果物を再生成待ちにマーキング。
+- パイプライン: 版管理されたDAG。Planの実行は Run API を通じて `dry` と `apply` の二段階で記録。
+- Run: シナリオ版 × パイプライン版 × 条件（期間/スコープ/環境）の組み合わせ。ログ・KPI差分・成果物を監査用途で保持。
+
+```mermaid
+flowchart LR
+  A[編集: 変更セット (Draft)] --> B[バリデーション]
+  B -->|OK| C[差分/KPIプレビュー]
+  B -->|NG| A
+  C --> D{実行モード}
+  D -->|ドライラン| E[Run作成 (副作用なし)]
+  D -->|本適用| F[Run作成 (Write適用)]
+  E --> G[結果/KPI比較]
+  F --> G
+  G --> H{適用判断}
+  H -->|承認| I[バージョン確定]
+  H -->|破棄| A
+```
+
+#### 導入フェーズのメモ
+- P1（併存期）で `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了。
+- P2（統合期）は Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済み。Validate タブの高度化が残課題。
+
+
 ### 2. 計画パイプライン（Aggregate ↔ Detail）
 - `aggregate` → `allocate` → `mrp` → `reconcile_levels` → `plan_final` をDAGとして実行。
 - `docs/AGG_DET_RECONCILIATION_JA.md` にアルゴリズム、パラメタ、検証手順を整理。
@@ -88,7 +125,7 @@ flowchart TD
 | カテゴリ | 目的 | ドキュメント |
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
-| **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md`, `docs/PLANNING-HUB-UX-PLAN.md` |
+| **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
 | **API / 自動化** | REST/CSVエンドポイント、ジョブ投入の概要 | `docs/API-OVERVIEW-JA.md` |
 | **運用・セキュリティ** | シークレット対応、バックアップ、CI設定 | `docs/SECRET_ROTATION_JA.md`, `.github/workflows/*` |
 | **クラス設計** | SimulationInput系モデルとエンジン連携 | `docs/CLASS_DESIGN_JA.md` |
@@ -144,7 +181,7 @@ flowchart TD
 
 - 変更履歴: `CHANGELOG.md`
 - 拡張戦略: `docs/EXPANSION_STRATEGY_JA.md`
-- 既知の制約や今後の改善点は `docs/AGG_DET_RECONCILIATION_JA.md` および `docs/PLANNING-HUB-UX-PLAN.md` を参照してください。
+- 既知の制約や今後の改善点は `docs/AGG_DET_RECONCILIATION_JA.md` を参照してください。
 
 ---
 
