@@ -12,23 +12,38 @@
 - サーバ起動済み（例）: `uvicorn main:app --reload`
 - ブラウザで `http://localhost:8000` にアクセス可能
 
-## 0. Canonical設定を準備
-- `/ui/configs` を開き、Canonical設定バージョン一覧を確認。
-- まだ登録がない場合は「Canonical設定を取り込む」からJSONを貼り付けるか、Plan成果物の `canonical_snapshot.json` を指定して取り込み。
-- すぐに試したい場合は `/ui/configs` の「サンプルを読み込む」ボタン、`python scripts/seed_canonical_sample.py` の実行、または `samples/canonical/canonical_sample.json` の取り込みを利用。別DBを使用している場合は `--db $SCPLN_DB` を指定。
-- 取り込み時は整合チェックが自動実行され、エラーがある場合は保存されない。保存後は詳細画面で件数サマリとサンプルを確認できる。
-- 既存バージョンとの差分を確認したい場合は、同ページの「差分を表示」または詳細画面の比較フォームから `/ui/configs/canonical/diff` を利用。
+## 0. 設定の準備
 
-## 1. 新規Planを作成（統合Run）
-1) `/ui/plans` を開く
-2) 「新規Plan作成（統合Run）」フォームで以下を入力
-   - `input_dir`: `samples/planning`
-   - `weeks`: `4`
-   - （任意）`cutover_date`、`anchor_policy` など
-3) 「Run（作成）」ボタン
-4) 作成されたプラン詳細（/ui/plans/{version_id}）に遷移
+本チュートリアルでは、事前に定義されたサンプル設定をデータベースにロードして使用します。
 
-ヒント: 実行ログやKPIが画面下部に見えてきます。まずはOverviewで要約を掴みましょう。
+1.  **サンプル設定のロード**
+
+    ターミナルから以下のコマンドを実行し、標準のサンプル設定をDBにロードします。
+
+    ```bash
+    # プロジェクトルートで実行
+    PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
+    ```
+
+2.  **設定の確認**
+
+    - ブラウザで `/ui/configs` を開きます。
+    - 先ほどロードした設定（例: `canonical-seed`）が一覧に表示されていることを確認します。
+    - この画面から、設定の詳細を閲覧したり、バージョン間の差分を比較したりできます。
+
+
+## 1. 新規Planを作成
+
+1) `/ui/plans` を開きます。
+2) 「新規Plan作成（統合Run）」ボタンをクリックしてフォームを開きます。
+3) 以下の項目を入力します。
+   - **Canonical設定バージョン**: 先ほどロードした設定のIDを選択します（通常は一覧の最上位）。
+   - **計画週数 (weeks)**: `8`
+   - （任意）`カットオーバー日`、`アンカー方針` などを指定します。
+4) 「Run（作成）」ボタンをクリックします。
+5) 作成されたプラン詳細ページ（`/ui/plans/{version_id}`）に自動的に遷移します。
+
+ヒント: 実行が完了すると、画面下部に実行ログやKPIサマリが表示されます。まずは「Overview」タブで計画の全体像を把握しましょう。
 
 ## 2. プレビュー（Aggregate / Disaggregate / Validate）
 - Aggregate: family×period で集計結果を確認
@@ -57,31 +72,48 @@
   - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
   - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）を表示
 
-## 7. APIで同等操作（参考）
-- 統合Run（同期）
+## 7. APIでの操作例（参考）
+
+- **統合Run（同期）**
+
 ```bash
+# config_version_id は事前にDBにロードしたものを指定
+CONFIG_VERSION_ID=14
+
 curl -sS http://localhost:8000/plans/integrated/run \
   -H 'content-type: application/json' \
-  -d '{
-        "input_dir":"samples/planning",
-        "weeks":4,
-        "round_mode":"int",
-        "lt_unit":"day",
-        "cutover_date":"2025-01-15",
-        "anchor_policy":"blend"
-      }' | jq .
+  -d "{
+        \"config_version_id\":${CONFIG_VERSION_ID},
+        \"weeks\":8,
+        \"round_mode\":\"int\",
+        \"lt_unit\":\"day\",
+        \"cutover_date\":\"2025-09-01\",
+        \"anchor_policy\":\"blend\"
+      }" | jq .
 ```
-- 予定オーダCSV
+
+- **予定オーダCSVのダウンロード**
+
 ```bash
-curl -sS http://localhost:8000/plans/<version_id>/schedule.csv -o schedule.csv
+# {version_id} は上記コマンドのレスポンスに含まれるものを指定
+curl -sS http://localhost:8000/plans/{version_id}/schedule.csv -o schedule.csv
 ```
-- Run API（Plan & Run相当）
+
+- **Run API経由での実行**
+
 ```bash
-curl -sS http://localhost:8000/runs -H 'content-type: application/json' -d '{
-  "pipeline":"integrated",
-  "async":false,
-  "options":{"input_dir":"samples/planning","weeks":4,"lt_unit":"day"}
-}' | jq .
+# config_version_id は事前にDBにロードしたものを指定
+CONFIG_VERSION_ID=14
+
+curl -sS http://localhost:8000/runs -H 'content-type: application/json' -d "{
+  \"pipeline\":\"integrated\",
+  \"async\":false,
+  \"options\":{
+    \"config_version_id\":${CONFIG_VERSION_ID},
+    \"weeks\":8,
+    \"lt_unit\":\"day\"
+  }
+}" | jq .
 ```
 
 ## 8. 用語と参照

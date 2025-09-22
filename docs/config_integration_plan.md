@@ -93,9 +93,21 @@
 
 ### PH5 ロールアウト
 
-- [ ] T5.1: 既存シナリオをCanonicalへ移行しリグレッションテストを実施
-- [ ] T5.2: 移行後に不要となる旧CSVサンプル/エンドポイントの整理計画を決定
-- [ ] T5.3: 運用手順書・トレーニング資料を更新
+- [x] T5.1: 既存シナリオをCanonicalへ移行しリグレッションテストを実施
+    - 2025-09-22 Codex: `scripts/seed_canonical.py --save-db --name regression-test-base` を実行し、リグレッション用の基準設定（ID=14）をDBに保存。`tests/test_regression_canonical.py` を新設し、①旧来のCSV入力による計画実行 と ②Canonical設定（ID=14）による計画実行 の両方を実施。最終成果物である `report.csv` の内容を比較し、KPIや計画数値が完全に一致することを検証するリグレッションテストを実装・成功させた。これにより、Canonical移行による計算ロジックのデグレードがないことを確認。
+- [x] T5.2: 移行後に不要となる旧CSVサンプル/エンドポイントの整理計画を決定
+    - 2025-09-22 Codex: Canonical設定への完全移行を前提に、旧来CSV入力パスを段階的に廃止する計画を策定。
+    - **方針**: 互換性を維持しつつ、警告ログ→パラメータ非推奨化→コード/ファイル削除の3段階で実施。
+    - **フェーズ1（非推奨化）**:
+        - 1. `app/jobs.py` の `_run_planning` で `config_version_id` 未指定時に警告ログを出力。
+        - 2. 関連APIエンドポイントの `input_dir` パラメータを `deprecated` とマーク。
+        - 3. `samples/planning/README.md` を作成し、ファイルがレガシーサンプルであることを明記。
+    - **フェーズ2（削除）**:
+        - 1. `_run_planning` のフォールバックロジックを削除し `config_version_id` を必須化。
+        - 2. APIから `input_dir` パラメータを削除。
+        - 3. `samples/planning/` を削除。ローダーのテストに必要なファイルは `tests/resources/` へ移動。
+- [x] T5.3: 運用手順書・トレーニング資料を更新
+    - 2025-09-22 Codex: `README.md` と `docs/TUTORIAL-JA.md` を更新。クイックスタートやチュートリアル手順を、旧来のCSVベースからCanonical設定ベースのワークフロー（`seed_canonical.py`でのDBロード → UI/APIで`config_version_id`を指定して実行）に全面的に書き換えた。
 
 ## 7. リスクと対応
 

@@ -17,3 +17,4 @@ docs/PR_BODY_planning_hub_a11y.md
 out/
 out_w*/
 data/*.db
+tmp/

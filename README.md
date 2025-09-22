@@ -23,13 +23,13 @@
 - PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
 - `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
 
-### 2. Canonical Configuration Management (/ui/configs)
-- Provides a list, details, JSON download, and diff comparison for Canonical configuration versions.
-- Saves only validated configurations to the database, taking JSON files or Plan artifacts (`canonical_snapshot.json`) as input.
-- The diff page visualizes the number of added, removed, and changed items for entities like items, nodes, bom, etc., along with a list of keys.
-- Configurations imported via the UI are given a `ui_import` attribute with source information, allowing them to be matched with Runs and Plans.
-- To get started quickly, use the "Load Sample" button on `/ui/configs`, load the sample into the DB with `python scripts/seed_canonical_sample.py`, import `samples/canonical/canonical_sample.json` directly, or generate a JSON file at a specified path with the `--export` option.
-- If the server is referencing a different database (`SCPLN_DB`), specify `--db $SCPLN_DB` to load the sample.
+### 2. Canonical設定管理 (/ui/configs)
+- Canonical設定バージョンの閲覧・詳細確認・JSONダウンロード・差分比較を提供します。
+- 検証済みの設定のみをDBに保存し、入力ソースとしてJSONファイルやPlan成果物（`canonical_snapshot.json`）を受け付けます。
+- 差分ページでは、品目・ノード・BOMなどのエンティティごとに追加/削除/変更されたキーの一覧と件数を可視化します。
+- UI経由でインポートされた設定には、どのRun/Planと紐づくか追跡するための `ui_import` 属性が付与されます。
+- 使い始めるには、`/ui/configs` の「サンプルをインポート」ボタンを利用するか、`python3 scripts/seed_canonical.py --save-db` を実行してサンプル設定をDBに直接ロードします。
+- サーバが異なるデータベースを参照している場合（`SCPLN_DB`環境変数）、`--db-path $SCPLN_DB` を指定してサンプルをロードしてください。
 
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
@@ -107,17 +107,29 @@ bash scripts/status.sh       # ヘルスチェック / ログ確認
 
 ブラウザで `http://localhost:8000` を開くと Planning Hub が表示されます。入口は `/ui/plans` に統一されています。
 
-### 3. サンプル計画を実行
+### 3. 設定の準備と計画実行
+
+本システムは、すべての設定をバージョン管理された「Canonical設定」としてDBで管理します。
+
+**1. サンプル設定のロード**
+
+まず、標準のサンプル設定をDBにロードします。これにより、すぐにUIで確認できる計画の元データが作成されます。
 
 ```bash
-PYTHONPATH=. python3 scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json
-PYTHONPATH=. python3 scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int
-PYTHONPATH=. python3 scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --weeks 4 --lt-unit day
-PYTHONPATH=. python3 scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4 --cutover-date 2025-09-01 --recon-window-days 7
-PYTHONPATH=. python3 scripts/reconcile_levels.py -i out/aggregate.json out/sku_week.json -o out/reconciliation_log.json --version v-local --tol-abs 1e-6 --tol-rel 1e-6
+# 仮想環境を有効化していることを確認
+PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
 ```
 
-Planning Hub UI の「新規Plan作成（統合Run）」から同等の処理を一括実行できます。詳細は `docs/TUTORIAL-JA.md` を参照してください。
+成功すると、`canonical_config_versions.id=...` のようにバージョンIDが出力されます。
+
+**2. 計画の実行**
+
+- **UIから実行（推奨）**: ブラウザで `http://localhost:8000/ui/plans` を開き、「新規Plan作成（統合Run）」ボタンをクリックします。ダイアログで、先ほど作成した設定バージョン（通常は最新のもの）を選択し、計画を実行します。
+
+- **APIから実行**: `POST /plans/integrated/run` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
+
+計画が完了すると、成果物（`plan_final.json`）やKPIレポート（`report.csv`）が生成され、UI上で確認・ダウンロードできます。
+旧来の個別スクリプトによる実行手順は `docs/TUTORIAL-JA.md` の「参考」セクションを参照してください。
 
 ---
 
