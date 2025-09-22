@@ -1,5 +1,6 @@
 
 import csv
+import importlib
 import json
 import os
 import re
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from app import db
+from app import db, jobs
 from app.jobs import JobManager
 
 # 十分な長さを確保
@@ -59,14 +60,16 @@ def job_manager():
         db_path.unlink()
 
     # このテスト関数で使用するDBパスを環境変数で明示的に設定する
-    # これにより、ワーカースレッドも同じDBを参照するようになる
     original_db_path = os.environ.get("SCPLN_DB")
     os.environ["SCPLN_DB"] = str(db_path.resolve())
+
+    # 環境変数の変更をモジュールに反映させるため、リロードする
+    importlib.reload(db)
+    importlib.reload(jobs)
 
     # Alembicマイグレーションを実行して、テスト用のDBスキーマを最新の状態にする
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
-    # CI環境ではalembicが直接実行できない可能性があるため、python -m alembic を使う
     subprocess.run(["python3", "-m", "alembic", "upgrade", "head"], check=True, env=env)
 
     # 一時ディレクトリをクリーンアップ
@@ -77,16 +80,21 @@ def job_manager():
         shutil.rmtree(tmp_root)
     tmp_root.mkdir(parents=True)
 
-    manager = JobManager(workers=1)
+    # リロードされたモジュールからJobManagerインスタンスを生成
+    manager = jobs.JobManager(workers=1)
     manager.start()
     yield manager
     manager.stop()
 
     # 環境変数を元に戻す
     if original_db_path is None:
-        del os.environ["SCPLN_DB"]
+        if "SCPLN_DB" in os.environ:
+            del os.environ["SCPLN_DB"]
     else:
         os.environ["SCPLN_DB"] = original_db_path
+    # 後続のテストに影響が出ないように、モジュールを再度リロード
+    importlib.reload(db)
+    importlib.reload(jobs)
 
 
 @pytest.fixture(scope="function")
