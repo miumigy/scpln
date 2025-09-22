@@ -6,7 +6,7 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .models import (
     CalendarDefinition,
@@ -43,7 +43,9 @@ def load_canonical_config(
     psi_data = _read_json(psi_input_path)
     planning_payload = _read_planning_dir(planning_dir)
     hier_product = _read_json(product_hierarchy_path) if product_hierarchy_path else {}
-    hier_location = _read_json(location_hierarchy_path) if location_hierarchy_path else {}
+    hier_location = (
+        _read_json(location_hierarchy_path) if location_hierarchy_path else {}
+    )
 
     item_records: Dict[str, Dict] = {}
     node_records: Dict[str, Dict] = {}
@@ -78,12 +80,12 @@ def load_canonical_config(
             "sources": {
                 "psi_input": str(psi_input_path),
                 "planning_dir": str(planning_dir),
-                "product_hierarchy": str(product_hierarchy_path)
-                if product_hierarchy_path
-                else None,
-                "location_hierarchy": str(location_hierarchy_path)
-                if location_hierarchy_path
-                else None,
+                "product_hierarchy": (
+                    str(product_hierarchy_path) if product_hierarchy_path else None
+                ),
+                "location_hierarchy": (
+                    str(location_hierarchy_path) if location_hierarchy_path else None
+                ),
             },
             "planning_payload": planning_payload,
         },
@@ -144,7 +146,9 @@ def _read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
 
 
 def _ingest_psi_products(
-    psi_data: Dict, item_records: Dict[str, Dict], bom_pairs: Dict[Tuple[str, str], Dict]
+    psi_data: Dict,
+    item_records: Dict[str, Dict],
+    bom_pairs: Dict[Tuple[str, str], Dict],
 ) -> None:
     for prod in psi_data.get("products", []):
         code = prod.get("name")
@@ -229,9 +233,9 @@ def _ingest_psi_nodes(
                 {
                     "code": item_code,
                     "name": item_code,
-                    "item_type": "material"
-                    if node["node_type"] == "material"
-                    else "product",
+                    "item_type": (
+                        "material" if node["node_type"] == "material" else "product"
+                    ),
                     "uom": "unit",
                     "attributes": {},
                 },
@@ -258,8 +262,12 @@ def _ingest_psi_nodes(
             inv["order_multiple"] = _as_float(
                 (raw.get("order_multiple") or {}).get(item_code)
             )
-            inv["reorder_point"] = _as_float((raw.get("reorder_point") or {}).get(item_code))
-            inv["order_up_to"] = _as_float((raw.get("order_up_to_level") or {}).get(item_code))
+            inv["reorder_point"] = _as_float(
+                (raw.get("reorder_point") or {}).get(item_code)
+            )
+            inv["order_up_to"] = _as_float(
+                (raw.get("order_up_to_level") or {}).get(item_code)
+            )
             storage_var = (raw.get("storage_cost_variable") or {}).get(item_code)
             inv["storage_cost"] = _as_float(storage_var)
             inv["stockout_cost"] = _as_float(raw.get("stockout_cost_per_unit"))
@@ -271,7 +279,9 @@ def _ingest_psi_nodes(
             node["production"]["__any__"] = {
                 "item_code": None,
                 "production_capacity": _as_float(raw.get("production_capacity")),
-                "allow_over_capacity": bool(raw.get("allow_production_over_capacity", True)),
+                "allow_over_capacity": bool(
+                    raw.get("allow_production_over_capacity", True)
+                ),
                 "over_capacity_fixed_cost": _as_float(
                     raw.get("production_over_capacity_fixed_cost")
                 ),
@@ -297,13 +307,18 @@ def _ingest_psi_arcs(psi_data: Dict) -> List[CanonicalArc]:
                 lead_time_days=_as_int(raw.get("lead_time"), default=0),
                 capacity_per_day=_as_float(raw.get("capacity_per_day")),
                 allow_over_capacity=bool(raw.get("allow_over_capacity", True)),
-                transportation_cost_fixed=_as_float(raw.get("transportation_cost_fixed")),
+                transportation_cost_fixed=_as_float(
+                    raw.get("transportation_cost_fixed")
+                ),
                 transportation_cost_variable=_as_float(
                     raw.get("transportation_cost_variable")
                 ),
-                min_order_qty={k: _as_float(v) for k, v in (raw.get("moq") or {}).items()},
+                min_order_qty={
+                    k: _as_float(v) for k, v in (raw.get("moq") or {}).items()
+                },
                 order_multiple={
-                    k: _as_float(v) for k, v in (raw.get("order_multiple") or {}).items()
+                    k: _as_float(v)
+                    for k, v in (raw.get("order_multiple") or {}).items()
                 },
                 attributes={
                     "over_capacity_fixed_cost": _as_float(
@@ -357,9 +372,13 @@ def _ingest_planning_items(
                 "attributes": {},
             },
         )
-        data["lead_time_days"] = _as_int(row.get("lt"), default=data.get("lead_time_days"))
+        data["lead_time_days"] = _as_int(
+            row.get("lt"), default=data.get("lead_time_days")
+        )
         data["lot_size"] = _as_float(row.get("lot"), default=data.get("lot_size"))
-        data["min_order_qty"] = _as_float(row.get("moq"), default=data.get("min_order_qty"))
+        data["min_order_qty"] = _as_float(
+            row.get("moq"), default=data.get("min_order_qty")
+        )
 
 
 def _ingest_planning_inventory(
@@ -422,7 +441,9 @@ def _ingest_planning_bom(
         key = (parent, child)
         existing = bom_pairs.get(key)
         if existing:
-            existing["quantity"] = existing.get("quantity") or _as_float(row.get("qty"), default=1.0)
+            existing["quantity"] = existing.get("quantity") or _as_float(
+                row.get("qty"), default=1.0
+            )
         else:
             bom_pairs[key] = {
                 "parent_item": parent,
@@ -434,7 +455,7 @@ def _ingest_planning_bom(
 
 
 def _ingest_planning_capacity(
-    planning_payload: Dict[str, List[Dict[str, str]]]
+    planning_payload: Dict[str, List[Dict[str, str]]],
 ) -> List[CapacityProfile]:
     capacities: List[CapacityProfile] = []
     for row in planning_payload.get("capacity", []):
@@ -464,7 +485,11 @@ def _build_hierarchies(
                 node_key=str(key),
                 parent_key=None,
                 level=payload.get("category"),
-                attributes={k: v for k, v in payload.items() if k not in {"item", "category", "department"}},
+                attributes={
+                    k: v
+                    for k, v in payload.items()
+                    if k not in {"item", "category", "department"}
+                },
             )
         )
     for key, payload in (location_hierarchy or {}).items():
@@ -474,13 +499,17 @@ def _build_hierarchies(
                 node_key=str(key),
                 parent_key=None,
                 level=payload.get("region"),
-                attributes={k: v for k, v in payload.items() if k not in {"region", "country"}},
+                attributes={
+                    k: v for k, v in payload.items() if k not in {"region", "country"}
+                },
             )
         )
     return entries
 
 
-def _build_calendars(payload: Dict[str, List[Dict[str, str]]]) -> List[CalendarDefinition]:
+def _build_calendars(
+    payload: Dict[str, List[Dict[str, str]]],
+) -> List[CalendarDefinition]:
     if not payload.get("period_cost") and not payload.get("period_score"):
         return []
     definition = {
@@ -497,7 +526,9 @@ def _build_calendars(payload: Dict[str, List[Dict[str, str]]]) -> List[CalendarD
 
 
 def _build_item(data: Dict) -> CanonicalItem:
-    return CanonicalItem(**{k: v for k, v in data.items() if k in CanonicalItem.model_fields})
+    return CanonicalItem(
+        **{k: v for k, v in data.items() if k in CanonicalItem.model_fields}
+    )
 
 
 def _build_node(data: Dict) -> CanonicalNode:
@@ -514,7 +545,9 @@ def _build_node(data: Dict) -> CanonicalNode:
 
 
 def _build_bom(data: Dict) -> CanonicalBom:
-    return CanonicalBom(**{k: v for k, v in data.items() if k in CanonicalBom.model_fields})
+    return CanonicalBom(
+        **{k: v for k, v in data.items() if k in CanonicalBom.model_fields}
+    )
 
 
 def _map_node_type(raw_type: Optional[str]) -> str:

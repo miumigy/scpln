@@ -89,8 +89,12 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
             inventory=_convert_inventory(payload.get("inventory")),
             open_po=_convert_open_po(payload.get("open_po")),
         )
-        period_cost = _normalize_period_entries(payload.get("period_cost"), value_key="cost")
-        period_score = _normalize_period_entries(payload.get("period_score"), value_key="score")
+        period_cost = _normalize_period_entries(
+            payload.get("period_cost"), value_key="cost"
+        )
+        period_score = _normalize_period_entries(
+            payload.get("period_score"), value_key="score"
+        )
         return PlanningDataBundle(
             aggregate_input=aggregate,
             period_cost=period_cost,
@@ -101,9 +105,7 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
     return _build_planning_bundle_from_canonical(config)
 
 
-def _resolve_planning_horizon(
-    config: CanonicalConfig, override: Optional[int]
-) -> int:
+def _resolve_planning_horizon(config: CanonicalConfig, override: Optional[int]) -> int:
     if override is not None:
         return max(1, int(override))
     attr = (config.meta.attributes or {}).get("planning_horizon")
@@ -141,9 +143,7 @@ def _build_products(
     return products
 
 
-def _build_node(
-    node: CanonicalNode, items_by_code: Dict[str, CanonicalItem]
-):
+def _build_node(node: CanonicalNode, items_by_code: Dict[str, CanonicalItem]):
     initial_stock: Dict[str, float] = {}
     moq_map: Dict[str, float] = {}
     order_multiple_map: Dict[str, float] = {}
@@ -151,9 +151,7 @@ def _build_node(
     reorder_point: Dict[str, float] = {}
     order_up_to: Dict[str, float] = {}
     stockout_cost = _to_float(node.attributes.get("stockout_cost_per_unit"))
-    backorder_cost = _to_float(
-        node.attributes.get("backorder_cost_per_unit_per_day")
-    )
+    backorder_cost = _to_float(node.attributes.get("backorder_cost_per_unit_per_day"))
 
     for policy in node.inventory_policies:
         initial_stock[policy.item_code] = policy.initial_inventory or 0.0
@@ -250,29 +248,21 @@ def _build_node(
         (p for p in production_policies if p.item_code is None),
         None,
     )
-    capacity = (general_policy.production_capacity if general_policy else None) or sys.float_info.max
-    allow_over_capacity = (
-        general_policy.allow_over_capacity if general_policy else True
-    )
+    capacity = (
+        general_policy.production_capacity if general_policy else None
+    ) or sys.float_info.max
+    allow_over_capacity = general_policy.allow_over_capacity if general_policy else True
     prod_fixed_cost = (
-        _to_float(general_policy.production_cost_fixed)
-        if general_policy
-        else 0.0
+        _to_float(general_policy.production_cost_fixed) if general_policy else 0.0
     )
     prod_variable_cost = (
-        _to_float(general_policy.production_cost_variable)
-        if general_policy
-        else 0.0
+        _to_float(general_policy.production_cost_variable) if general_policy else 0.0
     )
     over_fixed = (
-        _to_float(general_policy.over_capacity_fixed_cost)
-        if general_policy
-        else 0.0
+        _to_float(general_policy.over_capacity_fixed_cost) if general_policy else 0.0
     )
     over_variable = (
-        _to_float(general_policy.over_capacity_variable_cost)
-        if general_policy
-        else 0.0
+        _to_float(general_policy.over_capacity_variable_cost) if general_policy else 0.0
     )
 
     producible_products: List[str] = []
@@ -281,9 +271,7 @@ def _build_node(
             producible_products.append(policy.item_code)
     if not producible_products:
         producible_products = [
-            item.code
-            for item in items_by_code.values()
-            if item.item_type == "product"
+            item.code for item in items_by_code.values() if item.item_type == "product"
         ]
     producible_products = sorted({*producible_products})
 
@@ -318,13 +306,17 @@ def _build_node(
 
 
 def _build_network_link(arc: CanonicalArc) -> NetworkLink:
-    min_order = {k: float(v) for k, v in (arc.min_order_qty or {}).items() if v is not None}
+    min_order = {
+        k: float(v) for k, v in (arc.min_order_qty or {}).items() if v is not None
+    }
     order_multiple = {
         k: float(v) for k, v in (arc.order_multiple or {}).items() if v is not None
     }
     over_fixed = _to_float(arc.attributes.get("over_capacity_fixed_cost"))
     over_variable = _to_float(arc.attributes.get("over_capacity_variable_cost"))
-    capacity = arc.capacity_per_day if arc.capacity_per_day is not None else sys.float_info.max
+    capacity = (
+        arc.capacity_per_day if arc.capacity_per_day is not None else sys.float_info.max
+    )
     return NetworkLink(
         from_node=arc.from_node,
         to_node=arc.to_node,
@@ -350,7 +342,9 @@ def _build_customer_demand(row: DemandProfile) -> CustomerDemand:
     )
 
 
-def _convert_demand_family(rows: Optional[Iterable[Dict[str, Any]]]) -> List[FamilyDemandRecord]:
+def _convert_demand_family(
+    rows: Optional[Iterable[Dict[str, Any]]],
+) -> List[FamilyDemandRecord]:
     records: List[FamilyDemandRecord] = []
     for row in rows or []:
         family = row.get("family")
@@ -373,12 +367,16 @@ def _convert_capacity(rows: Optional[Iterable[Dict[str, Any]]]) -> List[Capacity
             continue
         capacity = _to_float(row.get("capacity"), default=0.0)
         records.append(
-            CapacityRecord(workcenter=str(workcenter), period=str(period), capacity=capacity)
+            CapacityRecord(
+                workcenter=str(workcenter), period=str(period), capacity=capacity
+            )
         )
     return records
 
 
-def _convert_mix_share(rows: Optional[Iterable[Dict[str, Any]]]) -> List[MixShareRecord]:
+def _convert_mix_share(
+    rows: Optional[Iterable[Dict[str, Any]]],
+) -> List[MixShareRecord]:
     records: List[MixShareRecord] = []
     for row in rows or []:
         family = row.get("family")
@@ -386,13 +384,13 @@ def _convert_mix_share(rows: Optional[Iterable[Dict[str, Any]]]) -> List[MixShar
         if not family or not sku:
             continue
         share = _to_float(row.get("share"), default=0.0)
-        records.append(
-            MixShareRecord(family=str(family), sku=str(sku), share=share)
-        )
+        records.append(MixShareRecord(family=str(family), sku=str(sku), share=share))
     return records
 
 
-def _convert_item_master(rows: Optional[Iterable[Dict[str, Any]]]) -> List[ItemMasterRecord]:
+def _convert_item_master(
+    rows: Optional[Iterable[Dict[str, Any]]],
+) -> List[ItemMasterRecord]:
     records: List[ItemMasterRecord] = []
     for row in rows or []:
         item = row.get("item")
@@ -405,7 +403,9 @@ def _convert_item_master(rows: Optional[Iterable[Dict[str, Any]]]) -> List[ItemM
     return records
 
 
-def _convert_inventory(rows: Optional[Iterable[Dict[str, Any]]]) -> List[InventoryRecord]:
+def _convert_inventory(
+    rows: Optional[Iterable[Dict[str, Any]]],
+) -> List[InventoryRecord]:
     records: List[InventoryRecord] = []
     for row in rows or []:
         item = row.get("item")

@@ -213,9 +213,7 @@ def list_runs(
         runs_list = resp.get("runs") or []
         if config_version_id is not None:
             runs_list = [
-                r
-                for r in runs_list
-                if r.get("config_version_id") == config_version_id
+                r for r in runs_list if r.get("config_version_id") == config_version_id
             ]
             resp["runs"] = runs_list
             resp["total"] = len(runs_list)
@@ -409,7 +407,10 @@ def _filter_and_sort(
             return False
         if config_id is not None and x.get("config_id") != config_id:
             return False
-        if config_version_id is not None and x.get("config_version_id") != config_version_id:
+        if (
+            config_version_id is not None
+            and x.get("config_version_id") != config_version_id
+        ):
             return False
         if scenario_id is not None and x.get("scenario_id") != scenario_id:
             return False

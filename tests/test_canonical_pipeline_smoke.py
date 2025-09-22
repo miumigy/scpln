@@ -41,7 +41,5 @@ def test_builders_smoke(canonical_config, tmp_path):
 
     # JSON出力してplanningパイプラインに渡せる形式であることを確認
     planning_json_path = tmp_path / "aggregate_input.json"
-    planning_json_path.write_text(
-        agg.model_dump_json(indent=2), encoding="utf-8"
-    )
+    planning_json_path.write_text(agg.model_dump_json(indent=2), encoding="utf-8")
     assert planning_json_path.exists()

@@ -103,7 +103,10 @@ def main() -> int:
                 f"[{issue.severity}] {issue.code}: {issue.message} {issue.context}",
                 file=sys.stderr,
             )
-        print("検証エラーが発生したため中断しました (--allow-errorsで継続可能)", file=sys.stderr)
+        print(
+            "検証エラーが発生したため中断しました (--allow-errorsで継続可能)",
+            file=sys.stderr,
+        )
         return 3
 
     print(f"[info] Canonical設定生成完了: {_summary(config)}")
