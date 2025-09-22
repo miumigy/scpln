@@ -57,7 +57,12 @@ def job_manager():
     db_path = base_dir / "data" / "scpln.db"
     if db_path.exists():
         db_path.unlink()
-    db.init_db()  # クリーンなDBでテーブルを再作成
+
+    # Alembicマイグレーションを実行して、テスト用のDBスキーマを最新の状態にする
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "."
+    # CI環境ではalembicが直接実行できない可能性があるため、python -m alembic を使う
+    subprocess.run(["python3", "-m", "alembic", "upgrade", "head"], check=True, env=env)
 
     # 一時ディレクトリをクリーンアップ
     tmp_root = base_dir / "tmp" / "regression_tests"
