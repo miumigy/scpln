@@ -58,6 +58,11 @@ def job_manager():
     if db_path.exists():
         db_path.unlink()
 
+    # このテスト関数で使用するDBパスを環境変数で明示的に設定する
+    # これにより、ワーカースレッドも同じDBを参照するようになる
+    original_db_path = os.environ.get("SCPLN_DB")
+    os.environ["SCPLN_DB"] = str(db_path.resolve())
+
     # Alembicマイグレーションを実行して、テスト用のDBスキーマを最新の状態にする
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
@@ -76,6 +81,12 @@ def job_manager():
     manager.start()
     yield manager
     manager.stop()
+
+    # 環境変数を元に戻す
+    if original_db_path is None:
+        del os.environ["SCPLN_DB"]
+    else:
+        os.environ["SCPLN_DB"] = original_db_path
 
 
 @pytest.fixture(scope="function")
