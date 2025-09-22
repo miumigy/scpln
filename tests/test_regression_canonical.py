@@ -1,6 +1,5 @@
 
 import csv
-import importlib
 import json
 import os
 import re
@@ -12,10 +11,6 @@ import pytest
 
 from app import db, jobs
 from app.jobs import JobManager
-import prometheus_client # <- これを追加
-from prometheus_client import registry
-import prometheus_client # <- これを追加
-from prometheus_client import registry
 
 # 十分な長さを確保
 JOB_WAIT_TIMEOUT = 120
@@ -64,12 +59,9 @@ def job_manager():
         db_path.unlink()
 
     # このテスト関数で使用するDBパスを環境変数で明示的に設定する
+    # これにより、ワーカースレッドも同じDBを参照するようになる
     original_db_path = os.environ.get("SCPLN_DB")
     os.environ["SCPLN_DB"] = str(db_path.resolve())
-
-    # 環境変数の変更をモジュールに反映させるため、リロードする
-    importlib.reload(db)
-    importlib.reload(jobs)
 
     # Alembicマイグレーションを実行して、テスト用のDBスキーマを最新の状態にする
     env = os.environ.copy()
@@ -96,9 +88,6 @@ def job_manager():
             del os.environ["SCPLN_DB"]
     else:
         os.environ["SCPLN_DB"] = original_db_path
-    # 後続のテストに影響が出ないように、モジュールを再度リロード
-    importlib.reload(db)
-    importlib.reload(jobs)
 
 
 @pytest.fixture(scope="function")
