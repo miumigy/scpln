@@ -50,11 +50,16 @@ def _get_seeded_config_id() -> int:
     return int(match.group(1))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def job_manager():
-    """テスト用のJobManagerをセットアップ"""
-    # テスト実行前に一時ディレクトリをクリーンアップ
+    """テスト関数ごとにDBを初期化し、JobManagerをセットアップ"""
     base_dir = Path(__file__).resolve().parents[1]
+    db_path = base_dir / "data" / "scpln.db"
+    if db_path.exists():
+        db_path.unlink()
+    db.init_db()  # クリーンなDBでテーブルを再作成
+
+    # 一時ディレクトリをクリーンアップ
     tmp_root = base_dir / "tmp" / "regression_tests"
     if tmp_root.exists():
         import shutil
@@ -68,9 +73,9 @@ def job_manager():
     manager.stop()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def seeded_config_id() -> int:
-    """テストの開始前に一度だけDBに設定をシードし、そのIDを返す"""
+    """テスト関数ごとにDBへ設定をシードし、そのIDを返す"""
     return _get_seeded_config_id()
 
 
