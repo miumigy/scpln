@@ -30,8 +30,17 @@ def _get_seeded_config_id() -> int:
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
     result = subprocess.run(
-        cmd, capture_output=True, text=True, check=True, encoding="utf-8", env=env
+        cmd, capture_output=True, text=True, encoding="utf-8", env=env
     )
+
+    if result.returncode != 0:
+        pytest.fail(
+            f"seed_canonical.py の実行に失敗しました。\n"
+            f"Exit Code: {result.returncode}\n"
+            f"Stderr: {result.stderr}\n"
+            f"Stdout: {result.stdout}"
+        )
+
     # 出力からIDを正規表現で抽出 (例: "[info] DBへ保存しました: canonical_config_versions.id=1")
     match = re.search(r"canonical_config_versions.id=(\d+)", result.stdout)
     if not match:
