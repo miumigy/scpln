@@ -1,6 +1,7 @@
 
 import csv
 import json
+import os
 import re
 import subprocess
 import time
@@ -25,8 +26,9 @@ def _get_seeded_config_id() -> int:
         "--name",
         "regression-test-base",
     ]
-    # PYTHONPATHを設定して、プロジェクトのモジュールをインポート可能にする
-    env = {"PYTHONPATH": "."}
+    # 現在の環境変数を引き継ぎ、PYTHONPATHを追加する
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "."
     result = subprocess.run(
         cmd, capture_output=True, text=True, check=True, encoding="utf-8", env=env
     )
