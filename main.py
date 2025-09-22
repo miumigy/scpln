@@ -7,7 +7,35 @@ from collections import defaultdict
 from typing import Optional
 import time as _time
 from app.run_registry import REGISTRY as _REGISTRY
-from app import db as _db
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import make_asgi_app
+
+from app import api, db, metrics
+
+# アプリケーション起動時にDBを初期化
+db.init_db()
+
+app = FastAPI(
+    title="SCPLN API",
+    description="Supply Chain Planning & Simulation API",
+    version="0.1.0",
+)
+
+# Prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
+app.include_router(api.router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 try:
     from app import metrics as _metrics  # noqa: F401  # /metrics を副作用で登録
