@@ -8,6 +8,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+import os
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -15,7 +16,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from core.config import CanonicalLoaderError, load_canonical_config
 from core.config.storage import save_canonical_config
-from app.db import DB_PATH
+
+# app/db.py と同じロジックでデフォルトパスを構築
+_BASE_DIR = Path(__file__).resolve().parents[1]
+_DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
+_DEFAULT_DB_PATH = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--db-path",
-        default=DB_PATH,
+        default=_DEFAULT_DB_PATH, # <- ここを修正
         help="SQLite DBパス（既定: SCPLN_DB or data/scpln.db）",
     )
     ap.add_argument(
