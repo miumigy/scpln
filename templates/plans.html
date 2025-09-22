@@ -24,7 +24,7 @@
           <span class="label-title">Canonical Config Version</span>
           {% set selected_config = (form_defaults.config_version_id or '')|string %}
           <select name="config_version_id">
-            <option value="">-- 選択 --</option>
+            <option value="">-- Select --</option>
             {% for opt in canonical_options %}
               <option value="{{ opt.id }}" {% if opt.id|string == selected_config %}selected{% endif %}>{{ opt.label }}</option>
             {% endfor %}
