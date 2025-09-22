@@ -17,9 +17,9 @@ JOB_WAIT_TIMEOUT = 120
 
 def _get_seeded_config_id() -> int:
     """seedスクリプトを実行し、生成されたCanonical設定のIDを返す"""
-    # .venv/bin/python を使うことで、依存関係がインストールされた環境で実行
+    # CI環境では.venvが存在しないため、python3を直接呼び出す
     cmd = [
-        ".venv/bin/python",
+        "python3",
         "scripts/seed_canonical.py",
         "--save-db",
         "--name",
