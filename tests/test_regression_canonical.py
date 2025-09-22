@@ -12,6 +12,8 @@ import pytest
 
 from app import db, jobs
 from app.jobs import JobManager
+import prometheus_client # <- これを追加
+from prometheus_client import registry
 
 # 十分な長さを確保
 JOB_WAIT_TIMEOUT = 120
