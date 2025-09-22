@@ -48,7 +48,9 @@ class ValidationResult(BaseModel):
             )
         )
 
-    def add_error(self, code: str, message: str, context: Dict[str, str] | None = None) -> None:
+    def add_error(
+        self, code: str, message: str, context: Dict[str, str] | None = None
+    ) -> None:
         self.add_issue(severity="error", code=code, message=message, context=context)
 
     def add_warning(
@@ -74,7 +76,9 @@ def validate_canonical_config(config: CanonicalConfig) -> ValidationResult:
     return result
 
 
-def _validate_nodes(nodes: Iterable[CanonicalNode], result: ValidationResult) -> Set[str]:
+def _validate_nodes(
+    nodes: Iterable[CanonicalNode], result: ValidationResult
+) -> Set[str]:
     codes: Set[str] = set()
     for node in nodes:
         if node.code in codes:
@@ -234,7 +238,9 @@ def _validate_demands(
             )
 
 
-def _validate_capacities(capacities, node_codes: Set[str], result: ValidationResult) -> None:
+def _validate_capacities(
+    capacities, node_codes: Set[str], result: ValidationResult
+) -> None:
     for row in capacities:
         if row.resource_type == "node" and row.resource_code not in node_codes:
             result.add_error(
@@ -266,4 +272,3 @@ __all__ = [
     "ValidationResult",
     "validate_canonical_config",
 ]
-

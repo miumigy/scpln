@@ -217,9 +217,7 @@ class RunRegistryDB:
             "cost_trace": json.loads(row["cost_trace"] or "[]"),
             "config_id": row["config_id"],
             "config_version_id": (
-                row["config_version_id"]
-                if "config_version_id" in row.keys()
-                else None
+                row["config_version_id"] if "config_version_id" in row.keys() else None
             ),
             "scenario_id": row["scenario_id"],
             "config_json": (

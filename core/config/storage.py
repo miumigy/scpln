@@ -70,7 +70,9 @@ def get_canonical_config(
             (version_id,),
         ).fetchone()
         if not meta_row:
-            raise CanonicalConfigNotFoundError(f"config version id={version_id} not found")
+            raise CanonicalConfigNotFoundError(
+                f"config version id={version_id} not found"
+            )
 
         item_rows = cur.execute(
             """
@@ -308,7 +310,9 @@ def _row_to_item(row: sqlite3.Row) -> CanonicalItem:
     )
 
 
-def _group_inventory(rows: Iterable[sqlite3.Row]) -> Dict[str, List[NodeInventoryPolicy]]:
+def _group_inventory(
+    rows: Iterable[sqlite3.Row],
+) -> Dict[str, List[NodeInventoryPolicy]]:
     inventory: Dict[str, List[NodeInventoryPolicy]] = defaultdict(list)
     for row in rows:
         policy = NodeInventoryPolicy(
@@ -329,7 +333,9 @@ def _group_inventory(rows: Iterable[sqlite3.Row]) -> Dict[str, List[NodeInventor
     return inventory
 
 
-def _group_production(rows: Iterable[sqlite3.Row]) -> Dict[str, List[NodeProductionPolicy]]:
+def _group_production(
+    rows: Iterable[sqlite3.Row],
+) -> Dict[str, List[NodeProductionPolicy]]:
     production: Dict[str, List[NodeProductionPolicy]] = defaultdict(list)
     for row in rows:
         policy = NodeProductionPolicy(
@@ -361,7 +367,9 @@ def _row_to_node(
         service_level=row["service_level"],
         lead_time_days=row["lead_time_days"],
         storage_capacity=row["storage_capacity"],
-        allow_storage_over_capacity=_to_bool(row["allow_storage_over_capacity"], default=True),
+        allow_storage_over_capacity=_to_bool(
+            row["allow_storage_over_capacity"], default=True
+        ),
         storage_cost_fixed=row["storage_cost_fixed"],
         storage_over_capacity_fixed_cost=row["storage_over_capacity_fixed_cost"],
         storage_over_capacity_variable_cost=row["storage_over_capacity_variable_cost"],
@@ -482,7 +490,9 @@ def _insert_canonical_snapshot(cur: sqlite3.Cursor, config: CanonicalConfig) -> 
     return version_id
 
 
-def _insert_items(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_items(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.items:
         return
     rows = [
@@ -513,7 +523,9 @@ def _insert_items(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig)
     )
 
 
-def _insert_nodes(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_nodes(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.nodes:
         return
     node_rows = []
@@ -673,7 +685,9 @@ def _insert_boms(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) 
     )
 
 
-def _insert_demands(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_demands(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.demands:
         return
     rows = [
@@ -702,7 +716,9 @@ def _insert_demands(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfi
     )
 
 
-def _insert_capacities(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_capacities(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.capacities:
         return
     rows = [
@@ -728,7 +744,9 @@ def _insert_capacities(cur: sqlite3.Cursor, version_id: int, config: CanonicalCo
     )
 
 
-def _insert_hierarchies(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_hierarchies(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.hierarchies:
         return
     rows = [
@@ -754,7 +772,9 @@ def _insert_hierarchies(cur: sqlite3.Cursor, version_id: int, config: CanonicalC
     )
 
 
-def _insert_calendars(cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig) -> None:
+def _insert_calendars(
+    cur: sqlite3.Cursor, version_id: int, config: CanonicalConfig
+) -> None:
     if not config.calendars:
         return
     rows = [
