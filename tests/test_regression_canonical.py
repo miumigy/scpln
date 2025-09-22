@@ -68,6 +68,9 @@ def job_manager():
     env["PYTHONPATH"] = "."
     subprocess.run(["python3", "-m", "alembic", "upgrade", "head"], check=True, env=env)
 
+    # init_db() をここで明示的に呼び出す
+    db.init_db()
+
     # 一時ディレクトリをクリーンアップ
     tmp_root = base_dir / "tmp" / "regression_tests"
     if tmp_root.exists():

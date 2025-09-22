@@ -8,12 +8,14 @@ from typing import Any, Dict, List, Optional
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
-DB_PATH = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
-Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
+# DB_PATH はモジュールレベルで定義せず、_conn()内で毎回取得する
+# DB_PATH = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+Path(_DEFAULT_DB).parent.mkdir(parents=True, exist_ok=True)
 
 
 def _conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    current_db_path = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+    conn = sqlite3.connect(current_db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -405,8 +407,8 @@ def delete_config(cfg_id: int) -> None:
         c.execute("DELETE FROM configs WHERE id=?", (cfg_id,))
 
 
-# Initialize at import
-init_db()
+# Initialize at import # <- この行を削除
+# init_db() # <- この行を削除
 
 
 # --- Scenarios (phase2 foundation) ---
