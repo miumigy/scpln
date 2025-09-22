@@ -364,9 +364,7 @@ class JobManager:
                         for issue in validation.issues
                         if issue.severity == "error"
                     )
-                    raise RuntimeError(
-                        f"canonical config validation failed: {errors}"
-                    )
+                    raise RuntimeError(f"canonical config validation failed: {errors}")
 
                 planning_bundle = build_planning_inputs(canonical_config)
                 temp_input_dir = out_dir / "canonical_inputs"
@@ -408,12 +406,16 @@ class JobManager:
                 # persist period cost/score metadata for reference
                 if planning_bundle.period_cost:
                     (out_dir / "period_cost.json").write_text(
-                        json.dumps(planning_bundle.period_cost, ensure_ascii=False, indent=2),
+                        json.dumps(
+                            planning_bundle.period_cost, ensure_ascii=False, indent=2
+                        ),
                         encoding="utf-8",
                     )
                 if planning_bundle.period_score:
                     (out_dir / "period_score.json").write_text(
-                        json.dumps(planning_bundle.period_score, ensure_ascii=False, indent=2),
+                        json.dumps(
+                            planning_bundle.period_score, ensure_ascii=False, indent=2
+                        ),
                         encoding="utf-8",
                     )
 
@@ -762,9 +764,19 @@ def _materialize_planning_inputs(bundle: PlanningDataBundle, dest: Path) -> None
 
     data = aggregate.model_dump()
 
-    _write_csv(dest / "demand_family.csv", data.get("demand_family"), ["family", "period", "demand"])
-    _write_csv(dest / "capacity.csv", data.get("capacity"), ["workcenter", "period", "capacity"])
-    _write_csv(dest / "mix_share.csv", data.get("mix_share"), ["family", "sku", "share"])
+    _write_csv(
+        dest / "demand_family.csv",
+        data.get("demand_family"),
+        ["family", "period", "demand"],
+    )
+    _write_csv(
+        dest / "capacity.csv",
+        data.get("capacity"),
+        ["workcenter", "period", "capacity"],
+    )
+    _write_csv(
+        dest / "mix_share.csv", data.get("mix_share"), ["family", "sku", "share"]
+    )
     _write_csv(dest / "item.csv", data.get("item_master"), ["item", "lt", "lot", "moq"])
     _write_csv(dest / "inventory.csv", data.get("inventory"), ["item", "loc", "qty"])
     _write_csv(dest / "open_po.csv", data.get("open_po"), ["item", "due", "qty"])

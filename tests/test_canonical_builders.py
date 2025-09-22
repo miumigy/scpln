@@ -52,9 +52,7 @@ def test_build_simulation_input_from_canonical():
     )
     assert link.lead_time == 3
 
-    demand = next(
-        d for d in sim_input.customer_demand if d.product_name == "完成品A"
-    )
+    demand = next(d for d in sim_input.customer_demand if d.product_name == "完成品A")
     assert demand.demand_mean == 15
 
 
@@ -88,5 +86,8 @@ def test_build_planning_inputs_without_payload_fallback():
     aggregate = bundle.aggregate_input
 
     assert len(aggregate.demand_family) == len(config.demands)
-    assert all(record.family in {d.item_code for d in config.demands} for record in aggregate.demand_family)
+    assert all(
+        record.family in {d.item_code for d in config.demands}
+        for record in aggregate.demand_family
+    )
     assert all(record.share == 1.0 for record in aggregate.mix_share)

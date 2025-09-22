@@ -23,7 +23,10 @@ def upgrade() -> None:
             sa.Column("id", sa.Integer, primary_key=True),
             sa.Column("name", sa.Text, nullable=False),
             sa.Column(
-                "schema_version", sa.Text, nullable=False, server_default="canonical-1.0"
+                "schema_version",
+                sa.Text,
+                nullable=False,
+                server_default="canonical-1.0",
             ),
             sa.Column("version_tag", sa.Text, nullable=True),
             sa.Column("status", sa.Text, nullable=False, server_default="draft"),
@@ -121,7 +124,9 @@ def upgrade() -> None:
             ),
             sa.Column("node_code", sa.Text, nullable=False),
             sa.Column("item_code", sa.Text, nullable=False),
-            sa.Column("initial_inventory", sa.Float, nullable=False, server_default="0"),
+            sa.Column(
+                "initial_inventory", sa.Float, nullable=False, server_default="0"
+            ),
             sa.Column("reorder_point", sa.Float, nullable=True),
             sa.Column("order_up_to", sa.Float, nullable=True),
             sa.Column("min_order_qty", sa.Float, nullable=True),
@@ -208,7 +213,9 @@ def upgrade() -> None:
             sa.Column("transportation_cost_fixed", sa.Float, nullable=True),
             sa.Column("transportation_cost_variable", sa.Float, nullable=True),
             sa.Column("min_order_json", sa.Text, nullable=False, server_default="{}"),
-            sa.Column("order_multiple_json", sa.Text, nullable=False, server_default="{}"),
+            sa.Column(
+                "order_multiple_json", sa.Text, nullable=False, server_default="{}"
+            ),
             sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
             sa.UniqueConstraint(
                 "config_version_id",
@@ -401,7 +408,9 @@ def downgrade() -> None:
     op.drop_index("idx_canonical_calendars_config", table_name="canonical_calendars")
     op.drop_table("canonical_calendars")
 
-    op.drop_index("idx_canonical_hierarchies_config", table_name="canonical_hierarchies")
+    op.drop_index(
+        "idx_canonical_hierarchies_config", table_name="canonical_hierarchies"
+    )
     op.drop_table("canonical_hierarchies")
 
     op.drop_index("idx_canonical_capacities_config", table_name="canonical_capacities")

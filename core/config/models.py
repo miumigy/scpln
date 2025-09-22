@@ -14,10 +14,14 @@ from pydantic import BaseModel, Field
 class ConfigMeta(BaseModel):
     """設定バージョンのメタ情報。"""
 
-    version_id: Optional[int] = Field(default=None, description="DB上の設定バージョンID")
+    version_id: Optional[int] = Field(
+        default=None, description="DB上の設定バージョンID"
+    )
     name: str = Field(description="設定名")
     schema_version: str = Field(default="canonical-1.0")
-    version_tag: Optional[str] = Field(default=None, description="外部向けバージョンタグ")
+    version_tag: Optional[str] = Field(
+        default=None, description="外部向けバージョンタグ"
+    )
     status: Literal["draft", "active", "archived"] = Field(default="draft")
     description: Optional[str] = Field(default=None)
     source_config_id: Optional[int] = Field(
@@ -25,7 +29,9 @@ class ConfigMeta(BaseModel):
     )
     created_at: Optional[int] = Field(default=None, description="ミリ秒UNIX時間")
     updated_at: Optional[int] = Field(default=None, description="ミリ秒UNIX時間")
-    attributes: Dict[str, Any] = Field(default_factory=dict, description="タグや任意属性")
+    attributes: Dict[str, Any] = Field(
+        default_factory=dict, description="タグや任意属性"
+    )
 
 
 class CanonicalItem(BaseModel):
@@ -65,7 +71,9 @@ class NodeInventoryPolicy(BaseModel):
 class NodeProductionPolicy(BaseModel):
     """生産ノード向けの生産能力・コストパラメータ。"""
 
-    item_code: Optional[str] = Field(default=None, description="対象品目。Noneで全体適用")
+    item_code: Optional[str] = Field(
+        default=None, description="対象品目。Noneで全体適用"
+    )
     production_capacity: Optional[float] = Field(default=None, ge=0)
     allow_over_capacity: bool = Field(default=True)
     over_capacity_fixed_cost: Optional[float] = Field(default=None, ge=0)
@@ -101,7 +109,9 @@ class CanonicalArc(BaseModel):
 
     from_node: str = Field(description="出発ノード")
     to_node: str = Field(description="到着ノード")
-    arc_type: Literal["transport", "supply", "distribution"] = Field(default="transport")
+    arc_type: Literal["transport", "supply", "distribution"] = Field(
+        default="transport"
+    )
     lead_time_days: int = Field(default=0, ge=0)
     capacity_per_day: Optional[float] = Field(default=None, ge=0)
     allow_over_capacity: bool = Field(default=True)
@@ -197,4 +207,3 @@ __all__ = [
     "HierarchyEntry",
     "CanonicalConfig",
 ]
-

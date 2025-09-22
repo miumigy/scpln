@@ -181,9 +181,7 @@ def ui_plan_detail(version_id: str, request: Request):
         db.get_plan_artifact(version_id, "canonical_snapshot.json") or {}
     )
     canonical_meta = (
-        canonical_snapshot.get("meta")
-        if isinstance(canonical_snapshot, dict)
-        else {}
+        canonical_snapshot.get("meta") if isinstance(canonical_snapshot, dict) else {}
     )
     if hasattr(canonical_meta, "model_dump"):
         canonical_meta = canonical_meta.model_dump()
@@ -206,6 +204,7 @@ def ui_plan_detail(version_id: str, request: Request):
     planning_inputs = db.get_plan_artifact(version_id, "planning_inputs.json") or {}
     planning_summary = {}
     if isinstance(planning_inputs, dict):
+
         def _len(key: str) -> int:
             val = planning_inputs.get(key)
             return len(val) if isinstance(val, list) else 0
