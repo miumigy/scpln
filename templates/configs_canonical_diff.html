@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block page_header %}
+  <h2>Canonical Configuration Diff</h2>
+  <p>Compare the differences between two configuration versions.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <div>
+      <h3>Comparison Scope</h3>
+      <p>Base: {{ base_id }} / Compare: {{ compare_id }}</p>
+    </div>
+    <div class="toolbar">
+      <a role="button" href="/ui/configs">Back to list</a>
+    </div>
+  </div>
+  <form class="grid-form grid-2" method="get" action="/ui/configs/canonical/diff">
+    <label>Base version
+      <select name="base_id" required>
+        {% for opt in diff_options %}
+          <option value="{{ opt.id }}" {% if opt.id == base_id %}selected{% endif %}>{{ opt.id }} | {{ opt.name }} ({{ opt.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Compare to
+      <select name="compare_id" required>
+        {% for opt in diff_options %}
+          <option value="{{ opt.id }}" {% if opt.id == compare_id %}selected{% endif %}>{{ opt.id }} | {{ opt.name }} ({{ opt.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="toolbar">
+      <button type="submit">Refresh Diff</button>
+    </div>
+  </form>
+  {% if error %}
+    <p class="mono">{{ error }}</p>
+  {% endif %}
+</section>
+
+{% if base_meta and compare_meta %}
+<section class="page-section">
+  <h3>Metadata Differences</h3>
+  <div class="grid-form grid-2">
+    <div>
+      <h4>Base (ID={{ base_id }})</h4>
+      <table role="grid">
+        <tbody>
+          <tr><td>name</td><td class="mono">{{ base_meta.name }}</td></tr>
+          <tr><td>status</td><td class="mono">{{ base_meta.status }}</td></tr>
+          <tr><td>schema_version</td><td class="mono">{{ base_meta.schema_version }}</td></tr>
+          <tr><td>version_tag</td><td class="mono">{{ base_meta.version_tag or '-' }}</td></tr>
+          <tr><td>updated_at</td><td class="mono">{{ base_meta.updated_at_str or '-' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h4>Compare (ID={{ compare_id }})</h4>
+      <table role="grid">
+        <tbody>
+          <tr><td>name</td><td class="mono">{{ compare_meta.name }}</td></tr>
+          <tr><td>status</td><td class="mono">{{ compare_meta.status }}</td></tr>
+          <tr><td>schema_version</td><td class="mono">{{ compare_meta.schema_version }}</td></tr>
+          <tr><td>version_tag</td><td class="mono">{{ compare_meta.version_tag or '-' }}</td></tr>
+          <tr><td>updated_at</td><td class="mono">{{ compare_meta.updated_at_str or '-' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if diff.meta.field_changes %}
+    <details open class="gap-top-sm">
+      <summary>Changed fields ({{ diff.meta.field_changes | length }})</summary>
+      <ul>
+        {% for key, payload in diff.meta.field_changes.items() %}
+          <li><strong>{{ key }}</strong>: {{ payload.base }} → {{ payload.compare }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% else %}
+    <p>No changes in metadata.</p>
+  {% endif %}
+  {% if diff.meta.attribute_changes.added or diff.meta.attribute_changes.removed or diff.meta.attribute_changes.changed %}
+    <details class="gap-top-sm">
+      <summary>Attribute differences</summary>
+      <p>Added: {{ diff.meta.attribute_changes.added }}, Removed: {{ diff.meta.attribute_changes.removed }}</p>
+      {% if diff.meta.attribute_changes.changed %}
+        <ul>
+          {% for key in diff.meta.attribute_changes.changed %}
+            <li><strong>{{ key }}</strong>: {{ diff.meta.attribute_changes.changes[key].base }} → {{ diff.meta.attribute_changes.changes[key].compare }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </details>
+  {% endif %}
+</section>
+
+<section class="page-section">
+  <h3>Entity Differences</h3>
+  <div class="table-wrapper">
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>Entity</th>
+          <th>Base Count</th>
+          <th>Compare Count</th>
+          <th>Added</th>
+          <th>Removed</th>
+          <th>Changed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for key, entity in diff.entities.items() %}
+        <tr>
+          <td>{{ key }}</td>
+          <td class="mono">{{ entity.base_count }}</td>
+          <td class="mono">{{ entity.compare_count }}</td>
+          <td class="mono">{{ entity.added | length }}</td>
+          <td class="mono">{{ entity.removed | length }}</td>
+          <td class="mono">{{ entity.changed | length }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% for key, entity in diff.entities.items() %}
+    {% if entity.has_changes %}
+    <details class="gap-top-sm">
+      <summary>{{ key }} changes</summary>
+      {% if entity.added %}
+        <p>Added ({{ entity.added | length }}): <span class="mono">{{ entity.added[:20] }}</span>{% if entity.added|length > 20 %} ...{% endif %}</p>
+      {% endif %}
+      {% if entity.removed %}
+        <p>Removed ({{ entity.removed | length }}): <span class="mono">{{ entity.removed[:20] }}</span>{% if entity.removed|length > 20 %} ...{% endif %}</p>
+      {% endif %}
+      {% if entity.changed %}
+        <p>Changed ({{ entity.changed | length }}): <span class="mono">{{ entity.changed[:20] }}</span>{% if entity.changed|length > 20 %} ...{% endif %}</p>
+      {% endif %}
+    </details>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

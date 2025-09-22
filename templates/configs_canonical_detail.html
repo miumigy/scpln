@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block page_header %}
+  <h2>Canonical Configuration Detail</h2>
+  <p>Inspect the snapshot shared by PSI and Planning pipelines.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <div>
+      <h3>{{ meta.name }} (ID={{ version_id }})</h3>
+      <p>Updated: {{ meta.updated_at_str or '-' }} / Status: {{ meta.status }}</p>
+    </div>
+    <div class="toolbar">
+      <a role="button" href="/ui/configs">Back to list</a>
+      <a role="button" class="secondary" href="/ui/configs/canonical/{{ version_id }}/json">Download JSON</a>
+    </div>
+  </div>
+  <div class="grid-form grid-2">
+    <div>
+      <h4>Metadata</h4>
+      <table role="grid">
+        <tbody>
+          <tr><td>schema_version</td><td class="mono">{{ meta.schema_version }}</td></tr>
+          <tr><td>version_tag</td><td class="mono">{{ meta.version_tag or '-' }}</td></tr>
+          <tr><td>description</td><td>{{ meta.description or '-' }}</td></tr>
+          <tr><td>created_at</td><td class="mono">{{ meta.created_at_str or '-' }}</td></tr>
+          <tr><td>source_config_id</td><td class="mono">{{ meta.source_config_id or '-' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h4>Entity Counts</h4>
+      <table role="grid">
+        <tbody>
+          <tr><td>items</td><td class="mono">{{ counts['items'] }}</td></tr>
+          <tr><td>nodes</td><td class="mono">{{ counts['nodes'] }}</td></tr>
+          <tr><td>arcs</td><td class="mono">{{ counts['arcs'] }}</td></tr>
+          <tr><td>bom</td><td class="mono">{{ counts['bom'] }}</td></tr>
+          <tr><td>demands</td><td class="mono">{{ counts['demands'] }}</td></tr>
+          <tr><td>capacities</td><td class="mono">{{ counts['capacities'] }}</td></tr>
+          <tr><td>calendars</td><td class="mono">{{ counts['calendars'] }}</td></tr>
+          <tr><td>hierarchies</td><td class="mono">{{ counts['hierarchies'] }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% if diff_options %}
+  <form class="grid-form grid-2 gap-top-sm" method="get" action="/ui/configs/canonical/diff">
+    <input type="hidden" name="base_id" value="{{ version_id }}" />
+    <label>Select version to compare
+      <select name="compare_id" required>
+        <option value="">-- Select --</option>
+        {% for opt in diff_options %}
+          <option value="{{ opt.id }}">{{ opt.id }} | {{ opt.name }} ({{ opt.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="toolbar">
+      <button type="submit">Compare with this version</button>
+    </div>
+  </form>
+  {% endif %}
+</section>
+
+<section class="page-section">
+  <h3>Validation</h3>
+  {% if validation_messages.errors %}
+    <details open>
+      <summary>Errors ({{ validation_messages.errors|length }})</summary>
+      <ul>
+        {% for issue in validation_messages.errors %}
+          <li><strong>{{ issue.code }}</strong>: {{ issue.message }} <small class="mono">{{ issue.context }}</small></li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% else %}
+    <p>No errors detected.</p>
+  {% endif %}
+  {% if validation_messages.warnings %}
+    <details>
+      <summary>Warnings ({{ validation_messages.warnings|length }})</summary>
+      <ul>
+        {% for issue in validation_messages.warnings %}
+          <li><strong>{{ issue.code }}</strong>: {{ issue.message }} <small class="mono">{{ issue.context }}</small></li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% else %}
+    <p>No warnings detected.</p>
+  {% endif %}
+</section>
+
+<section class="page-section">
+  <h3>Sample Records</h3>
+  <div class="grid-form grid-2">
+    <div>
+      <h4>items</h4>
+      <pre class="mono">{{ samples_json['items'] }}</pre>
+    </div>
+    <div>
+      <h4>nodes</h4>
+      <pre class="mono">{{ samples_json['nodes'] }}</pre>
+    </div>
+    <div>
+      <h4>arcs</h4>
+      <pre class="mono">{{ samples_json['arcs'] }}</pre>
+    </div>
+    <div>
+      <h4>demands</h4>
+      <pre class="mono">{{ samples_json['demands'] }}</pre>
+    </div>
+  </div>
+  <details class="gap-top-sm">
+    <summary>Additional entities</summary>
+    <div class="grid-form grid-2">
+      <div>
+        <h4>bom</h4>
+        <pre class="mono">{{ samples_json['bom'] }}</pre>
+      </div>
+      <div>
+        <h4>capacities</h4>
+        <pre class="mono">{{ samples_json['capacities'] }}</pre>
+      </div>
+      <div>
+        <h4>calendars</h4>
+        <pre class="mono">{{ samples_json['calendars'] }}</pre>
+      </div>
+      <div>
+        <h4>hierarchies</h4>
+        <pre class="mono">{{ samples_json['hierarchies'] }}</pre>
+      </div>
+    </div>
+  </details>
+</section>
+
+<section class="page-section">
+  <h3>JSON Preview</h3>
+  {% if preview_truncated %}
+    <p>Preview truncated for brevity. Use "Download JSON" to obtain the full payload.</p>
+  {% endif %}
+  <pre class="mono">{{ preview_text }}</pre>
+</section>
+{% endblock %}

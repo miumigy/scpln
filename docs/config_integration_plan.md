@@ -84,9 +84,12 @@
 
 ### PH4 UI/運用
 
-- [ ] T4.1: `/ui/configs` にCanonical設定の閲覧・差分表示を追加
-- [ ] T4.2: 設定編集フォームとCSV/JSONインポート機能を実装
-- [ ] T4.3: ドキュメント（README, TUTORIAL）をCanonical運用に更新
+- [x] T4.1: `/ui/configs` にCanonical設定の閲覧・差分表示を追加
+    - 2025-09-23 Codex: `app/ui_configs.py` を刷新し、バージョン一覧・詳細・差分表示 (`templates/configs_canonical_detail.html`, `configs_canonical_diff.html`) を提供。件数サマリやJSONプレビューを追加し、差分ではエンティティ別の追加/削除/変更件数を可視化。
+- [x] T4.2: 設定編集フォームとCSV/JSONインポート機能を実装
+    - 2025-09-23 Codex: `/ui/configs/canonical/import` にJSON貼付・ファイルアップロード・Plan成果物インポートを実装。取り込み時に `validate_canonical_config` を実行し、エラー時は保存せず内容をフィードバック。
+- [x] T4.3: ドキュメント（README, TUTORIAL）をCanonical運用に更新
+    - 2025-09-23 Codex: READMEへCanonical設定管理セクションを追加し、チュートリアル冒頭に準備手順を追記。
 
 ### PH5 ロールアウト
 
@@ -118,5 +121,7 @@
 
 ## 10. 更新履歴
 
+- 2025-09-23: PH4タスク（T4.1〜T4.3）を完了。Canonical設定UIに差分表示・インポート機能を追加し、README/TUTORIALを更新。
+- 2025-09-24: UI検証用のCanonicalサンプル生成スクリプト、サンプルJSON、および `/ui/configs` から直接投入できる「サンプルを読み込む」ボタンを追加し、DB投入・インポートを簡略化。
 - 2025-09-22: PH3タスク（T3.1〜T3.3）を完了。Canonical連携のAPI/ジョブ/UIを実装し、`SCPLN_SKIP_SIMULATION_API=1`指定で関連テスト群を実行。
 - 2025-09-21: 初版作成。

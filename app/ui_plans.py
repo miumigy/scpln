@@ -12,39 +12,74 @@ from app import plans_api as _plans_api  # for reuse handlers
 from app import runs_api as _runs_api  # for Plan & Run adapter
 from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
 from app.utils import ms_to_jst_str
+from core.config.storage import list_canonical_version_summaries
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
-@app.get("/ui/plans", response_class=HTMLResponse)
-def ui_plans(request: Request):
-    plans = db.list_plan_versions(limit=200)
-    # enrich with summary if exists (lightweight; avoid N+1 heavy loads)
+def _form_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"", "0", "false", "off", "no"}:
+        return False
+    return text in {"1", "true", "on", "yes", "y"}
+
+
+def _canonical_version_options(limit: int = 50):
+    try:
+        summaries = list_canonical_version_summaries(limit=limit)
+    except Exception:
+        return []
+
+    options = []
+    for summary in summaries:
+        meta = summary.meta
+        if meta.version_id is None:
+            continue
+        label_parts = [str(meta.version_id)]
+        if meta.name:
+            label_parts.append(meta.name)
+        if meta.status:
+            label_parts.append(f"[{meta.status}]")
+        label = " ".join(label_parts)
+        options.append(
+            {
+                "id": meta.version_id,
+                "label": label,
+                "name": meta.name,
+                "status": meta.status,
+            }
+        )
+    return options
+
+
+def _fetch_plan_rows(limit: int = 200):
+    plans = db.list_plan_versions(limit=limit)
     rows = []
     for p in plans:
         ver = p.get("version_id")
-        # 1) base reconciliation
         recon = db.get_plan_artifact(ver, "reconciliation_log.json") or {}
         summary = (recon or {}).get("summary") or {}
         cut = (recon or {}).get("cutover") or {}
-        # 2) adjusted reconciliation (fallback)
         recon_adj = db.get_plan_artifact(ver, "reconciliation_log_adjusted.json") or {}
         cut_adj = (recon_adj or {}).get("cutover") or {}
-        # 3) boundary summary (policy/window fallback)
         plan_final = db.get_plan_artifact(ver, "plan_final.json") or {}
         plan_final_adj = db.get_plan_artifact(ver, "plan_final_adjusted.json") or {}
         bs = (plan_final or {}).get("boundary_summary") or {}
         bs_adj = (plan_final_adj or {}).get("boundary_summary") or {}
 
-        # 補完: cutover_date は cutover からのみ（boundaryはperiodのため未採用）
         cutover_date = (
             p.get("cutover_date")
             or cut.get("cutover_date")
             or cut_adj.get("cutover_date")
         )
-        # 補完: window は cutover.recon_window_days → adjusted → boundary_summary.window_days
         recon_window_days = p.get("recon_window_days")
         if recon_window_days is None:
             recon_window_days = cut.get("recon_window_days")
@@ -54,7 +89,6 @@ def ui_plans(request: Request):
             recon_window_days = bs.get("window_days")
         if recon_window_days is None:
             recon_window_days = bs_adj.get("window_days")
-        # 補完: policy は cutover.anchor_policy → adjusted → boundary_summary.anchor_policy
         policy = (
             cut.get("anchor_policy")
             or cut_adj.get("anchor_policy")
@@ -71,14 +105,34 @@ def ui_plans(request: Request):
                 "policy": policy,
             }
         )
+    return rows
+
+
+def _render_plans_page(
+    request: Request,
+    *,
+    plans,
+    error: str | None = None,
+    form_defaults: dict | None = None,
+):
+    canonical_options = _canonical_version_options()
     return templates.TemplateResponse(
         request,
         "plans.html",
         {
             "subtitle": "Plan Versions",
-            "plans": rows,
+            "plans": plans,
+            "error": error,
+            "form_defaults": form_defaults or {},
+            "canonical_options": canonical_options,
         },
     )
+
+
+@app.get("/ui/plans", response_class=HTMLResponse)
+def ui_plans(request: Request):
+    rows = _fetch_plan_rows()
+    return _render_plans_page(request, plans=rows)
 
 
 @app.get("/ui/plans/{version_id}", response_class=HTMLResponse)
@@ -435,7 +489,7 @@ def ui_plan_reconcile(
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
     input_dir: str = Form("samples/planning"),
-    apply_adjusted: int | None = Form(default=None),
+    apply_adjusted: str | None = Form(default=None),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
 ):
@@ -453,7 +507,7 @@ def ui_plan_reconcile(
         "carryover": _nz(carryover),
         "carryover_split": _nz(carryover_split),
         "input_dir": input_dir,
-        "apply_adjusted": bool(apply_adjusted),
+        "apply_adjusted": _form_bool(apply_adjusted),
         "weeks": weeks,
         "lt_unit": lt_unit,
     }
@@ -488,7 +542,7 @@ def ui_plan_reconcile(
                 extra={
                     "event": "plan_executed",
                     "version_id": version_id,
-                    "apply_adjusted": bool(apply_adjusted),
+                    "apply_adjusted": _form_bool(apply_adjusted),
                     "weeks": weeks,
                     "lt_unit": lt_unit,
                 },
@@ -521,8 +575,8 @@ def ui_plan_run_auto(
     calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
-    apply_adjusted: int | None = Form(default=None),
-    queue_job: int | None = Form(default=None),
+    apply_adjusted: str | None = Form(default=None),
+    queue_job: str | None = Form(default=None),
 ):
     """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
     - queue_job チェック時は非同期（ジョブ投入）。
@@ -542,7 +596,7 @@ def ui_plan_run_auto(
     anchor_policy = bs.get("anchor_policy")
     body = {
         "pipeline": "integrated",
-        "async": bool(queue_job),
+        "async": _form_bool(queue_job),
         "options": {
             "input_dir": input_dir,
             "weeks": weeks,
@@ -555,7 +609,7 @@ def ui_plan_run_auto(
             "calendar_mode": calendar_mode,
             "carryover": carryover,
             "carryover_split": carryover_split,
-            "apply_adjusted": bool(apply_adjusted),
+            "apply_adjusted": _form_bool(apply_adjusted),
         },
     }
     res = _runs_api.post_runs(body)
@@ -641,8 +695,24 @@ def ui_plans_run(
     calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
-    apply_adjusted: int | None = Form(default=None),
+    apply_adjusted: str | None = Form(default=None),
+    config_version_id: str | None = Form(""),
 ):
+    form_defaults = {
+        "input_dir": input_dir,
+        "config_version_id": config_version_id or "",
+        "weeks": weeks,
+        "lt_unit": lt_unit,
+        "cutover_date": cutover_date or "",
+        "recon_window_days": recon_window_days or "",
+        "anchor_policy": anchor_policy or "",
+        "tol_abs": tol_abs or "",
+        "tol_rel": tol_rel or "",
+        "calendar_mode": calendar_mode or "",
+        "carryover": carryover or "",
+        "carryover_split": carryover_split or "",
+        "apply_adjusted": "1" if _form_bool(apply_adjusted) else "",
+    }
     body = {
         "input_dir": input_dir,
         "weeks": weeks,
@@ -655,9 +725,30 @@ def ui_plans_run(
         "calendar_mode": calendar_mode,
         "carryover": carryover,
         "carryover_split": carryover_split,
-        "apply_adjusted": bool(apply_adjusted),
+        "apply_adjusted": _form_bool(apply_adjusted),
+        "config_version_id": config_version_id,
     }
     res = _plans_api.post_plans_integrated_run(body)
+    if hasattr(res, "status_code") and res.status_code >= 400:
+        error_message = "Plan作成に失敗しました。"
+        try:
+            payload = json.loads(res.body)
+            detail = payload.get("detail") if isinstance(payload, dict) else None
+            if isinstance(detail, str) and detail:
+                error_message = detail
+            elif isinstance(detail, dict):
+                error_message = detail.get("message") or json.dumps(detail, ensure_ascii=False)
+            elif isinstance(detail, list):
+                error_message = "; ".join(str(item) for item in detail if item)
+        except Exception:
+            pass
+        rows = _fetch_plan_rows()
+        return _render_plans_page(
+            request,
+            plans=rows,
+            error=error_message,
+            form_defaults=form_defaults,
+        )
     version_id = res.get("version_id")
     # 計測イベント: plan_created（新規作成）
     try:

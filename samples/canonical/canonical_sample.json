@@ -1,0 +1,173 @@
+{
+  "meta": {
+    "version_id": null,
+    "name": "canonical-sample",
+    "schema_version": "canonical-1.0",
+    "status": "draft",
+    "attributes": {
+      "sources": {
+        "psi_input": "static/default_input.json",
+        "planning_dir": "samples/planning",
+        "product_hierarchy": "configs/product_hierarchy.json",
+        "location_hierarchy": "configs/location_hierarchy.json"
+      }
+    }
+  },
+  "items": [
+    {
+      "code": "SKU-FG",
+      "name": "Finished Good",
+      "item_type": "product",
+      "uom": "unit",
+      "lead_time_days": 5,
+      "unit_cost": 1200
+    },
+    {
+      "code": "SKU-COMP",
+      "name": "Component",
+      "item_type": "component",
+      "uom": "unit",
+      "lead_time_days": 3,
+      "unit_cost": 200
+    }
+  ],
+  "nodes": [
+    {
+      "code": "FACT-001",
+      "name": "Main Factory",
+      "node_type": "factory",
+      "timezone": "Asia/Tokyo",
+      "region": "JP-Central",
+      "service_level": 0.95,
+      "lead_time_days": 1,
+      "storage_capacity": 1000,
+      "inventory_policies": [
+        {
+          "item_code": "SKU-COMP",
+          "initial_inventory": 500,
+          "reorder_point": 200,
+          "order_up_to": 800
+        }
+      ],
+      "production_policies": [
+        {
+          "item_code": "SKU-FG",
+          "production_capacity": 400,
+          "allow_over_capacity": true
+        }
+      ]
+    },
+    {
+      "code": "DC-001",
+      "name": "Tokyo DC",
+      "node_type": "warehouse",
+      "timezone": "Asia/Tokyo",
+      "region": "JP-East",
+      "service_level": 0.9,
+      "lead_time_days": 1,
+      "storage_capacity": 600,
+      "inventory_policies": [
+        {
+          "item_code": "SKU-FG",
+          "initial_inventory": 80,
+          "reorder_point": 50,
+          "order_up_to": 150,
+          "safety_stock": 20
+        }
+      ]
+    }
+  ],
+  "arcs": [
+    {
+      "from_node": "FACT-001",
+      "to_node": "DC-001",
+      "arc_type": "transport",
+      "lead_time_days": 2,
+      "capacity_per_day": 200,
+      "allow_over_capacity": false,
+      "transportation_cost_fixed": 100,
+      "transportation_cost_variable": 4,
+      "min_order_qty": {
+        "SKU-FG": 20
+      },
+      "order_multiple": {
+        "SKU-FG": 10
+      }
+    }
+  ],
+  "bom": [
+    {
+      "parent_item": "SKU-FG",
+      "child_item": "SKU-COMP",
+      "quantity": 1
+    }
+  ],
+  "demands": [
+    {
+      "node_code": "DC-001",
+      "item_code": "SKU-FG",
+      "bucket": "W1",
+      "demand_model": "normal",
+      "mean": 60,
+      "std_dev": 10
+    },
+    {
+      "node_code": "DC-001",
+      "item_code": "SKU-FG",
+      "bucket": "W2",
+      "demand_model": "normal",
+      "mean": 70,
+      "std_dev": 12
+    }
+  ],
+  "capacities": [
+    {
+      "resource_code": "FACT-001",
+      "resource_type": "node",
+      "bucket": "W1",
+      "capacity": 400
+    },
+    {
+      "resource_code": "FACT-001",
+      "resource_type": "node",
+      "bucket": "W2",
+      "capacity": 400
+    }
+  ],
+  "calendars": [
+    {
+      "calendar_code": "STD",
+      "timezone": "Asia/Tokyo",
+      "definition": {
+        "workdays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        "exceptions": []
+      }
+    }
+  ],
+  "hierarchies": [
+    {
+      "hierarchy_type": "product",
+      "node_key": "SKU-FG",
+      "parent_key": "FG",
+      "level": "sku"
+    },
+    {
+      "hierarchy_type": "product",
+      "node_key": "FG",
+      "parent_key": null,
+      "level": "family"
+    },
+    {
+      "hierarchy_type": "location",
+      "node_key": "DC-001",
+      "parent_key": "JP-East",
+      "level": "site"
+    },
+    {
+      "hierarchy_type": "location",
+      "node_key": "JP-East",
+      "parent_key": null,
+      "level": "region"
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block page_header %}
+  <h2>Import Canonical Configuration</h2>
+  <p>Register a canonical configuration snapshot from JSON or plan artifacts.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <div>
+      <h3>Import Options</h3>
+      <p>Validation errors prevent the snapshot from being saved.</p>
+    </div>
+    <div class="toolbar">
+      <a role="button" href="/ui/configs">Back to list</a>
+    </div>
+  </div>
+  {% if error %}
+    <p class="mono">Error: {{ error }}</p>
+  {% endif %}
+  {% if warning %}
+    <p class="mono">Warning: {{ warning }}</p>
+  {% endif %}
+</section>
+
+<section class="page-section">
+  <h3>Import from JSON / File</h3>
+  <form method="post" action="/ui/configs/canonical/import/json" enctype="multipart/form-data" class="grid-form">
+    <label>Name
+      <input type="text" name="name" placeholder="e.g. canonical-2025W40" required />
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="draft">draft</option>
+        <option value="active">active</option>
+        <option value="archived">archived</option>
+      </select>
+    </label>
+    <label class="span-full">JSON text
+      <textarea name="json_text" rows="12" class="mono" placeholder="Paste CanonicalConfig JSON">{{ json_text }}</textarea>
+    </label>
+    <label>Or choose a file (UTF-8)
+      <input type="file" name="file" accept="application/json" />
+    </label>
+    <div class="toolbar">
+      <button type="submit">Import JSON</button>
+    </div>
+  </form>
+  {% if validation_messages.errors %}
+    <details open class="gap-top-sm">
+      <summary>Validation errors</summary>
+      <ul>
+        {% for item in validation_messages.errors %}
+          <li><strong>{{ item.code }}</strong>: {{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+  {% if validation_messages.warnings %}
+    <details class="gap-top-sm">
+      <summary>Validation warnings</summary>
+      <ul>
+        {% for item in validation_messages.warnings %}
+          <li><strong>{{ item.code }}</strong>: {{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+
+<section class="page-section">
+  <h3>Import from Plan Artifact</h3>
+  <form method="post" action="/ui/configs/canonical/import/plan" class="grid-form">
+    <label>Plan version_id
+      <input type="text" name="plan_version_id" value="{{ plan_version_id }}" placeholder="e.g. v1726990000" required />
+    </label>
+    <label>Name (optional)
+      <input type="text" name="name" placeholder="Defaults to JSON name" />
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="draft">draft</option>
+        <option value="active">active</option>
+        <option value="archived">archived</option>
+      </select>
+    </label>
+    <div class="toolbar">
+      <button type="submit">Import from plan artifact</button>
+    </div>
+  </form>
+  {% if plan_versions %}
+    <details class="gap-top-sm">
+      <summary>Recent plan version IDs</summary>
+      <ul>
+        {% for plan in plan_versions %}
+          <li><span class="mono">{{ plan.version_id }}</span> | Status: {{ plan.status }} | Created: {{ plan.created_at_str or '-' }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+{% endblock %}

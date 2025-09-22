@@ -12,6 +12,13 @@
 - サーバ起動済み（例）: `uvicorn main:app --reload`
 - ブラウザで `http://localhost:8000` にアクセス可能
 
+## 0. Canonical設定を準備
+- `/ui/configs` を開き、Canonical設定バージョン一覧を確認。
+- まだ登録がない場合は「Canonical設定を取り込む」からJSONを貼り付けるか、Plan成果物の `canonical_snapshot.json` を指定して取り込み。
+- すぐに試したい場合は `/ui/configs` の「サンプルを読み込む」ボタン、`python scripts/seed_canonical_sample.py` の実行、または `samples/canonical/canonical_sample.json` の取り込みを利用。別DBを使用している場合は `--db $SCPLN_DB` を指定。
+- 取り込み時は整合チェックが自動実行され、エラーがある場合は保存されない。保存後は詳細画面で件数サマリとサンプルを確認できる。
+- 既存バージョンとの差分を確認したい場合は、同ページの「差分を表示」または詳細画面の比較フォームから `/ui/configs/canonical/diff` を利用。
+
 ## 1. 新規Planを作成（統合Run）
 1) `/ui/plans` を開く
 2) 「新規Plan作成（統合Run）」フォームで以下を入力

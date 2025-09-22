@@ -10,6 +10,7 @@
 
 - **多粒度整合**: 集約→詳細への按分と、詳細→集約へのロールアップを同一バージョン上で管理。編集やロックを尊重した双方向同期を自動化。
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
+- **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。
 - **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
 - **自動化とAPI**: `/plans/integrated/run` や `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
 
@@ -21,6 +22,14 @@
 - Planのバージョン管理・閲覧・ロールアップ/分配編集・ロック管理を提供。
 - PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
 - `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
+
+### 2. Canonical Configuration Management (/ui/configs)
+- Provides a list, details, JSON download, and diff comparison for Canonical configuration versions.
+- Saves only validated configurations to the database, taking JSON files or Plan artifacts (`canonical_snapshot.json`) as input.
+- The diff page visualizes the number of added, removed, and changed items for entities like items, nodes, bom, etc., along with a list of keys.
+- Configurations imported via the UI are given a `ui_import` attribute with source information, allowing them to be matched with Runs and Plans.
+- To get started quickly, use the "Load Sample" button on `/ui/configs`, load the sample into the DB with `python scripts/seed_canonical_sample.py`, import `samples/canonical/canonical_sample.json` directly, or generate a JSON file at a specified path with the `--export` option.
+- If the server is referencing a different database (`SCPLN_DB`), specify `--db $SCPLN_DB` to load the sample.
 
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。

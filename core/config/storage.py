@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 from collections import defaultdict
 from contextlib import closing
+from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
 from .models import (
@@ -24,6 +26,14 @@ from .models import (
     NodeProductionPolicy,
 )
 from .validators import ValidationResult, validate_canonical_config
+
+
+@dataclass
+class CanonicalVersionSummary:
+    """Canonical設定のメタ情報と件数サマリ。"""
+
+    meta: ConfigMeta
+    counts: Dict[str, int]
 
 
 class CanonicalConfigNotFoundError(RuntimeError):
@@ -51,6 +61,51 @@ def list_canonical_versions(
     for row in rows:
         metas.append(_row_to_meta(row))
     return metas
+
+
+def list_canonical_version_summaries(
+    *, limit: int = 50, db_path: Optional[str] = None
+) -> List[CanonicalVersionSummary]:
+    """メタ情報に加えて主要テーブル件数を含むサマリを取得する。"""
+
+    metas = list_canonical_versions(limit=limit, db_path=db_path)
+    if not metas:
+        return []
+
+    if os.getenv("SCPLN_CANONICAL_SKIP_COUNTS"):
+        return [
+            CanonicalVersionSummary(meta=meta, counts=_default_counts()) for meta in metas
+        ]
+
+    path = _resolve_db_path(db_path)
+    counts_map: Dict[int, Dict[str, int]] = {}
+    missing_ids: List[int] = []
+    for meta in metas:
+        vid = meta.version_id
+        if vid is None:
+            continue
+        attr_counts = (meta.attributes or {}).get("counts")
+        if _is_valid_counts(attr_counts):
+            counts_map[vid] = attr_counts  # type: ignore[arg-type]
+        else:
+            missing_ids.append(vid)
+
+    if missing_ids:
+        fetched = _collect_counts(missing_ids, path)
+        for vid, counts in fetched.items():
+            counts_map[vid] = counts
+        _update_counts_metadata(path, metas, fetched)
+
+    summaries: List[CanonicalVersionSummary] = []
+    for meta in metas:
+        vid = meta.version_id or -1
+        summaries.append(
+            CanonicalVersionSummary(
+                meta=meta,
+                counts=counts_map.get(vid, _default_counts()),
+            )
+        )
+    return summaries
 
 
 def get_canonical_config(
@@ -449,6 +504,10 @@ def _insert_canonical_snapshot(cur: sqlite3.Cursor, config: CanonicalConfig) -> 
     created = meta.created_at or now_ms
     updated = meta.updated_at or now_ms
 
+    attributes = dict(meta.attributes or {})
+    attributes.setdefault("counts", _build_counts(config))
+    meta.attributes = attributes
+
     cur.execute(
         """
         INSERT INTO canonical_config_versions(
@@ -463,7 +522,7 @@ def _insert_canonical_snapshot(cur: sqlite3.Cursor, config: CanonicalConfig) -> 
             meta.status,
             meta.description,
             meta.source_config_id,
-            json.dumps(meta.attributes or {}, ensure_ascii=False),
+            json.dumps(attributes, ensure_ascii=False),
             created,
             updated,
         ),
@@ -781,9 +840,11 @@ def _insert_calendars(cur: sqlite3.Cursor, version_id: int, config: CanonicalCon
 __all__ = [
     "CanonicalConfigNotFoundError",
     "list_canonical_versions",
+    "list_canonical_version_summaries",
     "get_canonical_config",
     "load_canonical_config_from_db",
     "save_canonical_config",
+    "CanonicalVersionSummary",
 ]
 
 
@@ -793,3 +854,89 @@ def _resolve_db_path(db_path: Optional[str]) -> str:
     from app.db import DB_PATH  # lazy import to avoid circular dependency
 
     return DB_PATH
+
+
+def _collect_counts(
+    version_ids: Iterable[int], db_path: str
+) -> Dict[int, Dict[str, int]]:
+    ids = [vid for vid in version_ids if vid is not None]
+    if not ids:
+        return {}
+    placeholders = ",".join(["?"] * len(ids))
+    tables = {
+        "items": "canonical_items",
+        "nodes": "canonical_nodes",
+        "arcs": "canonical_arcs",
+        "bom": "canonical_boms",
+        "demands": "canonical_demands",
+        "capacities": "canonical_capacities",
+        "calendars": "canonical_calendars",
+        "hierarchies": "canonical_hierarchies",
+    }
+    counts: Dict[int, Dict[str, int]] = {
+        vid: {key: 0 for key in tables.keys()} for vid in ids
+    }
+    with closing(_connect(db_path)) as conn, closing(conn.cursor()) as cur:
+        for key, table in tables.items():
+            rows = cur.execute(
+                f"SELECT config_version_id, COUNT(*) AS cnt FROM {table} "
+                f"WHERE config_version_id IN ({placeholders}) GROUP BY config_version_id",
+                ids,
+            ).fetchall()
+            for row in rows:
+                counts[row["config_version_id"]][key] = row["cnt"]
+    return counts
+
+
+def _is_valid_counts(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    expected = set(_default_counts().keys())
+    return expected.issubset(value.keys())
+
+
+def _default_counts() -> Dict[str, int]:
+    return {
+        "items": 0,
+        "nodes": 0,
+        "arcs": 0,
+        "bom": 0,
+        "demands": 0,
+        "capacities": 0,
+        "calendars": 0,
+        "hierarchies": 0,
+    }
+
+
+def _build_counts(config: CanonicalConfig) -> Dict[str, int]:
+    return {
+        "items": len(config.items),
+        "nodes": len(config.nodes),
+        "arcs": len(config.arcs),
+        "bom": len(config.bom),
+        "demands": len(config.demands),
+        "capacities": len(config.capacities),
+        "calendars": len(config.calendars),
+        "hierarchies": len(config.hierarchies),
+    }
+
+
+def _update_counts_metadata(
+    db_path: str,
+    metas: Iterable[ConfigMeta],
+    counts_map: Dict[int, Dict[str, int]],
+) -> None:
+    if not counts_map:
+        return
+    with closing(_connect(db_path)) as conn, closing(conn.cursor()) as cur:
+        for meta in metas:
+            vid = meta.version_id
+            if vid is None or vid not in counts_map:
+                continue
+            attributes = dict(meta.attributes or {})
+            attributes["counts"] = counts_map[vid]
+            cur.execute(
+                "UPDATE canonical_config_versions SET metadata_json=? WHERE id=?",
+                (json.dumps(attributes, ensure_ascii=False), vid),
+            )
+        conn.commit()

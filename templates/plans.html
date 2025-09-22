@@ -12,78 +12,95 @@
   <details open>
     <summary>Create Plan Version (Integrated Run)</summary>
     <form method="post" action="/ui/plans/run">
+      {% if error %}
+      <p class="mono warn-text">{{ error }}</p>
+      {% endif %}
       <div class="form-grid">
         <label>
           <span class="label-title">Input Directory</span>
-          <input type="text" name="input_dir" value="samples/planning" />
+          <input type="text" name="input_dir" value="{{ form_defaults.input_dir or 'samples/planning' }}" />
         </label>
         <label>
           <span class="label-title">Canonical Config Version</span>
-          <input type="number" name="config_version_id" min="1" value="" placeholder="optional" />
+          {% set selected_config = (form_defaults.config_version_id or '')|string %}
+          <select name="config_version_id">
+            <option value="">-- 選択 --</option>
+            {% for opt in canonical_options %}
+              <option value="{{ opt.id }}" {% if opt.id|string == selected_config %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          {% if canonical_options|length == 0 %}
+            <small class="mono warn-text">No canonical configuration found. Create one in /ui/configs first.</small>
+          {% endif %}
         </label>
         <label>
           <span class="label-title">Weeks</span>
-          <input type="number" name="weeks" min="1" value="4" />
+          <input type="number" name="weeks" min="1" value="{{ form_defaults.weeks or 4 }}" />
         </label>
         <label>
           <span class="label-title">Lead Time Unit</span>
           <select name="lt_unit">
-            <option value="day" selected>Day</option>
-            <option value="week">Week</option>
+            {% set lt_unit = form_defaults.lt_unit or 'day' %}
+            <option value="day" {% if lt_unit == 'day' %}selected{% endif %}>Day</option>
+            <option value="week" {% if lt_unit == 'week' %}selected{% endif %}>Week</option>
           </select>
         </label>
         <label>
           <span class="label-title">Cutover Date</span>
-          <input type="date" name="cutover_date" value="" />
+          <input type="date" name="cutover_date" value="{{ form_defaults.cutover_date or '' }}" />
         </label>
         <label>
           <span class="label-title">Reconciliation Window (days)</span>
-          <input type="number" name="recon_window_days" min="0" value="" />
+          <input type="number" name="recon_window_days" min="0" value="{{ form_defaults.recon_window_days or '' }}" />
         </label>
         <label>
           <span class="label-title">Anchor Policy</span>
           <select name="anchor_policy">
-            <option value="">Unspecified</option>
-            <option value="DET_near">DET_near</option>
-            <option value="AGG_far">AGG_far</option>
-            <option value="blend">Blend</option>
+            {% set anchor_policy = form_defaults.anchor_policy or '' %}
+            <option value="" {% if anchor_policy == '' %}selected{% endif %}>Unspecified</option>
+            <option value="DET_near" {% if anchor_policy == 'DET_near' %}selected{% endif %}>DET_near</option>
+            <option value="AGG_far" {% if anchor_policy == 'AGG_far' %}selected{% endif %}>AGG_far</option>
+            <option value="blend" {% if anchor_policy == 'blend' %}selected{% endif %}>Blend</option>
           </select>
         </label>
         <label>
           <span class="label-title">Tol Abs</span>
-          <input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6" value="" />
+          <input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6" value="{{ form_defaults.tol_abs or '' }}" />
         </label>
         <label>
           <span class="label-title">Tol Rel</span>
-          <input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6" value="" />
+          <input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6" value="{{ form_defaults.tol_rel or '' }}" />
         </label>
         <label>
           <span class="label-title">Calendar Mode</span>
           <select name="calendar_mode">
-            <option value="">Unspecified</option>
-            <option value="simple">Simple</option>
-            <option value="iso">ISO Week</option>
+            {% set calendar_mode = form_defaults.calendar_mode or '' %}
+            <option value="" {% if calendar_mode == '' %}selected{% endif %}>Unspecified</option>
+            <option value="simple" {% if calendar_mode == 'simple' %}selected{% endif %}>Simple</option>
+            <option value="iso" {% if calendar_mode == 'iso' %}selected{% endif %}>ISO Week</option>
           </select>
         </label>
         <label>
           <span class="label-title">Carryover Mode</span>
           <select name="carryover">
-            <option value="">Unspecified</option>
-            <option value="auto">Auto</option>
-            <option value="prev">Use Previous</option>
-            <option value="next">Use Next</option>
-            <option value="both">Blend</option>
+            {% set carryover = form_defaults.carryover or '' %}
+            <option value="" {% if carryover == '' %}selected{% endif %}>Unspecified</option>
+            <option value="auto" {% if carryover == 'auto' %}selected{% endif %}>Auto</option>
+            <option value="prev" {% if carryover == 'prev' %}selected{% endif %}>Use Previous</option>
+            <option value="next" {% if carryover == 'next' %}selected{% endif %}>Use Next</option>
+            <option value="both" {% if carryover == 'both' %}selected{% endif %}>Blend</option>
           </select>
         </label>
         <label>
           <span class="label-title">Carryover Split</span>
-          <input type="number" min="0" max="1" step="0.05" name="carryover_split" value="" />
+          <input type="number" min="0" max="1" step="0.05" name="carryover_split" value="{{ form_defaults.carryover_split or '' }}" />
         </label>
         <label>
           <span class="label-title">Apply Adjusted Output</span>
           <select name="apply_adjusted">
-            <option value="">No</option>
-            <option value="1">Yes</option>
+            {% set apply_adjusted = form_defaults.apply_adjusted or '' %}
+            <option value="" {% if apply_adjusted == '' %}selected{% endif %}>No</option>
+            <option value="1" {% if apply_adjusted == '1' %}selected{% endif %}>Yes</option>
           </select>
         </label>
       </div>
@@ -172,7 +189,7 @@
             <td>{{ p.status or '' }}</td>
             <td class="mono">
               {% if p.config_version_id %}
-                <a href="/ui/configs/{{ p.config_version_id }}">{{ p.config_version_id }}</a>
+                <a href="/ui/configs/canonical/{{ p.config_version_id }}">{{ p.config_version_id }}</a>
               {% else %}-{% endif %}
             </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>

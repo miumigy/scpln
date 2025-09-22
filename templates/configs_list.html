@@ -1,71 +1,129 @@
 {% extends "base.html" %}
 {% block page_header %}
-  <h2>Configurations</h2>
-  <p>Maintain reusable parameter sets for simulations and planning runs.</p>
+  <h2>Configuration Management</h2>
+  <p>Review canonical configuration versions and maintain existing JSON configs in one place.</p>
 {% endblock %}
 {% block content %}
 <section class="page-section">
-  <div class="toolbar gap-bottom-sm">
-    <a role="button" href="/ui/configs/new">Create configuration</a>
-    <a role="button" class="secondary" href="/ui/runs">Open run history</a>
+  <div class="section-header">
+    <div>
+      <h3>Canonical Configuration Versions</h3>
+      <p>Snapshots shared by PSI and Planning pipelines.</p>
+    </div>
+    <div class="toolbar">
+      <form method="post" action="/ui/configs/canonical/sample" class="inline">
+        <button type="submit">Load Sample</button>
+      </form>
+      <a role="button" href="/ui/configs/canonical/import">Import Canonical Configuration</a>
+      <a role="button" class="secondary" href="/ui/configs">Refresh</a>
+    </div>
   </div>
-  {% if rows %}
-  <div class="table-wrapper">
-  <table role="grid">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>Updated</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr>
-        <td class="mono">{{ r.id }}</td>
-        <td class="mono truncate">{{ r.name }}</td>
-        <td class="ts-ms" data-ms="{{ r.updated_at }}">{{ r.updated_at_str or r.updated_at }}</td>
-        <td>
-          <div class="table-actions">
-            <a role="button" href="/ui/configs/{{ r.id }}/edit">Edit</a>
-            <form method="post" action="/ui/configs/{{ r.id }}/delete" onsubmit="return confirm('Delete this configuration?');">
-              <button type="submit" class="secondary" aria-label="Delete configuration">Delete</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <form class="grid-form" method="get" action="/ui/configs/canonical/diff">
+    <label>Base version
+      <select name="base_id" required>
+        <option value="">-- Select --</option>
+        {% for opt in diff_options %}
+          <option value="{{ opt.id }}">{{ opt.id }} | {{ opt.name }} ({{ opt.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Compare to
+      <select name="compare_id" required>
+        <option value="">-- Select --</option>
+        {% for opt in diff_options %}
+          <option value="{{ opt.id }}">{{ opt.id }} | {{ opt.name }} ({{ opt.status }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="toolbar">
+      <button type="submit">Show Diff</button>
+    </div>
+  </form>
+  {% if canonical_rows %}
+  <div class="table-wrapper gap-top-sm">
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Updated (JST)</th>
+          <th>Entity Counts</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in canonical_rows %}
+        <tr>
+          <td class="mono">{{ row.meta.version_id }}</td>
+          <td class="mono truncate">{{ row.meta.name }}</td>
+          <td>{{ row.meta.status }}</td>
+          <td class="mono">{{ row.meta.updated_at_str or '-' }}</td>
+          <td>
+            <small class="mono">
+              items={{ row.counts['items'] }} / nodes={{ row.counts['nodes'] }} /
+              arcs={{ row.counts['arcs'] }} / bom={{ row.counts['bom'] }} /
+              demands={{ row.counts['demands'] }} / capacities={{ row.counts['capacities'] }}
+            </small>
+          </td>
+          <td>
+            <div class="table-actions">
+              <a role="button" href="/ui/configs/canonical/{{ row.meta.version_id }}">Details</a>
+              <a role="button" class="secondary" href="/ui/configs/canonical/{{ row.meta.version_id }}/json">JSON</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% else %}
-    <p>No configurations yet. Use “Create configuration” to add one.</p>
+    <p>No canonical configuration has been registered yet. Import one to get started.</p>
   {% endif %}
 </section>
-{% endblock %}
 
-{% block scripts %}
-<script>
-  (function(){
-    function fmtJst(ms){
-      var n = Number(ms);
-      if (!Number.isFinite(n)) return '';
-      if (n < 1e12) n = n * 1000;
-      var t = new Date(n + 9*3600*1000); // Shift to JST before formatting
-      var y = t.getUTCFullYear();
-      var mo = String(t.getUTCMonth()+1).padStart(2,'0');
-      var d = String(t.getUTCDate()).padStart(2,'0');
-      var h = String(t.getUTCHours()).padStart(2,'0');
-      var mi = String(t.getUTCMinutes()).padStart(2,'0');
-      var s = String(t.getUTCSeconds()).padStart(2,'0');
-      return y + '/' + mo + '/' + d + ' ' + h + ':' + mi + ':' + s + ' JST';
-    }
-    document.querySelectorAll('td.ts-ms').forEach(function(td){
-      var ms = td.getAttribute('data-ms');
-      var txt = fmtJst(ms);
-      if (txt) td.textContent = txt;
-    });
-  })();
-  </script>
+<section class="page-section">
+  <div class="section-header">
+    <div>
+      <h3>Legacy Configurations (configs table)</h3>
+      <p>JSON configs maintained for older workflows. Scheduled for deprecation.</p>
+    </div>
+    <div class="toolbar">
+      <a role="button" href="/ui/configs/new">Create JSON Configuration</a>
+    </div>
+  </div>
+  {% if legacy_rows %}
+  <div class="table-wrapper">
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Updated (JST)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in legacy_rows %}
+        <tr>
+          <td class="mono">{{ r.id }}</td>
+          <td class="mono truncate">{{ r.name }}</td>
+          <td class="mono">{{ r.updated_at_str or '-' }}</td>
+          <td>
+            <div class="table-actions">
+              <a role="button" href="/ui/configs/{{ r.id }}/edit">Edit</a>
+              <form method="post" action="/ui/configs/{{ r.id }}/delete" onsubmit="return confirm('Delete this configuration?');">
+                <button type="submit" class="secondary" aria-label="Delete configuration">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p>No legacy configuration found.</p>
+  {% endif %}
+</section>
 {% endblock %}
