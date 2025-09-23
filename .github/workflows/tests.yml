@@ -29,6 +29,7 @@ jobs:
           alembic upgrade head
           ls -l ${{ runner.temp }}
           test -s ${{ runner.temp }}/test.db # ファイルが存在し、サイズが0より大きいことを確認
+          sqlite3 ${{ runner.temp }}/test.db ".tables" # 作成されたテーブルの一覧を表示
 
       - name: Run all tests
         env:
