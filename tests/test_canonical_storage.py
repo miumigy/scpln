@@ -23,11 +23,18 @@ def _prepare_db(tmp_path: Path) -> Path:
 
     # Simulate command-line execution of alembic upgrade
     old_sys_argv = sys.argv
+    
+    # Create a temporary alembic.ini
+    temp_alembic_ini_path = tmp_path / "alembic.ini"
+    with open(temp_alembic_ini_path, "w") as f:
+        f.write("[alembic]\n")
+        f.write(f"script_location = {Path(__file__).parent.parent / "alembic"}\n")
+        f.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
+
     try:
         sys.argv = [
             "alembic",
-            "-c", str(Path(__file__).parent.parent / "alembic.ini"),
-            "-x", f"sqlalchemy.url=sqlite:///{db_path}",
+            "-c", str(temp_alembic_ini_path),
             "upgrade",
             "head",
         ]
