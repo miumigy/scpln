@@ -1,16 +1,47 @@
 import importlib
 import time
+import os
+import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
-from app.api import app
-from app import db
+
+from alembic.config import Config
+from alembic import command
 
 # 有効化
 importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
 
+@pytest.fixture(name="db_setup_scenarios")
+def db_setup_scenarios_fixture(tmp_path: Path):
+    db_path = tmp_path / "test_scenarios.sqlite"
+    os.environ["SCPLN_DB"] = str(db_path)
+    os.environ["REGISTRY_BACKEND"] = "db"
+    os.environ["AUTH_MODE"] = "none"
 
-def test_ui_scenarios_run_with_config():
+    # Reload app.db to pick up new SCPLN_DB env var
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+    importlib.reload(importlib.import_module("app.config_api"))
+    importlib.reload(importlib.import_module("app.scenario_api"))
+    importlib.reload(importlib.import_module("main"))
+
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("script_location", "alembic")
+    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.upgrade(alembic_cfg, "head")
+
+    yield
+
+    del os.environ["SCPLN_DB"]
+    del os.environ["REGISTRY_BACKEND"]
+    del os.environ["AUTH_MODE"]
+
+
+def test_ui_scenarios_run_with_config(db_setup_scenarios):
+    from app.api import app
+    from app import db
     c = TestClient(app)
     # 準備: シナリオと設定を作成
     sid = db.create_scenario(name="ScA", parent_id=None, tag=None, description=None)
@@ -55,9 +86,11 @@ def test_ui_scenarios_run_with_config():
     assert done, "job did not finish in time"
 
 
-def test_ui_scenarios_run_nonexistent_config():
-    # 存在しない config_id を使って404が返ることを確認
+def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
+    from app.api import app
+    from app import db
     c = TestClient(app)
+    # 存在しない config_id を使って404が返ることを確認
     sid = db.create_scenario(
         name="Sc-nonexistent", parent_id=None, tag=None, description=None
     )
@@ -75,9 +108,11 @@ def test_ui_scenarios_run_nonexistent_config():
         db.delete_scenario(sid)
 
 
-def test_ui_scenarios_run_invalid_config_json():
-    # 不正なJSONを持つconfigで400が返ることを確認
+def test_ui_scenarios_run_invalid_config_json(db_setup_scenarios):
+    from app.api import app
+    from app import db
     c = TestClient(app)
+    # 不正なJSONを持つconfigで400が返ることを確認
     sid = db.create_scenario(
         name="Sc-invalid", parent_id=None, tag=None, description=None
     )
