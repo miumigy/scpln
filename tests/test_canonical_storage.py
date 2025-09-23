@@ -13,21 +13,27 @@ from core.config.storage import (
 
 from alembic.config import Config
 from alembic import command
+import sys
+from alembic.config import main as alembic_main
 
 def _prepare_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "canonical_storage.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    # Apply alembic migrations
-    # Manually create alembic_version table as a workaround
-    cur.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))")
-    conn.commit()
-
-    alembic_cfg = Config()
-    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent.parent / "alembic"))
-    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
-    command.upgrade(alembic_cfg, "head")
+    # Simulate command-line execution of alembic upgrade
+    old_sys_argv = sys.argv
+    try:
+        sys.argv = [
+            "alembic",
+            "-c", str(Path(__file__).parent.parent / "alembic.ini"),
+            "-x", f"sqlalchemy.url=sqlite:///{db_path}",
+            "upgrade",
+            "head",
+        ]
+        alembic_main()
+    finally:
+        sys.argv = old_sys_argv
 
     conn.close()
     conn = sqlite3.connect(db_path)
