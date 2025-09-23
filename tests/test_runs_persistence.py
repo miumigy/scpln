@@ -17,7 +17,7 @@ def _make_client_with_db(tmp_path: Path):
     os.environ["REGISTRY_BACKEND"] = "db"
     os.environ["AUTH_MODE"] = "none"
     # Ensure modules pick up env
-    for m in ("app.db", "app.run_registry", "app.run_registry_db", "main"):
+    for m in ("app.db", "app.run_registry", "app.run_registry_db"):
         if m in list(importlib.sys.modules.keys()):
             importlib.reload(importlib.import_module(m))
 
@@ -32,6 +32,13 @@ def _make_client_with_db(tmp_path: Path):
 
     from main import app  # noqa
     from fastapi.testclient import TestClient
+    from alembic.config import Config
+    from alembic import command
+
+    # Run alembic migrations
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("script_location", "alembic")
+    command.upgrade(alembic_cfg, "head")
 
     client = TestClient(app)
     return client

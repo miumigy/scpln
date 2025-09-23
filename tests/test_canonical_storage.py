@@ -11,154 +11,40 @@ from core.config.storage import (
     load_canonical_config_from_db,
 )
 
+from alembic.config import Config
+from alembic import command
+import sys
+from alembic.config import main as alembic_main
 
 def _prepare_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "canonical_storage.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    cur.executescript(
-        """
-        CREATE TABLE canonical_config_versions (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            schema_version TEXT NOT NULL,
-            version_tag TEXT,
-            status TEXT NOT NULL,
-            description TEXT,
-            source_config_id INTEGER,
-            metadata_json TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        );
-        CREATE TABLE canonical_items (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            item_code TEXT NOT NULL,
-            item_name TEXT,
-            item_type TEXT NOT NULL,
-            uom TEXT NOT NULL,
-            lead_time_days INTEGER,
-            lot_size REAL,
-            min_order_qty REAL,
-            safety_stock REAL,
-            unit_cost REAL,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_nodes (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            node_code TEXT NOT NULL,
-            node_name TEXT,
-            node_type TEXT NOT NULL,
-            timezone TEXT,
-            region TEXT,
-            service_level REAL,
-            lead_time_days INTEGER,
-            storage_capacity REAL,
-            allow_storage_over_capacity INTEGER NOT NULL,
-            storage_cost_fixed REAL,
-            storage_over_capacity_fixed_cost REAL,
-            storage_over_capacity_variable_cost REAL,
-            review_period_days INTEGER,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_node_items (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            node_code TEXT NOT NULL,
-            item_code TEXT NOT NULL,
-            initial_inventory REAL,
-            reorder_point REAL,
-            order_up_to REAL,
-            min_order_qty REAL,
-            order_multiple REAL,
-            safety_stock REAL,
-            storage_cost REAL,
-            stockout_cost REAL,
-            backorder_cost REAL,
-            lead_time_days INTEGER,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_node_production (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            node_code TEXT NOT NULL,
-            item_code TEXT,
-            production_capacity REAL,
-            allow_over_capacity INTEGER NOT NULL,
-            over_capacity_fixed_cost REAL,
-            over_capacity_variable_cost REAL,
-            production_cost_fixed REAL,
-            production_cost_variable REAL,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_arcs (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            from_node TEXT NOT NULL,
-            to_node TEXT NOT NULL,
-            arc_type TEXT NOT NULL,
-            lead_time_days INTEGER,
-            capacity_per_day REAL,
-            allow_over_capacity INTEGER NOT NULL,
-            transportation_cost_fixed REAL,
-            transportation_cost_variable REAL,
-            min_order_json TEXT NOT NULL,
-            order_multiple_json TEXT NOT NULL,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_boms (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            parent_item TEXT NOT NULL,
-            child_item TEXT NOT NULL,
-            quantity REAL,
-            scrap_rate REAL,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_demands (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            node_code TEXT NOT NULL,
-            item_code TEXT NOT NULL,
-            bucket TEXT NOT NULL,
-            demand_model TEXT NOT NULL,
-            mean REAL,
-            std_dev REAL,
-            min_qty REAL,
-            max_qty REAL,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_capacities (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            resource_code TEXT NOT NULL,
-            resource_type TEXT NOT NULL,
-            bucket TEXT NOT NULL,
-            capacity REAL,
-            calendar_code TEXT,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_hierarchies (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            hierarchy_type TEXT NOT NULL,
-            node_key TEXT NOT NULL,
-            parent_key TEXT,
-            level TEXT,
-            sort_order INTEGER,
-            attributes_json TEXT NOT NULL
-        );
-        CREATE TABLE canonical_calendars (
-            id INTEGER PRIMARY KEY,
-            config_version_id INTEGER NOT NULL,
-            calendar_code TEXT NOT NULL,
-            timezone TEXT,
-            definition_json TEXT NOT NULL,
-            attributes_json TEXT NOT NULL
-        );
-        """
-    )
+
+    # Simulate command-line execution of alembic upgrade
+    old_sys_argv = sys.argv
+    
+    # Create a temporary alembic.ini
+    temp_alembic_ini_path = tmp_path / "alembic.ini"
+    with open(temp_alembic_ini_path, "w") as f:
+        f.write("[alembic]\n")
+        f.write(f"script_location = {Path(__file__).parent.parent / "alembic"}\n")
+        f.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
+
+    try:
+        sys.argv = [
+            "alembic",
+            "-c", str(temp_alembic_ini_path),
+            "upgrade",
+            "head",
+        ]
+        alembic_main()
+    finally:
+        sys.argv = old_sys_argv
+
+    conn.close()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
 
     meta_attributes = {
         "planning_horizon": 90,

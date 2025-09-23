@@ -19,14 +19,26 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Create data directory
-        run: mkdir -p data
+      - name: Create data directory (if needed for alembic)
+        run: mkdir -p data # alembic.iniのパスが相対パスの場合に備えて残す
 
       - name: Run alembic migrations
-        run: alembic upgrade head
+        env:
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
+        run: |
+          alembic upgrade head
+          ls -l ${{ runner.temp }}
+          test -s ${{ runner.temp }}/test.db # ファイルが存在し、サイズが0より大きいことを確認
+          sqlite3 ${{ runner.temp }}/test.db ".tables" # 作成されたテーブルの一覧を表示
 
       - name: Run all tests
         env:
           PYTHONPATH: .
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
         run: |
           pytest -q
+      - name: Clean up test database
+        if: always()
+        env:
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
+        run: rm -f ${{ runner.temp }}/test.db
