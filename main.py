@@ -8,14 +8,10 @@ from typing import Optional
 import time as _time
 from app.run_registry import REGISTRY as _REGISTRY
 from prometheus_client import make_asgi_app
-from starlette.middleware.cors import CORSMiddleware
 
-from app.api import app # app/api.pyで定義されたappインスタンスを直接インポート
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
-
-
 
 
 try:

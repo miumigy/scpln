@@ -33,10 +33,7 @@ def _build_config(
     )
     if validation and validation.has_errors:
         messages = [f"{issue.code}: {issue.message}" for issue in validation.issues]
-        raise RuntimeError(
-            "canonical validation failed: "
-            + ", ".join(messages)
-        )
+        raise RuntimeError("canonical validation failed: " + ", ".join(messages))
     return config
 
 
@@ -126,10 +123,7 @@ def main() -> None:
     else:
         from app.db import DB_PATH  # lazy import to avoid heavy deps
 
-        print(
-            "canonical config saved: "
-            f"version_id={version_id} (db={DB_PATH})"
-        )
+        print("canonical config saved: " f"version_id={version_id} (db={DB_PATH})")
 
 
 if __name__ == "__main__":

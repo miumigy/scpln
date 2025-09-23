@@ -110,7 +110,8 @@ def _render_import_template(
             "warning": warning,
             "json_text": json_text,
             "plan_version_id": plan_version_id,
-            "validation_messages": validation_messages or {"errors": [], "warnings": []},
+            "validation_messages": validation_messages
+            or {"errors": [], "warnings": []},
             "plan_versions": plan_versions,
         },
         status_code=status_code,
@@ -201,6 +202,7 @@ def ui_configs_delete(cfg_id: int):
         raise HTTPException(status_code=404, detail="config not found")
     delete_config(cfg_id)
     return RedirectResponse(url="/ui/configs", status_code=303)
+
 
 @app.get("/ui/configs/canonical")
 def ui_canonical_configs_redirect():
@@ -312,9 +314,7 @@ def ui_canonical_config_seed_sample():
         )
 
     version_id = save_canonical_config(config)
-    return RedirectResponse(
-        url=f"/ui/configs/canonical/{version_id}", status_code=303
-    )
+    return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
 @app.get("/ui/configs/canonical/{version_id}", response_class=HTMLResponse)
@@ -463,9 +463,7 @@ async def ui_canonical_config_import_json(
         )
 
     version_id = save_canonical_config(config)
-    return RedirectResponse(
-        url=f"/ui/configs/canonical/{version_id}", status_code=303
-    )
+    return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
 @app.post("/ui/configs/canonical/import/plan")
@@ -517,6 +515,4 @@ def ui_canonical_config_import_plan(
         )
 
     version_id = save_canonical_config(config)
-    return RedirectResponse(
-        url=f"/ui/configs/canonical/{version_id}", status_code=303
-    )
+    return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
