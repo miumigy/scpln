@@ -20,6 +20,10 @@ def _prepare_db(tmp_path: Path) -> Path:
     cur = conn.cursor()
 
     # Apply alembic migrations
+    # Manually create alembic_version table as a workaround
+    cur.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL, CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))")
+    conn.commit()
+
     alembic_cfg = Config()
     alembic_cfg.set_main_option("script_location", str(Path(__file__).parent.parent / "alembic"))
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
