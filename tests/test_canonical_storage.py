@@ -14,34 +14,20 @@ from core.config.storage import (
 from alembic.config import Config
 from alembic import command
 
-def table_exists(cursor, table_name):
-    cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
-    return cursor.fetchone() is not None
-
 def _prepare_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "canonical_storage.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    print(f"DB Path before upgrade: {db_path}")
-
     # Apply alembic migrations
-    alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("script_location", "alembic")
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent.parent / "alembic"))
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
     command.upgrade(alembic_cfg, "head")
 
     conn.close()
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-
-    print(f"DB Path after upgrade: {db_path}")
-    print(f"Table canonical_config_versions exists after upgrade: {table_exists(cur, 'canonical_config_versions')}")
-
-    # Check alembic_version table
-    cur.execute("SELECT * FROM alembic_version")
-    alembic_version_rows = cur.fetchall()
-    print(f"alembic_version table content: {alembic_version_rows}")
 
     meta_attributes = {
         "planning_horizon": 90,
