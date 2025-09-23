@@ -28,7 +28,7 @@ def _prepare_db(tmp_path: Path) -> Path:
     temp_alembic_ini_path = tmp_path / "alembic.ini"
     with open(temp_alembic_ini_path, "w") as f:
         f.write("[alembic]\n")
-        f.write(f"script_location = {str(Path(__file__).parent.parent / "alembic")}\n")
+        f.write(f"script_location = {str(Path(__file__).parent.parent / 'alembic')}\n")
         f.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
 
     try:
