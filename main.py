@@ -15,13 +15,7 @@ from app.api import app # app/api.pyで定義されたappインスタンスを�
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 
 try:
