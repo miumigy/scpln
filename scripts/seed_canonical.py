@@ -58,7 +58,7 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument(
         "--db-path",
-        default=_DEFAULT_DB_PATH, # <- ここを修正
+        default=_DEFAULT_DB_PATH,  # <- ここを修正
         help="SQLite DBパス（既定: SCPLN_DB or data/scpln.db）",
     )
     ap.add_argument(

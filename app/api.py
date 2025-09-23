@@ -65,7 +65,8 @@ async def seed_defaults_if_empty() -> None:
     """
     try:
         from app import db  # 遅延import（起動順の安定化）
-        db.init_db() # DB初期化
+
+        db.init_db()  # DB初期化
 
         # 1) シナリオのシード
         try:

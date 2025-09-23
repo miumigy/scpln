@@ -134,9 +134,7 @@ def _diff_entities(
     added = sorted(compare_keys - base_keys)
     removed = sorted(base_keys - compare_keys)
     changed = sorted(
-        key
-        for key in base_keys & compare_keys
-        if base_map[key] != compare_map[key]
+        key for key in base_keys & compare_keys if base_map[key] != compare_map[key]
     )
 
     return EntityDiff(
