@@ -25,6 +25,10 @@ def _prepare_db(tmp_path: Path) -> Path:
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
     command.upgrade(alembic_cfg, "head")
 
+    conn.close()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
     meta_attributes = {
         "planning_horizon": 90,
         "sources": {"psi_input": "seed.json"},
