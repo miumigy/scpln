@@ -7,26 +7,13 @@ from collections import defaultdict
 from typing import Optional
 import time as _time
 from app.run_registry import REGISTRY as _REGISTRY
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
+from starlette.middleware.cors import CORSMiddleware
 
-from app import api, db, metrics
+from app.api import app # app/api.pyで定義されたappインスタンスを直接インポート
 
-# アプリケーション起動時にDBを初期化
-db.init_db()
-
-app = FastAPI(
-    title="SCPLN API",
-    description="Supply Chain Planning & Simulation API",
-    version="0.1.0",
-)
-
-# Prometheus metrics endpoint
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
-
-app.include_router(api.api_router)
 
 app.add_middleware(
     CORSMiddleware,
