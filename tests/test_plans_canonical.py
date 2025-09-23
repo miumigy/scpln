@@ -8,20 +8,31 @@ from core.config.storage import save_canonical_config
 _SCHEMA_READY = False
 
 
-def _ensure_schema():
+def _ensure_schema(tmp_path: Path):
     global _SCHEMA_READY
     if _SCHEMA_READY:
         return
+    import os
+    import importlib
     from alembic import command
     from alembic.config import Config
 
-    cfg = Config(str(Path("alembic.ini").resolve()))
+    db_path = tmp_path / "test.sqlite"
+    os.environ["SCPLN_DB"] = str(db_path)
+
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+    importlib.reload(importlib.import_module("main"))
+
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("script_location", "alembic")
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
     command.upgrade(cfg, "head")
     _SCHEMA_READY = True
 
 
 def test_post_plans_integrated_run_with_canonical(tmp_path):
-    _ensure_schema()
+    _ensure_schema(tmp_path)
     version_id = f"test-plan-{Path(tmp_path).name}"
     out_dir = tmp_path / "plan_out"
     config, _ = load_canonical_config(

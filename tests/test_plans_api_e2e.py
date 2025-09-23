@@ -1,11 +1,40 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-from app.api import app
 import time
+import os
+import pytest
+import importlib
+from pathlib import Path
+from fastapi.testclient import TestClient
+
+from alembic.config import Config
+from alembic import command
+
+@pytest.fixture(name="db_setup_e2e")
+def db_setup_e2e_fixture(tmp_path: Path):
+    db_path = tmp_path / "test_e2e.sqlite"
+    os.environ["SCPLN_DB"] = str(db_path)
+    os.environ["REGISTRY_BACKEND"] = "db"
+    os.environ["AUTH_MODE"] = "none"
+
+    # Reload app.db to pick up new SCPLN_DB env var
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("script_location", "alembic")
+    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.upgrade(alembic_cfg, "head")
+
+    yield
+
+    del os.environ["SCPLN_DB"]
+    del os.environ["REGISTRY_BACKEND"]
+    del os.environ["AUTH_MODE"]
 
 
-def test_plans_integrated_run_and_reconcile_e2e():
+def test_plans_integrated_run_and_reconcile_e2e(db_setup_e2e):
+    from main import app
     client = TestClient(app)
     ver = f"testv-{int(time.time())}"
     # integrated run
