@@ -26,7 +26,7 @@ app = FastAPI(
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
-app.include_router(api.router)
+app.include_router(api.api_router)
 
 app.add_middleware(
     CORSMiddleware,
