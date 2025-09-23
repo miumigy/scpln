@@ -10,8 +10,6 @@ jobs:
     strategy:
       matrix:
         python-version: [ '3.10', '3.11' ]
-    env:
-      SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,13 +23,18 @@ jobs:
         run: mkdir -p data # alembic.iniのパスが相対パスの場合に備えて残す
 
       - name: Run alembic migrations
+        env:
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
         run: alembic upgrade head
 
       - name: Run all tests
         env:
           PYTHONPATH: .
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
         run: |
           pytest -q
       - name: Clean up test database
         if: always()
+        env:
+          SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
         run: rm -f ${{ runner.temp }}/test.db
