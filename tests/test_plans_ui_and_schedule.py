@@ -21,7 +21,9 @@ def db_setup_fixture(tmp_path: Path):
     import app.db
 
     # Reload app.db to pick up new SCPLN_DB env var
-    importlib.reload(app.db)
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+    importlib.reload(importlib.import_module("main"))
 
     alembic_cfg = Config("alembic.ini")
     alembic_cfg.set_main_option("script_location", "alembic")

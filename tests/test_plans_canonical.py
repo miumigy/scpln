@@ -19,6 +19,10 @@ def _ensure_schema(tmp_path: Path):
     db_path = tmp_path / "test.sqlite"
     os.environ["SCPLN_DB"] = str(db_path)
 
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+    importlib.reload(importlib.import_module("main"))
+
     cfg = Config("alembic.ini")
     cfg.set_main_option("script_location", "alembic")
     cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")

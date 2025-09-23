@@ -1,11 +1,40 @@
 from __future__ import annotations
 
 import time
+import os
+import pytest
+import importlib
+from pathlib import Path
 from fastapi.testclient import TestClient
-from main import app
+
+from alembic.config import Config
+from alembic import command
+
+@pytest.fixture(name="db_setup_auto_plan")
+def db_setup_auto_plan_fixture(tmp_path: Path):
+    db_path = tmp_path / "test_auto_plan.sqlite"
+    os.environ["SCPLN_DB"] = str(db_path)
+    os.environ["REGISTRY_BACKEND"] = "db"
+    os.environ["AUTH_MODE"] = "none"
+
+    # Reload app.db to pick up new SCPLN_DB env var
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("script_location", "alembic")
+    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.upgrade(alembic_cfg, "head")
+
+    yield
+
+    del os.environ["SCPLN_DB"]
+    del os.environ["REGISTRY_BACKEND"]
+    del os.environ["AUTH_MODE"]
 
 
-def test_plan_run_auto_redirects_to_new_plan():
+def test_plan_run_auto_redirects_to_new_plan(db_setup_auto_plan):
+    from main import app
     client = TestClient(app)
     base = f"base-{int(time.time())}"
     # まずベースのPlanを作って詳細画面を有効化
