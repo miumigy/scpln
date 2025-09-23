@@ -871,9 +871,9 @@ __all__ = [
 def _resolve_db_path(db_path: Optional[str]) -> str:
     if db_path:
         return db_path
-    from app.db import DB_PATH  # lazy import to avoid circular dependency
+    from app.db import _DEFAULT_DB  # lazy import to avoid circular dependency
 
-    return DB_PATH
+    return str(_DEFAULT_DB)
 
 
 def _collect_counts(

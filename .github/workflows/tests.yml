@@ -25,7 +25,9 @@ jobs:
       - name: Run alembic migrations
         env:
           SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
-        run: alembic upgrade head
+        run: |
+          alembic upgrade head --verbose
+          ls -l ${{ runner.temp }}
 
       - name: Run all tests
         env:
