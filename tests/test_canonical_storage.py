@@ -30,6 +30,12 @@ def _prepare_db(tmp_path: Path) -> Path:
     cur = conn.cursor()
 
     meta_attributes = {
+
+    conn.close()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    meta_attributes = {
         "planning_horizon": 90,
         "sources": {"psi_input": "seed.json"},
     }
