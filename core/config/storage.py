@@ -74,7 +74,8 @@ def list_canonical_version_summaries(
 
     if os.getenv("SCPLN_CANONICAL_SKIP_COUNTS"):
         return [
-            CanonicalVersionSummary(meta=meta, counts=_default_counts()) for meta in metas
+            CanonicalVersionSummary(meta=meta, counts=_default_counts())
+            for meta in metas
         ]
 
     path = _resolve_db_path(db_path)

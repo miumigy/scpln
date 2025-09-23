@@ -1,4 +1,3 @@
-
 import csv
 import json
 import os
@@ -173,9 +172,7 @@ def test_planning_regression(job_manager: JobManager, seeded_config_id: int):
     report_legacy = _read_report_csv(out_dir_legacy)
     report_canonical = _read_report_csv(out_dir_canonical)
 
-    assert len(report_legacy) == len(
-        report_canonical
-    ), "レポートの行数が一致しません"
+    assert len(report_legacy) == len(report_canonical), "レポートの行数が一致しません"
     assert report_legacy, "旧来方法のレポートが空です"
 
     # 各行・各列の値がほぼ等しいことを確認
@@ -185,7 +182,9 @@ def test_planning_regression(job_manager: JobManager, seeded_config_id: int):
             val_leg = row_leg[key]
             val_can = row_can[key]
             if isinstance(val_leg, float):
-                assert pytest.approx(val_leg) == val_can, f"キー '{key}' の値が一致しません"
+                assert (
+                    pytest.approx(val_leg) == val_can
+                ), f"キー '{key}' の値が一致しません"
             else:
                 assert val_leg == val_can, f"キー '{key}' の値が一致しません"
 

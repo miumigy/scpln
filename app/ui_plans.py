@@ -736,7 +736,9 @@ def ui_plans_run(
             if isinstance(detail, str) and detail:
                 error_message = detail
             elif isinstance(detail, dict):
-                error_message = detail.get("message") or json.dumps(detail, ensure_ascii=False)
+                error_message = detail.get("message") or json.dumps(
+                    detail, ensure_ascii=False
+                )
             elif isinstance(detail, list):
                 error_message = "; ".join(str(item) for item in detail if item)
         except Exception:
