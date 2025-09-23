@@ -38,6 +38,11 @@ def _prepare_db(tmp_path: Path) -> Path:
     print(f"DB Path after upgrade: {db_path}")
     print(f"Table canonical_config_versions exists after upgrade: {table_exists(cur, 'canonical_config_versions')}")
 
+    # Check alembic_version table
+    cur.execute("SELECT * FROM alembic_version")
+    alembic_version_rows = cur.fetchall()
+    print(f"alembic_version table content: {alembic_version_rows}")
+
     meta_attributes = {
         "planning_horizon": 90,
         "sources": {"psi_input": "seed.json"},
