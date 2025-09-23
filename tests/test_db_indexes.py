@@ -8,7 +8,7 @@ from app import db as appdb
 
 
 def test_runs_table_has_indexes():
-    path = appdb.DB_PATH
+    path = str(appdb._DEFAULT_DB)
     assert os.path.exists(path)
     con = sqlite3.connect(path)
     try:
