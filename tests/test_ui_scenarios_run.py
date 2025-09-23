@@ -46,7 +46,7 @@ def job_manager_setup(tmp_path, monkeypatch):
     importlib.reload(db)
     importlib.reload(jobs)
 
-    manager = jobs.JobManager(workers=1)
+    manager = jobs.JobManager(workers=1, db_path=str(db_path))
     manager.start()
     yield manager
     manager.stop()
