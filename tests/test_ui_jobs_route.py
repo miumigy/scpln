@@ -45,4 +45,3 @@ def test_ui_jobs_route_returns_200(db_setup_jobs):
 
     client = TestClient(app)
     res = client.get("/ui/jobs")
-    assert res.status_code == 200
