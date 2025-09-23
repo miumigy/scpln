@@ -7,7 +7,7 @@ importlib.import_module("app.ui_runs")
 importlib.import_module("app.ui_compare")
 
 
-def test_ui_compare_preset_roundtrip():
+def test_ui_compare_preset_roundtrip(db_setup):
     c = TestClient(app)
 
     p = {
@@ -42,7 +42,7 @@ def test_ui_compare_preset_roundtrip():
     assert id3 in r.text
 
 
-def test_ui_compare_preset_bad_requests():
+def test_ui_compare_preset_bad_requests(db_setup):
     c = TestClient(app)
 
     # target_scenarios がない

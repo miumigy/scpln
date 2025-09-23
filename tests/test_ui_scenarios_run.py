@@ -7,7 +7,19 @@ importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
 
-def test_ui_scenarios_run_with_config(db_setup, monkeypatch):
+import pytest
+from app import jobs, db
+
+@pytest.fixture
+def job_manager_setup(db_setup):
+    importlib.reload(db)
+    importlib.reload(jobs)
+    manager = jobs.JobManager(workers=1)
+    manager.start()
+    yield manager
+    manager.stop()
+
+def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 
@@ -57,7 +69,7 @@ def test_ui_scenarios_run_with_config(db_setup, monkeypatch):
     assert done, "job did not finish in time"
 
 
-def test_ui_scenarios_run_nonexistent_config(db_setup, monkeypatch):
+def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 
@@ -82,7 +94,7 @@ def test_ui_scenarios_run_nonexistent_config(db_setup, monkeypatch):
         db.delete_scenario(sid)
 
 
-def test_ui_scenarios_run_invalid_config_json(db_setup, monkeypatch):
+def test_ui_scenarios_run_invalid_config_json(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 

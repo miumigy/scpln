@@ -84,7 +84,7 @@ def _minimal_payload():
     )
 
 
-def test_simulation_endpoint_runs_and_returns_run_id_without_trace_by_default():
+def test_simulation_endpoint_runs_and_returns_run_id_without_trace_by_default(db_setup):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)
@@ -102,7 +102,7 @@ def test_simulation_endpoint_runs_and_returns_run_id_without_trace_by_default():
     assert isinstance(body.get("daily_profit_loss"), list)
 
 
-def test_simulation_endpoint_returns_trace_when_requested():
+def test_simulation_endpoint_returns_trace_when_requested(db_setup):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)
@@ -116,7 +116,7 @@ def test_simulation_endpoint_returns_trace_when_requested():
     assert isinstance(body["cost_trace"], list)
 
 
-def test_run_id_changes_each_call():
+def test_run_id_changes_each_call(db_setup):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)
@@ -129,7 +129,7 @@ def test_run_id_changes_each_call():
     assert UUID4_RE.match(id1) and UUID4_RE.match(id2)
 
 
-def test_simulation_endpoint_builds_from_canonical(monkeypatch):
+def test_simulation_endpoint_builds_from_canonical(db_setup, monkeypatch):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)
@@ -161,7 +161,7 @@ def test_simulation_endpoint_builds_from_canonical(monkeypatch):
     assert "run_id" in body and UUID4_RE.match(body["run_id"])
 
 
-def test_simulation_endpoint_canonical_validation_error(monkeypatch):
+def test_simulation_endpoint_canonical_validation_error(db_setup, monkeypatch):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)
@@ -198,7 +198,7 @@ def test_simulation_endpoint_canonical_validation_error(monkeypatch):
     assert body["detail"]["message"] == "canonical config validation failed"
 
 
-def test_simulation_endpoint_canonical_not_found(monkeypatch):
+def test_simulation_endpoint_canonical_not_found(db_setup, monkeypatch):
     if _should_skip():
         pytest.skip("simulation endpoint slow; skipped via env")
     client = TestClient(app)

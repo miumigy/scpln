@@ -7,7 +7,7 @@ importlib.import_module("app.ui_runs")
 importlib.import_module("app.ui_compare")
 
 
-def test_ui_compare_page_roundtrip():
+def test_ui_compare_page_roundtrip(db_setup):
     c = TestClient(app)
     p = {
         "planning_horizon": 2,
