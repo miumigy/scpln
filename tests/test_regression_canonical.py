@@ -20,7 +20,7 @@ def _get_seeded_config_id() -> int:
     """seedスクリプトを実行し、生成されたCanonical設定のIDを返す"""
     # CI環境では.venvが存在しないため、python3を直接呼び出す
     cmd = [
-        ".venv/bin/python",
+        sys.executable,
         "scripts/seed_canonical.py",
         "--save-db",
         "--name",

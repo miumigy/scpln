@@ -9,11 +9,43 @@ importlib.import_module("app.simulation_api")
 
 import pytest
 from app import jobs, db
+from prometheus_client import REGISTRY
+from pathlib import Path
 
 @pytest.fixture
-def job_manager_setup(db_setup):
+def job_manager_setup(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    monkeypatch.setenv("SCPLN_DB", str(db_path))
+
+    # Alembicでマイグレーションを実行
+    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
+    temp_alembic_ini_path = tmp_path / "alembic.ini"
+    
+    with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
+        for line in src:
+            if line.strip().startswith("sqlalchemy.url"):
+                dst.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
+            else:
+                dst.write(line)
+
+    import sys
+    old_sys_argv = sys.argv
+    try:
+        sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
+        from alembic.config import main as alembic_main
+        alembic_main()
+    finally:
+        sys.argv = old_sys_argv
+
+    # Prometheus レジストリをクリア
+    collectors = list(REGISTRY._collector_to_names.keys())
+    for collector in collectors:
+        REGISTRY.unregister(collector)
+
+    # モジュールをリロード
     importlib.reload(db)
     importlib.reload(jobs)
+
     manager = jobs.JobManager(workers=1)
     manager.start()
     yield manager
