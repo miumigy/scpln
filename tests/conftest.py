@@ -19,12 +19,7 @@ def db_setup(tmp_path, monkeypatch):
     3. Alembicを使ってDBマイグレーションを実行する。
     """
     db_path = tmp_path / "test.db"
-
-    # 環境変数をモンキーパッチして、すべてのモジュールがテストDBを参照するようにする
-    monkeypatch.setenv("SCPLN_DB", str(db_path))
-
-    # app.db モジュールをリロードして、新しい環境変数を反映させる
-    importlib.reload(appdb)
+    appdb.set_db_path(str(db_path))
 
     # Alembicでマイグレーションを実行
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"

@@ -8,14 +8,17 @@ from typing import Any, Dict, List, Optional
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
-# DB_PATH はモジュールレベルで定義せず、_conn()内で毎回取得する
-# DB_PATH = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+_current_db_path: str | None = None
+
 Path(_DEFAULT_DB).parent.mkdir(parents=True, exist_ok=True)
 
+def set_db_path(path: str) -> None:
+    global _current_db_path
+    _current_db_path = path
 
 def _conn() -> sqlite3.Connection:
-    current_db_path = os.getenv("SCPLN_DB", str(_DEFAULT_DB))
-    conn = sqlite3.connect(current_db_path)
+    db_path_to_use = _current_db_path if _current_db_path else os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+    conn = sqlite3.connect(db_path_to_use)
     conn.row_factory = sqlite3.Row
     return conn
 

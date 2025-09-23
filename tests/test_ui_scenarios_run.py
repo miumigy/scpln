@@ -14,8 +14,9 @@ from pathlib import Path
 
 @pytest.fixture
 def job_manager_setup(tmp_path, monkeypatch):
+    import app.db
     db_path = tmp_path / "test.db"
-    monkeypatch.setenv("SCPLN_DB", str(db_path))
+    app.db.set_db_path(str(db_path))
 
     # Alembicでマイグレーションを実行
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
@@ -42,11 +43,7 @@ def job_manager_setup(tmp_path, monkeypatch):
     for collector in collectors:
         REGISTRY.unregister(collector)
 
-    # モジュールをリロード
-    importlib.reload(db)
-    importlib.reload(jobs)
-
-    manager = jobs.JobManager(workers=1, db_path=str(db_path))
+    manager = jobs.JobManager(workers=1)
     manager.start()
     yield manager
     manager.stop()
