@@ -26,8 +26,9 @@ jobs:
         env:
           SCPLN_DB: ${{ runner.temp }}/test.db # 一時的なデータベースファイル
         run: |
-          alembic upgrade head --verbose
+          alembic upgrade head
           ls -l ${{ runner.temp }}
+          test -s ${{ runner.temp }}/test.db # ファイルが存在し、サイズが0より大きいことを確認
 
       - name: Run all tests
         env:
