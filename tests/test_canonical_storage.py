@@ -14,10 +14,16 @@ from core.config.storage import (
 from alembic.config import Config
 from alembic import command
 
+def table_exists(cursor, table_name):
+    cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+    return cursor.fetchone() is not None
+
 def _prepare_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "canonical_storage.db"
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
+
+    print(f"DB Path before upgrade: {db_path}")
 
     # Apply alembic migrations
     alembic_cfg = Config("alembic.ini")
@@ -28,6 +34,9 @@ def _prepare_db(tmp_path: Path) -> Path:
     conn.close()
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
+
+    print(f"DB Path after upgrade: {db_path}")
+    print(f"Table canonical_config_versions exists after upgrade: {table_exists(cur, 'canonical_config_versions')}")
 
     meta_attributes = {
         "planning_horizon": 90,
