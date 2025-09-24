@@ -13,6 +13,7 @@ importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
 
+
 @pytest.fixture(name="db_setup_scenarios")
 def db_setup_scenarios_fixture(tmp_path: Path):
     db_path = tmp_path / "test_scenarios.sqlite"
@@ -42,6 +43,7 @@ def db_setup_scenarios_fixture(tmp_path: Path):
 def test_ui_scenarios_run_with_config(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 準備: シナリオと設定を作成
     sid = db.create_scenario(name="ScA", parent_id=None, tag=None, description=None)
@@ -89,6 +91,7 @@ def test_ui_scenarios_run_with_config(db_setup_scenarios):
 def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 存在しない config_id を使って404が返ることを確認
     sid = db.create_scenario(
@@ -111,6 +114,7 @@ def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
 def test_ui_scenarios_run_invalid_config_json(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 不正なJSONを持つconfigで400が返ることを確認
     sid = db.create_scenario(

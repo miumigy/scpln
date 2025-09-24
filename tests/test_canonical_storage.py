@@ -11,10 +11,9 @@ from core.config.storage import (
     load_canonical_config_from_db,
 )
 
-from alembic.config import Config
-from alembic import command
 import sys
 from alembic.config import main as alembic_main
+
 
 def _prepare_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "canonical_storage.db"
@@ -23,7 +22,7 @@ def _prepare_db(tmp_path: Path) -> Path:
 
     # Simulate command-line execution of alembic upgrade
     old_sys_argv = sys.argv
-    
+
     # Create a temporary alembic.ini
     temp_alembic_ini_path = tmp_path / "alembic.ini"
     with open(temp_alembic_ini_path, "w") as f:
@@ -98,7 +97,8 @@ def _prepare_db(tmp_path: Path) -> Path:
     try:
         sys.argv = [
             "alembic",
-            "-c", str(temp_alembic_ini_path),
+            "-c",
+            str(temp_alembic_ini_path),
             "upgrade",
             "head",
         ]

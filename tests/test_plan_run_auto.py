@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from alembic.config import Config
 from alembic import command
 
+
 @pytest.fixture(name="db_setup_auto_plan")
 def db_setup_auto_plan_fixture(tmp_path: Path):
     db_path = tmp_path / "test_auto_plan.sqlite"
@@ -35,6 +36,7 @@ def db_setup_auto_plan_fixture(tmp_path: Path):
 
 def test_plan_run_auto_redirects_to_new_plan(db_setup_auto_plan):
     from main import app
+
     client = TestClient(app)
     base = f"base-{int(time.time())}"
     # まずベースのPlanを作って詳細画面を有効化

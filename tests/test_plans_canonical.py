@@ -13,7 +13,6 @@ def _ensure_schema(tmp_path: Path):
     global _SCHEMA_READY
     if _SCHEMA_READY:
         return
-    import os
     import importlib
     from alembic import command
     from alembic.config import Config

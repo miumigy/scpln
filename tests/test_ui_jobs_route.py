@@ -2,10 +2,10 @@ import os
 import pytest
 import importlib
 from pathlib import Path
-from fastapi.testclient import TestClient
 
 from alembic.config import Config
 from alembic import command
+
 
 @pytest.fixture(name="db_setup_jobs")
 def db_setup_jobs_fixture(tmp_path: Path):

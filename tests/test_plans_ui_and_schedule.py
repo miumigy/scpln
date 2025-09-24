@@ -18,7 +18,6 @@ def db_setup_fixture(tmp_path: Path):
     from alembic.config import Config
     from alembic import command
     import importlib
-    import app.db
 
     # Reload app.db to pick up new SCPLN_DB env var
     importlib.reload(importlib.import_module("app.db"))
