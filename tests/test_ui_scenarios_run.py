@@ -13,31 +13,7 @@ from prometheus_client import REGISTRY
 from pathlib import Path
 
 @pytest.fixture
-def job_manager_setup(tmp_path, monkeypatch):
-    import app.db
-    db_path = tmp_path / "test.db"
-    app.db.set_db_path(str(db_path))
-
-    # Alembicでマイグレーションを実行
-    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
-    temp_alembic_ini_path = tmp_path / "alembic.ini"
-    
-    with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
-        for line in src:
-            if line.strip().startswith("sqlalchemy.url"):
-                dst.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
-            else:
-                dst.write(line)
-
-    import sys
-    old_sys_argv = sys.argv
-    try:
-        sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
-        from alembic.config import main as alembic_main
-        alembic_main()
-    finally:
-        sys.argv = old_sys_argv
-
+def job_manager_setup(db_setup):
     # Prometheus レジストリをクリア
     collectors = list(REGISTRY._collector_to_names.keys())
     for collector in collectors:

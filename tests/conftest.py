@@ -38,6 +38,17 @@ def db_setup(tmp_path, monkeypatch):
         alembic_main()
     finally:
         sys.argv = old_sys_argv
+        appdb.set_db_path(None) # Reset db path after test
+
+    # app.db モジュールをリロードして、新しい環境変数を反映させる
+    importlib.reload(appdb)
+
+    # Monkeypatch app.db._conn to ensure thread-safe connections
+    def get_test_conn():
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        return conn
+    monkeypatch.setattr(appdb, "_conn", get_test_conn)
 
     yield db_path
 
