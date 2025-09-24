@@ -19,38 +19,23 @@ def db_setup(tmp_path, monkeypatch):
     3. Alembicを使ってDBマイグレーションを実行する。
     """
     db_path = tmp_path / "test.db"
-    appdb.set_db_path(str(db_path))
+    
+    # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
+    monkeypatch.setenv("SCPLN_DB", str(db_path))
+
+    # モジュールをリロードして環境変数の変更を反映させる
+    # これにより、すでにインポート済みのモジュールも新しいDBパスを認識する
+    from app import db as appdb
+    from core.config import storage as core_storage
+    importlib.reload(appdb)
+    importlib.reload(core_storage)
 
     # Alembicでマイグレーションを実行
+    # alembic.iniのパスを-cで指定する
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
-    temp_alembic_ini_path = tmp_path / "alembic.ini"
-    
-    with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
-        for line in src:
-            if line.strip().startswith("sqlalchemy.url"):
-                dst.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
-            else:
-                dst.write(line)
+    alembic_main(["-c", str(alembic_ini_path), "upgrade", "head"])
 
-    old_sys_argv = sys.argv
-    try:
-        sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
-        alembic_main()
-    finally:
-        sys.argv = old_sys_argv
-        appdb.set_db_path(None) # Reset db path after test
-
-    # app.db モジュールをリロードして、新しい環境変数を反映させる
-    importlib.reload(appdb)
-
-    # Monkeypatch app.db._conn to ensure thread-safe connections
-    def get_test_conn():
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        return conn
-    monkeypatch.setattr(appdb, "_conn", get_test_conn)
-
-    yield db_path
+    yield str(db_path)
 
 @pytest.fixture
 def seed_canonical_data(db_setup):
