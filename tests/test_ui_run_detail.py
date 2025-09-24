@@ -6,7 +6,7 @@ importlib.import_module("app.simulation_api")
 importlib.import_module("app.ui_runs")
 
 
-def test_ui_run_detail_page():
+def test_ui_run_detail_page(db_setup):
     c = TestClient(app)
     p = {
         "planning_horizon": 1,

@@ -41,11 +41,12 @@ JOBS_DURATION = _Histogram(
 
 
 class JobManager:
-    def __init__(self, workers: int = 1):
+    def __init__(self, workers: int = 1, db_path: str | None = None):
         self.workers = max(1, workers)
         self.q: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         self._threads: list[threading.Thread] = []
         self._stop = threading.Event()
+        self.db_path = db_path
 
     def start(self):
         if self._threads:
@@ -87,6 +88,8 @@ class JobManager:
         return job_id
 
     def _run_loop(self):
+        if self.db_path:
+            os.environ["SCPLN_DB"] = self.db_path
         while not self._stop.is_set():
             try:
                 job = self.q.get(timeout=0.2)
@@ -206,6 +209,8 @@ class JobManager:
         self.q.put({"job_id": job_id, "type": row.get("type") or "simulation"})
 
     def submit_aggregate(self, payload: Dict[str, Any]) -> str:
+        if not self._threads:
+            self.start()
         job_id = uuid4().hex
         now = int(time.time() * 1000)
         db.create_job(

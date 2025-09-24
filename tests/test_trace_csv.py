@@ -25,7 +25,7 @@ def _payload():
     )
 
 
-def test_trace_csv_download():
+def test_trace_csv_download(db_setup):
     client = TestClient(app)
     r = client.post("/simulation?include_trace=true", json=_payload().model_dump())
     run_id = r.json()["run_id"]

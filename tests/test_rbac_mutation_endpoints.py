@@ -31,7 +31,7 @@ def test_rbac_blocks_simulation_without_role(monkeypatch):
     assert r.status_code == 403
 
 
-def test_rbac_allows_simulation_with_role_and_org_tenant(monkeypatch):
+def test_rbac_allows_simulation_with_role_and_org_tenant(db_setup, monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     monkeypatch.setenv("RBAC_MUTATE_ROLES", "planner,admin")
     c = TestClient(app)
@@ -57,7 +57,7 @@ def test_rbac_allows_simulation_with_role_and_org_tenant(monkeypatch):
     assert r.status_code == 200
 
 
-def test_rbac_blocks_jobs_without_role(monkeypatch):
+def test_rbac_blocks_jobs_without_role(db_setup, monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     c = TestClient(app)
     r = c.post("/jobs/simulation", json={})
@@ -66,7 +66,7 @@ def test_rbac_blocks_jobs_without_role(monkeypatch):
     assert r2.status_code == 403
 
 
-def test_rbac_allows_jobs_with_role_and_org_tenant(monkeypatch):
+def test_rbac_allows_jobs_with_role_and_org_tenant(db_setup, monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     monkeypatch.setenv("RBAC_MUTATE_ROLES", "planner,admin")
     c = TestClient(app)
@@ -92,7 +92,7 @@ def test_rbac_allows_jobs_with_role_and_org_tenant(monkeypatch):
     assert r.status_code == 200
 
 
-def test_rbac_blocks_job_actions_without_role(monkeypatch):
+def test_rbac_blocks_job_actions_without_role(db_setup, monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     c = TestClient(app)
     # 事前にDBに直接ジョブを作成
@@ -106,7 +106,7 @@ def test_rbac_blocks_job_actions_without_role(monkeypatch):
     assert r_cancel.status_code == 403
 
 
-def test_rbac_allows_job_actions_with_role(monkeypatch):
+def test_rbac_allows_job_actions_with_role(db_setup, monkeypatch):
     monkeypatch.setenv("RBAC_ENABLED", "1")
     monkeypatch.setenv("RBAC_MUTATE_ROLES", "planner")
     c = TestClient(app)
