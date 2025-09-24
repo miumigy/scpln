@@ -5,6 +5,7 @@ import re
 import subprocess
 import time
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -19,7 +20,7 @@ def _get_seeded_config_id() -> int:
     """seedスクリプトを実行し、生成されたCanonical設定のIDを返す"""
     # CI環境では.venvが存在しないため、python3を直接呼び出す
     cmd = [
-        "python3",
+        sys.executable,
         "scripts/seed_canonical.py",
         "--save-db",
         "--name",
@@ -50,28 +51,38 @@ def _get_seeded_config_id() -> int:
 
 
 @pytest.fixture(scope="function")
-def job_manager():
+def job_manager(tmp_path, monkeypatch):
     """テスト関数ごとにDBを初期化し、JobManagerをセットアップ"""
-    base_dir = Path(__file__).resolve().parents[1]
-    db_path = base_dir / "data" / "scpln.db"
-    if db_path.exists():
-        db_path.unlink()
+    db_path = tmp_path / "scpln.db"
+    monkeypatch.setenv("SCPLN_DB", str(db_path))
 
-    # このテスト関数で使用するDBパスを環境変数で明示的に設定する
-    # これにより、ワーカースレッドも同じDBを参照するようになる
-    original_db_path = os.environ.get("SCPLN_DB")
-    os.environ["SCPLN_DB"] = str(db_path.resolve())
+    # app.db モジュールをリロードして、新しい環境変数を反映させる
+    import importlib
+    importlib.reload(db)
 
-    # Alembicマイグレーションを実行して、テスト用のDBスキーマを最新の状態にする
-    env = os.environ.copy()
-    env["PYTHONPATH"] = "."
-    subprocess.run(["python3", "-m", "alembic", "upgrade", "head"], check=True, env=env)
+    # Alembicでマイグレーションを実行
+    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
+    temp_alembic_ini_path = tmp_path / "alembic.ini"
+    
+    with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
+        for line in src:
+            if line.strip().startswith("sqlalchemy.url"):
+                dst.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
+            else:
+                dst.write(line)
 
-    # init_db() をここで明示的に呼び出す
-    db.init_db()
+    import sys
+    old_sys_argv = sys.argv
+    try:
+        sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
+        from alembic.config import main as alembic_main
+        import sys
+        alembic_main()
+    finally:
+        sys.argv = old_sys_argv
 
     # 一時ディレクトリをクリーンアップ
-    tmp_root = base_dir / "tmp" / "regression_tests"
+    tmp_root = Path(__file__).resolve().parents[1] / "tmp" / "regression_tests"
     if tmp_root.exists():
         import shutil
 
@@ -83,13 +94,6 @@ def job_manager():
     manager.start()
     yield manager
     manager.stop()
-
-    # 環境変数を元に戻す
-    if original_db_path is None:
-        if "SCPLN_DB" in os.environ:
-            del os.environ["SCPLN_DB"]
-    else:
-        os.environ["SCPLN_DB"] = original_db_path
 
 
 @pytest.fixture(scope="function")

@@ -9,7 +9,7 @@ importlib.import_module("app.ui_runs")
 from app.api import app
 
 
-def test_ui_runs_shows_scenario_column_and_value():
+def test_ui_runs_shows_scenario_column_and_value(db_setup):
     c = TestClient(app)
     payload = {
         "planning_horizon": 1,
@@ -37,7 +37,7 @@ def test_ui_runs_shows_scenario_column_and_value():
     assert str(sid) in html
 
 
-def test_ui_run_detail_shows_scenario_id():
+def test_ui_run_detail_shows_scenario_id(db_setup):
     c = TestClient(app)
     payload = {
         "planning_horizon": 1,

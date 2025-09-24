@@ -42,16 +42,11 @@ def upgrade() -> None:
             sa.Column("updated_at", sa.Integer, nullable=False),
         )
     # indexes for runs
-    if insp.has_table("runs"):
-        existing_idx = {ix["name"] for ix in insp.get_indexes("runs")}
-        if "idx_runs_started_at" not in existing_idx:
-            op.create_index("idx_runs_started_at", "runs", ["started_at"], unique=False)
-        if "idx_runs_schema_version" not in existing_idx:
-            op.create_index(
-                "idx_runs_schema_version", "runs", ["schema_version"], unique=False
-            )
-        if "idx_runs_config_id" not in existing_idx:
-            op.create_index("idx_runs_config_id", "runs", ["config_id"], unique=False)
+    op.create_index("idx_runs_started_at", "runs", ["started_at"], unique=False)
+    op.create_index(
+        "idx_runs_schema_version", "runs", ["schema_version"], unique=False
+    )
+    op.create_index("idx_runs_config_id", "runs", ["config_id"], unique=False)
 
     if not insp.has_table("jobs"):
         op.create_table(

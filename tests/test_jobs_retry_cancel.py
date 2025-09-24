@@ -23,7 +23,7 @@ def _payload():
     )
 
 
-def test_job_retry_with_new_params():
+def test_job_retry_with_new_params(db_setup):
     c = TestClient(app)
     # enqueue invalid job to fail (empty dict)
     jid = c.post("/jobs/simulation", json={}).json()["job_id"]
@@ -47,7 +47,7 @@ def test_job_retry_with_new_params():
     assert c.get(f"/jobs/{jid}").json()["status"] == "succeeded"
 
 
-def test_job_cancel_best_effort():
+def test_job_cancel_best_effort(db_setup):
     c = TestClient(app)
     jid = c.post("/jobs/simulation", json=_payload().model_dump()).json()["job_id"]
     # try cancel; accept 200 or 409 depending on race (queued vs running)

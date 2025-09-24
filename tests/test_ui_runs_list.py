@@ -9,7 +9,7 @@ importlib.import_module("app.trace_export_api")  # 既存なら
 importlib.import_module("app.ui_runs")
 
 
-def test_ui_runs_list_basic():
+def test_ui_runs_list_basic(db_setup):
     c = TestClient(app)
     # ランを少なくとも1つ作る
     payload = {
