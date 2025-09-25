@@ -5,6 +5,7 @@ from app.plans_api import post_plans_integrated_run
 from core.config import load_canonical_config
 from core.config.storage import save_canonical_config
 
+
 def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):
     version_id = f"test-plan-{Path(tmp_path).name}"
     out_dir = tmp_path / "plan_out"

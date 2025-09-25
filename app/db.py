@@ -12,18 +12,21 @@ _current_db_path: str | None = None
 
 Path(_DEFAULT_DB).parent.mkdir(parents=True, exist_ok=True)
 
+
 def set_db_path(path: str) -> None:
     global _current_db_path
     _current_db_path = path
 
+
 def _conn() -> sqlite3.Connection:
-    db_path_to_use = _current_db_path if _current_db_path else os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+    db_path_to_use = (
+        _current_db_path
+        if _current_db_path
+        else os.getenv("SCPLN_DB", str(_DEFAULT_DB))
+    )
     conn = sqlite3.connect(db_path_to_use)
     conn.row_factory = sqlite3.Row
     return conn
-
-
-
 
 
 def create_job(

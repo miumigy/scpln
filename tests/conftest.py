@@ -1,14 +1,11 @@
-
-
 import pytest
-import os
 from pathlib import Path
-import sys
 from alembic.config import main as alembic_main
 import json
 import sqlite3
 import importlib
 from app import db as appdb
+
 
 @pytest.fixture
 def db_setup(tmp_path, monkeypatch):
@@ -19,14 +16,14 @@ def db_setup(tmp_path, monkeypatch):
     3. Alembicを使ってDBマイグレーションを実行する。
     """
     db_path = tmp_path / "test.db"
-    
+
     # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
     monkeypatch.setenv("SCPLN_DB", str(db_path))
 
     # モジュールをリロードして環境変数の変更を反映させる
     # これにより、すでにインポート済みのモジュールも新しいDBパスを認識する
-    from app import db as appdb
     from core.config import storage as core_storage
+
     importlib.reload(appdb)
     importlib.reload(core_storage)
 
@@ -36,6 +33,7 @@ def db_setup(tmp_path, monkeypatch):
     alembic_main(["-c", str(alembic_ini_path), "upgrade", "head"])
 
     yield str(db_path)
+
 
 @pytest.fixture
 def seed_canonical_data(db_setup):

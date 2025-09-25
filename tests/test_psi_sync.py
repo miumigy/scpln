@@ -53,7 +53,7 @@ def _reload_for_tmp_db(db_path: Path):
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
     tmp_path = db_path.parent
     temp_alembic_ini_path = tmp_path / "alembic.ini"
-    
+
     with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
         for line in src:
             if line.strip().startswith("sqlalchemy.url"):
@@ -65,6 +65,7 @@ def _reload_for_tmp_db(db_path: Path):
     try:
         sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
         from alembic.config import main as alembic_main
+
         alembic_main()
     finally:
         sys.argv = old_sys_argv
@@ -101,6 +102,7 @@ def plan_client(tmp_path, monkeypatch):
         yield client, version, app_db, app_plans_api
     finally:
         client.close()
+
 
 def _load_rows(db_mod, version_id: str, name: str) -> list[dict]:
     data = db_mod.get_plan_artifact(version_id, name)

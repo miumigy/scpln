@@ -2,6 +2,7 @@ import time
 from fastapi.testclient import TestClient
 from app.api import app
 
+
 def _make_plan_with_artifacts(version_id: str) -> None:
     # Use integrated run API to generate artifacts to keep parity with E2E
     client = TestClient(app)

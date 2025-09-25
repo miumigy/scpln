@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 # 有効化
 import importlib
+
 importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
@@ -10,7 +11,7 @@ importlib.import_module("app.simulation_api")
 import pytest
 from app import jobs, db
 from prometheus_client import REGISTRY
-from pathlib import Path
+
 
 @pytest.fixture
 def job_manager_setup(db_setup):
@@ -24,12 +25,13 @@ def job_manager_setup(db_setup):
     yield manager
     manager.stop()
 
+
 def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 
     from app.api import app
-    from app import db
+
     c = TestClient(app)
     # 準備: シナリオと設定を作成
     sid = db.create_scenario(name="ScA", parent_id=None, tag=None, description=None)
@@ -79,7 +81,7 @@ def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("AUTH_MODE", "none")
 
     from app.api import app
-    from app import db
+
     c = TestClient(app)
     # 存在しない config_id を使って404が返ることを確認
     sid = db.create_scenario(
@@ -104,7 +106,7 @@ def test_ui_scenarios_run_invalid_config_json(job_manager_setup, monkeypatch):
     monkeypatch.setenv("AUTH_MODE", "none")
 
     from app.api import app
-    from app import db
+
     c = TestClient(app)
     # 不正なJSONを持つconfigで400が返ることを確認
     sid = db.create_scenario(

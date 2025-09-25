@@ -1,11 +1,13 @@
 import time
 from fastapi.testclient import TestClient
 
+
 def test_plans_integrated_run_and_reconcile_e2e(db_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 
     from main import app
+
     client = TestClient(app)
     ver = f"testv-{int(time.time())}"
     # integrated run

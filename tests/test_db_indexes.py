@@ -1,6 +1,5 @@
-
-import pytest
 from app import db as appdb
+
 
 def test_runs_table_has_indexes(db_setup):
     with appdb._conn() as con:

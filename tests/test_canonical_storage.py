@@ -7,6 +7,7 @@ from core.config.storage import (
     load_canonical_config_from_db,
 )
 
+
 def test_get_canonical_config(seed_canonical_data):
 
     config = get_canonical_config(100)
@@ -39,9 +40,7 @@ def test_list_versions_and_validation(seed_canonical_data):
     metas = list_canonical_versions(limit=5)
     assert metas[0].name == "test-config"
 
-    config, validation = load_canonical_config_from_db(
-        100, validate=True
-    )
+    config, validation = load_canonical_config_from_db(100, validate=True)
     assert validation is not None
     assert not validation.has_errors
     assert config.meta.name == "test-config"

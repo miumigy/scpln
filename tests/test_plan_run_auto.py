@@ -1,11 +1,13 @@
 import time
 from fastapi.testclient import TestClient
 
+
 def test_plan_run_auto_redirects_to_new_plan(db_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 
     from main import app
+
     client = TestClient(app)
     base = f"base-{int(time.time())}"
     # まずベースのPlanを作って詳細画面を有効化
