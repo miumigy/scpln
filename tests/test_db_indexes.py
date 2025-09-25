@@ -23,6 +23,8 @@ def db_setup_for_indexes_fixture(tmp_path: Path):
     alembic_cfg.set_main_option("script_location", "alembic")
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
     command.upgrade(alembic_cfg, "head")
+    # Alembicの後処理でアプリ側の初期化ロジックを流し、索引を確実に生成する
+    appdb.init_db()
 
     yield
 
