@@ -6,14 +6,15 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+
 from core.config import load_canonical_config, validate_canonical_config
 from core.config.storage import CanonicalConfigNotFoundError
 from core.config.validators import ValidationIssue, ValidationResult
 
 # 先に副作用 import で /simulation を登録
 importlib.import_module("app.simulation_api")
-
 from app.api import app
+
 from domain.models import (
     SimulationInput,
     Product,
