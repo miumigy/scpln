@@ -43,9 +43,7 @@ def upgrade() -> None:
         )
     # indexes for runs
     op.create_index("idx_runs_started_at", "runs", ["started_at"], unique=False)
-    op.create_index(
-        "idx_runs_schema_version", "runs", ["schema_version"], unique=False
-    )
+    op.create_index("idx_runs_schema_version", "runs", ["schema_version"], unique=False)
     op.create_index("idx_runs_config_id", "runs", ["config_id"], unique=False)
 
     if not insp.has_table("jobs"):

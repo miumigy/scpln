@@ -870,7 +870,10 @@ __all__ = [
 
 
 def _resolve_db_path(db_path: Optional[str]) -> str:
-    from app.db import _DEFAULT_DB, _current_db_path  # lazy import to avoid circular dependency
+    from app.db import (
+        _DEFAULT_DB,
+        _current_db_path,
+    )  # lazy import to avoid circular dependency
 
     if _current_db_path:
         return _current_db_path

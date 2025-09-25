@@ -1,48 +1,53 @@
-import importlib
-import time
-import os
-import pytest
-from pathlib import Path
 from fastapi.testclient import TestClient
 
-from alembic.config import Config
-from alembic import command
-
 # 有効化
+import importlib
+
 importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
 
-
-@pytest.fixture(name="db_setup_scenarios")
-def db_setup_scenarios_fixture(tmp_path: Path):
-    db_path = tmp_path / "test_scenarios.sqlite"
-    os.environ["SCPLN_DB"] = str(db_path)
-    os.environ["REGISTRY_BACKEND"] = "db"
-    os.environ["AUTH_MODE"] = "none"
-
-    # Reload app.db to pick up new SCPLN_DB env var
-    importlib.reload(importlib.import_module("app.db"))
-    importlib.reload(importlib.import_module("app.plans_api"))
-    importlib.reload(importlib.import_module("app.config_api"))
-    importlib.reload(importlib.import_module("app.scenario_api"))
-    importlib.reload(importlib.import_module("main"))
-
-    alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("script_location", "alembic")
-    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
-    command.upgrade(alembic_cfg, "head")
-
-    yield
-
-    del os.environ["SCPLN_DB"]
-    del os.environ["REGISTRY_BACKEND"]
-    del os.environ["AUTH_MODE"]
+import pytest
+from app import jobs, db
+from prometheus_client import REGISTRY
 
 
-def test_ui_scenarios_run_with_config(db_setup_scenarios):
+@pytest.fixture
+def job_manager_setup(db_setup):
+    # Prometheus レジストリをクリア
+    collectors = list(REGISTRY._collector_to_names.keys())
+    for collector in collectors:
+        REGISTRY.unregister(collector)
+
+    manager = jobs.JobManager(workers=1, db_path=db_setup)
+    original_manager = jobs.JOB_MANAGER
+    if original_manager and original_manager is not manager:
+        try:
+            original_manager.stop()
+        except Exception:
+            pass
+    previous_db_path = getattr(db, "_current_db_path", None)
+    jobs.JOB_MANAGER = manager
+    setattr(db, "_current_db_path", db_setup)
+    manager.start()
+    try:
+        yield manager
+    finally:
+        manager.stop()
+        jobs.JOB_MANAGER = original_manager
+        setattr(db, "_current_db_path", previous_db_path)
+        if original_manager and original_manager is not manager:
+            try:
+                original_manager.start()
+            except Exception:
+                pass
+
+
+def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
+    monkeypatch.setenv("REGISTRY_BACKEND", "db")
+    monkeypatch.setenv("AUTH_MODE", "none")
+
     from app.api import app
-    from app import db
 
     c = TestClient(app)
     # 準備: シナリオと設定を作成
@@ -78,19 +83,19 @@ def test_ui_scenarios_run_with_config(db_setup_scenarios):
     assert r.status_code == 303
     # ジョブが作成され、完了までポーリング
     # ジョブ一覧APIを利用
-    done = False
-    for _ in range(50):
-        rows = c.get("/jobs?limit=5").json().get("jobs", [])
-        if any((row.get("status") == "succeeded") for row in rows):
-            done = True
-            break
-        time.sleep(0.05)
-    assert done, "job did not finish in time"
+    job_rows = db.list_jobs(None, 0, 5).get("jobs", [])
+    assert job_rows, "job not enqueued"
+    job_id = job_rows[0]["job_id"]
+    job_manager_setup._run_simulation(job_id)
+    final = db.get_job(job_id)
+    assert final and final.get("status") == "succeeded"
 
 
-def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
+def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
+    monkeypatch.setenv("REGISTRY_BACKEND", "db")
+    monkeypatch.setenv("AUTH_MODE", "none")
+
     from app.api import app
-    from app import db
 
     c = TestClient(app)
     # 存在しない config_id を使って404が返ることを確認
@@ -111,9 +116,11 @@ def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
         db.delete_scenario(sid)
 
 
-def test_ui_scenarios_run_invalid_config_json(db_setup_scenarios):
+def test_ui_scenarios_run_invalid_config_json(job_manager_setup, monkeypatch):
+    monkeypatch.setenv("REGISTRY_BACKEND", "db")
+    monkeypatch.setenv("AUTH_MODE", "none")
+
     from app.api import app
-    from app import db
 
     c = TestClient(app)
     # 不正なJSONを持つconfigで400が返ることを確認

@@ -1,11 +1,10 @@
-
-
 import pytest
 from pathlib import Path
 from alembic.config import main as alembic_main
 import json
 import sqlite3
 from app import db as appdb
+
 
 @pytest.fixture
 def db_setup(tmp_path, monkeypatch):
@@ -16,7 +15,7 @@ def db_setup(tmp_path, monkeypatch):
     3. Alembicを使ってDBマイグレーションを実行する。
     """
     db_path = tmp_path / "test.db"
-    
+
     # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
     monkeypatch.setenv("SCPLN_DB", str(db_path))
 
@@ -33,6 +32,7 @@ def db_setup(tmp_path, monkeypatch):
         yield str(db_path)
     finally:
         appdb._current_db_path = previous_db_path
+
 
 @pytest.fixture
 def seed_canonical_data(db_setup):
@@ -363,18 +363,3 @@ def seed_canonical_data(db_setup):
     conn.commit()
     conn.close()
     yield db_path
-
-from fastapi.testclient import TestClient
-
-@pytest.fixture
-def client(db_setup):
-    """
-    テスト用のFastAPI TestClient を提供する fixture。
-    db_setup に依存し、テストごとにクリーンなDBで初期化される。
-    """
-    # db_setup が環境変数を設定し、モジュールをリロードするので、
-    # この import は fixture の中で行う必要がある。
-    from app.api import app
-    
-    with TestClient(app) as c:
-        yield c

@@ -58,12 +58,13 @@ def job_manager(tmp_path, monkeypatch):
 
     # app.db モジュールをリロードして、新しい環境変数を反映させる
     import importlib
+
     importlib.reload(db)
 
     # Alembicでマイグレーションを実行
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
     temp_alembic_ini_path = tmp_path / "alembic.ini"
-    
+
     with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
         for line in src:
             if line.strip().startswith("sqlalchemy.url"):
@@ -72,11 +73,13 @@ def job_manager(tmp_path, monkeypatch):
                 dst.write(line)
 
     import sys
+
     old_sys_argv = sys.argv
     try:
         sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
         from alembic.config import main as alembic_main
         import sys
+
         alembic_main()
     finally:
         sys.argv = old_sys_argv
