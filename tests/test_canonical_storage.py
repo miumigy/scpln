@@ -23,76 +23,36 @@ def _prepare_db(tmp_path: Path) -> Path:
     # Simulate command-line execution of alembic upgrade
     old_sys_argv = sys.argv
 
-    # Create a temporary alembic.ini
+    # Create a temporary alembic.ini with the minimal configuration needed for migrations
     temp_alembic_ini_path = tmp_path / "alembic.ini"
-    with open(temp_alembic_ini_path, "w") as f:
-        f.write("[alembic]\n")
-        f.write(f"script_location = {str(Path(__file__).parent.parent / 'alembic')}\n")
-        f.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
-        f.write("\n")
-        f.write("[loggers]\n")
-        f.write("keys = root,sqlalchemy,alembic\n")
-        f.write("\n")
-        f.write("[handlers]\n")
-        f.write("keys = console\n")
-        f.write("\n")
-        f.write("[formatters]\n")
-        f.write("keys = generic\n")
-        f.write("\n")
-        f.write("[logger_root]\n")
-        f.write("level = WARN\n")
-        f.write("handlers = console\n")
-        f.write("\n")
-        f.write("[logger_sqlalchemy]\n")
-        f.write("level = WARN\n")
-        f.write("handlers = \n")
-        f.write("qualname = sqlalchemy.engine\n")
-        f.write("\n")
-        f.write("[logger_alembic]\n")
-        f.write("level = INFO\n")
-        f.write("handlers = console\n")
-        f.write("qualname = alembic\n")
-        f.write("\n")
-        f.write("[handler_console]\n")
-        f.write("class = StreamHandler\n")
-        f.write("args = (sys.stderr,)\n")
-        f.write("level = NOTSET\n")
-        f.write("formatter = generic\n")
-        f.write("\n")
-        f.write("[formatter_generic]\n")
-        f.write("format = %(levelname)-5.5s [%(name)s] %(message)s\n")
-        f.write("\n")
-        f.write("[loggers]\n")
-        f.write("keys = root,sqlalchemy,alembic\n")
-        f.write("\n")
-        f.write("[handlers]\n")
-        f.write("keys = console\n")
-        f.write("\n")
-        f.write("[formatters]\n")
-        f.write("keys = generic\n")
-        f.write("\n")
-        f.write("[logger_root]\n")
-        f.write("level = WARN\n")
-        f.write("handlers = console\n")
-        f.write("\n")
-        f.write("[logger_sqlalchemy]\n")
-        f.write("level = WARN\n")
-        f.write("handlers = \n")
-        f.write("qualname = sqlalchemy.engine\n")
-        f.write("\n")
-        f.write("[logger_alembic]\n")
-        f.write("level = INFO\n")
-        f.write("handlers = console\n")
-        f.write("qualname = alembic\n")
-        f.write("\n")
-        f.write("[handler_console]\n")
-        f.write("class = StreamHandler\n")
-        f.write("args = (sys.stderr,)\n")
-        f.write("level = NOTSET\n")
-        f.write("formatter = generic\n")
-        f.write("\n")
-        f.write("[formatter_generic]\n")
-        f.write("format = %(levelname)-5.5s [%(name)s] %(message)s\n")
+    config_text = (
+        "[alembic]\n"
+        f"script_location = {Path(__file__).parent.parent / 'alembic'}\n"
+        f"sqlalchemy.url = sqlite:///{db_path}\n"
+        "\n"
+        "[loggers]\n"
+        "keys = root\n"
+        "\n"
+        "[handlers]\n"
+        "keys = console\n"
+        "\n"
+        "[formatters]\n"
+        "keys = generic\n"
+        "\n"
+        "[logger_root]\n"
+        "level = WARN\n"
+        "handlers = console\n"
+        "\n"
+        "[handler_console]\n"
+        "class = StreamHandler\n"
+        "args = (sys.stderr,)\n"
+        "level = NOTSET\n"
+        "formatter = generic\n"
+        "\n"
+        "[formatter_generic]\n"
+        "format = %(levelname)-5.5s [%(name)s] %(message)s\n"
+    )
+    temp_alembic_ini_path.write_text(config_text, encoding="utf-8")
 
     try:
         sys.argv = [
