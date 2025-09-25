@@ -2,6 +2,8 @@ import os
 import json
 import sqlite3
 import time
+import logging
+import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +11,10 @@ from typing import Any, Dict, List, Optional
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
 _current_db_path: str | None = None
+
+_logger = logging.getLogger(__name__)
+_init_lock = threading.Lock()
+_initialized = False
 
 Path(_DEFAULT_DB).parent.mkdir(parents=True, exist_ok=True)
 
@@ -18,15 +24,67 @@ def set_db_path(path: str) -> None:
     _current_db_path = path
 
 
-def _conn() -> sqlite3.Connection:
-    db_path_to_use = (
+def _db_path() -> str:
+    path = (
         _current_db_path
-        if _current_db_path
+        if _current_db_path is not None
         else os.getenv("SCPLN_DB", str(_DEFAULT_DB))
     )
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _conn() -> sqlite3.Connection:
+    db_path_to_use = _db_path()
     conn = sqlite3.connect(db_path_to_use)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def init_db(force: bool = False) -> None:
+    """Alembicマイグレーションを適用し、SQLiteスキーマを最新化する。"""
+
+    global _initialized
+    if _initialized and not force:
+        return
+
+    with _init_lock:
+        if _initialized and not force:
+            return
+
+        ini_path = _BASE_DIR / "alembic.ini"
+        script_location = _BASE_DIR / "alembic"
+
+        if not ini_path.exists() or not script_location.exists():
+            _logger.warning(
+                "DB初期化をスキップします: alembic設定が見つかりません (ini=%s, script=%s)",
+                ini_path,
+                script_location,
+            )
+            _initialized = True
+            return
+
+        try:
+            from alembic.config import Config
+            from alembic import command
+        except Exception as exc:  # pragma: no cover - alembic未導入の異常系
+            _logger.error("alembicの読み込みに失敗しました: %s", exc)
+            raise
+
+        cfg = Config(str(ini_path))
+        cfg.set_main_option("script_location", str(script_location))
+        db_path_to_use = _db_path()
+        cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path_to_use}")
+
+        _logger.info("DBマイグレーションを適用します: %s", db_path_to_use)
+        try:
+            command.upgrade(cfg, "head")
+        except Exception as exc:
+            _logger.error("DBマイグレーションに失敗しました: %s", exc)
+            raise
+        else:
+            _initialized = True
+            _logger.info("DBマイグレーションが完了しました")
 
 
 def create_job(
