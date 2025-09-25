@@ -1,35 +1,49 @@
+import importlib
 import time
+import os
+import pytest
+from pathlib import Path
 from fastapi.testclient import TestClient
 
+from alembic.config import Config
+from alembic import command
+
 # 有効化
-import importlib
 importlib.import_module("app.ui_scenarios")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")
 
-import pytest
-from app import jobs, db
-from prometheus_client import REGISTRY
-from pathlib import Path
 
-@pytest.fixture
-def job_manager_setup(db_setup):
-    # Prometheus レジストリをクリア
-    collectors = list(REGISTRY._collector_to_names.keys())
-    for collector in collectors:
-        REGISTRY.unregister(collector)
+@pytest.fixture(name="db_setup_scenarios")
+def db_setup_scenarios_fixture(tmp_path: Path):
+    db_path = tmp_path / "test_scenarios.sqlite"
+    os.environ["SCPLN_DB"] = str(db_path)
+    os.environ["REGISTRY_BACKEND"] = "db"
+    os.environ["AUTH_MODE"] = "none"
 
-    manager = jobs.JobManager(workers=1)
-    manager.start()
-    yield manager
-    manager.stop()
+    # Reload app.db to pick up new SCPLN_DB env var
+    importlib.reload(importlib.import_module("app.db"))
+    importlib.reload(importlib.import_module("app.plans_api"))
+    importlib.reload(importlib.import_module("app.config_api"))
+    importlib.reload(importlib.import_module("app.scenario_api"))
+    importlib.reload(importlib.import_module("main"))
 
-def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
-    monkeypatch.setenv("REGISTRY_BACKEND", "db")
-    monkeypatch.setenv("AUTH_MODE", "none")
+    alembic_cfg = Config("alembic.ini")
+    alembic_cfg.set_main_option("script_location", "alembic")
+    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.upgrade(alembic_cfg, "head")
 
+    yield
+
+    del os.environ["SCPLN_DB"]
+    del os.environ["REGISTRY_BACKEND"]
+    del os.environ["AUTH_MODE"]
+
+
+def test_ui_scenarios_run_with_config(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 準備: シナリオと設定を作成
     sid = db.create_scenario(name="ScA", parent_id=None, tag=None, description=None)
@@ -74,12 +88,10 @@ def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
     assert done, "job did not finish in time"
 
 
-def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
-    monkeypatch.setenv("REGISTRY_BACKEND", "db")
-    monkeypatch.setenv("AUTH_MODE", "none")
-
+def test_ui_scenarios_run_nonexistent_config(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 存在しない config_id を使って404が返ることを確認
     sid = db.create_scenario(
@@ -99,12 +111,10 @@ def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
         db.delete_scenario(sid)
 
 
-def test_ui_scenarios_run_invalid_config_json(job_manager_setup, monkeypatch):
-    monkeypatch.setenv("REGISTRY_BACKEND", "db")
-    monkeypatch.setenv("AUTH_MODE", "none")
-
+def test_ui_scenarios_run_invalid_config_json(db_setup_scenarios):
     from app.api import app
     from app import db
+
     c = TestClient(app)
     # 不正なJSONを持つconfigで400が返ることを確認
     sid = db.create_scenario(

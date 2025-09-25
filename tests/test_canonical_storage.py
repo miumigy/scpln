@@ -1,3 +1,7 @@
+import json
+import sqlite3
+from pathlib import Path
+
 import pytest
 
 from core.config.storage import (
@@ -7,9 +11,390 @@ from core.config.storage import (
     load_canonical_config_from_db,
 )
 
-def test_get_canonical_config(seed_canonical_data):
+import sys
+from alembic.config import main as alembic_main
 
-    config = get_canonical_config(100)
+
+def _prepare_db(tmp_path: Path) -> Path:
+    db_path = tmp_path / "canonical_storage.db"
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # Simulate command-line execution of alembic upgrade
+    old_sys_argv = sys.argv
+
+    # Create a temporary alembic.ini with the minimal configuration needed for migrations
+    temp_alembic_ini_path = tmp_path / "alembic.ini"
+    config_text = (
+        "[alembic]\n"
+        f"script_location = {Path(__file__).parent.parent / 'alembic'}\n"
+        f"sqlalchemy.url = sqlite:///{db_path}\n"
+        "\n"
+        "[loggers]\n"
+        "keys = root\n"
+        "\n"
+        "[handlers]\n"
+        "keys = console\n"
+        "\n"
+        "[formatters]\n"
+        "keys = generic\n"
+        "\n"
+        "[logger_root]\n"
+        "level = WARN\n"
+        "handlers = console\n"
+        "\n"
+        "[handler_console]\n"
+        "class = StreamHandler\n"
+        "args = (sys.stderr,)\n"
+        "level = NOTSET\n"
+        "formatter = generic\n"
+        "\n"
+        "[formatter_generic]\n"
+        "format = %(levelname)-5.5s [%(name)s] %(message)s\n"
+    )
+    temp_alembic_ini_path.write_text(config_text, encoding="utf-8")
+
+    try:
+        sys.argv = [
+            "alembic",
+            "-c",
+            str(temp_alembic_ini_path),
+            "upgrade",
+            "head",
+        ]
+        alembic_main()
+    finally:
+        sys.argv = old_sys_argv
+
+    conn.close()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    meta_attributes = {
+        "planning_horizon": 90,
+        "sources": {"psi_input": "seed.json"},
+    }
+    cur.execute(
+        """
+        INSERT INTO canonical_config_versions(
+            id, name, schema_version, version_tag, status, description,
+            source_config_id, metadata_json, created_at, updated_at
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            100,
+            "test-config",
+            "canonical-1.0",
+            "v-test",
+            "draft",
+            "unit test seed",
+            None,
+            json.dumps(meta_attributes, ensure_ascii=False),
+            1700000000000,
+            1700000000000,
+        ),
+    )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_items(
+            config_version_id, item_code, item_name, item_type, uom,
+            lead_time_days, lot_size, min_order_qty, safety_stock, unit_cost,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        [
+            (
+                100,
+                "FG1",
+                "Finished Good",
+                "product",
+                "unit",
+                5,
+                10.0,
+                0.0,
+                None,
+                1200.0,
+                json.dumps({"sales_price": 1200}, ensure_ascii=False),
+            ),
+            (
+                100,
+                "RM1",
+                "Raw Material",
+                "material",
+                "kg",
+                12,
+                None,
+                None,
+                None,
+                50.0,
+                json.dumps({}, ensure_ascii=False),
+            ),
+        ],
+    )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_nodes(
+            config_version_id, node_code, node_name, node_type, timezone, region,
+            service_level, lead_time_days, storage_capacity, allow_storage_over_capacity,
+            storage_cost_fixed, storage_over_capacity_fixed_cost,
+            storage_over_capacity_variable_cost, review_period_days, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        [
+            (
+                100,
+                "STORE1",
+                "Retail Store",
+                "store",
+                "Asia/Tokyo",
+                "JP-East",
+                0.9,
+                2,
+                200.0,
+                1,
+                100.0,
+                10.0,
+                0.5,
+                7,
+                json.dumps({"backorder_enabled": True}, ensure_ascii=False),
+            ),
+            (
+                100,
+                "FACT1",
+                "Main Factory",
+                "factory",
+                "Asia/Tokyo",
+                "JP-Central",
+                0.95,
+                5,
+                500.0,
+                1,
+                500.0,
+                20.0,
+                1.0,
+                14,
+                json.dumps({}, ensure_ascii=False),
+            ),
+        ],
+    )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_node_items(
+            config_version_id, node_code, item_code, initial_inventory, reorder_point,
+            order_up_to, min_order_qty, order_multiple, safety_stock, storage_cost,
+            stockout_cost, backorder_cost, lead_time_days, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        [
+            (
+                100,
+                "STORE1",
+                "FG1",
+                20.0,
+                5.0,
+                30.0,
+                5.0,
+                5.0,
+                None,
+                0.2,
+                50.0,
+                10.0,
+                2,
+                json.dumps({}, ensure_ascii=False),
+            ),
+            (
+                100,
+                "FACT1",
+                "RM1",
+                100.0,
+                None,
+                None,
+                None,
+                None,
+                None,
+                0.1,
+                None,
+                None,
+                5,
+                json.dumps({}, ensure_ascii=False),
+            ),
+        ],
+    )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_node_production(
+            config_version_id, node_code, item_code, production_capacity,
+            allow_over_capacity, over_capacity_fixed_cost, over_capacity_variable_cost,
+            production_cost_fixed, production_cost_variable, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+        """,
+        [
+            (
+                100,
+                "FACT1",
+                None,
+                150.0,
+                1,
+                1000.0,
+                5.0,
+                2000.0,
+                40.0,
+                json.dumps({}, ensure_ascii=False),
+            ),
+            (
+                100,
+                "FACT1",
+                "FG1",
+                120.0,
+                1,
+                500.0,
+                3.0,
+                1500.0,
+                35.0,
+                json.dumps({}, ensure_ascii=False),
+            ),
+        ],
+    )
+
+    cur.execute(
+        """
+        INSERT INTO canonical_arcs(
+            config_version_id, from_node, to_node, arc_type, lead_time_days,
+            capacity_per_day, allow_over_capacity, transportation_cost_fixed,
+            transportation_cost_variable, min_order_json, order_multiple_json,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            100,
+            "FACT1",
+            "STORE1",
+            "transport",
+            3,
+            80.0,
+            1,
+            200.0,
+            4.0,
+            json.dumps({"FG1": 10}, ensure_ascii=False),
+            json.dumps({"FG1": 5}, ensure_ascii=False),
+            json.dumps({}, ensure_ascii=False),
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT INTO canonical_boms(
+            config_version_id, parent_item, child_item, quantity, scrap_rate,
+            attributes_json
+        ) VALUES(?,?,?,?,?,?)
+        """,
+        (
+            100,
+            "FG1",
+            "RM1",
+            2.0,
+            None,
+            json.dumps({}, ensure_ascii=False),
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT INTO canonical_demands(
+            config_version_id, node_code, item_code, bucket, demand_model,
+            mean, std_dev, min_qty, max_qty, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            100,
+            "STORE1",
+            "FG1",
+            "2025-W01",
+            "normal",
+            25.0,
+            3.5,
+            None,
+            None,
+            json.dumps({}, ensure_ascii=False),
+        ),
+    )
+
+    cur.execute(
+        """
+        INSERT INTO canonical_capacities(
+            config_version_id, resource_code, resource_type, bucket, capacity,
+            calendar_code, attributes_json
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        (
+            100,
+            "WC1",
+            "workcenter",
+            "2025-W01",
+            180.0,
+            "CAL1",
+            json.dumps({}, ensure_ascii=False),
+        ),
+    )
+
+    cur.executemany(
+        """
+        INSERT INTO canonical_hierarchies(
+            config_version_id, hierarchy_type, node_key, parent_key, level,
+            sort_order, attributes_json
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        [
+            (
+                100,
+                "product",
+                "FG1",
+                None,
+                "L1",
+                1,
+                json.dumps({}, ensure_ascii=False),
+            ),
+            (
+                100,
+                "location",
+                "STORE1",
+                None,
+                "Retail",
+                1,
+                json.dumps({}, ensure_ascii=False),
+            ),
+        ],
+    )
+
+    calendar_definition = {"period_cost": [{"period": "2025-01", "cost": 100}]}
+    cur.execute(
+        """
+        INSERT INTO canonical_calendars(
+            config_version_id, calendar_code, timezone, definition_json, attributes_json
+        ) VALUES(?,?,?,?,?)
+        """,
+        (
+            100,
+            "CAL1",
+            "Asia/Tokyo",
+            json.dumps(calendar_definition, ensure_ascii=False),
+            json.dumps({}, ensure_ascii=False),
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+def test_get_canonical_config(tmp_path):
+    db_path = _prepare_db(tmp_path)
+
+    config = get_canonical_config(100, db_path=str(db_path))
 
     assert config.meta.version_id == 100
     assert config.meta.attributes["planning_horizon"] == 90
@@ -34,19 +419,21 @@ def test_get_canonical_config(seed_canonical_data):
     assert config.calendars[0].calendar_code == "CAL1"
 
 
-def test_list_versions_and_validation(seed_canonical_data):
+def test_list_versions_and_validation(tmp_path):
+    db_path = _prepare_db(tmp_path)
 
-    metas = list_canonical_versions(limit=5)
+    metas = list_canonical_versions(db_path=str(db_path), limit=5)
     assert metas[0].name == "test-config"
 
     config, validation = load_canonical_config_from_db(
-        100, validate=True
+        100, db_path=str(db_path), validate=True
     )
     assert validation is not None
     assert not validation.has_errors
     assert config.meta.name == "test-config"
 
 
-def test_get_config_not_found(seed_canonical_data):
+def test_get_config_not_found(tmp_path):
+    db_path = _prepare_db(tmp_path)
     with pytest.raises(CanonicalConfigNotFoundError):
-        get_canonical_config(999)
+        get_canonical_config(999, db_path=str(db_path))
