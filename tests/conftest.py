@@ -3,7 +3,6 @@ from pathlib import Path
 from alembic.config import main as alembic_main
 import json
 import sqlite3
-import importlib
 from app import db as appdb
 
 
@@ -20,19 +19,19 @@ def db_setup(tmp_path, monkeypatch):
     # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
     monkeypatch.setenv("SCPLN_DB", str(db_path))
 
-    # モジュールをリロードして環境変数の変更を反映させる
-    # これにより、すでにインポート済みのモジュールも新しいDBパスを認識する
-    from core.config import storage as core_storage
-
-    importlib.reload(appdb)
-    importlib.reload(core_storage)
+    # 既存の接続ヘルパが参照するパスを直接上書きし、リロードによるクラス再定義を避ける
+    previous_db_path = getattr(appdb, "_current_db_path", None)
+    appdb._current_db_path = str(db_path)
 
     # Alembicでマイグレーションを実行
     # alembic.iniのパスを-cで指定する
     alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
     alembic_main(["-c", str(alembic_ini_path), "upgrade", "head"])
 
-    yield str(db_path)
+    try:
+        yield str(db_path)
+    finally:
+        appdb._current_db_path = previous_db_path
 
 
 @pytest.fixture
