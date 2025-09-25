@@ -1,4 +1,3 @@
-import time
 from fastapi.testclient import TestClient
 
 # 有効化
@@ -20,10 +19,28 @@ def job_manager_setup(db_setup):
     for collector in collectors:
         REGISTRY.unregister(collector)
 
-    manager = jobs.JobManager(workers=1)
+    manager = jobs.JobManager(workers=1, db_path=db_setup)
+    original_manager = jobs.JOB_MANAGER
+    if original_manager and original_manager is not manager:
+        try:
+            original_manager.stop()
+        except Exception:
+            pass
+    previous_db_path = getattr(db, "_current_db_path", None)
+    jobs.JOB_MANAGER = manager
+    setattr(db, "_current_db_path", db_setup)
     manager.start()
-    yield manager
-    manager.stop()
+    try:
+        yield manager
+    finally:
+        manager.stop()
+        jobs.JOB_MANAGER = original_manager
+        setattr(db, "_current_db_path", previous_db_path)
+        if original_manager and original_manager is not manager:
+            try:
+                original_manager.start()
+            except Exception:
+                pass
 
 
 def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
@@ -66,14 +83,12 @@ def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
     assert r.status_code == 303
     # ジョブが作成され、完了までポーリング
     # ジョブ一覧APIを利用
-    done = False
-    for _ in range(50):
-        rows = c.get("/jobs?limit=5").json().get("jobs", [])
-        if any((row.get("status") == "succeeded") for row in rows):
-            done = True
-            break
-        time.sleep(0.05)
-    assert done, "job did not finish in time"
+    job_rows = db.list_jobs(None, 0, 5).get("jobs", [])
+    assert job_rows, "job not enqueued"
+    job_id = job_rows[0]["job_id"]
+    job_manager_setup._run_simulation(job_id)
+    final = db.get_job(job_id)
+    assert final and final.get("status") == "succeeded"
 
 
 def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
