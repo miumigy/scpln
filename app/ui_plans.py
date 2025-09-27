@@ -300,103 +300,85 @@ def ui_plan_detail(version_id: str, request: Request):
     # truncate deltas for display
     deltas = list((recon.get("deltas") or [])[:50]) if recon else []
     deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
-    # latest runs for this plan's base scenario (if available)
+    # RunRegistry から Plan/Config/Scenario 関連 Run を取得
+    base_sid = (ver or {}).get("base_scenario_id")
+    base_sid_str = str(base_sid) if base_sid is not None else None
     latest_runs: list[dict] = []
     latest_ids: list[str] = []
-    base_sid = (ver or {}).get("base_scenario_id")
     related_plans: list[dict] = []
     config_runs: list[dict] = []
+    plan_runs: list[dict] = []
+    plan_run_ids: list[str] = []
+
+    run_rows_all: list[dict] = []
+    try:
+        from app.run_registry import REGISTRY  # type: ignore
+
+        if hasattr(REGISTRY, "list_page"):
+            try:
+                resp = REGISTRY.list_page(
+                    offset=0,
+                    limit=500,
+                    sort="started_at",
+                    order="desc",
+                    schema_version=None,
+                    config_id=None,
+                    scenario_id=None,
+                    detail=True,
+                )
+                run_rows_all = resp.get("runs") or []
+            except Exception:
+                run_rows_all = []
+        if not run_rows_all and hasattr(REGISTRY, "list"):
+            try:
+                run_rows_all = REGISTRY.list()
+            except Exception:
+                run_rows_all = []
+    except Exception:
+        run_rows_all = []
+
+    for r in run_rows_all:
+        rid = r.get("run_id")
+        if not rid:
+            continue
+        summary_obj = r.get("summary") or {}
+        started_at = r.get("started_at")
+        formatted = {
+            "run_id": rid,
+            "started_at": started_at,
+            "started_at_str": ms_to_jst_str(started_at),
+            "duration_ms": r.get("duration_ms"),
+            "fill_rate": summary_obj.get("fill_rate"),
+            "profit_total": summary_obj.get("profit_total"),
+            "scenario_id": r.get("scenario_id"),
+        }
+        scenario_val = r.get("scenario_id")
+        if (
+            base_sid_str is not None
+            and scenario_val is not None
+            and str(scenario_val) == base_sid_str
+            and len(latest_runs) < 5
+        ):
+            latest_runs.append(formatted)
+            latest_ids.append(rid)
+        plan_val = r.get("plan_version_id")
+        if plan_val is not None and str(plan_val) == str(version_id) and len(plan_runs) < 10:
+            plan_runs.append(formatted)
+            plan_run_ids.append(rid)
+        if (
+            config_version_id is not None
+            and r.get("config_version_id") == config_version_id
+            and len(config_runs) < 10
+        ):
+            config_runs.append(formatted)
+
+    # 関連Plan（同一base_scenarioの最新）
     if base_sid is not None:
         try:
-            from app.run_registry import REGISTRY  # type: ignore
-
-            rows = []
-            if hasattr(REGISTRY, "list_page"):
-                try:
-                    resp = REGISTRY.list_page(
-                        offset=0,
-                        limit=5,
-                        sort="started_at",
-                        order="desc",
-                        schema_version=None,
-                        config_id=None,
-                        scenario_id=int(base_sid),
-                        detail=False,
-                    )
-                    rows = resp.get("runs") or []
-                except Exception:
-                    rows = []
-            if not rows and hasattr(REGISTRY, "list_ids"):
-                try:
-                    ids = REGISTRY.list_ids()
-                    for rid in ids:
-                        rec = REGISTRY.get(rid) or {}
-                        if rec.get("scenario_id") == base_sid:
-                            rows.append(rec)
-                            if len(rows) >= 5:
-                                break
-                except Exception:
-                    rows = []
-            for r in rows:
-                rid = r.get("run_id")
-                if not rid:
-                    continue
-                latest_ids.append(rid)
-                latest_runs.append(
-                    {
-                        "run_id": rid,
-                        "started_at": r.get("started_at"),
-                        "duration_ms": r.get("duration_ms"),
-                        "fill_rate": (r.get("summary") or {}).get("fill_rate"),
-                        "profit_total": (r.get("summary") or {}).get("profit_total"),
-                    }
-                )
-        except Exception:
-            latest_runs = []
-            latest_ids = []
-        # 関連Plan（同一base_scenarioの最新）
-        try:
             related = db.list_plan_versions_by_base(int(base_sid), limit=5)
-            # 自分自身を除外
             related_plans = [p for p in related if p.get("version_id") != version_id]
         except Exception:
             related_plans = []
-    if config_version_id is not None:
-        try:
-            from app.run_registry import REGISTRY  # type: ignore
-
-            run_rows = []
-            if hasattr(REGISTRY, "list_page"):
-                try:
-                    resp = REGISTRY.list_page(
-                        offset=0,
-                        limit=200,
-                        sort="started_at",
-                        order="desc",
-                        schema_version=None,
-                        config_id=None,
-                        scenario_id=None,
-                        detail=True,
-                    )
-                    run_rows = resp.get("runs") or []
-                except Exception:
-                    run_rows = []
-            if not run_rows:
-                run_rows = REGISTRY.list()
-            for r in run_rows:
-                if r.get("config_version_id") == config_version_id:
-                    config_runs.append(
-                        {
-                            "run_id": r.get("run_id"),
-                            "started_at": r.get("started_at"),
-                            "started_at_str": ms_to_jst_str(r.get("started_at")),
-                            "scenario_id": r.get("scenario_id"),
-                            "summary": r.get("summary") or {},
-                        }
-                    )
-            config_runs = config_runs[:10]
-        except Exception:
-            config_runs = []
     # KPI preview (MVP): capacity/utilization and spill totals
     kpi_preview = {}
     try:
@@ -505,6 +487,8 @@ def ui_plan_detail(version_id: str, request: Request):
             "canonical_counts": canonical_counts,
             "planning_summary": planning_summary,
             "config_runs": config_runs,
+            "plan_runs": plan_runs,
+            "plan_run_ids": plan_run_ids,
         },
     )
 

@@ -900,6 +900,37 @@
         </ul>
       </div>
       {% endif %}
+      {% if plan_runs and plan_runs|length > 0 %}
+      <div class="gap-top-sm">
+        <strong>Runs created from this plan</strong>
+        <table>
+          <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th><th>link</th></tr></thead>
+          <tbody>
+            {% for r in plan_runs %}
+            <tr>
+              <td class="mono">{{ r.run_id }}</td>
+              <td class="mono ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at_str or r.started_at or '' }}</td>
+              <td class="mono">{{ r.fill_rate if r.fill_rate is not none else '' }}</td>
+              <td class="mono">{{ r.profit_total if r.profit_total is not none else '' }}</td>
+              <td><a class="secondary" href="/ui/runs/{{ r.run_id }}" target="_blank">open</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if plan_run_ids and plan_run_ids|length >= 2 %}
+        <form method="post" action="/ui/compare" class="tab-toolbar">
+          <input type="hidden" name="run_ids" value="{{ plan_run_ids[0] }},{{ plan_run_ids[1] }}">
+          <button type="submit" aria-label="Compare latest plan runs">Compare latest plan runs</button>
+          <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}"> metrics.csv</label>
+          <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}" title="Copy URL" aria-label="Copy URL">copy</button>
+          <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
+          <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}&threshold=5" title="Copy URL" aria-label="Copy URL">copy</button>
+          <button type="button" class="secondary copy-runs-all" data-run-ids="{{ plan_run_ids[0] }},{{ plan_run_ids[1] }}" title="Copy both links" aria-label="Copy both links">copy all</button>
+          <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
       {% if canonical_meta %}
       <div class="gap-top-sm">
         <strong>Canonical configuration</strong>
