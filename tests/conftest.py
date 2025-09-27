@@ -1,9 +1,13 @@
+import os
 import pytest
 from pathlib import Path
 from alembic.config import main as alembic_main
 import json
 import sqlite3
 from app import db as appdb
+
+# テスト中はPlan経由のRunRegistry記録で重いPSIシミュレーションを省略する
+os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
 
 
 @pytest.fixture

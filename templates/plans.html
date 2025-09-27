@@ -34,6 +34,19 @@
           {% endif %}
         </label>
         <label>
+          <span class="label-title">Base Scenario</span>
+          {% set selected_scenario = (form_defaults.base_scenario_id or '')|string %}
+          <select name="base_scenario_id">
+            <option value="">-- Optional --</option>
+            {% for opt in scenario_options %}
+              <option value="{{ opt.id }}" {% if opt.id|string == selected_scenario %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          {% if scenario_options|length == 0 %}
+            <small class="mono warn-text">No scenarios registered. <a href="/ui/scenarios">Create a scenario</a> and reload.</small>
+          {% endif %}
+        </label>
+        <label>
           <span class="label-title">Weeks</span>
           <input type="number" name="weeks" min="1" value="{{ form_defaults.weeks or 4 }}" />
         </label>

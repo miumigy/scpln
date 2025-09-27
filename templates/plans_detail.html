@@ -870,7 +870,8 @@
         <thead><tr><th>Item</th><th>Value</th></tr></thead>
         <tbody>
           <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
-          <tr><td>config_version_id</td><td class="mono">{% if config_version_id %}<a href="/ui/plans?config_version_id={{ config_version_id }}">{{ config_version_id }}</a>{% else %}-{% endif %}</td></tr>
+          <tr><td>config_version_id</td><td class="mono">{% if config_version_id %}<a href="/ui/configs/canonical/{{ config_version_id }}">{{ config_version_id }}</a>{% else %}-{% endif %}</td></tr>
+          <tr><td>base_scenario_id</td><td class="mono">{% if version.base_scenario_id %}<a href="/ui/scenarios?highlight={{ version.base_scenario_id }}">{{ version.base_scenario_id }}</a>{% else %}-{% endif %}</td></tr>
           {% if created_from_run_id %}
             <tr><td>created_from_run</td><td class="mono"><a href="/ui/runs/{{ created_from_run_id }}">{{ created_from_run_id }}</a></td></tr>
           {% endif %}

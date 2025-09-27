@@ -11,7 +11,7 @@ from pathlib import Path
 
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
-from app.run_registry import REGISTRY
+from app.run_registry import REGISTRY, record_canonical_run
 from app import db
 from prometheus_client import Counter as _Counter, Histogram as _Histogram
 from engine.aggregation import aggregate_by_time, rollup_axis
@@ -702,6 +702,22 @@ class JobManager:
                     extra={"job_id": job_id, "version_id": version_id},
                 )
 
+            recorded_run_id: Optional[str] = None
+            if canonical_config is not None:
+                scenario_id: Optional[int] = None
+                scenario_raw = cfg.get("base_scenario_id")
+                try:
+                    if scenario_raw not in (None, ""):
+                        scenario_id = int(scenario_raw)
+                except (TypeError, ValueError):
+                    scenario_id = None
+                recorded_run_id = record_canonical_run(
+                    canonical_config,
+                    config_version_id=config_version_id,
+                    scenario_id=scenario_id,
+                    plan_version_id=version_id,
+                )
+
             result = {
                 "out_dir": str(out_dir.relative_to(base)),
                 "files": [
@@ -741,9 +757,16 @@ class JobManager:
                         "planning_inputs.json",
                     ]
                 )
+            if recorded_run_id is not None:
+                result["run_id"] = recorded_run_id
             db.set_job_result(job_id, json.dumps(result, ensure_ascii=False))
             finished = int(time.time() * 1000)
-            db.update_job_status(job_id, status="succeeded", finished_at=finished)
+            db.update_job_status(
+                job_id,
+                status="succeeded",
+                finished_at=finished,
+                run_id=recorded_run_id,
+            )
             try:
                 JOBS_COMPLETED.labels(type="planning").inc()
                 JOBS_DURATION.labels(type="planning").observe(time.monotonic() - t0)

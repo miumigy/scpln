@@ -1,5 +1,8 @@
 import threading
 import os
+import time
+import logging
+from uuid import uuid4
 from typing import Dict, Any, List, Optional
 
 
@@ -67,3 +70,65 @@ if _BACKEND == "db":
         REGISTRY = RunRegistry(capacity=_capacity_from_env(50))
 else:
     REGISTRY = RunRegistry(capacity=_capacity_from_env(50))
+
+
+def record_canonical_run(
+    canonical_config,
+    *,
+    config_version_id: Optional[int],
+    scenario_id: Optional[int],
+    plan_version_id: Optional[str] = None,
+    registry: Optional[RunRegistry] = None,
+) -> Optional[str]:
+    """Canonical設定を用いたPSIランを実行し、RunRegistryに保存する。
+
+    canonical_config が None または実行失敗時は None を返す。
+    """
+
+    if canonical_config is None:
+        return None
+    if os.getenv("SCPLN_SKIP_SIMULATION_API", "0") == "1":
+        return None
+    reg = registry or REGISTRY
+    try:
+        from core.config import build_simulation_input
+        from engine.simulator import SupplyChainSimulator
+
+        start = time.time()
+        sim_input = build_simulation_input(canonical_config)
+        simulator = SupplyChainSimulator(sim_input)
+        results, daily_pl = simulator.run()
+        duration_ms = int((time.time() - start) * 1000)
+        try:
+            summary = simulator.compute_summary()
+        except Exception:
+            summary = {}
+        run_id = uuid4().hex
+        reg.put(
+            run_id,
+            {
+                "run_id": run_id,
+                "started_at": int(start * 1000),
+                "duration_ms": duration_ms,
+                "schema_version": getattr(sim_input, "schema_version", "1.0"),
+                "summary": summary,
+                "results": results,
+                "daily_profit_loss": daily_pl,
+                "cost_trace": getattr(simulator, "cost_trace", []),
+                "config_version_id": config_version_id,
+                "scenario_id": scenario_id,
+                "plan_version_id": plan_version_id,
+            },
+        )
+        return run_id
+    except Exception:
+        logging.exception(
+            "run_registry_record_failed",
+            extra={
+                "event": "run_registry_record_failed",
+                "config_version_id": config_version_id,
+                "scenario_id": scenario_id,
+                "plan_version_id": plan_version_id,
+            },
+        )
+        return None

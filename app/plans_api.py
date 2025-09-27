@@ -19,6 +19,7 @@ from core.config.storage import (
     load_canonical_config_from_db,
 )
 from app.jobs import _materialize_planning_inputs
+from app.run_registry import record_canonical_run
 import subprocess
 import os
 
@@ -590,6 +591,21 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         ):
             if (out_dir / name).exists():
                 artifacts.append(name)
+    recorded_run_id: Optional[str] = None
+    if canonical_config is not None:
+        scenario_id: Optional[int] = None
+        scenario_raw = body.get("base_scenario_id")
+        try:
+            if scenario_raw not in (None, ""):
+                scenario_id = int(scenario_raw)
+        except (TypeError, ValueError):
+            scenario_id = None
+        recorded_run_id = record_canonical_run(
+            canonical_config,
+            config_version_id=config_version_id,
+            scenario_id=scenario_id,
+            plan_version_id=version_id,
+        )
     try:
         out_dir_display = str(out_dir.relative_to(BASE_DIR))
     except ValueError:
@@ -600,6 +616,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         "config_version_id": config_version_id,
         "out_dir": out_dir_display,
         "artifacts": artifacts,
+        "run_id": recorded_run_id,
     }
 
 

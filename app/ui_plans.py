@@ -60,6 +60,39 @@ def _canonical_version_options(limit: int = 50):
     return options
 
 
+def _scenario_options(limit: int = 200):
+    try:
+        db.init_db()
+        rows = db.list_scenarios(limit=limit)
+    except Exception:
+        logging.exception("ui_plans_list_scenarios_failed")
+        return []
+
+    options = []
+    for row in rows:
+        sid = row.get("id")
+        if sid is None:
+            continue
+        label_parts = [str(sid)]
+        name = row.get("name")
+        if name:
+            label_parts.append(name)
+        tag = row.get("tag")
+        if tag:
+            label_parts.append(f"[{tag}]")
+        label = " ".join(label_parts)
+        options.append(
+            {
+                "id": sid,
+                "label": label,
+                "name": name,
+                "tag": tag,
+                "locked": bool(row.get("locked")),
+            }
+        )
+    return options
+
+
 def _fetch_plan_rows(limit: int = 200):
     plans = db.list_plan_versions(limit=limit)
     rows = []
@@ -116,6 +149,7 @@ def _render_plans_page(
     form_defaults: dict | None = None,
 ):
     canonical_options = _canonical_version_options()
+    scenario_options = _scenario_options()
     return templates.TemplateResponse(
         request,
         "plans.html",
@@ -125,6 +159,7 @@ def _render_plans_page(
             "error": error,
             "form_defaults": form_defaults or {},
             "canonical_options": canonical_options,
+            "scenario_options": scenario_options,
         },
     )
 
@@ -696,7 +731,14 @@ def ui_plans_run(
     carryover_split: str | None = Form(""),
     apply_adjusted: str | None = Form(default=None),
     config_version_id: str | None = Form(""),
+    base_scenario_id: str | None = Form(""),
 ):
+    base_scenario_raw = (base_scenario_id or "").strip()
+    try:
+        base_scenario_int = int(base_scenario_raw) if base_scenario_raw else None
+    except ValueError:
+        base_scenario_int = None
+
     form_defaults = {
         "input_dir": input_dir,
         "config_version_id": config_version_id or "",
@@ -711,6 +753,7 @@ def ui_plans_run(
         "carryover": carryover or "",
         "carryover_split": carryover_split or "",
         "apply_adjusted": "1" if _form_bool(apply_adjusted) else "",
+        "base_scenario_id": base_scenario_raw,
     }
     body = {
         "input_dir": input_dir,
@@ -726,6 +769,7 @@ def ui_plans_run(
         "carryover_split": carryover_split,
         "apply_adjusted": _form_bool(apply_adjusted),
         "config_version_id": config_version_id,
+        "base_scenario_id": base_scenario_int,
     }
     res = _plans_api.post_plans_integrated_run(body)
     if hasattr(res, "status_code") and res.status_code >= 400:

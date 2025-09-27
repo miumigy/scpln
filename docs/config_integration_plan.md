@@ -111,7 +111,7 @@
 
 ### PH6 RunRegistry移行（Plan中心化）
 
-- [ ] T6.1: `/plans/integrated/run` および計画ジョブ実行でPSIシミュレーションを同一Canonicalスナップショットから起動し、`RunRegistry` に `config_version_id`・`scenario_id`・`run_id` を保存する
+- [x] T6.1: `/plans/integrated/run` および計画ジョブ実行でPSIシミュレーションを同一Canonicalスナップショットから起動し、`RunRegistry` に `config_version_id`・`scenario_id`・`run_id` を保存する
     - 実装方針
         - `app/plans_api.py` の同期実行/非同期ジョブ双方で `build_simulation_input` を使い、Plan確定後に同じCanonicalデータを `RunRegistry.put(...)` へ投入する。
         - 既存の`app/jobs.py::_run_planning` で生成した `plan_final.json` などの成果物を流用しつつ、PSIラン結果を取得するために `core/config.builders.build_simulation_input` から `SupplyChainSimulator` を起動する補助関数を追加する。
@@ -123,8 +123,10 @@
         3. `tests/` 配下に Plan→RunRegistry 連携のユニット/統合テストを新設し、`config_version_id` と `scenario_id` が保存されることを検証。
         4. 監査ログ(`logging`)とメトリクスを更新し、Plan経由Runが計測されるようにする。
         5. ドキュメント（README / docs/API-OVERVIEW-JA.md）をPlan中心のRun保存に合わせて修正。
+    - 2025-09-25 Codex: `app/run_registry.py` に `record_canonical_run` を新設し、`app/plans_api.py` と `app/jobs.py` から共通利用。Plan同期/非同期双方で `run_id` 保存と `scenario_id` 連携を確認し、`tests/test_runs_persistence.py` をRunRegistry直検証に刷新。
 
-- [ ] T6.2: Plan作成/更新UIでシナリオ（`base_scenario_id`）を選択できるようにし、Plan & Runのオプションに統一的に引き渡す
+- [x] T6.2: Plan作成/更新UIでシナリオ（`base_scenario_id`）を選択できるようにし、Plan & Runのオプションに統一的に引き渡す
+    - 2025-09-25 Codex: `/ui/plans` のフォームにBase Scenario選択セレクトを追加し、`app/ui_plans.py` で `db.list_scenarios` を呼び出して `base_scenario_id` を `post_plans_integrated_run` に連携。Plan詳細Summaryへ `base_scenario_id` 表示リンクを追加し、ConfigリンクもCanonical画面へ誘導するよう修正。
 - [ ] T6.3: `/runs` API・Run History UI・ベースライン管理のテスト/メトリクスをPlan経由Runで回すよう更新し、運用runbookとドキュメントを改訂
 - [ ] T6.4: `/ui/scenarios` からのレガシーRun投入パスを段階的に停止（Feature Flag → 警告表示 → 削除）し、移行完了チェックリストを運用チームへ展開
 
@@ -153,6 +155,7 @@
 
 ## 10. 更新履歴
 
+- 2025-09-26: PH6-T6.1/T6.2を完了。Plan同期/ジョブ実行でRunRegistryへ`scenario_id`付きRunを記録し、Plan UIにBase Scenario選択・表示を追加。
 - 2025-09-25: PH6タスクを追加。Plan経由RunでRunRegistryを統合し、レガシーシナリオRunを段階廃止するロードマップを策定。
 - 2025-09-23: PH4タスク（T4.1〜T4.3）を完了。Canonical設定UIに差分表示・インポート機能を追加し、README/TUTORIALを更新。
 - 2025-09-24: UI検証用のCanonicalサンプル生成スクリプト、サンプルJSON、および `/ui/configs` から直接投入できる「サンプルを読み込む」ボタンを追加し、DB投入・インポートを簡略化。

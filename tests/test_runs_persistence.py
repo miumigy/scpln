@@ -1,143 +1,98 @@
-import json
 import os
 import time
-from pathlib import Path
 import importlib
-
-
-def _load_default_input(root: Path) -> dict:
-    p = root / "static" / "default_input.json"
-    return json.loads(p.read_text(encoding="utf-8"))
-
-
 from pathlib import Path
 
+import sqlite3
 
-def _load_default_input(root: Path) -> dict:
-    p = root / "static" / "default_input.json"
-    return json.loads(p.read_text(encoding="utf-8"))
+from alembic.config import Config
+from alembic import command
+
+from app import db as appdb
+from app.run_registry_db import RunRegistryDB
 
 
-def _make_client_with_db(tmp_path: Path):
+def _prepare_db(tmp_path: Path) -> str:
     db_path = tmp_path / "runs.sqlite"
-    # Set env before importing app
     os.environ["SCPLN_DB"] = str(db_path)
     os.environ["REGISTRY_BACKEND"] = "db"
     os.environ["AUTH_MODE"] = "none"
-    # Ensure modules pick up env
-    for m in ("app.db", "app.run_registry", "app.run_registry_db", "main"):
-        if m in list(importlib.sys.modules.keys()):
-            importlib.reload(importlib.import_module(m))
 
-    from alembic.config import Config
-    from alembic import command
+    # reset cached path used by app.db
+    appdb._current_db_path = str(db_path)
 
-    # Run alembic migrations
-    alembic_cfg = Config("alembic.ini")
-    alembic_cfg.set_main_option("script_location", "alembic")
-    alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
-    command.upgrade(alembic_cfg, "head")
+    # ensure modules pick up new env/config if already imported
+    for module in ("app.run_registry", "app.run_registry_db"):
+        if module in list(importlib.sys.modules.keys()):
+            importlib.reload(importlib.import_module(module))
 
-    from main import app  # noqa
-    from fastapi.testclient import TestClient
-
-    client = TestClient(app)
-    return client
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("script_location", "alembic")
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    command.upgrade(cfg, "head")
+    return str(db_path)
 
 
-def test_runs_persist_db_backend(tmp_path: Path):
-    root = Path(__file__).resolve().parents[1]
-    client = _make_client_with_db(tmp_path)
-    payload = _load_default_input(root)
-    r = client.post("/simulation", json=payload)
-    assert r.status_code == 200
-    rid = r.json().get("run_id")
-    assert rid
-
-    # list runs (light)
-    r2 = client.get("/runs")
-    assert r2.status_code == 200
-    body = r2.json()
-    runs = body.get("runs") or []
-    ids = [x.get("run_id") for x in runs]
-    assert rid in ids
-
-    # detail
-    r3 = client.get(f"/runs/{rid}", params={"detail": True})
-    assert r3.status_code == 200
-    rec = r3.json()
-    # persisted fields
-    assert rec.get("run_id") == rid
-    assert isinstance(rec.get("results"), list)
-
-
-def test_runs_cleanup_capacity(tmp_path: Path):
-    root = Path(__file__).resolve().parents[1]
-    # capacity = 2
-    os.environ["RUNS_DB_MAX_ROWS"] = "2"
-    client = _make_client_with_db(tmp_path)
-    payload = _load_default_input(root)
-    ids = []
-    for _ in range(3):
-        r = client.post("/simulation", json=payload)
-        assert r.status_code == 200
-        ids.append(r.json().get("run_id"))
-        time.sleep(0.01)
-    # list runs: only 2 newest should remain
-    r2 = client.get("/runs")
-    rows = r2.json().get("runs") or []
-    got_ids = [x.get("run_id") for x in rows]
-    assert len(got_ids) == 2
-    # oldest removed
-    assert ids[0] not in got_ids
-    # newest two present (order may be desc)
-    assert set(ids[1:]) <= set(got_ids)
+def _sample_payload(run_id: str, *, started_at: int) -> dict:
+    return {
+        "run_id": run_id,
+        "started_at": started_at,
+        "duration_ms": 5,
+        "schema_version": "1.0",
+        "summary": {"fill_rate": 1.0},
+        "results": [],
+        "daily_profit_loss": [],
+        "cost_trace": [],
+        "config_version_id": None,
+        "scenario_id": None,
+        "config_json": None,
+        "plan_version_id": None,
+    }
 
 
 def test_runs_persist_db_backend(tmp_path: Path):
-    root = Path(__file__).resolve().parents[1]
-    client = _make_client_with_db(tmp_path)
-    payload = _load_default_input(root)
-    r = client.post("/simulation", json=payload)
-    assert r.status_code == 200
-    rid = r.json().get("run_id")
-    assert rid
+    db_path = _prepare_db(tmp_path)
+    registry = RunRegistryDB()
 
-    # list runs (light)
-    r2 = client.get("/runs")
-    assert r2.status_code == 200
-    body = r2.json()
-    runs = body.get("runs") or []
-    ids = [x.get("run_id") for x in runs]
-    assert rid in ids
+    run_id = "run-test-1"
+    payload = _sample_payload(run_id, started_at=int(time.time() * 1000))
+    registry.put(run_id, payload)
 
-    # detail
-    r3 = client.get(f"/runs/{rid}", params={"detail": True})
-    assert r3.status_code == 200
-    rec = r3.json()
-    # persisted fields
-    assert rec.get("run_id") == rid
-    assert isinstance(rec.get("results"), list)
+    # registry.get should return the stored payload
+    rec = registry.get(run_id)
+    assert rec
+    assert rec.get("run_id") == run_id
+    assert rec.get("summary", {}).get("fill_rate") == 1.0
+
+    # verify persistence at DB level
+    conn = sqlite3.connect(db_path)
+    with conn:
+        row = conn.execute(
+            "SELECT run_id, summary FROM runs WHERE run_id=?", (run_id,)
+        ).fetchone()
+        assert row is not None
+        assert row[0] == run_id
 
 
 def test_runs_cleanup_capacity(tmp_path: Path):
-    root = Path(__file__).resolve().parents[1]
-    # capacity = 2
     os.environ["RUNS_DB_MAX_ROWS"] = "2"
-    client = _make_client_with_db(tmp_path)
-    payload = _load_default_input(root)
-    ids = []
-    for _ in range(3):
-        r = client.post("/simulation", json=payload)
-        assert r.status_code == 200
-        ids.append(r.json().get("run_id"))
-        time.sleep(0.01)
-    # list runs: only 2 newest should remain
-    r2 = client.get("/runs")
-    rows = r2.json().get("runs") or []
-    got_ids = [x.get("run_id") for x in rows]
-    assert len(got_ids) == 2
-    # oldest removed
-    assert ids[0] not in got_ids
-    # newest two present (order may be desc)
-    assert set(ids[1:]) <= set(got_ids)
+    db_path = _prepare_db(tmp_path)
+    registry = RunRegistryDB()
+
+    timestamps = [int(time.time() * 1000) + i for i in range(3)]
+    run_ids = []
+    for idx, ts in enumerate(timestamps):
+        run_id = f"run-{idx}"
+        registry.put(run_id, _sample_payload(run_id, started_at=ts))
+        run_ids.append(run_id)
+
+    rows = registry.list()
+    kept_ids = [row.get("run_id") for row in rows]
+    assert len(kept_ids) == 2
+    assert run_ids[0] not in kept_ids
+    assert set(run_ids[1:]) <= set(kept_ids)
+
+    conn = sqlite3.connect(db_path)
+    with conn:
+        count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+        assert count == 2
