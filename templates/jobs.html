@@ -15,6 +15,9 @@
       <label>run_id
         <input type="text" id="agg-run-id" required placeholder="<run_id>" />
       </label>
+      <label>Plan version ID (optional)
+        <input type="text" id="agg-plan-version" placeholder="plan version id" />
+      </label>
       <label>dataset
         <select id="agg-dataset">
           <option value="pl" selected>pl</option>
@@ -194,6 +197,8 @@ async function submitAggregateJob(e){
   const bucket = document.getElementById('agg-bucket').value;
   const group_keys = (document.getElementById('agg-group-keys').value||'').split(',').map(s=>s.trim()).filter(Boolean);
   const sum_fields = (document.getElementById('agg-sum-fields').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const plan_version_el = document.getElementById('agg-plan-version');
+  const plan_version_id = plan_version_el ? plan_version_el.value.trim() : '';
   const product_level = document.getElementById('agg-product-level').value.trim() || undefined;
   const location_level = document.getElementById('agg-location-level').value.trim() || undefined;
   const date_field = document.getElementById('agg-date-field').value.trim() || undefined;
@@ -205,6 +210,7 @@ async function submitAggregateJob(e){
   const location_map_txt = document.getElementById('agg-location-map') ? document.getElementById('agg-location-map').value.trim() : '';
   if(!run_id){ alert('run_id is required'); return false; }
   const body = { run_id, dataset, bucket };
+  if(plan_version_id) body.plan_version_id = plan_version_id;
   if(group_keys.length) body.group_keys = group_keys;
   if(sum_fields.length) body.sum_fields = sum_fields;
   if(product_level) body.product_level = product_level;
@@ -221,7 +227,8 @@ async function submitAggregateJob(e){
     try { body.location_map = JSON.parse(location_map_txt); } catch(e){ alert('Invalid location_map JSON'); return false; }
   }
   try{
-    const res = await fetch('/jobs/aggregate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const headers = Object.assign({'Content-Type':'application/json'}, _headers());
+    const res = await fetch('/jobs/aggregate', { method:'POST', headers, body: JSON.stringify(body) });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const js = await res.json();
     try{ _updateAggSuggestionsFromCurrent(); }catch{}
@@ -236,6 +243,7 @@ async function submitAggregateJob(e){
 function _readAggForm(){
   const obj = {
     run_id: document.getElementById('agg-run-id').value.trim(),
+    plan_version_id: (document.getElementById('agg-plan-version')?.value || '').trim(),
     dataset: document.getElementById('agg-dataset').value,
     bucket: document.getElementById('agg-bucket').value,
     group_keys: (document.getElementById('agg-group-keys').value||'').split(',').map(s=>s.trim()).filter(Boolean),
@@ -253,6 +261,7 @@ function _readAggForm(){
 function _writeAggForm(p){
   const set = (id,val)=>{ const el=document.getElementById(id); if(!el) return; if(el.tagName==='SELECT'){ el.value=val||''; } else { el.value=val||''; } };
   set('agg-run-id', p.run_id);
+  set('agg-plan-version', p.plan_version_id);
   set('agg-dataset', p.dataset);
   set('agg-bucket', p.bucket);
   set('agg-group-keys', (p.group_keys||[]).join(','));

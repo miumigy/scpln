@@ -614,3 +614,14 @@
 
     });
 })();
+window.App = window.App || {};
+if (!window.App.getHeaders) {
+  window.App.getHeaders = function(){
+    const headers = {};
+    try {
+      const apiKey = localStorage.getItem('api_key');
+      if (apiKey) headers['X-API-Key'] = apiKey;
+    } catch (e) {}
+    return headers;
+  };
+}
