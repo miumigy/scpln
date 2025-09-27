@@ -17,7 +17,7 @@
 
 ## 3. 運用フロー
 1. `/ui/plans` で Plan を作成し、Base Scenario と Canonical Config を選択して実行する。作成後は Summary に `config_version_id` と `base_scenario_id` が表示され、Run履歴と双方向リンクが張られる。
-2. Run履歴(`/ui/runs`)では `plan_version_id` 列と `scenario_id` 列から該当Plan/シナリオに遷移できる。Run詳細(`/ui/runs/{run_id}`)でも Summary にリンクを表示。
+2. Run履歴(`/ui/runs`)では `plan_version_id` 列と `scenario_id` 列から該当Plan/シナリオに遷移できる。Run詳細(`/ui/runs/{run_id}`)でも Summary にリンクを表示し、レスポンスJSONにも `plan_version_id` が含まれる。
 3. Aggregate Jobフォームでは Plan version を指定できる。Plan起点で Run を再処理する際はここで `plan_version_id` を入力し、成果物をPlanにひも付けて管理する。
 4. `/ui/jobs` では Plan作成ジョブが `plan_version_id` を示すため、完了後に該当Plan詳細へ遷移して結果を確認する。
 
