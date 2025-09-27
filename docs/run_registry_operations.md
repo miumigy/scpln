@@ -34,7 +34,6 @@
 ## 6. テスト方針
 - 重要テスト: `tests/test_jobs_canonical_inputs.py`, `tests/test_runs_persistence.py`, `tests/test_ui_runs_list.py`, `tests/test_ui_plans.py` (必要に応じて追加) をPlan中心のパスで実行する。
 - `SCPLN_SKIP_SIMULATION_API=1` を利用してPSI実行をスキップし、CI時間を短縮。
-- Legacyモードを利用するテストでは `SCPLN_ALLOW_LEGACY_SCENARIO_RUN=1` を明示的に設定し、今後の削除に備えて影響範囲を限定する。
 
 ## 7. 今後のフォローアップ候補
 - `/runs` APIレスポンスに `plan_version_id` を公式フィールドとして追加する（現在はsummary内で補完）。
