@@ -131,6 +131,7 @@
     - 2025-09-26 Codex: RunRegistryのサマリに`_plan_version_id`を埋め込み、Run History UIでPlanリンク・シナリオリンクを表示。`tests/test_runs_persistence.py`をRunRegistry直接検証へ刷新し、Plan経由RunがDBに永続化されることを確認。
 - [x] T6.4: `/ui/scenarios` からのレガシーRun投入パスを段階的に停止（Feature Flag → 警告表示 → 削除）し、移行完了チェックリストを運用チームへ展開
     - 2025-09-26 Codex: シナリオUIのRunボタンを既定で無効化（`SCPLN_ALLOW_LEGACY_SCENARIO_RUN=1`時のみ許可）し、Plan UIへの誘導バナーと運用ガイドリンクを追加。環境フラグを通じて段階停止→完全停止へ切り替えられるようにした。
+    - 2025-09-26 Codex: 運用ガイドライン `docs/run_registry_operations.md` を作成し、Plan中心運用手順・環境変数・残タスク候補を整理。
 
 ## 7. リスクと対応
 
