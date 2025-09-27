@@ -36,11 +36,11 @@
 - `SCPLN_SKIP_SIMULATION_API=1` を利用してPSI実行をスキップし、CI時間を短縮。
 
 ## 7. 今後のフォローアップ候補
-- `/runs` APIレスポンスに `plan_version_id` を公式フィールドとして追加する（現在はsummary内で補完）。
-- Run履歴フィルタに「Plan version」「Scenario name」を追加し、UI上での検索利便性を向上。
-- Legacy経路削除後、関連ドキュメント(README, tutorials) から旧手順を完全に削除し、Plan中心フローへ統一。
+- `/runs` APIレスポンスに `plan_version_id` を公式フィールドとして追加し、summary依存を解消する。
+- Run履歴フィルタに「Plan version」「Scenario name」を追加し、Plan中心運用での検索利便性を向上。
+- 旧ドキュメント（README/Tutorial）からレガシーRun手順を完全に除去し、Plan中心フローへ統一。
 - RunRegistryバックアップ/データ保持ポリシーの自動化（例: cron でのエクスポート）。
-- Plan & Run実行時のシナリオバリデーション追加（シナリオがロックされている場合の警告など）。
+- Plan & Run実行時にシナリオロック状態などのバリデーションを追加し、運用ミスを予防。
 
 ## 8. 参考リンク
 - `/ui/plans` : Plan中心運用のエントリポイント
