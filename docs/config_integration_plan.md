@@ -109,6 +109,25 @@
 - [x] T5.3: 運用手順書・トレーニング資料を更新
     - 2025-09-22 Codex: `README.md` と `docs/TUTORIAL-JA.md` を更新。クイックスタートやチュートリアル手順を、旧来のCSVベースからCanonical設定ベースのワークフロー（`seed_canonical.py`でのDBロード → UI/APIで`config_version_id`を指定して実行）に全面的に書き換えた。
 
+### PH6 RunRegistry移行（Plan中心化）
+
+- [ ] T6.1: `/plans/integrated/run` および計画ジョブ実行でPSIシミュレーションを同一Canonicalスナップショットから起動し、`RunRegistry` に `config_version_id`・`scenario_id`・`run_id` を保存する
+    - 実装方針
+        - `app/plans_api.py` の同期実行/非同期ジョブ双方で `build_simulation_input` を使い、Plan確定後に同じCanonicalデータを `RunRegistry.put(...)` へ投入する。
+        - 既存の`app/jobs.py::_run_planning` で生成した `plan_final.json` などの成果物を流用しつつ、PSIラン結果を取得するために `core/config.builders.build_simulation_input` から `SupplyChainSimulator` を起動する補助関数を追加する。
+        - Plan作成時の `base_scenario_id` を `scenario_id` にマッピングし、Plan → Run の引き渡しに利用する（未指定時は `None` 保存）。
+        - `RunRegistryDB.put` が `config_version_id` を受けられることは確認済みのため、Plan経由のRun保存では `config_json` を持たず `config_version_id` を必須とする。
+    - タスク分解
+        1. `app/plans_api.py` に CanonicalベースのPSI再実行ロジックを追加（同期実行パス）。
+        2. `app/jobs.py::_run_planning` に同等の処理を追加し、ジョブ完了時にRunRegistryへ書き込み。
+        3. `tests/` 配下に Plan→RunRegistry 連携のユニット/統合テストを新設し、`config_version_id` と `scenario_id` が保存されることを検証。
+        4. 監査ログ(`logging`)とメトリクスを更新し、Plan経由Runが計測されるようにする。
+        5. ドキュメント（README / docs/API-OVERVIEW-JA.md）をPlan中心のRun保存に合わせて修正。
+
+- [ ] T6.2: Plan作成/更新UIでシナリオ（`base_scenario_id`）を選択できるようにし、Plan & Runのオプションに統一的に引き渡す
+- [ ] T6.3: `/runs` API・Run History UI・ベースライン管理のテスト/メトリクスをPlan経由Runで回すよう更新し、運用runbookとドキュメントを改訂
+- [ ] T6.4: `/ui/scenarios` からのレガシーRun投入パスを段階的に停止（Feature Flag → 警告表示 → 削除）し、移行完了チェックリストを運用チームへ展開
+
 ## 7. リスクと対応
 
 - 設定規模拡大によるマイグレーション失敗リスク → マイグレーション前バックアップとロールバック手順を整備。
@@ -130,9 +149,11 @@
 | M3 アプリ統合 | 2025-11-15 | PH3タスク完了、Plan & Run → RunRegistry連携をビルダー経路で実行 |
 | M4 UI/運用 | 2025-12-05 | PH4タスク完了、ユーザドキュメント更新承認 |
 | M5 ロールアウト | 2026-01-15 | PH5タスク完了、旧CSV経路廃止承認 |
+| M6 RunRegistry移行 | 2026-02-15 | PH6タスク完了、Plan経由Runのみで履歴・比較・ベースライン運用が成立 |
 
 ## 10. 更新履歴
 
+- 2025-09-25: PH6タスクを追加。Plan経由RunでRunRegistryを統合し、レガシーシナリオRunを段階廃止するロードマップを策定。
 - 2025-09-23: PH4タスク（T4.1〜T4.3）を完了。Canonical設定UIに差分表示・インポート機能を追加し、README/TUTORIALを更新。
 - 2025-09-24: UI検証用のCanonicalサンプル生成スクリプト、サンプルJSON、および `/ui/configs` から直接投入できる「サンプルを読み込む」ボタンを追加し、DB投入・インポートを簡略化。
 - 2025-09-22: PH3タスク（T3.1〜T3.3）を完了。Canonical連携のAPI/ジョブ/UIを実装し、`SCPLN_SKIP_SIMULATION_API=1`指定で関連テスト群を実行。
