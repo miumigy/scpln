@@ -12,7 +12,6 @@
 | --- | --- | --- |
 | `REGISTRY_BACKEND` | `db` | RunRegistry を SQLite に永続化。Plan中心運用では DB バックエンドが前提。 |
 | `RUNS_DB_MAX_ROWS` | `200` など | Runテーブルの保持上限。設定すると最古ランを自動削除。 |
-| `SCPLN_ALLOW_LEGACY_SCENARIO_RUN` | `0` (既定) | `/ui/scenarios` からのレガシーRun投入を抑止。移行期間のみ `1` にして利用。 |
 | `SCPLN_SKIP_SIMULATION_API` | `1` (テスト時) | CIやローカルテストで重いPSIシミュレーションをスキップ。運用環境では未設定。 |
 | `SCPLN_DB` | `<path>` | テスト/ステージングごとにRunRegistry DBを切り替える際に指定。 |
 
@@ -22,10 +21,10 @@
 3. Aggregate Jobフォームでは Plan version を指定できる。Plan起点で Run を再処理する際はここで `plan_version_id` を入力し、成果物をPlanにひも付けて管理する。
 4. `/ui/jobs` では Plan作成ジョブが `plan_version_id` を示すため、完了後に該当Plan詳細へ遷移して結果を確認する。
 
-## 4. 段階的なレガシー経路停止
-- **Phase 1 (現在)**: `SCPLN_ALLOW_LEGACY_SCENARIO_RUN=0` が既定。シナリオUIに警告を表示し Plan UI への利用を促す。必要な場合に限りフラグを `1` にして一時的に解放。
-- **Phase 2 (予定)**: 旧 `/ui/scenarios/{sid}/run` エンドポイントを非推奨化し、再びアクセスした場合は Plan UI へリダイレクトする。フラグ廃止前に利用者への周知を実施。
-- **Phase 3 (最終)**: レガシーRun投入コードと関連テンプレートを削除。ドキュメントおよび tests からも完全に撤去する。
+## 4. レガシー経路停止ステータス
+- `/ui/scenarios/{sid}/run` は 403 を返し、Plan & Run UI へ誘導するバナーを表示。環境フラグによる一時復旧経路は廃止済み。
+- シナリオUIからPlan UIへのクイックリンクを設置し、Base Scenario を渡したPlan作成が標準フローとなる。
+- 今後は関連コード・テストからレガシーRun依存を削除し、Plan中心フローに一本化する。
 
 ## 5. 監視とメトリクス
 - `RUNS_TOTAL` (Prometheus) : Plan経由Runの件数が期待と合致しているか監視。

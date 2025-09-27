@@ -1,12 +1,9 @@
-import os
 from app.api import app
 from fastapi import Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
-from app.jobs import JOB_MANAGER
-import json
 import logging
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -16,16 +13,14 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 @app.get("/ui/scenarios", response_class=HTMLResponse)
 def ui_scenarios(request: Request):
     rows = db.list_scenarios(500)
-    cfgs = db.list_configs(200)
-    legacy_run_disabled = os.getenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "0") != "1"
     return templates.TemplateResponse(
         request,
         "scenarios.html",
         {
             "rows": rows,
-            "configs": cfgs,
             "subtitle": "Scenarios",
-            "legacy_run_locked": legacy_run_disabled,
+            "legacy_run_locked": True,
+            "doc_link": "/docs/run_registry_operations.md",
         },
     )
 
@@ -53,30 +48,10 @@ def ui_scenarios_post(
 
 @app.post("/ui/scenarios/{sid}/run")
 def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
-    if os.getenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "0") != "1":
-        return PlainTextResponse(
-            "legacy scenario run is disabled; use /ui/plans",
-            status_code=403,
-        )
-    logging.warning(f"--- DEBUG: ui_scenarios_run called with config_id={config_id}")
-    rec = db.get_config(int(config_id))
-    logging.warning(f"--- DEBUG: db.get_config returned: {rec}")
-    # 取得した設定JSONを使ってジョブ実行。scenario_id/config_id を付与。
-    rec = db.get_config(int(config_id))
-    if not rec:
-        return PlainTextResponse("config not found", status_code=404)
-    try:
-        payload = json.loads(rec.get("json_text") or "{}")
-    except Exception:
-        return PlainTextResponse("invalid config json", status_code=400)
-    if not isinstance(payload, dict):
-        return PlainTextResponse("invalid config json", status_code=400)
-    # 付与（jobs.py 側でpopしRunへ保存される）
-    payload["config_id"] = int(config_id)
-    payload["scenario_id"] = int(sid)
-    job_id = JOB_MANAGER.submit_simulation(payload)
-    # ジョブ一覧へ遷移
-    return RedirectResponse(url="/ui/jobs", status_code=303)
+    return PlainTextResponse(
+        "Scenario-based simulation has been retired. Use Plan & Run via /ui/plans.",
+        status_code=403,
+    )
 
 
 @app.post("/ui/scenarios/{sid}/edit")
