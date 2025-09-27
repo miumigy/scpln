@@ -88,11 +88,25 @@ def list_runs(
     config_id: int | None = Query(None),
     config_version_id: int | None = Query(None),
     scenario_id: int | None = Query(None),
+    plan_version_id: str | None = Query(None),
+    scenario_name: str | None = Query(None),
 ):
     """ラン一覧を返す。
     - detail=false（既定）: 軽量メタ+summary のみ
     - detail=true: フル（results/daily_profit_loss/cost_trace 含む）
     """
+    scenario_name_ids = None
+    if scenario_name:
+        name = scenario_name.strip().lower()
+        scenario_name_ids = {
+            row.get("id")
+            for row in (db.list_scenarios(limit=2000) or [])
+            if isinstance(row.get("name"), str)
+            and name in row.get("name").lower()
+        }
+        if not scenario_name_ids:
+            empty = {"runs": [], "total": 0, "offset": offset, "limit": limit or 0}
+            return empty
     # サニタイズと limit 既定
     REGISTRY, _BACKEND = _get_registry()
     sort_keys = {"started_at", "duration_ms", "schema_version"}
@@ -131,6 +145,18 @@ def list_runs(
                 ]
                 resp["runs"] = runs_list
                 resp["total"] = len(runs_list)
+            if scenario_name_ids is not None:
+                runs_list = [
+                    r for r in runs_list if r.get("scenario_id") in scenario_name_ids
+                ]
+                resp["runs"] = runs_list
+                resp["total"] = len(runs_list)
+            if plan_version_id is not None:
+                runs_list = [
+                    r for r in runs_list if r.get("plan_version_id") == plan_version_id
+                ]
+                resp["runs"] = runs_list
+                resp["total"] = len(runs_list)
             try:
                 RUNS_LIST_REQUESTS.labels(detail="true", backend=_BACKEND).inc()
                 RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
@@ -139,7 +165,15 @@ def list_runs(
             return resp
         runs = REGISTRY.list()
         runs = _filter_and_sort(
-            runs, sort, order, schema_version, config_id, config_version_id, scenario_id
+            runs,
+            sort,
+            order,
+            schema_version,
+            config_id,
+            config_version_id,
+            scenario_id,
+            plan_version_id,
+            scenario_name_ids,
         )
         total = len(runs)
         sliced = runs[offset : offset + limit]
@@ -190,7 +224,12 @@ def list_runs(
             }
         )
     # DBバックエンドはSQLでページング（ただし config_id 指定時は後方互換のためアプリ側でフィルタリングに切替）
-    if hasattr(REGISTRY, "list_page") and config_id is None and scenario_id is None:
+    if (
+        hasattr(REGISTRY, "list_page")
+        and config_id is None
+        and scenario_id is None
+        and plan_version_id is None
+    ):
         resp = REGISTRY.list_page(
             offset=offset,
             limit=limit,
@@ -262,6 +301,8 @@ def list_runs(
             config_id,
             config_version_id,
             scenario_id,
+            plan_version_id,
+            scenario_name_ids,
         )
         total2 = len(rows2)
         rows2 = rows2[offset : offset + limit]
@@ -272,7 +313,15 @@ def list_runs(
             pass
         return {"runs": rows2, "total": total2, "offset": offset, "limit": limit}
     out = _filter_and_sort(
-        out, sort, order, schema_version, config_id, config_version_id, scenario_id
+        out,
+        sort,
+        order,
+        schema_version,
+        config_id,
+        config_version_id,
+        scenario_id,
+        plan_version_id,
+        scenario_name_ids,
     )
     total = len(out)
     out = out[offset : offset + limit]
@@ -403,6 +452,8 @@ def _filter_and_sort(
     config_id: int | None,
     config_version_id: int | None,
     scenario_id: int | None,
+    plan_version_id: str | None,
+    scenario_name_ids: set[int] | None,
 ) -> List[Dict[str, Any]]:
     def f(x: Dict[str, Any]) -> bool:
         if schema_version is not None and x.get("schema_version") != schema_version:
@@ -415,6 +466,13 @@ def _filter_and_sort(
         ):
             return False
         if scenario_id is not None and x.get("scenario_id") != scenario_id:
+            return False
+        if plan_version_id is not None and x.get("plan_version_id") != plan_version_id:
+            return False
+        if (
+            scenario_name_ids is not None
+            and x.get("scenario_id") not in scenario_name_ids
+        ):
             return False
         return True
 
