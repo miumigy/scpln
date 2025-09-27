@@ -16,10 +16,16 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 def ui_scenarios(request: Request):
     rows = db.list_scenarios(500)
     cfgs = db.list_configs(200)
+    legacy_run_disabled = os.getenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "0") != "1"
     return templates.TemplateResponse(
         request,
         "scenarios.html",
-        {"rows": rows, "configs": cfgs, "subtitle": "Scenarios"},
+        {
+            "rows": rows,
+            "configs": cfgs,
+            "subtitle": "Scenarios",
+            "legacy_run_locked": legacy_run_disabled,
+        },
     )
 
 
@@ -46,6 +52,11 @@ def ui_scenarios_post(
 
 @app.post("/ui/scenarios/{sid}/run")
 def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
+    if os.getenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "0") != "1":
+        return PlainTextResponse(
+            "legacy scenario run is disabled; use /ui/plans",
+            status_code=403,
+        )
     logging.warning(f"--- DEBUG: ui_scenarios_run called with config_id={config_id}")
     rec = db.get_config(int(config_id))
     logging.warning(f"--- DEBUG: db.get_config returned: {rec}")

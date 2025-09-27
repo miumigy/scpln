@@ -1,0 +1,7 @@
+{% if legacy_run_locked %}
+  <div class="mono warn-text" style="margin-top:0.5rem;">
+    レガシーのシナリオRun機能は段階的に停止中です。Plan UIから「Plan & Run」をご利用ください。
+    <a href="/ui/plans">/ui/plans</a>
+    {% if doc_link %}<span> / </span><a href="{{ doc_link }}" target="_blank" rel="noopener">運用ガイド</a>{% endif %}
+  </div>
+{% endif %}

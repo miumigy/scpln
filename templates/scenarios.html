@@ -9,6 +9,7 @@
     <h3>Scenario Library</h3>
     <p>Filter saved scenarios and add new variations for experiment tracking.</p>
   </div>
+  {% include "partials/_scenario_run_notice.html" with context %}
   <form id="scn-filter" class="toolbar gap-bottom-sm" onsubmit="return false;">
     <label>Search (name/desc)
       <input type="text" id="f-q" placeholder="keyword" aria-label="Search scenarios" />
@@ -71,17 +72,21 @@
         <td class="format-datetime">{{ r.updated_at }}</td>
         <td title="{{ r.description or '' }}" class="truncate-text">{{ r.description or '' }}</td>
         <td>
-          <form method="post" action="/ui/scenarios/{{ r.id }}/run" class="toolbar">
-            <label>
-              <select name="config_id" required>
-                <option value="" disabled selected>Select config</option>
-                {% for c in configs %}
-                <option value="{{ c.id }}">{{ c.id }} - {{ c.name }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <button type="submit" aria-label="Run scenario">Run</button>
-          </form>
+          {% if not legacy_run_locked %}
+            <form method="post" action="/ui/scenarios/{{ r.id }}/run" class="toolbar">
+              <label>
+                <select name="config_id" required>
+                  <option value="" disabled selected>Select config</option>
+                  {% for c in configs %}
+                  <option value="{{ c.id }}">{{ c.id }} - {{ c.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <button type="submit" aria-label="Run scenario">Run</button>
+            </form>
+          {% else %}
+            <small class="mono">Disabled. Use <a href="/ui/plans">Plan &amp; Run</a>.</small>
+          {% endif %}
         </td>
         <td>
           <details>
