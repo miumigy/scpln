@@ -46,6 +46,7 @@ def job_manager_setup(db_setup):
 def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
+    monkeypatch.setenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "1")
 
     from app.api import app
 
@@ -94,6 +95,7 @@ def test_ui_scenarios_run_with_config(job_manager_setup, monkeypatch):
 def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
+    monkeypatch.setenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "1")
 
     from app.api import app
 
@@ -119,6 +121,7 @@ def test_ui_scenarios_run_nonexistent_config(job_manager_setup, monkeypatch):
 def test_ui_scenarios_run_invalid_config_json(job_manager_setup, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
+    monkeypatch.setenv("SCPLN_ALLOW_LEGACY_SCENARIO_RUN", "1")
 
     from app.api import app
 
