@@ -26,6 +26,34 @@
 - シナリオUIからPlan UIへのクイックリンクを設置し、Base Scenario を渡したPlan作成が標準フローとなる。
 - 今後は関連コード・テストからレガシーRun依存を削除し、Plan中心フローに一本化する。
 
+### 移行計画（Plan中心化ロードマップ）
+| フェーズ | 目的 | 主体 | 主なアクション | 完了判定 |
+| --- | --- | --- | --- | --- |
+| P0 事前整備 | 並行運用に備えた共通設定へ統一 | SRE / アプリ開発 | `REGISTRY_BACKEND=db` を全環境で固定、Plan UI にBase Scenarioリンクを周知、`SCPLN_SKIP_SIMULATION_API` の本番未設定を監査 | 全環境でPlan UI → Run登録が成功し、通知テンプレートを更新済み |
+| P1 並行稼働 | Plan経由Runを本番トラフィックで検証 | 運用チーム | 本番とステージングでPlan→Runを優先案内、レガシーRunは計画停止日を明示、`RUNS_TOTAL` を日次確認 | 主要シナリオがPlan経由で完了し、レガシーフロー割合が20%未満 |
+| P2 切り替え | レガシーUIを停止しPlan経路へ一本化 | プロダクト / 運用 | `/ui/scenarios/{sid}/run` を read-only にし、Plan作成ガイドをバナーで表示、Plan再実行ジョブをRunbook化 | レガシーRun発行数が連続7日ゼロ、Plan版Runbook承認済み |
+| P3 廃止・清掃 | レガシー資産の削除と権限整理 | 開発チーム | レガシーRun API／テスト／ジョブを削除、権限ロールから旧操作を除外、バックアップ保持期間を再設定 | mainブランチでレガシーコードが消滅し、監視ダッシュボードがPlan指標のみ |
+
+#### 環境別ターゲット
+| 環境 | ターゲット日 | 事前条件 | 検証方法 |
+| --- | --- | --- | --- |
+| dev | 2025-09-30 | Canonicalシナリオ種別のテストデータが最新 | `make smoke-plan-run` でPlan→Run→履歴表示まで確認 |
+| staging | 2025-10-07 | RunRegistry DBマイグレーション手順書レビュー済み、リードタイム警告アラート設定 | QAがPlan UIで3シナリオの再実行を完了、`RUNS_TOTAL`/`jobs_duration_seconds` が許容範囲 |
+| production | 2025-10-21 | 運用Runbook承認、サポート告知送付、監視ダッシュボード更新 | 本番Plan→Runジョブが1営業日で50件以上成功、レガシーRunリクエストがSupportキューで0件 |
+
+#### 移行チェックリスト
+- [ ] RunRegistry DBのバックアップおよびリストア手順を docs/ops_backup.md に追記
+- [ ] 運用チームへのPlan UI操作トレーニング完了（録画／スライド共有）
+- [ ] レガシーRun API利用サービスへ停止予定日を通知し、代替APIサンプルを提供
+- [ ] `tests/test_ui_runs_list.py` をPlan経路用データフィクスチャへ移行
+- [ ] 監視アラートの閾値をPlan中心化に合わせて更新し、PagerDuty Escalationを確認
+
+#### フォールバック / ロールバック
+- 切り替え後7日間はレガシーRun APIを `--maintenance` モードで保持し、致命的障害時のみ手動でフラグを戻す。
+- `SCPLN_DB` を切り替える前に `cp data/scpln.db data/scpln.db.bak-YYYYMMDD` を実施し、容量肥大時は `sqlite3 .dump` でのバックアップも準備。
+- 重大障害時の手順: (1) RunRegistryサービスを停止 → (2) バックアップDBへ差し替え → (3) Plan UIで告知バナーを表示し、復旧完了まで新規Plan登録を制限。
+- フォールバックを行った場合はRun履歴の欠損が出るため、`scripts/rebuild_run_registry.py` でPlan成果物から再構築するワークフローを24時間以内に実行。
+
 ## 5. 監視とメトリクス
 - `RUNS_TOTAL` (Prometheus) : Plan経由Runの件数が期待と合致しているか監視。
 - `jobs_duration_seconds{type="planning"}` : Plan生成ジョブの処理時間を追跡し、異常な遅延を検知。
