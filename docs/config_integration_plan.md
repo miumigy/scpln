@@ -1,7 +1,14 @@
 # 設定統合開発計画
 
-- 最終更新: 2025-09-22
+- 最終更新: 2025-10-05
 - 対象領域: PSIシミュレーション入力とPlanning Hub計画パイプラインの設定統合
+
+## 0. 現行運用サマリ
+
+- 2025-09-30 時点で Canonical 設定ビルダーと RunRegistry 連携の移行を完了し、Plan 中心運用を本番導入済み。
+- Plan 生成・再実行は `config_version_id` をキーに Canonical 設定スナップショットから生成し、`plan_artifacts` と RunRegistry に同一IDで永続化する。
+- RunRegistry 運用ルール（環境変数、Run履歴リンク、レガシー経路停止）は `docs/run_registry_operations.md` を恒久リファレンスとして参照する。
+- 本ドキュメントは移行計画の履歴と、現行アーキテクチャの設計原則を示す一次ソースとして保守する。
 
 ## 1. 背景と課題
 
@@ -158,9 +165,17 @@
 
 ## 10. 更新履歴
 
+- 2025-10-05: 恒久運用サマリと関連ドキュメントリンクを追加。
 - 2025-09-26: PH6-T6.1/T6.2を完了。Plan同期/ジョブ実行でRunRegistryへ`scenario_id`付きRunを記録し、Plan UIにBase Scenario選択・表示を追加。
 - 2025-09-25: PH6タスクを追加。Plan経由RunでRunRegistryを統合し、レガシーシナリオRunを段階廃止するロードマップを策定。
 - 2025-09-23: PH4タスク（T4.1〜T4.3）を完了。Canonical設定UIに差分表示・インポート機能を追加し、README/TUTORIALを更新。
 - 2025-09-24: UI検証用のCanonicalサンプル生成スクリプト、サンプルJSON、および `/ui/configs` から直接投入できる「サンプルを読み込む」ボタンを追加し、DB投入・インポートを簡略化。
 - 2025-09-22: PH3タスク（T3.1〜T3.3）を完了。Canonical連携のAPI/ジョブ/UIを実装し、`SCPLN_SKIP_SIMULATION_API=1`指定で関連テスト群を実行。
 - 2025-09-21: 初版作成。
+
+## 11. 関連ドキュメント
+
+- `README.md`: 全体概要とクイックスタート
+- `docs/run_registry_operations.md`: RunRegistry 運用ガイドライン
+- `docs/ops_backup.md`: Canonical/RunRegistry バックアップ・リストア手順
+- `docs/TUTORIAL-JA.md`: Plan UI 操作チュートリアル

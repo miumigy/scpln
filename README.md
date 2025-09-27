@@ -10,8 +10,8 @@
 
 - **多粒度整合**: 集約→詳細への按分と、詳細→集約へのロールアップを同一バージョン上で管理。編集やロックを尊重した双方向同期を自動化。
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
-- **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。
-- **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
+- **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
+- **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。運用ルールとフォールバックは `docs/run_registry_operations.md` に整理。
 - **自動化とAPI**: `/plans/integrated/run` や `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
 
 ---
@@ -30,6 +30,8 @@
 - UI経由でインポートされた設定には、どのRun/Planと紐づくか追跡するための `ui_import` 属性が付与されます。
 - 使い始めるには、`/ui/configs` の「サンプルをインポート」ボタンを利用するか、`python3 scripts/seed_canonical.py --save-db` を実行してサンプル設定をDBに直接ロードします。
 - サーバが異なるデータベースを参照している場合（`SCPLN_DB`環境変数）、`--db-path $SCPLN_DB` を指定してサンプルをロードしてください。
+
+Canonical設定統合の設計原則と移行履歴は `docs/config_integration_plan.md` に一次情報として維持しています。RunRegistry 側の恒久運用ルールおよびフォールバック手順は `docs/run_registry_operations.md` を参照してください。
 
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
@@ -85,6 +87,8 @@ flowchart LR
 - Run結果は `data/scpln.db` の RunRegistry に保存し、`/runs` や `/ui/runs` から再参照可能。
 - Run比較API・トレースエクスポートでKPI分析を自動化。
 - Planning Hub（B）から渡されたシナリオやcutover/anchor等のPlanパラメタをRunRegistryが保持することで、A⇔B間で同じバージョンIDを軸にトレースできます。
+
+RunRegistry の標準運用フロー、監視、フォールバック手順は `docs/run_registry_operations.md` を参照してください。
 
 ---
 
@@ -155,6 +159,7 @@ flowchart LR
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
 | **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
+| **設定統合ロードマップ** | Canonical設定とRunRegistry統合の背景・意思決定記録 | `docs/config_integration_plan.md` |
 | **API / 自動化** | REST/CSVエンドポイント、ジョブ投入の概要 | `docs/API-OVERVIEW-JA.md` |
 | **運用・セキュリティ** | シークレット対応、バックアップ、CI設定 | `docs/SECRET_ROTATION_JA.md`, `.github/workflows/*` |
 | **クラス設計** | SimulationInput系モデルとエンジン連携 | `docs/CLASS_DESIGN_JA.md` |
@@ -194,16 +199,21 @@ flowchart LR
 
 ```mermaid
 flowchart TD
+  Config[(Canonical Config DB)] --> Builder[Canonical Builders]
   UI[Planning Hub / UI] -->|REST| API[FastAPI レイヤ]
-  API --> Sim[SupplyChainSimulator]
-  API --> Jobs[Jobs / Workers]
-  Sim --> DB[(RunRegistry DB)]
+  API --> Builder
+  Builder --> Jobs[計画ジョブ / Workers]
+  Builder --> Sim[SupplyChainSimulator]
   Jobs --> Pipelines[計画パイプライン Scripts]
   Pipelines --> Artifacts[Plan Artifacts / out/]
+  Sim --> RunDB[(RunRegistry DB)]
+  RunDB --> UI
+  Artifacts --> UI
   API --> Docs[CSV / Metrics / Logs]
+  Config --> UI
 ```
 
-`main.py` が FastAPI アプリを起動し、副作用インポートで API / UI ルートを登録します。計画パイプラインは CLI スクリプトとして独立実行も可能です。
+`main.py` が FastAPI アプリを起動し、副作用インポートで API / UI ルートを登録します。計画パイプラインは CLI スクリプトとして独立実行も可能です。Canonical設定構成要素とRunRegistry運用の詳細は、それぞれ `docs/config_integration_plan.md` と `docs/run_registry_operations.md` に整理しています。
 
 ---
 
