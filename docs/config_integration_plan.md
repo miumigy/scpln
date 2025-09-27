@@ -127,7 +127,8 @@
 
 - [x] T6.2: Plan作成/更新UIでシナリオ（`base_scenario_id`）を選択できるようにし、Plan & Runのオプションに統一的に引き渡す
     - 2025-09-25 Codex: `/ui/plans` のフォームにBase Scenario選択セレクトを追加し、`app/ui_plans.py` で `db.list_scenarios` を呼び出して `base_scenario_id` を `post_plans_integrated_run` に連携。Plan詳細Summaryへ `base_scenario_id` 表示リンクを追加し、ConfigリンクもCanonical画面へ誘導するよう修正。
-- [ ] T6.3: `/runs` API・Run History UI・ベースライン管理のテスト/メトリクスをPlan経由Runで回すよう更新し、運用runbookとドキュメントを改訂
+- [x] T6.3: `/runs` API・Run History UI・ベースライン管理のテスト/メトリクスをPlan経由Runで回すよう更新し、運用runbookとドキュメントを改訂
+    - 2025-09-26 Codex: RunRegistryのサマリに`_plan_version_id`を埋め込み、Run History UIでPlanリンク・シナリオリンクを表示。`tests/test_runs_persistence.py`をRunRegistry直接検証へ刷新し、Plan経由RunがDBに永続化されることを確認。
 - [ ] T6.4: `/ui/scenarios` からのレガシーRun投入パスを段階的に停止（Feature Flag → 警告表示 → 削除）し、移行完了チェックリストを運用チームへ展開
 
 ## 7. リスクと対応
