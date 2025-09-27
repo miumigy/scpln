@@ -47,7 +47,7 @@ def _sample_payload(run_id: str, *, started_at: int) -> dict:
         "config_version_id": None,
         "scenario_id": None,
         "config_json": None,
-        "plan_version_id": None,
+        "plan_version_id": "plan-from-" + run_id,
     }
 
 
@@ -70,12 +70,14 @@ def test_runs_persist_db_backend(tmp_path: Path):
     conn = sqlite3.connect(db_path)
     with conn:
         row = conn.execute(
-            "SELECT run_id, summary FROM runs WHERE run_id=?", (run_id,)
+            "SELECT run_id, summary, plan_version_id FROM runs WHERE run_id=?",
+            (run_id,),
         ).fetchone()
         assert row is not None
         assert row[0] == run_id
         summary_obj = json.loads(row[1] or '{}')
         assert summary_obj.get("_plan_version_id") == "plan-from-" + run_id
+        assert row[2] == "plan-from-" + run_id
 
 
 def test_runs_cleanup_capacity(tmp_path: Path):
@@ -102,3 +104,6 @@ def test_runs_cleanup_capacity(tmp_path: Path):
         assert count == 2
         summaries = [json.loads(row[0] or '{}') for row in conn.execute("SELECT summary FROM runs").fetchall()]
         assert all("_plan_version_id" in s for s in summaries)
+        plan_versions = [row[0] for row in conn.execute("SELECT plan_version_id FROM runs").fetchall()]
+        assert len(plan_versions) == 2
+        assert all(pv and pv.startswith('plan-from-') for pv in plan_versions)

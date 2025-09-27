@@ -181,6 +181,7 @@ def list_runs(
                 "config_id": cfg_id,
                 "config_version_id": rec.get("config_version_id"),
                 "scenario_id": rec.get("scenario_id"),
+                "plan_version_id": rec.get("plan_version_id"),
                 "created_at": rec.get("created_at", rec.get("started_at")),
                 "updated_at": rec.get(
                     "updated_at",
@@ -245,6 +246,7 @@ def list_runs(
                     "config_id": cfg_id2,
                     "config_version_id": rec.get("config_version_id"),
                     "scenario_id": rec.get("scenario_id"),
+                    "plan_version_id": rec.get("plan_version_id"),
                     "created_at": rec.get("created_at", rec.get("started_at")),
                     "updated_at": rec.get(
                         "updated_at",
