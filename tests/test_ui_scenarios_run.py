@@ -12,6 +12,7 @@ from app import db
 def test_ui_scenarios_run_returns_403(monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
+    db.init_db(force=True)
 
     from app.api import app
 
