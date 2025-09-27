@@ -166,6 +166,9 @@
     const dataMs = hasMs ? String(startedMsRaw) : '';
     const startedFallback = typeof r.started_at_str === 'string' ? r.started_at_str : '';
     const startedDisplay = fmtJst(hasMs ? startedMsRaw : (startedFallback || ''), startedFallback);
+    const planVersion = r.plan_version_id ?? (r.summary?.['_plan_version_id'] ?? '');
+    const planLink = planVersion ? `<a href="/ui/plans/${planVersion}">${planVersion}</a>` : '-';
+    const scenarioLink = r.scenario_id ? `<a href="/ui/scenarios?highlight=${r.scenario_id}">${r.scenario_id}</a>` : '-';
     return `
       <tr>
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
@@ -175,7 +178,8 @@
         <td>${r.schema_version ?? ''}</td>
         <td>${r.config_id ?? ''}</td>
         <td>${r.config_version_id ?? ''}</td>
-        <td>${r.scenario_id ?? ''}</td>
+        <td class="mono">${planLink}</td>
+        <td class="mono">${scenarioLink}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
         <td class="table-actions">

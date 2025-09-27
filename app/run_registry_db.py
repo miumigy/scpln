@@ -179,13 +179,14 @@ class RunRegistryDB:
                 # 軽量メタ（summaryはTEXT→dict化）
                 data = []
                 for r in rows:
+                    summary_obj = json.loads(r["summary"] or "{}")
                     data.append(
                         {
                             "run_id": r["run_id"],
                             "started_at": r["started_at"],
                             "duration_ms": r["duration_ms"],
                             "schema_version": r["schema_version"],
-                            "summary": json.loads(r["summary"] or "{}"),
+                            "summary": summary_obj,
                             "config_id": r["config_id"],
                             "config_version_id": (
                                 r["config_version_id"]
@@ -193,6 +194,7 @@ class RunRegistryDB:
                                 else None
                             ),
                             "scenario_id": r["scenario_id"],
+                            "plan_version_id": summary_obj.get("_plan_version_id"),
                             "config_json": (
                                 json.loads(r["config_json"])
                                 if r["config_json"]
@@ -206,12 +208,13 @@ class RunRegistryDB:
 
     @staticmethod
     def _row_to_rec(row) -> Dict[str, Any]:
+        summary_obj = json.loads(row["summary"] or "{}")
         return {
             "run_id": row["run_id"],
             "started_at": row["started_at"],
             "duration_ms": row["duration_ms"],
             "schema_version": row["schema_version"],
-            "summary": json.loads(row["summary"] or "{}"),
+            "summary": summary_obj,
             "results": json.loads(row["results"] or "[]"),
             "daily_profit_loss": json.loads(row["daily_profit_loss"] or "[]"),
             "cost_trace": json.loads(row["cost_trace"] or "[]"),
@@ -220,6 +223,7 @@ class RunRegistryDB:
                 row["config_version_id"] if "config_version_id" in row.keys() else None
             ),
             "scenario_id": row["scenario_id"],
+            "plan_version_id": summary_obj.get("_plan_version_id"),
             "config_json": (
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),

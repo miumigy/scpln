@@ -61,6 +61,8 @@ def ui_runs(request: Request):
                 "config_id": r.get("config_id"),
                 "config_version_id": r.get("config_version_id"),
                 "scenario_id": r.get("scenario_id"),
+                "plan_version_id": r.get("plan_version_id")
+                or ((r.get("summary") or {}).get("_plan_version_id")),
                 "summary": r.get("summary") or {},
                 "fill_rate": (r.get("summary") or {}).get("fill_rate"),
                 "profit_total": (r.get("summary") or {}).get("profit_total"),
@@ -124,6 +126,7 @@ def ui_run_detail(request: Request, run_id: str):
     config_version_id = rec.get("config_version_id")
     cfg_json = rec.get("config_json")
     scenario_id = rec.get("scenario_id")
+    plan_version_id = rec.get("plan_version_id") or (summary.get("_plan_version_id") if isinstance(summary, dict) else None)
     try:
         cfg_json_str = (
             json.dumps(cfg_json, ensure_ascii=False, indent=2)
@@ -167,7 +170,19 @@ def ui_run_detail(request: Request, run_id: str):
     except Exception:
         pass
     matching_plans: list[dict] = []
-    if config_version_id is not None:
+    if plan_version_id:
+        plan_rec = db.get_plan_version(plan_version_id)
+        if plan_rec:
+            created = plan_rec.get("created_at")
+            matching_plans.append(
+                {
+                    "version_id": plan_version_id,
+                    "status": plan_rec.get("status"),
+                    "created_at": created,
+                    "created_at_str": ms_to_jst_str(created),
+                }
+            )
+    elif config_version_id is not None:
         try:
             plans = db.list_plan_versions(limit=200)
             for p in plans:
@@ -192,9 +207,10 @@ def ui_run_detail(request: Request, run_id: str):
             "summary": summary,
             "counts": counts,
             "config_id": cfg_id,
-            "config_version_id": config_version_id,
-            "scenario_id": scenario_id,
-            "config_json_str": cfg_json_str,
+        "config_version_id": config_version_id,
+        "scenario_id": scenario_id,
+        "plan_version_id": plan_version_id,
+        "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
             "from_jobs": from_jobs,
             "back_href": back_href,

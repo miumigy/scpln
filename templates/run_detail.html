@@ -17,11 +17,24 @@
         <tr><th class="mono">config_version_id</th>
           <td class="mono">
             {% if config_version_id %}
-              <a href="/ui/plans?config_version_id={{ config_version_id }}">{{ config_version_id }}</a>
+              <a href="/ui/configs/canonical/{{ config_version_id }}">{{ config_version_id }}</a>
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">scenario_id</th><td class="mono">{{ scenario_id or '' }}</td></tr>
+        <tr><th class="mono">plan_version_id</th>
+          <td class="mono">
+            {% if plan_version_id %}
+              <a href="/ui/plans/{{ plan_version_id }}">{{ plan_version_id }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
+        <tr><th class="mono">scenario_id</th>
+          <td class="mono">
+            {% if scenario_id %}
+              <a href="/ui/scenarios?highlight={{ scenario_id }}">{{ scenario_id }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
         <tr><th class="mono">config_json</th><td><pre class="mono" style="max-height:240px; overflow:auto;">{{ config_json_str }}</pre></td></tr>
         <tr><th class="mono">raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
       </tbody>

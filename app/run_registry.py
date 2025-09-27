@@ -103,6 +103,9 @@ def record_canonical_run(
             summary = simulator.compute_summary()
         except Exception:
             summary = {}
+        summary = dict(summary or {})
+        if plan_version_id:
+            summary.setdefault("_plan_version_id", plan_version_id)
         run_id = uuid4().hex
         reg.put(
             run_id,

@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import importlib
@@ -39,7 +40,7 @@ def _sample_payload(run_id: str, *, started_at: int) -> dict:
         "started_at": started_at,
         "duration_ms": 5,
         "schema_version": "1.0",
-        "summary": {"fill_rate": 1.0},
+        "summary": {"fill_rate": 1.0, "_plan_version_id": "plan-from-" + run_id},
         "results": [],
         "daily_profit_loss": [],
         "cost_trace": [],
@@ -63,6 +64,7 @@ def test_runs_persist_db_backend(tmp_path: Path):
     assert rec
     assert rec.get("run_id") == run_id
     assert rec.get("summary", {}).get("fill_rate") == 1.0
+    assert rec.get("plan_version_id") == "plan-from-" + run_id
 
     # verify persistence at DB level
     conn = sqlite3.connect(db_path)
@@ -72,6 +74,8 @@ def test_runs_persist_db_backend(tmp_path: Path):
         ).fetchone()
         assert row is not None
         assert row[0] == run_id
+        summary_obj = json.loads(row[1] or '{}')
+        assert summary_obj.get("_plan_version_id") == "plan-from-" + run_id
 
 
 def test_runs_cleanup_capacity(tmp_path: Path):
@@ -96,3 +100,5 @@ def test_runs_cleanup_capacity(tmp_path: Path):
     with conn:
         count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
         assert count == 2
+        summaries = [json.loads(row[0] or '{}') for row in conn.execute("SELECT summary FROM runs").fetchall()]
+        assert all("_plan_version_id" in s for s in summaries)
