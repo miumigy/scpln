@@ -23,6 +23,9 @@ from __future__ import annotations
 import sys
 import time
 import argparse
+import os
+import subprocess
+from pathlib import Path
 from typing import Dict, Any, Optional
 
 try:
@@ -30,6 +33,68 @@ try:
 except Exception:
     print("[ERROR] requests が必要です: pip install requests", file=sys.stderr)
     sys.exit(2)
+
+
+def seed_test_data(db_path: str):
+    """テスト用の canonical config (id=100) をDBに直接挿入する。"""
+    import sqlite3
+    import json
+
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        # 既に存在する場合は何もしない
+        res = cur.execute("SELECT id FROM canonical_config_versions WHERE id=100").fetchone()
+        if res:
+            print("[INFO] Test data (config_version_id=100) already exists.")
+            return
+
+        print("[INFO] Seeding test data (config_version_id=100)...")
+        meta_attributes = {
+            "planning_horizon": 90,
+            "sources": {"psi_input": "seed.json"},
+        }
+        cur.execute(
+            """
+            INSERT INTO canonical_config_versions(
+                id, name, schema_version, version_tag, status, description,
+                source_config_id, metadata_json, created_at, updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                100,
+                "test-config",
+                "canonical-1.0",
+                "v-test",
+                "draft",
+                "acceptance smoke seed",
+                None,
+                json.dumps(meta_attributes, ensure_ascii=False),
+                1700000000000,
+                1700000000000,
+            ),
+        )
+        # 簡易的に item, node, demand のみ追加
+        cur.execute(
+            "INSERT INTO canonical_items (config_version_id, item_code, item_name) VALUES (?, ?, ?)",
+            (100, "FG1", "Acceptance FG"),
+        )
+        cur.execute(
+            "INSERT INTO canonical_nodes (config_version_id, node_code, node_type) VALUES (?, ?, ?)",
+            (100, "STORE1", "store"),
+        )
+        cur.execute(
+            "INSERT INTO canonical_demands (config_version_id, node_code, item_code, bucket, mean) VALUES (?, ?, ?, ?, ?)",
+            (100, "STORE1", "FG1", "2025-W01", 10),
+        )
+        conn.commit()
+        print("[INFO] Test data seeded successfully.")
+    except Exception as e:
+        print(f"[WARN] Failed to seed test data: {e}", file=sys.stderr)
+    finally:
+        if conn:
+            conn.close()
 
 
 def get_json(session: requests.Session, url: str) -> Dict[str, Any]:
@@ -86,64 +151,6 @@ def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
         return None
 
 
-def seed_test_data(db_path: str):
-    """テスト用の canonical config (id=100) をDBに直接挿入する。"""
-    import sqlite3
-    import json
-
-    try:
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        # 既に存在する場合は何もしない
-        res = cur.execute("SELECT id FROM canonical_config_versions WHERE id=100").fetchone()
-        if res:
-            return
-
-        meta_attributes = {
-            "planning_horizon": 90,
-            "sources": {"psi_input": "seed.json"},
-        }
-        cur.execute(
-            """
-            INSERT INTO canonical_config_versions(
-                id, name, schema_version, version_tag, status, description,
-                source_config_id, metadata_json, created_at, updated_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                100,
-                "test-config",
-                "canonical-1.0",
-                "v-test",
-                "draft",
-                "acceptance smoke seed",
-                None,
-                json.dumps(meta_attributes, ensure_ascii=False),
-                1700000000000,
-                1700000000000,
-            ),
-        )
-        # 簡易的に item, node, demand のみ追加
-        cur.execute(
-            "INSERT INTO canonical_items (config_version_id, item_code) VALUES (?, ?)",
-            (100, "FG1"),
-        )
-        cur.execute(
-            "INSERT INTO canonical_nodes (config_version_id, node_code, node_type) VALUES (?, ?, ?)",
-            (100, "STORE1", "store"),
-        )
-        cur.execute(
-            "INSERT INTO canonical_demands (config_version_id, node_code, item_code, bucket, mean) VALUES (?, ?, ?, ?, ?)",
-            (100, "STORE1", "FG1", "2025-W01", 10),
-        )
-        conn.commit()
-    except Exception as e:
-        print(f"[WARN] Failed to seed test data: {e}", file=sys.stderr)
-    finally:
-        if conn:
-            conn.close()
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:8000")
@@ -152,8 +159,32 @@ def main() -> int:
     base = args.base_url.rstrip("/")
     s = requests.Session()
 
+    db_path = Path(args.db_path).resolve()
+    os.environ["SCPLN_DB"] = str(db_path)
+
+    # Alembicマイグレーションを実行
+    try:
+        alembic_ini_path = Path(__file__).resolve().parents[1] / "alembic.ini"
+        if not alembic_ini_path.exists():
+            raise RuntimeError(f"alembic.ini not found at {alembic_ini_path}")
+
+        print(f"[INFO] Running Alembic migrations on {db_path}...")
+        proc = subprocess.run(
+            ["alembic", "-c", str(alembic_ini_path), "upgrade", "head"],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        print("[INFO] Alembic migration completed.")
+    except FileNotFoundError:
+        print("[WARN] 'alembic' command not found. Skipping migration.", file=sys.stderr)
+    except subprocess.CalledProcessError as e:
+        # 既に適用済みの場合も stderr にログが出ることがあるので WARN に留める
+        print(f"[WARN] Alembic migration may have failed (exit code {e.returncode}): {e.stderr}", file=sys.stderr)
+
     # DBにテストデータを投入
-    seed_test_data(args.db_path)
+    seed_test_data(str(db_path))
 
     failures: list[str] = []
 
