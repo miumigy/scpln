@@ -70,8 +70,7 @@ def list_runs(
         scenario_name_ids = {
             row.get("id")
             for row in (db.list_scenarios(limit=2000) or [])
-            if isinstance(row.get("name"), str)
-            and name in row.get("name").lower()
+            if isinstance(row.get("name"), str) and name in row.get("name").lower()
         }
         if not scenario_name_ids:
             empty = {"runs": [], "total": 0, "offset": offset, "limit": limit or 0}

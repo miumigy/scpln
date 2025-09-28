@@ -362,7 +362,11 @@ def ui_plan_detail(version_id: str, request: Request):
             latest_runs.append(formatted)
             latest_ids.append(rid)
         plan_val = r.get("plan_version_id")
-        if plan_val is not None and str(plan_val) == str(version_id) and len(plan_runs) < 10:
+        if (
+            plan_val is not None
+            and str(plan_val) == str(version_id)
+            and len(plan_runs) < 10
+        ):
             plan_runs.append(formatted)
             plan_run_ids.append(rid)
         if (
