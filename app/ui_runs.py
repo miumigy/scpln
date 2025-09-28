@@ -126,7 +126,9 @@ def ui_run_detail(request: Request, run_id: str):
     config_version_id = rec.get("config_version_id")
     cfg_json = rec.get("config_json")
     scenario_id = rec.get("scenario_id")
-    plan_version_id = rec.get("plan_version_id") or (summary.get("_plan_version_id") if isinstance(summary, dict) else None)
+    plan_version_id = rec.get("plan_version_id") or (
+        summary.get("_plan_version_id") if isinstance(summary, dict) else None
+    )
     try:
         cfg_json_str = (
             json.dumps(cfg_json, ensure_ascii=False, indent=2)
@@ -207,10 +209,10 @@ def ui_run_detail(request: Request, run_id: str):
             "summary": summary,
             "counts": counts,
             "config_id": cfg_id,
-        "config_version_id": config_version_id,
-        "scenario_id": scenario_id,
-        "plan_version_id": plan_version_id,
-        "config_json_str": cfg_json_str,
+            "config_version_id": config_version_id,
+            "scenario_id": scenario_id,
+            "plan_version_id": plan_version_id,
+            "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
             "from_jobs": from_jobs,
             "back_href": back_href,

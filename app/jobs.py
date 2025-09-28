@@ -344,7 +344,9 @@ class JobManager:
 
             config_version_id = cfg.get("config_version_id")
             if config_version_id is None:
-                raise RuntimeError("config_version_id is required for integrated planning")
+                raise RuntimeError(
+                    "config_version_id is required for integrated planning"
+                )
             (
                 planning_bundle,
                 temp_input_dir,

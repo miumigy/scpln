@@ -123,7 +123,6 @@ except ImportError:
 # Fallback: define /simulation route here when import failed (to avoid 404)
 if not globals().get("_SIM_LOADED", False):
     from fastapi import Query, Request
-    import json as _json
 
     @app.post("/simulation")
     def _fallback_post_simulation(

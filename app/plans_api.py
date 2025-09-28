@@ -15,7 +15,6 @@ from app.api import app
 from app import db
 from core.config.storage import (
     CanonicalConfigNotFoundError,
-    load_canonical_config_from_db,
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
@@ -236,9 +235,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             temp_input_dir,
             artifact_paths,
             canonical_config,
-        ) = prepare_canonical_inputs(
-            config_version_id, out_dir, write_artifacts=True
-        )
+        ) = prepare_canonical_inputs(config_version_id, out_dir, write_artifacts=True)
     except RuntimeError as exc:
         return JSONResponse(status_code=400, content={"detail": str(exc)})
     except CanonicalConfigNotFoundError as exc:

@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import importlib
-from typing import Any
 from uuid import uuid4
-from pathlib import Path
-import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +10,7 @@ from fastapi.testclient import TestClient
 def plan_client(seed_canonical_data, monkeypatch):
     # seed_canonical_data を使うことで、DBのセットアップとテストデータの投入が自動的に行われる
     # conftest.py の db_setup -> seed_canonical_data の流れで実行される
-    from app import api as app_api, db as app_db, plans_api as app_plans_api
+    from app import db as app_db, plans_api as app_plans_api
     from main import app
 
     # テスト関数ごとにリロードが必要な場合（通常は不要）

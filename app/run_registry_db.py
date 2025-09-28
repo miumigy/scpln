@@ -198,7 +198,11 @@ class RunRegistryDB:
                             ),
                             "scenario_id": r["scenario_id"],
                             "plan_version_id": summary_obj.get("_plan_version_id"),
-                            "plan_version_id": r["plan_version_id"] if "plan_version_id" in r.keys() else None,
+                            "plan_version_id": (
+                                r["plan_version_id"]
+                                if "plan_version_id" in r.keys()
+                                else None
+                            ),
                             "config_json": (
                                 json.loads(r["config_json"])
                                 if r["config_json"]
@@ -227,7 +231,11 @@ class RunRegistryDB:
                 row["config_version_id"] if "config_version_id" in row.keys() else None
             ),
             "scenario_id": row["scenario_id"],
-            "plan_version_id": row["plan_version_id"] if "plan_version_id" in row.keys() else summary_obj.get("_plan_version_id"),
+            "plan_version_id": (
+                row["plan_version_id"]
+                if "plan_version_id" in row.keys()
+                else summary_obj.get("_plan_version_id")
+            ),
             "config_json": (
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),

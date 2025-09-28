@@ -180,19 +180,25 @@ def test_planning_regression(job_manager: JobManager, seeded_config_id: int):
         "fill_rate",
     }
     for row in report_canonical:
-        assert set(row.keys()) >= expected_columns, "レポート列ヘッダーが想定と異なります"
+        assert (
+            set(row.keys()) >= expected_columns
+        ), "レポート列ヘッダーが想定と異なります"
 
     capacity_rows = [r for r in report_canonical if r.get("type") == "capacity"]
     assert capacity_rows, "capacity 行が存在しません"
     for row in capacity_rows:
-        assert isinstance(row.get("capacity"), float), "capacity が数値に変換されていません"
+        assert isinstance(
+            row.get("capacity"), float
+        ), "capacity が数値に変換されていません"
         assert row.get("capacity", 0.0) >= 0.0, "capacity が負の値です"
 
     service_rows = [r for r in report_canonical if r.get("type") == "service"]
     assert service_rows, "service 行が存在しません"
     for row in service_rows:
         assert isinstance(row.get("demand"), float), "demand が数値に変換されていません"
-        assert isinstance(row.get("supply_plan"), float), "supply_plan が数値に変換されていません"
+        assert isinstance(
+            row.get("supply_plan"), float
+        ), "supply_plan が数値に変換されていません"
         assert 0.0 <= row.get("fill_rate", 0.0) <= 1.0, "fill_rate の範囲が不正です"
 
     print("リグレッションテスト成功: Canonical設定の計画実行が正常に完了しました。")
