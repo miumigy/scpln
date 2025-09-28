@@ -10,78 +10,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-def _reload_for_tmp_db(db_path: Path):
-    """Reload DBと主要APIモジュールをテンポラリDB向けに初期化。"""
-    app_db = importlib.import_module("app.db")
-    app_api = importlib.import_module("app.api")
-    importlib.reload(app_db)
-    app_api = importlib.reload(app_api)
-
-    module_names = [
-        "app.__init__",
-        "app.simulation_api",
-        "app.jobs_api",
-        "app.hierarchy_api",
-        "app.config_api",
-        "app.scenario_api",
-        "app.run_compare_api",
-        "app.plans_api",
-        "app.run_meta_api",
-        "app.runs_api",
-        "app.run_list_api",
-        "app.trace_export_api",
-        "app.ui_plans",
-        "app.ui_runs",
-        "app.ui_compare",
-        "app.ui_jobs",
-        "app.ui_scenarios",
-        "app.ui_configs",
-        "app.ui_hierarchy",
-    ]
-    reloaded: dict[str, Any] = {}
-    for name in module_names:
-        try:
-            mod = importlib.import_module(name)
-            reloaded[name] = importlib.reload(mod)
-        except ModuleNotFoundError:
-            pass
-
-    main_mod = importlib.import_module("main")
-    importlib.reload(main_mod)
-
-    # Alembicでマイグレーションを実行
-    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
-    tmp_path = db_path.parent
-    temp_alembic_ini_path = tmp_path / "alembic.ini"
-
-    with open(alembic_ini_path, "r") as src, open(temp_alembic_ini_path, "w") as dst:
-        for line in src:
-            if line.strip().startswith("sqlalchemy.url"):
-                dst.write(f"sqlalchemy.url = sqlite:///{db_path}\n")
-            else:
-                dst.write(line)
-
-    old_sys_argv = sys.argv
-    try:
-        sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
-        from alembic.config import main as alembic_main
-
-        alembic_main()
-    finally:
-        sys.argv = old_sys_argv
-
-    app_plans_api = reloaded.get("app.plans_api") or importlib.import_module(
-        "app.plans_api"
-    )
-    return app_db, app_plans_api, app_api
-
-
 @pytest.fixture()
-def plan_client(tmp_path, monkeypatch):
-    db_path = tmp_path / "scpln.db"
-    monkeypatch.setenv("SCPLN_DB", str(db_path))
-    app_db, app_plans_api, app_api = _reload_for_tmp_db(db_path)
-    client = TestClient(app_api.app)
+def plan_client(seed_canonical_data, monkeypatch):
+    # seed_canonical_data を使うことで、DBのセットアップとテストデータの投入が自動的に行われる
+    # conftest.py の db_setup -> seed_canonical_data の流れで実行される
+    from app import api as app_api, db as app_db, plans_api as app_plans_api
+    from main import app
+
+    # テスト関数ごとにリロードが必要な場合（通常は不要）
+    # importlib.reload(app_api)
+    # importlib.reload(app_db)
+    # importlib.reload(app_plans_api)
+    # importlib.reload(app)
+
+    client = TestClient(app)
     version = f"test-{uuid4().hex[:8]}"
     try:
         res = client.post(

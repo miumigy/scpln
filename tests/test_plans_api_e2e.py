@@ -2,7 +2,7 @@ import time
 from fastapi.testclient import TestClient
 
 
-def test_plans_integrated_run_and_reconcile_e2e(db_setup, monkeypatch):
+def test_plans_integrated_run_and_reconcile_e2e(seed_canonical_data, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 

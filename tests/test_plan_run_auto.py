@@ -2,7 +2,7 @@ import time
 from fastapi.testclient import TestClient
 
 
-def test_plan_run_auto_redirects_to_new_plan(db_setup, monkeypatch):
+def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
 

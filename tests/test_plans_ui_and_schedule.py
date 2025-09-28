@@ -20,7 +20,7 @@ def _make_plan_with_artifacts(version_id: str) -> None:
     assert r.status_code == 200, r.text
 
 
-def test_schedule_csv_and_ui_tabs_present(db_setup, monkeypatch):
+def test_schedule_csv_and_ui_tabs_present(seed_canonical_data, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
     client = TestClient(app)
@@ -43,7 +43,7 @@ def test_schedule_csv_and_ui_tabs_present(db_setup, monkeypatch):
     assert f"/plans/{ver}/schedule.csv" in html
 
 
-def test_state_management_round_trip(db_setup, monkeypatch):
+def test_state_management_round_trip(seed_canonical_data, monkeypatch):
     monkeypatch.setenv("REGISTRY_BACKEND", "db")
     monkeypatch.setenv("AUTH_MODE", "none")
     client = TestClient(app)
