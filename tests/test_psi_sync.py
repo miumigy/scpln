@@ -88,7 +88,7 @@ def plan_client(tmp_path, monkeypatch):
             "/plans/integrated/run",
             json={
                 "version_id": version,
-                "input_dir": "samples/planning",
+                "config_version_id": 100,
                 "weeks": 4,
                 "round_mode": "int",
                 "lt_unit": "day",

@@ -31,7 +31,7 @@
     "pipeline": "integrated",
     "async": false,
     "options": {
-      "input_dir": "samples/planning",
+      "config_version_id": 100,
       "weeks": 4,
       "lt_unit": "day",
       "cutover_date": "2025-01-15",
@@ -48,6 +48,7 @@
   ```
   - 同期時: `{status:"succeeded", version_id, location:"/ui/plans/{version_id}"}`
   - 非同期時: `{status:"queued", job_id, location:"/ui/jobs/{job_id}"}`
+  - `config_version_id` は必須（Canonical設定バージョンを指定）
 
 ## 比較（CSV）
 - GET `/ui/compare/metrics.csv?run_ids={id1},{id2}` 指標比較CSV

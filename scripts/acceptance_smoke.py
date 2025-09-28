@@ -128,7 +128,7 @@ def main() -> int:
     # AT-01: Plan 作成（UI経由: metrics計測も狙う）
     try:
         form = {
-            "input_dir": "samples/planning",
+            "config_version_id": "100",
             "weeks": 4,
             "lt_unit": "day",
             "cutover_date": "2025-01-15",
@@ -204,7 +204,11 @@ def main() -> int:
         payload = {
             "pipeline": "integrated",
             "async": True,
-            "options": {"input_dir": "samples/planning", "weeks": 1, "lt_unit": "day"},
+            "options": {
+                "config_version_id": 100,
+                "weeks": 1,
+                "lt_unit": "day",
+            },
         }
         res = post_json(s, f"{base}/runs", payload)
         loc = (res or {}).get("location") or ""
@@ -225,7 +229,6 @@ def main() -> int:
     try:
         if plan_id:
             form = {
-                "input_dir": "samples/planning",
                 "weeks": 4,
                 "lt_unit": "day",
                 "cutover_date": "2025-02-01",

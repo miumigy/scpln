@@ -4,7 +4,7 @@ import time
 import csv
 import json
 from uuid import uuid4
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import os
 import logging
 from pathlib import Path
@@ -15,7 +15,7 @@ from app.run_registry import REGISTRY, record_canonical_run
 from app import db
 from prometheus_client import Counter as _Counter, Histogram as _Histogram
 from engine.aggregation import aggregate_by_time, rollup_axis
-from core.config import PlanningDataBundle, build_planning_inputs
+from core.config import CanonicalConfig, PlanningDataBundle, build_planning_inputs
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     load_canonical_config_from_db,
@@ -341,34 +341,18 @@ class JobManager:
             )
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            canonical_config = None
-            planning_bundle: Optional[PlanningDataBundle] = None
-            temp_input_dir: Optional[Path] = None
-
             config_version_id = cfg.get("config_version_id")
-            if config_version_id is not None:
-                config_version_id = int(config_version_id)
-                try:
-                    canonical_config, validation = load_canonical_config_from_db(
-                        config_version_id, validate=True
-                    )
-                except CanonicalConfigNotFoundError as exc:
-                    raise RuntimeError(str(exc)) from exc
-
-                if validation and validation.has_errors:
-                    errors = ", ".join(
-                        f"{issue.code}:{issue.message}"
-                        for issue in validation.issues
-                        if issue.severity == "error"
-                    )
-                    raise RuntimeError(f"canonical config validation failed: {errors}")
-
-                planning_bundle = build_planning_inputs(canonical_config)
-                temp_input_dir = out_dir / "canonical_inputs"
-                _materialize_planning_inputs(planning_bundle, temp_input_dir)
-                input_dir = str(temp_input_dir)
-            else:
-                input_dir = cfg.get("input_dir") or "samples/planning"
+            if config_version_id is None:
+                raise RuntimeError("config_version_id is required for integrated planning")
+            (
+                planning_bundle,
+                temp_input_dir,
+                artifact_paths,
+                canonical_config,
+            ) = prepare_canonical_inputs(
+                int(config_version_id), out_dir, write_artifacts=True
+            )
+            input_dir = str(temp_input_dir)
             weeks = str(cfg.get("weeks") or 4)
             round_mode = cfg.get("round_mode") or "int"
             lt_unit = cfg.get("lt_unit") or "day"
@@ -387,34 +371,8 @@ class JobManager:
             env = os.environ.copy()
             env.setdefault("PYTHONPATH", str(base))
 
-            canonical_snapshot_path: Optional[Path] = None
-            planning_inputs_path: Optional[Path] = None
-            if canonical_config is not None:
-                canonical_snapshot_path = out_dir / "canonical_snapshot.json"
-                planning_inputs_path = out_dir / "planning_inputs.json"
-                canonical_snapshot_path.write_text(
-                    canonical_config.model_dump_json(indent=2), encoding="utf-8"
-                )
-                planning_inputs_path.write_text(
-                    planning_bundle.aggregate_input.model_dump_json(indent=2),
-                    encoding="utf-8",
-                )
-
-                # persist period cost/score metadata for reference
-                if planning_bundle.period_cost:
-                    (out_dir / "period_cost.json").write_text(
-                        json.dumps(
-                            planning_bundle.period_cost, ensure_ascii=False, indent=2
-                        ),
-                        encoding="utf-8",
-                    )
-                if planning_bundle.period_score:
-                    (out_dir / "period_score.json").write_text(
-                        json.dumps(
-                            planning_bundle.period_score, ensure_ascii=False, indent=2
-                        ),
-                        encoding="utf-8",
-                    )
+            canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
+            planning_inputs_path = artifact_paths.get("planning_inputs.json")
 
             def runpy(args: list[str]):
                 subprocess.run(["python3", *args], cwd=str(base), env=env, check=True)
@@ -674,6 +632,10 @@ class JobManager:
                     t = _read(out_dir / name)
                     if t is not None:
                         db.upsert_plan_artifact(version_id, name, t)
+                for name, path in artifact_paths.items():
+                    t = _read(path)
+                    if t is not None:
+                        db.upsert_plan_artifact(version_id, name, t)
                 # source linkage (optional)
                 src_run = cfg.get("source_run_id")
                 if src_run:
@@ -818,6 +780,64 @@ def _write_csv(path: Path, rows: Optional[list], columns: list[str]) -> None:
             if not isinstance(row, dict):
                 row = dict(row)
             writer.writerow({col: row.get(col) for col in columns})
+
+
+def prepare_canonical_inputs(
+    config_version_id: int,
+    out_dir: Path,
+    *,
+    write_artifacts: bool = False,
+) -> Tuple[PlanningDataBundle, Path, Dict[str, Path], CanonicalConfig]:
+    try:
+        canonical_config, validation = load_canonical_config_from_db(
+            config_version_id, validate=True
+        )
+    except CanonicalConfigNotFoundError as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    if validation and validation.has_errors:
+        errors = ", ".join(
+            f"{issue.code}:{issue.message}"
+            for issue in validation.issues
+            if issue.severity == "error"
+        )
+        raise RuntimeError(f"canonical config validation failed: {errors}")
+
+    planning_bundle = build_planning_inputs(canonical_config)
+    temp_input_dir = out_dir / "canonical_inputs"
+    _materialize_planning_inputs(planning_bundle, temp_input_dir)
+
+    artifact_paths: Dict[str, Path] = {}
+    if write_artifacts:
+        canonical_snapshot_path = out_dir / "canonical_snapshot.json"
+        canonical_snapshot_path.write_text(
+            canonical_config.model_dump_json(indent=2), encoding="utf-8"
+        )
+        artifact_paths["canonical_snapshot.json"] = canonical_snapshot_path
+
+        planning_inputs_path = out_dir / "planning_inputs.json"
+        planning_inputs_path.write_text(
+            planning_bundle.aggregate_input.model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+        artifact_paths["planning_inputs.json"] = planning_inputs_path
+
+        if planning_bundle.period_cost:
+            period_cost_path = out_dir / "period_cost.json"
+            period_cost_path.write_text(
+                json.dumps(planning_bundle.period_cost, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            artifact_paths["period_cost.json"] = period_cost_path
+        if planning_bundle.period_score:
+            period_score_path = out_dir / "period_score.json"
+            period_score_path.write_text(
+                json.dumps(planning_bundle.period_score, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            artifact_paths["period_score.json"] = period_score_path
+
+    return planning_bundle, temp_input_dir, artifact_paths, canonical_config
 
 
 # singleton manager (workers will be started on app startup)

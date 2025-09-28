@@ -15,7 +15,7 @@ def test_plans_integrated_run_and_reconcile_e2e(db_setup, monkeypatch):
         "/plans/integrated/run",
         json={
             "version_id": ver,
-            "input_dir": "samples/planning",
+            "config_version_id": 100,
             "weeks": 4,
             "round_mode": "int",
             "lt_unit": "day",

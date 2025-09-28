@@ -17,10 +17,6 @@
       {% endif %}
       <div class="form-grid">
         <label>
-          <span class="label-title">Input Directory</span>
-          <input type="text" name="input_dir" value="{{ form_defaults.input_dir or 'samples/planning' }}" />
-        </label>
-        <label>
           <span class="label-title">Canonical Config Version</span>
           {% set selected_config = (form_defaults.config_version_id or '')|string %}
           <select name="config_version_id">

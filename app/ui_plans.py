@@ -506,7 +506,6 @@ def ui_plan_reconcile(
     calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
-    input_dir: str = Form("samples/planning"),
     apply_adjusted: str | None = Form(default=None),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
@@ -524,7 +523,6 @@ def ui_plan_reconcile(
         "calendar_mode": _nz(calendar_mode),
         "carryover": _nz(carryover),
         "carryover_split": _nz(carryover_split),
-        "input_dir": input_dir,
         "apply_adjusted": _form_bool(apply_adjusted),
         "weeks": weeks,
         "lt_unit": lt_unit,
@@ -582,7 +580,6 @@ def ui_plan_reconcile(
 def ui_plan_run_auto(
     version_id: str,
     request: Request,
-    input_dir: str = Form("samples/planning"),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
     cutover_date: str | None = Form(""),
@@ -612,11 +609,19 @@ def ui_plan_run_auto(
     cutover_date = ver.get("cutover_date") or bs.get("cutover_date")
     recon_window_days = ver.get("recon_window_days") or bs.get("window_days")
     anchor_policy = bs.get("anchor_policy")
+    config_version_id = ver.get("config_version_id")
+    if config_version_id is None:
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(
+            url=f"/ui/plans/{version_id}?error=no_config_version",
+            status_code=303,
+        )
+    source_meta = db.get_plan_artifact(version_id, "source.json") or {}
     body = {
         "pipeline": "integrated",
         "async": _form_bool(queue_job),
         "options": {
-            "input_dir": input_dir,
             "weeks": weeks,
             "lt_unit": lt_unit,
             "cutover_date": cutover_date,
@@ -628,6 +633,9 @@ def ui_plan_run_auto(
             "carryover": carryover,
             "carryover_split": carryover_split,
             "apply_adjusted": _form_bool(apply_adjusted),
+            "config_version_id": config_version_id,
+            "base_scenario_id": ver.get("base_scenario_id"),
+            "source_run_id": source_meta.get("source_run_id"),
         },
     }
     res = _runs_api.post_runs(body)
@@ -702,7 +710,6 @@ def ui_plan_state_invalidate(
 @app.post("/ui/plans/run")
 def ui_plans_run(
     request: Request,
-    input_dir: str = Form("samples/planning"),
     weeks: int = Form(4),
     lt_unit: str = Form("day"),
     cutover_date: str | None = Form(""),
@@ -724,7 +731,6 @@ def ui_plans_run(
         base_scenario_int = None
 
     form_defaults = {
-        "input_dir": input_dir,
         "config_version_id": config_version_id or "",
         "weeks": weeks,
         "lt_unit": lt_unit,
@@ -739,8 +745,16 @@ def ui_plans_run(
         "apply_adjusted": "1" if _form_bool(apply_adjusted) else "",
         "base_scenario_id": base_scenario_raw,
     }
+    if not (config_version_id or "").strip():
+        rows = _fetch_plan_rows()
+        return _render_plans_page(
+            request,
+            plans=rows,
+            error="Canonical設定バージョンを選択してください。",
+            form_defaults=form_defaults,
+        )
+
     body = {
-        "input_dir": input_dir,
         "weeks": weeks,
         "lt_unit": lt_unit,
         "cutover_date": cutover_date,
@@ -786,7 +800,6 @@ def ui_plans_run(
             extra={
                 "event": "plan_created",
                 "version_id": version_id,
-                "input_dir": input_dir,
                 "weeks": weeks,
                 "lt_unit": lt_unit,
                 "anchor_policy": anchor_policy,

@@ -218,7 +218,6 @@
             </select>
           </label>
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" id="psiCarrySplit"></label>
-          <label>input_dir<input type="text" id="psiInputDir" value="samples/planning"></label>
         </div>
         <p class="mono warn-text">Note: set anchor_policy and cutover_date when running adjusted mode. Combine recalc_mrp with apply_adjusted.</p>
       </details>
@@ -445,7 +444,6 @@
         const cal = document.getElementById('psiCal');
         const cov = document.getElementById('psiCarry');
         const csv = document.getElementById('psiCarrySplit');
-        const idir = document.getElementById('psiInputDir');
         body.apply_adjusted = !!(adj && adj.checked);
         body.recalc_mrp = !!(mrp && mrp.checked);
         body.lt_unit = lt ? lt.value : 'day';
@@ -458,7 +456,6 @@
         body.calendar_mode = cal && cal.value ? cal.value : undefined;
         body.carryover = cov && cov.value ? cov.value : undefined;
         body.carryover_split = csv && csv.value!=='' ? Number(csv.value) : undefined;
-        body.input_dir = idir && idir.value ? idir.value : 'samples/planning';
         const res = await fetch(`/plans/${ver}/psi/reconcile`, { method:'POST', headers:getHeaders(), body: JSON.stringify(body) });
         if (!res.ok){
           let msg = '';
@@ -694,7 +691,6 @@
             </select>
           </label>
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
-          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
           <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
           <label>lt_unit
@@ -712,7 +708,8 @@
       <summary>Integrated run (new plan version)</summary>
       <form method="post" action="/ui/plans/run">
         <div class="grid" style="align-items:end;">
-          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <input type="hidden" name="config_version_id" value="{{ config_version_id or '' }}">
+          <input type="hidden" name="base_scenario_id" value="{{ version.base_scenario_id or '' }}">
           <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
           <label>lt_unit
             <select name="lt_unit">
@@ -755,7 +752,8 @@
       </form>
       <form id="queue-run-form" class="grid-form gap-top-sm" onsubmit="return queueRunViaRunsApi(event)">
         <div class="grid" style="align-items:end;">
-          <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
+          <input type="hidden" name="config_version_id" value="{{ config_version_id or '' }}">
+          <input type="hidden" name="base_scenario_id" value="{{ version.base_scenario_id or '' }}">
           <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
           <label>lt_unit
             <select name="lt_unit">
@@ -787,17 +785,24 @@
           function val(name){ const v = fd.get(name); return (v===null||v==='')?undefined:String(v); }
           function valNum(name){ const v = val(name); return v===undefined?undefined:Number(v); }
           function valBool(name){ return fd.get(name) ? true : false; }
+          const configVersionId = {{ config_version_id if config_version_id is not none else 'null' }};
+          if (!configVersionId){
+            alert('config_version_id が未設定のPlanです。Plan & Runを実行するにはCanonical設定が必要です。');
+            return false;
+          }
           const body = {
             pipeline: 'integrated',
             async: true,
             options: {
-              input_dir: val('input_dir') || 'samples/planning',
               weeks: valNum('weeks')||4,
               lt_unit: val('lt_unit')||'day',
               cutover_date: val('cutover_date')||undefined,
               recon_window_days: valNum('recon_window_days'),
               anchor_policy: val('anchor_policy')||undefined,
-              apply_adjusted: valBool('apply_adjusted')
+              apply_adjusted: valBool('apply_adjusted'),
+              config_version_id: configVersionId,
+              base_scenario_id: {{ version.base_scenario_id if version.base_scenario_id is not none else 'null' }},
+              source_run_id: {{ created_from_run_id|tojson if created_from_run_id else 'null' }}
             }
           };
           const res = await fetch('/runs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -818,7 +823,6 @@
     <details>
       <summary>Plan &amp; Run (auto completion)</summary>
       <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" class="toolbar gap-top-sm">
-        <label>input_dir<input type="text" name="input_dir" value="samples/planning"></label>
         <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
         <label>lt_unit
           <select name="lt_unit">

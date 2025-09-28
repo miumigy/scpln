@@ -13,12 +13,11 @@ from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_
 
 from app.api import app
 from app import db
-from core.config import build_planning_inputs
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     load_canonical_config_from_db,
 )
-from app.jobs import _materialize_planning_inputs
+from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
 import subprocess
 import os
@@ -193,7 +192,6 @@ def _has_approve(req: Request) -> bool:
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     ts = int(time.time())
     version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
-    input_dir_param = _get_param(body, "input_dir") or "samples/planning"
     out_dir = Path(
         _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
     )
@@ -214,72 +212,41 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    input_dir = input_dir_param
     config_version_id = _get_param(body, "config_version_id")
     canonical_config = None
-    planning_bundle = None
     canonical_snapshot_path: Optional[Path] = None
     planning_inputs_path: Optional[Path] = None
 
-    if config_version_id not in (None, ""):
-        try:
-            config_version_id = int(config_version_id)
-        except Exception:
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "config_version_id must be integer"},
-            )
-        try:
-            canonical_config, validation = load_canonical_config_from_db(
-                config_version_id, validate=True
-            )
-        except CanonicalConfigNotFoundError as exc:
-            return JSONResponse(status_code=404, content={"detail": str(exc)})
-        if validation and validation.has_errors:
-            errors = [
-                {
-                    "code": issue.code,
-                    "message": issue.message,
-                    "context": issue.context,
-                }
-                for issue in validation.issues
-                if issue.severity == "error"
-            ]
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "detail": {
-                        "message": "canonical config validation failed",
-                        "errors": errors,
-                    }
-                },
-            )
-        planning_bundle = build_planning_inputs(canonical_config)
-        temp_input_dir = out_dir / "canonical_inputs"
-        _materialize_planning_inputs(planning_bundle, temp_input_dir)
-        input_dir = str(temp_input_dir)
-        canonical_snapshot_path = out_dir / "canonical_snapshot.json"
-        canonical_snapshot_path.write_text(
-            canonical_config.model_dump_json(indent=2), encoding="utf-8"
+    if config_version_id in (None, ""):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "config_version_id is required for integrated run"},
         )
-        planning_inputs_path = out_dir / "planning_inputs.json"
-        planning_inputs_path.write_text(
-            planning_bundle.aggregate_input.model_dump_json(indent=2),
-            encoding="utf-8",
+
+    try:
+        config_version_id = int(config_version_id)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "config_version_id must be integer"},
         )
-        if planning_bundle.period_cost:
-            (out_dir / "period_cost.json").write_text(
-                json.dumps(planning_bundle.period_cost, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        if planning_bundle.period_score:
-            (out_dir / "period_score.json").write_text(
-                json.dumps(planning_bundle.period_score, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-    else:
-        config_version_id = None
-        input_dir = input_dir_param
+    try:
+        (
+            _planning_bundle,
+            temp_input_dir,
+            artifact_paths,
+            canonical_config,
+        ) = prepare_canonical_inputs(
+            config_version_id, out_dir, write_artifacts=True
+        )
+    except RuntimeError as exc:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+    except CanonicalConfigNotFoundError as exc:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    input_dir = str(temp_input_dir)
+    canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
+    planning_inputs_path = artifact_paths.get("planning_inputs.json")
     # 1) aggregate
     _run_py(
         [
@@ -1113,6 +1080,10 @@ def post_plan_psi_reconcile(
 ):  # noqa: C901
     if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+    ver = db.get_plan_version(version_id)
+    config_version_id = None
+    if ver:
+        config_version_id = ver.get("config_version_id")
     # 合成: aggregate/sku_week にオーバレイを適用して一時出力 → reconcile_levels を実行
     agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
     det = db.get_plan_artifact(version_id, "sku_week.json") or {}
@@ -1166,7 +1137,23 @@ def post_plan_psi_reconcile(
     apply_adjusted = bool(body.get("apply_adjusted") or False)
     recalc_mrp = bool(body.get("recalc_mrp") or False)
     if apply_adjusted and anchor_policy and cutover_date:
-        input_dir = body.get("input_dir") or "samples/planning"
+        if config_version_id is None:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "plan does not have canonical config version"},
+            )
+        try:
+            (
+                _planning_bundle,
+                temp_input_dir,
+                _artifact_paths,
+                _canonical_config,
+            ) = prepare_canonical_inputs(
+                int(config_version_id), out_dir, write_artifacts=False
+            )
+        except RuntimeError as exc:
+            return JSONResponse(status_code=400, content={"detail": str(exc)})
+        input_dir = str(temp_input_dir)
         _run_py(
             [
                 "scripts/anchor_adjust.py",
@@ -1581,7 +1568,24 @@ def post_plan_reconcile(
     calendar_mode = body.get("calendar_mode")
     carryover = body.get("carryover")
     carryover_split = body.get("carryover_split")
-    input_dir = body.get("input_dir") or "samples/planning"
+    config_version_id = ver.get("config_version_id")
+    if config_version_id is None:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "plan does not have canonical config version"},
+        )
+    try:
+        (
+            _planning_bundle,
+            temp_input_dir,
+            _artifact_paths,
+            _canonical_config,
+        ) = prepare_canonical_inputs(
+            int(config_version_id), out_dir, write_artifacts=False
+        )
+    except RuntimeError as exc:
+        return JSONResponse(status_code=400, content={"detail": str(exc)})
+    input_dir = str(temp_input_dir)
 
     # before
     _run_py(

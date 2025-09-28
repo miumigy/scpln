@@ -30,7 +30,7 @@
       <tbody id="runs-tbody">
         {% for r in rows %}
         <tr>
-          <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" /></td>
+          <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" data-config-version-id="{{ r.config_version_id or '' }}" /></td>
           <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
           <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
           <td>{{ r.duration_ms }}</td>
@@ -43,7 +43,7 @@
           <td>{{ "%.2f"|format(r.profit_total or 0) }}</td>
           <td class="table-actions">
             <a role="button" href="/ui/runs/{{ r.run_id }}">Detail</a>
-            <button type="button" class="secondary create-plan" data-run-id="{{ r.run_id }}" data-scenario-id="{{ r.scenario_id or '' }}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
+            <button type="button" class="secondary create-plan" data-run-id="{{ r.run_id }}" data-scenario-id="{{ r.scenario_id or '' }}" data-config-version-id="{{ r.config_version_id or '' }}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
           </td>
         </tr>
         {% endfor %}
@@ -324,29 +324,18 @@
   }
 
   // Run → Plan conversion (quick action)
-  async function createPlan(runId, scenarioId){
+  async function createPlan(runId, scenarioId, configVersionAttr){
     try {
       const headers = getHeaders();
-      // Fetch config.json to reuse defaults when available
-      let cfg = null;
-      try {
-        const r = await fetch(`/runs/${runId}/config.json`, { headers });
-        if (r.ok) cfg = await r.json();
-      } catch(e) { cfg = null; }
+      const configVersionId = (configVersionAttr && configVersionAttr !== '') ? Number(configVersionAttr) : undefined;
+      if (!configVersionId){
+        alert('config_version_id が取得できません。Runの詳細にconfig_version_idが保存されているか確認してください。');
+        return;
+      }
       const payload = {
         base_scenario_id: (scenarioId && !isNaN(Number(scenarioId))) ? Number(scenarioId) : undefined,
         version_id: versionFromRun(runId),
-        weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
-        lt_unit: (cfg && cfg.lt_unit) || undefined,
-        cutover_date: (cfg && cfg.cutover_date) || undefined,
-        recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
-        anchor_policy: (cfg && cfg.anchor_policy) || undefined,
-        tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
-        tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
-        calendar_mode: (cfg && cfg.calendar_mode) || undefined,
-        carryover: (cfg && cfg.carryover) || undefined,
-        carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
-        apply_adjusted: (cfg && !!cfg.apply_adjusted) || false,
+        config_version_id: configVersionId,
         source_run_id: runId,
         note: `created from run ${runId}`
       };
@@ -358,25 +347,17 @@
     } catch(e) { console.error(e); alert('Plan creation failed.'); }
   }
   // Run → Plan conversion (silent bulk helper)
-  async function createPlanSilent(runId, scenarioId){
+  async function createPlanSilent(runId, scenarioId, configVersionAttr){
     try {
       const headers = getHeaders();
-      let cfg = null;
-      try { const r = await fetch(`/runs/${runId}/config.json`, { headers }); if (r.ok) cfg = await r.json(); } catch {}
+      const configVersionId = (configVersionAttr && configVersionAttr !== '') ? Number(configVersionAttr) : undefined;
+      if (!configVersionId){
+        return { ok: false, run_id: runId, sid: (scenarioId||''), error: 'config_version_id not available' };
+      }
       const payload = {
         base_scenario_id: (scenarioId && !isNaN(Number(scenarioId))) ? Number(scenarioId) : undefined,
         version_id: versionFromRun(runId),
-        weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
-        lt_unit: (cfg && cfg.lt_unit) || undefined,
-        cutover_date: (cfg && cfg.cutover_date) || undefined,
-        recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
-        anchor_policy: (cfg && cfg.anchor_policy) || undefined,
-        tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
-        tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
-        calendar_mode: (cfg && cfg.calendar_mode) || undefined,
-        carryover: (cfg && cfg.carryover) || undefined,
-        carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
-        apply_adjusted: (cfg && !!cfg.apply_adjusted) || false,
+        config_version_id: configVersionId,
         source_run_id: runId,
         note: `created from run ${runId}`
       };
@@ -397,7 +378,8 @@
     if (el && el.classList && el.classList.contains('create-plan')){
       const runId = el.getAttribute('data-run-id');
       const sid = el.getAttribute('data-scenario-id');
-      createPlan(runId, sid);
+      const cfgAttr = el.getAttribute('data-config-version-id');
+      createPlan(runId, sid, cfgAttr);
     }
   });
 
@@ -423,7 +405,8 @@
     for (const el of picks){
       const rid = el.value;
       const sid = el.getAttribute('data-sid');
-      const r = await createPlanSilent(rid, sid);
+      const cfgAttr = el.getAttribute('data-config-version-id');
+      const r = await createPlanSilent(rid, sid, cfgAttr);
       if (r && r.ok) {
         versions.push(r.version_id);
         const key = String(r.sid||'');
@@ -473,8 +456,8 @@
     for (const el of picks){
       const runId = el.value;
       const sid = el.getAttribute('data-sid');
-      let cfg = null;
-      try { const r = await fetch(`/runs/${runId}/config.json`, { headers }); if (r.ok) cfg = await r.json(); } catch {}
+      const cfgAttr = el.getAttribute('data-config-version-id');
+      const configVersionId = cfgAttr && cfgAttr !== '' ? Number(cfgAttr) : undefined;
       const body = {
         pipeline: 'integrated',
         async: true,
@@ -482,20 +465,14 @@
           version_id: versionFromRun(runId),
           base_scenario_id: (sid && !isNaN(Number(sid))) ? Number(sid) : undefined,
           source_run_id: runId,
-          input_dir: (cfg && cfg.input_dir) || 'samples/planning',
-          weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : 4,
-          lt_unit: (cfg && cfg.lt_unit) || 'day',
-          cutover_date: (cfg && cfg.cutover_date) || undefined,
-          recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
-          anchor_policy: (cfg && cfg.anchor_policy) || undefined,
-          tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
-          tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
-          calendar_mode: (cfg && cfg.calendar_mode) || undefined,
-          carryover: (cfg && cfg.carryover) || undefined,
-          carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
-          apply_adjusted: (cfg && !!cfg.apply_adjusted) || false
+          config_version_id: configVersionId
         }
       };
+      if (!body.options.config_version_id){
+        failures.push({ run_id: runId, error: 'config_version_id not available' });
+        ng++;
+        continue;
+      }
       try {
         const res = await fetch('/runs', { method:'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (res.ok) {

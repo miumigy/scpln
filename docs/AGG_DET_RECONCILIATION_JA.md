@@ -345,7 +345,7 @@ graph TD;
 ### パラメタ対応表（CLI/API/UI/Jobs）
 - 共通キー（計画一括実行 /plans/integrated/run の body）
   - `version_id`: 明示しない場合は自動採番（`v<epoch>-<id>`）。
-  - `input_dir`: 既定 `samples/planning`。
+  - CLI 実行時は `-I/--input-dir` で既存CSVを指定できるが、統合API/UIではCanonical設定から自動生成される。
   - `weeks`: 既定 4（1期間の週数ヒント）。
   - `round_mode`: 既定 `int`（allocate丸め）。
   - `lt_unit`: 既定 `day`（`mrp.py`）。

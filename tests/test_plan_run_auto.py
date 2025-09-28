@@ -15,7 +15,7 @@ def test_plan_run_auto_redirects_to_new_plan(db_setup, monkeypatch):
         "/plans/integrated/run",
         json={
             "version_id": base,
-            "input_dir": "samples/planning",
+            "config_version_id": 100,
             "weeks": 4,
             "round_mode": "int",
             "lt_unit": "day",
@@ -27,7 +27,6 @@ def test_plan_run_auto_redirects_to_new_plan(db_setup, monkeypatch):
     r2 = client.post(
         f"/ui/plans/{base}/plan_run_auto",
         data={
-            "input_dir": "samples/planning",
             "weeks": "4",
             "lt_unit": "day",
             "cutover_date": "2025-01-15",

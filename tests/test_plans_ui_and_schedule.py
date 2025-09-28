@@ -10,7 +10,7 @@ def _make_plan_with_artifacts(version_id: str) -> None:
         "/plans/integrated/run",
         json={
             "version_id": version_id,
-            "input_dir": "samples/planning",
+            "config_version_id": 100,
             "weeks": 4,
             "round_mode": "int",
             "lt_unit": "day",

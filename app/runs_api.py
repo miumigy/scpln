@@ -46,7 +46,6 @@ def post_runs(body: Dict[str, Any] = Body(...)):
 
     # 正規化
     options: Dict[str, Any] = {}
-    options["input_dir"] = _as_str(options_raw.get("input_dir") or "samples/planning")
     options["out_dir"] = options_raw.get("out_dir")
     options["weeks"] = _as_int(options_raw.get("weeks") or 4)
     options["round_mode"] = _as_str(options_raw.get("round_mode") or "int")
@@ -137,6 +136,11 @@ def post_runs(body: Dict[str, Any] = Body(...)):
 
     if pipeline not in ("integrated",):
         return JSONResponse(status_code=400, content={"detail": "unsupported pipeline"})
+    if options.get("config_version_id") is None:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "config_version_id is required for integrated pipeline"},
+        )
 
     if is_async:
         # ジョブ投入（/planning/run_job 相当）
