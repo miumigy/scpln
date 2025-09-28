@@ -51,6 +51,7 @@ class JobManager:
     def start(self):
         if self._threads:
             return
+        self._stop.clear()
         for i in range(self.workers):
             t = threading.Thread(
                 target=self._run_loop, name=f"job-worker-{i}", daemon=True
