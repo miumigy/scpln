@@ -44,7 +44,9 @@ def seed_test_data(db_path: str):
     try:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
-        res = cur.execute("SELECT id FROM canonical_config_versions WHERE id=100").fetchone()
+        res = cur.execute(
+            "SELECT id FROM canonical_config_versions WHERE id=100"
+        ).fetchone()
         if res:
             print("[INFO] Test data (config_version_id=100) already exists.")
             return
@@ -456,10 +458,15 @@ def main() -> int:
         )
         print("[INFO] Alembic migration completed.")
     except FileNotFoundError:
-        print("[WARN] 'alembic' command not found. Skipping migration.", file=sys.stderr)
+        print(
+            "[WARN] 'alembic' command not found. Skipping migration.", file=sys.stderr
+        )
     except subprocess.CalledProcessError as e:
         # 既に適用済みの場合も stderr にログが出ることがあるので WARN に留める
-        print(f"[WARN] Alembic migration may have failed (exit code {e.returncode}): {e.stderr}", file=sys.stderr)
+        print(
+            f"[WARN] Alembic migration may have failed (exit code {e.returncode}): {e.stderr}",
+            file=sys.stderr,
+        )
 
     # DBにテストデータを投入
     seed_test_data(str(db_path))

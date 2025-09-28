@@ -145,6 +145,7 @@ def ui_configs_list(request: Request):
         },
     )
 
+
 @app.get("/ui/configs/canonical")
 def ui_canonical_configs_redirect():
     return RedirectResponse(url="/ui/configs", status_code=307)
