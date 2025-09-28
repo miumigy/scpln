@@ -27,6 +27,9 @@ def _payload():
 def test_jobs_simulation_end_to_end(db_setup):
     from app.jobs import JOB_MANAGER
 
+    # ワーカースレッドが古いDBコンテキストで起動している可能性があるため、
+    # 一旦停止させてから、テスト用のDBパスを再設定する
+    JOB_MANAGER.stop()
     JOB_MANAGER.db_path = db_setup
     client = TestClient(app)
     # enqueue
