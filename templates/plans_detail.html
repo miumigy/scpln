@@ -904,15 +904,14 @@
       <div class="gap-top-sm">
         <strong>Runs created from this plan</strong>
         <table>
-          <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th><th>link</th></tr></thead>
+          <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th></tr></thead>
           <tbody>
             {% for r in plan_runs %}
             <tr>
-              <td class="mono">{{ r.run_id }}</td>
+              <td class="mono"><a href="/ui/runs/{{ r.run_id }}" target="_blank">{{ r.run_id }}</a></td>
               <td class="mono ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at_str or r.started_at or '' }}</td>
               <td class="mono">{{ r.fill_rate if r.fill_rate is not none else '' }}</td>
               <td class="mono">{{ r.profit_total if r.profit_total is not none else '' }}</td>
-              <td><a class="secondary" href="/ui/runs/{{ r.run_id }}" target="_blank">open</a></td>
             </tr>
             {% endfor %}
           </tbody>
