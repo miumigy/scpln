@@ -25,6 +25,9 @@ def _payload():
 
 
 def test_jobs_simulation_end_to_end(db_setup):
+    from app.jobs import JOB_MANAGER
+
+    JOB_MANAGER.db_path = db_setup
     client = TestClient(app)
     # enqueue
     r = client.post("/jobs/simulation", json=_payload().model_dump())
