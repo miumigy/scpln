@@ -19,7 +19,6 @@ def ui_scenarios(request: Request):
         {
             "rows": rows,
             "subtitle": "Scenarios",
-            "legacy_run_locked": True,
             "doc_link": "/docs/run_registry_operations.md",
         },
     )
