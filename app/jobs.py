@@ -132,18 +132,10 @@ class JobManager:
             scenario_id = payload.pop("scenario_id", None)
             cfg_json = None
             try:
-                if config_id is not None:
-                    cre = db.get_config(int(config_id))
-                    if cre and cre.get("json_text") is not None:
-                        cfg_json = json.loads(cre.get("json_text"))
-            except Exception:
-                cfg_json = None
-            # fallback: store input payload for later matching if explicit config is not provided
-            try:
-                if cfg_json is None and payload:
+                if payload:
                     cfg_json = payload
             except Exception:
-                pass
+                cfg_json = None
             # parse model
             sim_input = SimulationInput(**payload)
             sim = SupplyChainSimulator(sim_input)

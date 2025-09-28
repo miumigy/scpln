@@ -1,5 +1,4 @@
 from typing import List, Dict, Any
-import json
 from fastapi import Body, HTTPException, Query, Request
 import os
 from app.api import app
@@ -45,36 +44,6 @@ def _pick(summary: Dict[str, Any], keys: List[str] | None = None) -> Dict[str, f
         except Exception:
             pass
     return out
-
-
-def _normalize_json(o: Any) -> str:
-    try:
-        if isinstance(o, str):
-            return json.dumps(json.loads(o), ensure_ascii=False, sort_keys=True)
-        return json.dumps(o, ensure_ascii=False, sort_keys=True)
-    except Exception:
-        return ""
-
-
-def _resolve_config_id_from_json(cfg_json: Any) -> int | None:
-    if not cfg_json:
-        return None
-    target = _normalize_json(cfg_json)
-    if not target:
-        return None
-    try:
-        for r in db.list_configs(limit=500) or []:
-            rid = r.get("id")
-            if not rid:
-                continue
-            rec = db.get_config(int(rid))
-            if not rec or rec.get("json_text") is None:
-                continue
-            if _normalize_json(rec.get("json_text")) == target:
-                return int(rid)
-    except Exception:
-        return None
-    return None
 
 
 @app.get("/runs")
@@ -199,12 +168,6 @@ def list_runs(
         limit = 50
     for rid in ids:
         rec = REGISTRY.get(rid) or {}
-        cfg_id = rec.get("config_id")
-        if cfg_id is None and rec.get("config_json") is not None:
-            try:
-                cfg_id = _resolve_config_id_from_json(rec.get("config_json"))
-            except Exception:
-                cfg_id = None
         out.append(
             {
                 "run_id": rec.get("run_id"),
@@ -212,7 +175,7 @@ def list_runs(
                 "duration_ms": rec.get("duration_ms"),
                 "schema_version": rec.get("schema_version"),
                 "summary": rec.get("summary", {}),
-                "config_id": cfg_id,
+                "config_id": rec.get("config_id"),
                 "config_version_id": rec.get("config_version_id"),
                 "scenario_id": rec.get("scenario_id"),
                 "plan_version_id": rec.get("plan_version_id"),
@@ -241,15 +204,6 @@ def list_runs(
             detail=False,
         )
         # backfill config_id using config_json when missing (DB backend lightweight mode includes config_json)
-        try:
-            runs_list = resp.get("runs", []) or []
-            for r in runs_list:
-                if r.get("config_id") is None and r.get("config_json") is not None:
-                    rid2 = _resolve_config_id_from_json(r.get("config_json"))
-                    if rid2 is not None:
-                        r["config_id"] = rid2
-        except Exception:
-            pass
         runs_list = resp.get("runs") or []
         if config_version_id is not None:
             runs_list = [
@@ -269,12 +223,6 @@ def list_runs(
         rows2: List[Dict[str, Any]] = []
         for rid in ids2:
             rec = REGISTRY.get(rid) or {}
-            cfg_id2 = rec.get("config_id")
-            if cfg_id2 is None and rec.get("config_json") is not None:
-                try:
-                    cfg_id2 = _resolve_config_id_from_json(rec.get("config_json"))
-                except Exception:
-                    cfg_id2 = None
             rows2.append(
                 {
                     "run_id": rec.get("run_id"),
@@ -282,7 +230,7 @@ def list_runs(
                     "duration_ms": rec.get("duration_ms"),
                     "schema_version": rec.get("schema_version"),
                     "summary": rec.get("summary", {}),
-                    "config_id": cfg_id2,
+                    "config_id": rec.get("config_id"),
                     "config_version_id": rec.get("config_version_id"),
                     "scenario_id": rec.get("scenario_id"),
                     "plan_version_id": rec.get("plan_version_id"),

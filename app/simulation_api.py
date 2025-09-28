@@ -3,8 +3,6 @@ from pydantic import BaseModel, field_validator
 from uuid import uuid4
 import logging
 from fastapi import Query, Request, HTTPException, APIRouter
-import json
-from app import db
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import time
@@ -160,17 +158,10 @@ def post_simulation(
             cfg_json = None
     else:
         try:
-            if config_id is not None:
-                rec = db.get_config(int(config_id))
-                if rec and rec.get("json_text") is not None:
-                    cfg_json = json.loads(rec.get("json_text"))
-        except Exception:
-            cfg_json = None
-        try:
-            if cfg_json is None and payload is not None:
+            if payload is not None:
                 cfg_json = payload.model_dump()
         except Exception:
-            pass
+            cfg_json = None
 
     REGISTRY, _BACKEND, _DB_MAX_ROWS = _get_registry()
     REGISTRY.put(

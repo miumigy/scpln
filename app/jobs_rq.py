@@ -47,18 +47,10 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
         config_id = payload.pop("config_id", None)
         cfg_json = None
         try:
-            if config_id is not None:
-                cre = db.get_config(int(config_id))
-                if cre and cre.get("json_text") is not None:
-                    cfg_json = json.loads(cre.get("json_text"))
-        except Exception:
-            cfg_json = None
-        # fallback: store payload for later matching when explicit config not provided
-        try:
-            if cfg_json is None and payload:
+            if payload:
                 cfg_json = payload
         except Exception:
-            pass
+            cfg_json = None
         sim_input = SimulationInput(**payload)
         sim = SupplyChainSimulator(sim_input)
         results, daily_pl = sim.run()

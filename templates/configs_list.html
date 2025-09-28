@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block page_header %}
   <h2>Configuration Management</h2>
-  <p>Review canonical configuration versions and maintain existing JSON configs in one place.</p>
+  <p>PSI と Planning の統合フローで共有する Canonical 設定バージョンを一覧します。</p>
 {% endblock %}
 {% block content %}
 <section class="page-section">
@@ -79,51 +79,6 @@
   </div>
   {% else %}
     <p>No canonical configuration has been registered yet. Import one to get started.</p>
-  {% endif %}
-</section>
-
-<section class="page-section">
-  <div class="section-header">
-    <div>
-      <h3>Legacy Configurations (configs table)</h3>
-      <p>JSON configs maintained for older workflows. Scheduled for deprecation.</p>
-    </div>
-    <div class="toolbar">
-      <a role="button" href="/ui/configs/new">Create JSON Configuration</a>
-    </div>
-  </div>
-  {% if legacy_rows %}
-  <div class="table-wrapper">
-    <table role="grid">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Updated (JST)</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in legacy_rows %}
-        <tr>
-          <td class="mono">{{ r.id }}</td>
-          <td class="mono truncate">{{ r.name }}</td>
-          <td class="mono">{{ r.updated_at_str or '-' }}</td>
-          <td>
-            <div class="table-actions">
-              <a role="button" href="/ui/configs/{{ r.id }}/edit">Edit</a>
-              <form method="post" action="/ui/configs/{{ r.id }}/delete" onsubmit="return confirm('Delete this configuration?');">
-                <button type="submit" class="secondary" aria-label="Delete configuration">Delete</button>
-              </form>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-    <p>No legacy configuration found.</p>
   {% endif %}
 </section>
 {% endblock %}

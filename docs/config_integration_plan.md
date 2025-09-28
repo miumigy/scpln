@@ -26,7 +26,7 @@
 
 | コンポーネント | ソース | 備考 |
 | --- | --- | --- |
-| PSI入力 | `static/default_input.json`, `/configs` API | JSONでノード/リンク/BOM/需要を定義し、`SimulationInput` に直接マッピング。
+| PSI入力 | `canonical_config_versions` (DB), `static/default_input.json`（レガシー参考） | Canonical設定スナップショットからPSI入力を生成（旧`/configs` APIは2025-10廃止）。
 | 計画入力 | `samples/planning/*.csv` | ファミリ需要・能力・ミックス等をCSVで保持、`scripts/*.py` が逐次読込。
 | 階層マスタ | `configs/product_hierarchy.json`, `configs/location_hierarchy.json` | `scripts/seed_hierarchy.py` でDBへ投入、別管理。
 | Plan成果物 | `plan_artifacts` テーブル | `aggregate.json`, `sku_week.json` など派生物のみ保持。設定スナップショットは未保存。
@@ -165,6 +165,7 @@
 
 ## 10. 更新履歴
 
+- 2025-10-06: Legacy `/configs` UI/API を廃止し、Canonical設定のみを正式運用に統合。
 - 2025-10-05: 恒久運用サマリと関連ドキュメントリンクを追加。
 - 2025-09-26: PH6-T6.1/T6.2を完了。Plan同期/ジョブ実行でRunRegistryへ`scenario_id`付きRunを記録し、Plan UIにBase Scenario選択・表示を追加。
 - 2025-09-25: PH6タスクを追加。Plan経由RunでRunRegistryを統合し、レガシーシナリオRunを段階廃止するロードマップを策定。

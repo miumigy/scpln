@@ -4,7 +4,6 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 import logging
-import json
 from starlette.middleware.cors import CORSMiddleware
 
 # 詳細なログ設定
@@ -58,9 +57,7 @@ if static_path.exists():
 
 @app.on_event("startup")
 async def seed_defaults_if_empty() -> None:
-    """Render 無料版などでDBが空のとき、最小のシナリオ/設定を投入する。
-    - シナリオ: 'default'（タグ: seed）
-    - 設定: /static/default_input.json を 'default_input' 名でconfigsへ登録
+    """Render 無料版などでDBが空のとき、最小のシナリオを投入する。
     既に1件以上ある場合は何もしない（冪等）。
     """
     try:
@@ -83,26 +80,7 @@ async def seed_defaults_if_empty() -> None:
         except Exception as e:
             logger.warning(f"seed: scenario seed skipped: {e}")
 
-        # 2) 設定のシード（/static/default_input.json）
-        try:
-            cfgs = db.list_configs(limit=1)
-            if not cfgs:
-                p = static_path / "default_input.json"
-                if p.exists():
-                    txt = p.read_text(encoding="utf-8")
-                    # JSON整形の妥当性チェック（失敗してもそのまま保存可）
-                    try:
-                        _ = json.loads(txt)
-                    except Exception:
-                        pass
-                    cid = db.create_config(name="default_input", json_text=txt)
-                    logger.info(f"seed: created default config id={cid}")
-                else:
-                    logger.warning(
-                        "seed: static/default_input.json not found; skip config seed"
-                    )
-        except Exception as e:
-            logger.warning(f"seed: config seed skipped: {e}")
+        # 2) 旧configsテーブルは廃止済みのため、追加シードは行わない
     except Exception as e:
         logger.warning(f"seed: startup seeding failed: {e}")
 

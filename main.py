@@ -150,17 +150,10 @@ if not globals().get("_SIM_LOADED", False):
         except Exception:
             pass
         try:
-            if config_id is not None:
-                rec = _db.get_config(int(config_id))
-                if rec and rec.get("json_text") is not None:
-                    cfg_json = _json.loads(rec.get("json_text"))
-        except Exception:
-            cfg_json = None
-        try:
-            if cfg_json is None and payload is not None:
+            if payload is not None:
                 cfg_json = payload.model_dump()
         except Exception:
-            pass
+            cfg_json = None
         _REGISTRY.put(
             rid,
             {

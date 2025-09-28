@@ -11,13 +11,8 @@ from pydantic import ValidationError
 
 from app.api import app
 from app.db import (
-    create_config,
-    delete_config,
-    get_config,
     get_plan_artifact,
-    list_configs,
     list_plan_versions,
-    update_config,
 )
 from app.utils import ms_to_jst_str
 from core.config import (
@@ -120,11 +115,6 @@ def _render_import_template(
 
 @app.get("/ui/configs", response_class=HTMLResponse)
 def ui_configs_list(request: Request):
-    legacy_rows = list_configs()
-    for row in legacy_rows:
-        row["updated_at_str"] = _format_time(row.get("updated_at"))
-        row["created_at_str"] = _format_time(row.get("created_at"))
-
     canonical_summaries: List[CanonicalVersionSummary] = (
         list_canonical_version_summaries(limit=30)
     )
@@ -150,59 +140,10 @@ def ui_configs_list(request: Request):
         "configs_list.html",
         {
             "subtitle": "Configuration Management",
-            "legacy_rows": legacy_rows,
             "canonical_rows": canonical_rows,
             "diff_options": diff_options,
         },
     )
-
-
-@app.get("/ui/configs/new", response_class=HTMLResponse)
-def ui_configs_new(request: Request):
-    return templates.TemplateResponse(
-        request,
-        "configs_edit.html",
-        {
-            "mode": "create",
-            "rec": {"name": "", "json_text": ""},
-            "subtitle": "Legacy Configuration (JSON)",
-        },
-    )
-
-
-@app.post("/ui/configs/new")
-def ui_configs_create(name: str = Form(...), json_text: str = Form(...)):
-    create_config(name, json_text)
-    return RedirectResponse(url="/ui/configs", status_code=303)
-
-
-@app.get("/ui/configs/{cfg_id}/edit", response_class=HTMLResponse)
-def ui_configs_edit(request: Request, cfg_id: int):
-    rec = get_config(cfg_id)
-    if not rec:
-        raise HTTPException(status_code=404, detail="config not found")
-    return templates.TemplateResponse(
-        request,
-        "configs_edit.html",
-        {"mode": "edit", "rec": rec, "subtitle": "Legacy Configuration (JSON)"},
-    )
-
-
-@app.post("/ui/configs/{cfg_id}/edit")
-def ui_configs_update(cfg_id: int, name: str = Form(...), json_text: str = Form(...)):
-    if not get_config(cfg_id):
-        raise HTTPException(status_code=404, detail="config not found")
-    update_config(cfg_id, name, json_text)
-    return RedirectResponse(url="/ui/configs", status_code=303)
-
-
-@app.post("/ui/configs/{cfg_id}/delete")
-def ui_configs_delete(cfg_id: int):
-    if not get_config(cfg_id):
-        raise HTTPException(status_code=404, detail="config not found")
-    delete_config(cfg_id)
-    return RedirectResponse(url="/ui/configs", status_code=303)
-
 
 @app.get("/ui/configs/canonical")
 def ui_canonical_configs_redirect():
