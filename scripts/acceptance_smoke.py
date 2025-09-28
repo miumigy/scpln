@@ -86,12 +86,74 @@ def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
         return None
 
 
+def seed_test_data(db_path: str):
+    """テスト用の canonical config (id=100) をDBに直接挿入する。"""
+    import sqlite3
+    import json
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        # 既に存在する場合は何もしない
+        res = cur.execute("SELECT id FROM canonical_config_versions WHERE id=100").fetchone()
+        if res:
+            return
+
+        meta_attributes = {
+            "planning_horizon": 90,
+            "sources": {"psi_input": "seed.json"},
+        }
+        cur.execute(
+            """
+            INSERT INTO canonical_config_versions(
+                id, name, schema_version, version_tag, status, description,
+                source_config_id, metadata_json, created_at, updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                100,
+                "test-config",
+                "canonical-1.0",
+                "v-test",
+                "draft",
+                "acceptance smoke seed",
+                None,
+                json.dumps(meta_attributes, ensure_ascii=False),
+                1700000000000,
+                1700000000000,
+            ),
+        )
+        # 簡易的に item, node, demand のみ追加
+        cur.execute(
+            "INSERT INTO canonical_items (config_version_id, item_code) VALUES (?, ?)",
+            (100, "FG1"),
+        )
+        cur.execute(
+            "INSERT INTO canonical_nodes (config_version_id, node_code, node_type) VALUES (?, ?, ?)",
+            (100, "STORE1", "store"),
+        )
+        cur.execute(
+            "INSERT INTO canonical_demands (config_version_id, node_code, item_code, bucket, mean) VALUES (?, ?, ?, ?, ?)",
+            (100, "STORE1", "FG1", "2025-W01", 10),
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"[WARN] Failed to seed test data: {e}", file=sys.stderr)
+    finally:
+        if conn:
+            conn.close()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base-url", default="http://localhost:8000")
+    ap.add_argument("--db-path", default="scpln.db")
     args = ap.parse_args()
     base = args.base_url.rstrip("/")
     s = requests.Session()
+
+    # DBにテストデータを投入
+    seed_test_data(args.db_path)
 
     failures: list[str] = []
 
