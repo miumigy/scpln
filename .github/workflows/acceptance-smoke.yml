@@ -27,6 +27,7 @@ jobs:
 
       - name: Launch app (background)
         env:
+          SCPLN_DB: scpln.db
           REGISTRY_BACKEND: db
           RUNS_DB_MAX_ROWS: '500'
           AUTH_MODE: 'none'
@@ -45,6 +46,8 @@ jobs:
           done
 
       - name: Run acceptance smoke
+        env:
+          SCPLN_DB: scpln.db
         run: |
           python scripts/acceptance_smoke.py --base-url http://127.0.0.1:8000
 
