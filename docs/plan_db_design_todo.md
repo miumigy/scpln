@@ -14,10 +14,10 @@
 | P1 | T1-2 | plan_overrides / plan_kpis / plan_jobs スキーマ確定＋ER図 | 設計担当 | 2025-10-17 | 完了 | 列定義・インデックス方針を確定、イベント履歴はplan_override_eventsで管理 |
 | P1 | T1-3 | Alembic DDLドラフトとレビュー | 開発 | 2025-10-18 | 完了 | DDL詳細/検証手順を策定、アップグレード・ダウングレードの流れを整理 |
 | P1 | T1-4 | mypy / 型定義更新、core/config連携確認 | 開発 | 2025-10-18 | 完了 | PlanRepository I/F・TypedDict/Protocol方針・mypy/CI案を整理 |
-| P2 | T2-1 | PlanRepository 実装（インサート/クエリAPI） | 開発 | 2025-10-25 | 実装メモ有 | トランザクション/バルク挿入/エラー処理案を docs/plan_db_persistence_plan.md に記載 |
-| P2 | T2-2 | scripts/plan_*.py のPlanRepository対応リファクタ | 開発 | 2025-10-28 | 実装メモ有 | storage切替（db/files/both）と共通I/Oモジュール化方針を整理 |
-| P2 | T2-3 | app/jobs / app/plans_api からPlanRepositoryを呼ぶよう改修 | 開発 | 2025-10-30 | 実装メモ有 | storage_mode切替とPlanRepository呼び出しフローを整理 |
-| P2 | T2-4 | PlanRepository向けユニットテスト追加 | QA/開発 | 2025-10-30 | 実装メモ有 | CRUD/再実行/ロールバック/大量挿入テスト案を整理 |
+| P2 | T2-1 | PlanRepository 実装（インサート/クエリAPI） | 開発 | 2025-10-25 | 実装メモ有 | 第1スプリントで着手。ブランチ `feature/plan-repo` で段階的に実装 |
+| P2 | T2-2 | scripts/plan_*.py のPlanRepository対応リファクタ | 開発 | 2025-10-28 | 実装メモ有 | `feature/plan-repo` ブランチでサブタスク化（aggregate→mrp→reconcileの順） |
+| P2 | T2-3 | app/jobs / app/plans_api からPlanRepositoryを呼ぶよう改修 | 開発 | 2025-10-30 | 実装メモ有 | API/ジョブを段階的に切替。互換期間は`legacy`モード併用 |
+| P2 | T2-4 | PlanRepository向けユニットテスト追加 | QA/開発 | 2025-10-30 | 実装メモ有 | 同ブランチで `tests/test_plan_repository.py` を実装しCIへ追加 |
 | P3 | T3-1 | /plans APIレスポンス刷新（ページング/サマリ） | フロント/バック | 2025-11-04 | 実装メモ有 | includeパラメータとPlanRepository要約を追加予定 |
 | P3 | T3-2 | /ui/plans UIをplan_series/plan_overrides読むよう更新 | フロント | 2025-11-06 | 実装メモ有 | Overview/DetailタブをPlanRepositoryデータで描画する方針を整理 |
 | P3 | T3-3 | RunRegistryリンク拡張（plan_job_id連携） | 開発 | 2025-11-06 | 実装メモ有 | run詳細にplan_job_id/Planサマリを表示し双方向リンクを追加予定 |
