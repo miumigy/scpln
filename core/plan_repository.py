@@ -12,7 +12,13 @@ import sqlite3
 import time
 from datetime import datetime, timedelta
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, NotRequired, TypedDict
+import sys
+from typing import Any, TypedDict
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
 
 
 

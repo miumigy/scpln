@@ -1078,6 +1078,7 @@ def patch_plan_psi(
     distribute = body.get("distribute") or {}
     weight_mode = str(distribute.get("weight_mode") or "current")
     round_map = distribute.get("round") or {}
+    note = body.get("note") or body.get("notes") or body.get("reason")
 
     def _round_value(val: float, cfg: Dict[str, Any] | None) -> float:
         if not cfg:

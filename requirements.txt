@@ -14,3 +14,4 @@ opentelemetry-instrumentation-fastapi>=0.48b0
 opentelemetry-instrumentation-requests>=0.48b0
 opentelemetry-exporter-otlp>=1.27
 requests>=2.31
+typing_extensions>=4.0
