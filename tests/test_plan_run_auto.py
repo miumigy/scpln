@@ -19,6 +19,7 @@ def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):
             "weeks": 4,
             "round_mode": "int",
             "lt_unit": "day",
+            "lightweight": True,
         },
         timeout=120,
     )
@@ -33,6 +34,7 @@ def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):
             "anchor_policy": "blend",
             "tol_abs": "1e-6",
             "tol_rel": "1e-6",
+            "lightweight": "1",
         },
     )
     # TestClientはデフォルトでリダイレクトを追跡するため、最終的に詳細画面が200で開ける

@@ -33,6 +33,7 @@ def plan_client(seed_canonical_data, monkeypatch):
                 "cutover_date": "2025-01-15",
                 "anchor_policy": "blend",
                 "apply_adjusted": False,
+                "lightweight": True,
             },
             timeout=120,
         )

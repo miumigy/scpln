@@ -44,6 +44,21 @@ def post_runs(body: Dict[str, Any] = Body(...)):
             return default
         return str(x)
 
+    def _as_bool(x, default=False):
+        if x is None:
+            return default
+        if isinstance(x, bool):
+            return x
+        if isinstance(x, (int, float)):
+            return bool(x)
+        if isinstance(x, str):
+            s = x.strip().lower()
+            if s in ("1", "true", "yes", "on"):
+                return True
+            if s in ("0", "false", "no", "off"):
+                return False
+        return default
+
     # 正規化
     options: Dict[str, Any] = {}
     options["out_dir"] = options_raw.get("out_dir")
@@ -60,7 +75,8 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     options["max_adjust_ratio"] = _as_float(options_raw.get("max_adjust_ratio"))
     options["carryover"] = options_raw.get("carryover")
     options["carryover_split"] = _as_float(options_raw.get("carryover_split"))
-    options["apply_adjusted"] = bool(options_raw.get("apply_adjusted") or False)
+    options["apply_adjusted"] = _as_bool(options_raw.get("apply_adjusted"), False)
+    options["lightweight"] = _as_bool(options_raw.get("lightweight"), False)
     options["tol_abs"] = _as_float(options_raw.get("tol_abs"))
     options["tol_rel"] = _as_float(options_raw.get("tol_rel"))
     options["blend_split_next"] = _as_float(options_raw.get("blend_split_next"))

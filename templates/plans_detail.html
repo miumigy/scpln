@@ -147,6 +147,9 @@
     <div id="tab-psi" class="tab-pane" style="display:none;">
     <details open>
       <summary>PSI (view & edit)</summary>
+      {% if plan_state %}
+      <p class="mono">PSI state: {{ plan_state.display_status or plan_state.status or plan_state.state }}{% if plan_state.actor %} | actor={{ plan_state.actor }}{% endif %}{% if plan_state.display_time %} | at {{ plan_state.display_time }}{% endif %}{% if plan_state.notes %} | note={{ plan_state.notes }}{% endif %}</p>
+      {% endif %}
       <div class="tab-toolbar">
         <label>Level
           <select id="psiLevel">
@@ -275,7 +278,36 @@
           <button id="psiAuditReload" type="button">Reload</button>
         </div>
         <div class="tab-scroll" style="max-height:320px;">
-          <table id="tblPSIAudit" style="min-width:960px;"></table>
+          <table id="tblPSIAudit" style="min-width:960px;">
+            <thead>
+              <tr>
+                <th>time</th>
+                <th>event</th>
+                <th>level</th>
+                <th>key</th>
+                <th>actor</th>
+                <th>notes</th>
+                <th>details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if audit_events %}
+                {% for r in audit_events %}
+                  <tr>
+                    <td class="mono">{{ r.display_time or '' }}</td>
+                    <td class="mono">{{ r.display_event or r.event_type or '' }}</td>
+                    <td class="mono">{{ r.level or '' }}</td>
+                    <td class="mono">{{ r.key_display or r.key_hash or r.key or '' }}</td>
+                    <td class="mono">{{ r.actor or '' }}</td>
+                    <td>{{ r.notes or '' }}</td>
+                    <td class="mono">{{ r.payload_preview or '' }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr><td colspan="7">No audit events yet.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
         </div>
       </details>
       <details>
@@ -516,18 +548,41 @@
         const q = (document.getElementById('psiAuditQ')?.value||'').trim();
         const limit = Number(document.getElementById('psiAuditLimit')?.value||'200');
         const url = new URL(`/plans/${ver}/psi/audit`, location.origin);
-        if (level) url.searchParams.set('level', level); if (q) url.searchParams.set('q', q); url.searchParams.set('limit', String(limit));
-        const res = await fetch(url.toString()); if (!res.ok) return;
+        if (level) url.searchParams.set('level', level);
+        if (q) url.searchParams.set('q', q);
+        url.searchParams.set('limit', String(limit));
+        const res = await fetch(url.toString());
+        if (!res.ok) return;
         const js = await res.json();
-        const rows = js.events||[];
-        const tblA = document.getElementById('tblPSIAudit'); if(!tblA) return;
-        const head = '<thead><tr><th>ts</th><th>level</th><th>type</th><th>key(s)</th><th>fields/lock</th></tr></thead>';
+        const rows = Array.isArray(js.events) ? js.events : [];
+        const tblA = document.getElementById('tblPSIAudit');
+        if (!tblA) return;
+        const esc = (val)=>{
+          if (val === null || val === undefined) return '';
+          const map = {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"};
+          return String(val).replace(/[&<>"']/g, ch => map[ch] || ch);
+        };
+        const head = '<thead><tr><th>time</th><th>event</th><th>level</th><th>key</th><th>actor</th><th>notes</th><th>details</th></tr></thead>';
+        if (!rows.length){
+          tblA.innerHTML = head + '<tbody><tr><td colspan="7">No audit events yet.</td></tr></tbody>';
+          return;
+        }
         const body = rows.map(r=>{
-          const ts = r.ts? new Date(Number(r.ts)).toISOString(): '';
-          const typ = r.lock ? 'lock' : 'edit';
-          const keys = r.keys? JSON.stringify(r.keys): JSON.stringify(r.key);
-          const meta = r.lock? r.lock : JSON.stringify(r.fields);
-          return `<tr><td class="mono">${ts}</td><td class="mono">${r.level||''}</td><td class="mono">${typ}</td><td class="mono">${keys||''}</td><td class="mono">${meta||''}</td></tr>`;
+          const ts = r.display_time || (r.timestamp ? new Date(Number(r.timestamp)).toISOString() : '');
+          const evt = r.display_event || r.event_type || '';
+          const levelVal = r.level || '';
+          const key = r.key_display || r.key_hash || r.key || '';
+          const actor = r.actor || '';
+          const notes = r.notes || '';
+          let detail = r.payload_preview || '';
+          if (!detail && r.payload){
+            try {
+              detail = JSON.stringify(r.payload);
+            } catch (e) {
+              detail = String(r.payload);
+            }
+          }
+          return `<tr><td class="mono">${esc(ts)}</td><td class="mono">${esc(evt)}</td><td class="mono">${esc(levelVal)}</td><td class="mono">${esc(key)}</td><td class="mono">${esc(actor)}</td><td>${esc(notes)}</td><td class="mono">${esc(detail)}</td></tr>`;
         }).join('');
         tblA.innerHTML = head + '<tbody>'+body+'</tbody>';
       }
@@ -889,7 +944,11 @@
             <tr><td>violations(after)</td><td class="mono">{{ recon_adj.summary.tol_violations }}</td></tr>
             <tr><td>max|Δ| (after)</td><td class="mono">({{ recon_adj.summary.max_abs_delta.demand }}, {{ recon_adj.summary.max_abs_delta.supply }}, {{ recon_adj.summary.max_abs_delta.backlog }})</td></tr>
           {% endif %}
-          <tr><td>state</td><td class="mono">{{ plan_state.state if plan_state and plan_state.state else (version.status or 'draft') }}{% if plan_state and plan_state.invalid and plan_state.invalid|length>0 %} | invalid: {{ plan_state.invalid|join(', ') }}{% endif %}</td></tr>
+          {% if plan_state %}
+          <tr><td>psi_state</td><td class="mono">{{ plan_state.display_status or plan_state.status or plan_state.state or (version.status or 'draft') }}{% if plan_state.actor %} | actor={{ plan_state.actor }}{% endif %}{% if plan_state.display_time %} | at {{ plan_state.display_time }}{% endif %}{% if plan_state.notes %} | note={{ plan_state.notes }}{% endif %}{% if plan_state.invalid and plan_state.invalid|length>0 %} | invalid: {{ plan_state.invalid|join(', ') }}{% endif %}{% if plan_state.source %} | source={{ plan_state.source }}{% endif %}</td></tr>
+          {% else %}
+          <tr><td>psi_state</td><td class="mono">{{ version.status or 'draft' }}</td></tr>
+          {% endif %}
         </tbody>
       </table>
       {% if related_plans and related_plans|length > 0 %}
@@ -1037,52 +1096,31 @@
       <h4>MVP: KPI preview</h4>
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         <article>
-          <header>Total capacity</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.capacity_total or 0) }}</strong>
-        </article>
-        <article>
-          <header>Total load (adjusted)</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.adjusted_total or 0) }}</strong>
-        </article>
-        <article>
           <header>Capacity utilization</header>
-          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.util_pct)) if kpi_preview.util_pct is not none else '-' }}</strong>
+          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['capacity_util']['value'] * 100)) if 'capacity_util' in kpi_preview else '-' }}</strong>
         </article>
         <article>
-          <header>Total spill_in</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_in_total or 0) }}</strong>
+          <header>Service level</header>
+          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['service_level']['value'] * 100)) if 'service_level' in kpi_preview else '-' }}</strong>
         </article>
         <article>
-          <header>Total spill_out</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.spill_out_total or 0) }}</strong>
+          <header>Backlog days</header>
+          <strong class="mono">{{ '%.1f'|format(kpi_preview['backlog_days']['value']) if 'backlog_days' in kpi_preview else '-' }}</strong>
         </article>
         <article>
-          <header>Violations before / after</header>
-          <strong class="mono">{{ kpi_preview.viol_before or 0 }} → {{ kpi_preview.viol_after if kpi_preview.viol_after is not none else '-' }}</strong>
+          <header>Inventory turns</header>
+          <strong class="mono">{{ '%.1f'|format(kpi_preview['inventory_turns']['value']) if 'inventory_turns' in kpi_preview else '-' }}</strong>
         </article>
         <article>
-          <header>Total demand (DET)</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_demand_total or 0) }}</strong>
+          <header>Cost variance</header>
+          <strong class="mono">{{ '%.2f'|format(kpi_preview['cost_variance']['value']) if 'cost_variance' in kpi_preview else '-' }}</strong>
         </article>
         <article>
-          <header>Total supply (DET)</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_supply_total or 0) }}</strong>
-        </article>
-        <article>
-          <header>Service level (DET, est.)</header>
-          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview.sl_pct)) if kpi_preview.sl_pct is not none else '-' }}</strong>
-        </article>
-        <article>
-          <header>Total backlog (DET)</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.det_backlog_total or 0) }}</strong>
-        </article>
-        <article>
-          <header>Total inventory (MRP opening)</header>
-          <strong class="mono">{{ '%.0f'|format(kpi_preview.inv_initial_total if kpi_preview.inv_initial_total is not none else 0) }}</strong>
-        </article>
+          <header>On time rate</header>
+          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['on_time_rate']['value'] * 100)) if 'on_time_rate' in kpi_preview else '-' }}</strong>
       </div>
-      {% if kpi_preview.window_days %}
-        <p class="mono">window_days={{ kpi_preview.window_days }} | policy={{ kpi_preview.anchor_policy or '(none)' }}</p>
+      {% if kpi_preview['window_days'] %}
+        <p class="mono">window_days={{ kpi_preview['window_days'].value }} | policy={{ kpi_preview['anchor_policy'].value or '(none)' }}</p>
       {% endif %}
     </section>
     {% endif %}

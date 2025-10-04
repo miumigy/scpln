@@ -174,7 +174,7 @@ flowchart LR
 
 | 用途 | エンドポイント / スクリプト | 備考 |
 | --- | --- | --- |
-| 一括計画実行 | `POST /plans/integrated/run` / `scripts/run_planning_pipeline.sh` | 同期/非同期、cutover・anchor指定可 |
+| 一括計画実行 | `POST /plans/integrated/run` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可（`.sh` は互換ラッパ） |
 | PSI編集 | `PATCH /plans/{version}/psi` | DET/AGG 双方向。`no_auto` で自動同期停止 |
 | 差分ログ再生成 | `POST /plans/{version}/psi/reconcile` | tol, anchor, carryover, adjust を制御 |
 | Run実行（抽象） | `POST /runs` | `pipeline=integrated` を既存パイプラインに委譲 |

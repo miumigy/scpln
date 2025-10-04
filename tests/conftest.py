@@ -5,6 +5,7 @@ from alembic.config import main as alembic_main
 import json
 import sqlite3
 from app import db as appdb
+import sys # これを追加
 
 # テスト中はPlan経由のRunRegistry記録で重いPSIシミュレーションを省略する
 os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
@@ -22,6 +23,10 @@ def db_setup(tmp_path, monkeypatch):
 
     # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
     monkeypatch.setenv("SCPLN_DB", str(db_path))
+    # PYTHONPATHを設定し、仮想環境のsite-packagesとプロジェクトルートを明示的に含める
+    current_pythonpath = os.environ.get("PYTHONPATH", "")
+    new_pythonpath = os.pathsep.join([str(Path(__file__).parent.parent)] + sys.path + [current_pythonpath])
+    monkeypatch.setenv("PYTHONPATH", new_pythonpath)
 
     # 既存の接続ヘルパが参照するパスを直接上書きし、リロードによるクラス再定義を避ける
     previous_db_path = getattr(appdb, "_current_db_path", None)

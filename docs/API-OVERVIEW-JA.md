@@ -16,7 +16,7 @@
 
 ## Planning API（JSON/CSV）
 - GET `/plans` 登録済みPlan一覧
-- POST `/plans/integrated/run` 統合パイプライン実行（aggregate→allocate→mrp→reconcile）し、新規Plan登録
+- POST `/plans/integrated/run` 統合パイプライン実行（aggregate→allocate→mrp→reconcile）し、新規Plan登録。`lightweight=true` を指定するとCI/E2E向けにMRP・reconcile系をスキップし、PlanRepository書込みと主要アーティファクトのみ生成。
 - GET `/plans/{version_id}/summary` Plan要約（reconciliation summary / weekly_summary）
 - GET `/plans/{version_id}/compare` 差分一覧（violations_only, sort, limit）
 - GET `/plans/{version_id}/compare.csv` 上記のCSV出力
@@ -42,13 +42,33 @@
       "calendar_mode": "simple",
       "carryover": "auto",
       "carryover_split": 0.5,
-      "apply_adjusted": false
+      "apply_adjusted": false,
+      "lightweight": true
     }
   }
   ```
   - 同期時: `{status:"succeeded", version_id, location:"/ui/plans/{version_id}"}`
   - 非同期時: `{status:"queued", job_id, location:"/ui/jobs/{job_id}"}`
   - `config_version_id` は必須（Canonical設定バージョンを指定）
+  - `lightweight` を true にすると aggregate→allocate のみを同期実行し、MRP/再整合はスキップ（PlanRepository書込み・主要アーティファクト生成のみ実施）。
+
+## データ保存モード (`storage_mode`)
+
+`POST /plans/integrated/run` API や関連するCLIでは、計画データの保存方法を `storage_mode` パラメータで制御できます。
+
+### モードの種類
+
+| モード | 説明 | 主なユースケース |
+| :--- | :--- | :--- |
+| `db` | 計画データをデータベース（PlanRepository）にのみ保存します。JSONファイルは出力されません。 | 本番環境での標準的な運用。データの永続性と一貫性が保証されます。 |
+| `files` | 従来通り、計画データを `out/` ディレクトリ配下にJSONファイルとしてのみ保存します。データベースには書き込まれません。 | デバッグ、ローカルでの一時的な分析、または旧バージョンとの互換性維持。 |
+| `both` | データベースとJSONファイルの両方に計画データを保存します。 | データベース移行期間中の安全策や、DBとファイルの双方でデータを参照したい場合。 |
+
+### 指定方法
+
+- **API**: `POST /plans/integrated/run` のリクエストボディに `"storage_mode": "db"` のように含めます。
+- **環境変数**: 環境変数 `PLAN_STORAGE_MODE` に `db`, `files`, `both` のいずれかを設定することで、全実行のデフォルトモードを指定できます。APIリクエストで `storage_mode` が指定された場合は、そちらが優先されます。
+- **デフォルト**: `storage_mode` の指定も環境変数もない場合、デフォルトの挙動は `both` です。
 
 ## 比較（CSV）
 - GET `/ui/compare/metrics.csv?run_ids={id1},{id2}` 指標比較CSV

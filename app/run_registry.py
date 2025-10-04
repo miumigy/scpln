@@ -78,6 +78,7 @@ def record_canonical_run(
     config_version_id: Optional[int],
     scenario_id: Optional[int],
     plan_version_id: Optional[str] = None,
+    plan_job_id: Optional[str] = None,
     registry: Optional[RunRegistry] = None,
 ) -> Optional[str]:
     """Canonical設定を用いたPSIランを実行し、RunRegistryに保存する。
@@ -117,10 +118,10 @@ def record_canonical_run(
                 "summary": summary,
                 "results": results,
                 "daily_profit_loss": daily_pl,
-                "cost_trace": getattr(simulator, "cost_trace", []),
                 "config_version_id": config_version_id,
                 "scenario_id": scenario_id,
                 "plan_version_id": plan_version_id,
+                "plan_job_id": plan_job_id,
             },
         )
         return run_id

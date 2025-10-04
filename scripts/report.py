@@ -16,7 +16,15 @@ import argparse
 import csv
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Dict, Any, List, DefaultDict
+
+from core.plan_repository import PlanRepositoryError
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_report_csv_payload,
+)
 
 
 def _read_csv(path: str) -> List[Dict[str, Any]]:
@@ -43,7 +51,26 @@ def main() -> None:
         help="CSVフォルダ（mix_share.csv）",
     )
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv（FG抽出）")
+    ap.add_argument(
+        "--storage",
+        dest="storage",
+        choices=["db", "files", "both"],
+        default=None,
+        help="保存先: db/files/both（未指定は環境変数 PLAN_STORAGE_MODE）",
+    )
+    ap.add_argument(
+        "--version-id",
+        dest="version_id",
+        default=None,
+        help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
+    )
     args = ap.parse_args()
+
+    storage_config, warning = resolve_storage_config(
+        args.storage, args.version_id, cli_label="report"
+    )
+    if warning:
+        print(warning, file=sys.stderr)
 
     with open(args.input, encoding="utf-8") as f:
         plan = json.load(f)
@@ -104,30 +131,40 @@ def main() -> None:
             }
         )
 
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=[
-                "type",
-                "week",
-                "capacity",
-                "original_load",
-                "adjusted_load",
-                "utilization",
-                "spill_in",
-                "spill_out",
-                "demand",
-                "supply_plan",
-                "fill_rate",
-            ],
+    fieldnames = [
+        "type",
+        "week",
+        "capacity",
+        "original_load",
+        "adjusted_load",
+        "utilization",
+        "spill_in",
+        "spill_out",
+        "demand",
+        "supply_plan",
+        "fill_rate",
+    ]
+    all_rows = [*cap_rows, *svc_rows]
+
+    try:
+        wrote_db = store_report_csv_payload(
+            storage_config,
+            rows=all_rows,
+            fieldnames=fieldnames,
+            output_path=Path(args.output),
+            artifact_name=Path(args.output).name,
         )
-        w.writeheader()
-        for r in cap_rows:
-            w.writerow(r)
-        for r in svc_rows:
-            w.writerow(r)
-    print(f"[ok] wrote {args.output}")
+    except PlanRepositoryError as exc:
+        print(f"[error] PlanRepository書き込みに失敗しました: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if storage_config.use_files:
+        print(f"[ok] wrote {args.output}")
+    if wrote_db:
+        print(
+            "[ok] stored report artifact in PlanRepository "
+            f"version={storage_config.version_id}"
+        )
 
 
 if __name__ == "__main__":

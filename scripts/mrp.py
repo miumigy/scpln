@@ -18,8 +18,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import csv
+from pathlib import Path
 from typing import Dict, Any, List, Tuple, DefaultDict
+
+from core.plan_repository import PlanRepositoryError
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_mrp_payload,
+)
 
 
 def _read_csv(path: str) -> List[Dict[str, Any]]:
@@ -181,6 +189,19 @@ def main() -> None:
         default=4,
         help="1期間あたりの週数（マッピング補助）",
     )
+    ap.add_argument(
+        "--storage",
+        dest="storage",
+        choices=["db", "files", "both"],
+        default=None,
+        help="保存先: db/files/both（未指定は環境変数 PLAN_STORAGE_MODE）",
+    )
+    ap.add_argument(
+        "--version-id",
+        dest="version_id",
+        default=None,
+        help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
+    )
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:
@@ -275,6 +296,7 @@ def main() -> None:
                     "lt_weeks": lt_w,
                     "lot": lot,
                     "moq": moq,
+                    "on_hand_end": round(on_hand, 6),
                 }
             )
 
@@ -291,10 +313,25 @@ def main() -> None:
         },
         "rows": rows_out,
     }
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"[ok] wrote {args.output}")
+
+    storage_config, warning = resolve_storage_config(
+        args.storage, args.version_id, cli_label="mrp"
+    )
+    if warning:
+        print(warning, file=sys.stderr)
+
+    try:
+        wrote_db = store_mrp_payload(
+            storage_config, mrp_data=payload, output_path=Path(args.output)
+        )
+    except PlanRepositoryError as exc:
+        print(f"[error] PlanRepository書き込みに失敗しました: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if storage_config.use_files:
+        print(f"[ok] wrote {args.output}")
+    if wrote_db:
+        print(f"[ok] stored mrp rows in PlanRepository version={storage_config.version_id}")
 
 
 if __name__ == "__main__":

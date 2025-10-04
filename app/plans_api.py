@@ -3,26 +3,65 @@ from __future__ import annotations
 import json
 import time
 import uuid
+import logging
 from pathlib import Path
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
 from fastapi import Body, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
-from app.metrics import PLAN_EXPORT_COMPARE, PLAN_EXPORT_CARRYOVER, PLAN_EXPORT_SCHEDULE
+from app.metrics import (
+    PLAN_EXPORT_COMPARE,
+    PLAN_EXPORT_CARRYOVER,
+    PLAN_EXPORT_SCHEDULE,
+    PLAN_DB_WRITE_TOTAL,
+    PLAN_DB_WRITE_ERROR_TOTAL,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+)
 
 from app.api import app
 from app import db
+from app.metrics import (
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
 from core.config.storage import (
     CanonicalConfigNotFoundError,
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
+from core.plan_repository import PlanRepository, PlanRepositoryError
+from core.plan_repository_builders import (
+    build_plan_kpis_from_aggregate,
+    build_plan_series,
+)
+from core.plan_repository_views import (
+    build_plan_summaries,
+    fetch_aggregate_rows as repo_fetch_aggregate_rows,
+    fetch_detail_rows as repo_fetch_detail_rows,
+    fetch_override_events as repo_fetch_override_events,
+    fetch_overrides_by_level as repo_fetch_overrides,
+    summarize_audit_events,
+    latest_state_from_events,
+)
 import subprocess
 import os
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+_PLAN_REPOSITORY = PlanRepository(
+    db._conn,
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
+_STORAGE_CHOICES = {"db", "files", "both"}
+_DEFAULT_PLAN_INCLUDES = {"summary"}
+_PLAN_ORDER_CHOICES = {"created_desc", "created_asc", "version_desc", "version_asc", "status"}
 
 
 def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
@@ -38,6 +77,42 @@ def _run_py(args: list[str]) -> None:
     subprocess.run(["python3", *args], cwd=str(BASE_DIR), env=env, check=True)
 
 
+def _load_json(path: Path) -> Dict[str, Any] | None:
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        logging.exception("plans_api_load_json_failed", extra={"path": str(path)})
+        return None
+
+
+def _storage_mode(value: Optional[str] = None) -> str:
+    if value:
+        mode = str(value).lower()
+        if mode in _STORAGE_CHOICES:
+            return mode
+    env_mode = os.getenv("PLAN_STORAGE_MODE", "both").lower()
+    if env_mode in _STORAGE_CHOICES:
+        return env_mode
+    return "both"
+
+
+def _should_use_db(mode: str) -> bool:
+    return mode in {"db", "both"}
+
+
+def _parse_include(value: str | None) -> set[str]:
+    if not value:
+        return set(_DEFAULT_PLAN_INCLUDES)
+    tokens = {tok.strip().lower() for tok in value.split(",") if tok.strip()}
+    return tokens or set(_DEFAULT_PLAN_INCLUDES)
+
+
+def _should_use_files(mode: str) -> bool:
+    return mode in {"files", "both"}
+
+
 # --- PSI overlay/lock helpers (MVP) ---
 def _psi_overlay_key_agg(period: Any, family: Any) -> str:
     return f"agg:period={period},family={family}"
@@ -47,7 +122,25 @@ def _psi_overlay_key_det(week: Any, sku: Any) -> str:
     return f"det:week={week},sku={sku}"
 
 
+def _overlay_level_from_key(key: str) -> str:
+    if isinstance(key, str):
+        if key.startswith("agg:"):
+            return "aggregate"
+        if key.startswith("det:"):
+            return "det"
+        if key.startswith("audit:"):
+            return "audit"
+    return "aggregate"
+
+
 def _get_overlay(version_id: str) -> Dict[str, Any]:
+    agg_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "aggregate")
+    det_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "det")
+    if agg_overrides or det_overrides:
+        return {
+            "aggregate": [dict(r.get("payload") or {}) for r in agg_overrides],
+            "det": [dict(r.get("payload") or {}) for r in det_overrides],
+        }
     obj = db.get_plan_artifact(version_id, "psi_overrides.json") or {}
     return {
         "aggregate": list(obj.get("aggregate") or []),
@@ -55,18 +148,165 @@ def _get_overlay(version_id: str) -> Dict[str, Any]:
     }
 
 
-def _save_overlay(version_id: str, data: Dict[str, Any]) -> None:
+def _request_actor(req: Request | None = None) -> str:
+    if req is None:
+        return "psi_api"
+    try:
+        user = req.headers.get("X-User") or req.headers.get("X-Actor")
+        if user:
+            return str(user)
+    except Exception:
+        pass
+    return "psi_api"
+
+
+def _save_overlay(
+    version_id: str, data: Dict[str, Any], *, actor: str, note: str | None = None
+) -> None:
+    overrides: list[Dict[str, Any]] = []
+    events: list[Dict[str, Any]] = []
+    for level, entries in (
+        ("aggregate", list(data.get("aggregate") or [])),
+        ("det", list(data.get("det") or [])),
+    ):
+        existing = {
+            row.get("key_hash"): row
+            for row in repo_fetch_overrides(_PLAN_REPOSITORY, version_id, level)
+        }
+        for entry in entries:
+            if level == "aggregate":
+                key_hash = _psi_overlay_key_agg(entry.get("period"), entry.get("family"))
+            else:
+                key_hash = _psi_overlay_key_det(entry.get("week"), entry.get("sku"))
+            prior = existing.get(key_hash) or {}
+            payload_text = json.dumps(entry, ensure_ascii=False)
+            overrides.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "payload_json": payload_text,
+                    "lock_flag": bool(prior.get("lock_flag")),
+                    "locked_by": prior.get("locked_by"),
+                    "weight": prior.get("weight"),
+                    "author": prior.get("author"),
+                    "source": prior.get("source") or "psi",
+                }
+            )
+            events.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "event_type": "edit",
+                    "payload_json": payload_text,
+                    "actor": actor,
+                    "notes": note,
+                }
+            )
+    if overrides:
+        try:
+            _PLAN_REPOSITORY.upsert_overrides(
+                version_id, overrides=overrides, events=events
+            )
+        except PlanRepositoryError:
+            logging.exception(
+                "plans_api_plan_repository_override_failed",
+                extra={"version_id": version_id},
+            )
     db.upsert_plan_artifact(
         version_id, "psi_overrides.json", json.dumps(data, ensure_ascii=False)
     )
 
 
 def _get_locks(version_id: str) -> set[str]:
+    repo_rows = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "aggregate")
+    repo_rows += repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "det")
+    locks = {row.get("key_hash") for row in repo_rows if row.get("lock_flag")}
+    locks = {k for k in locks if k}
+    if locks:
+        return locks
     obj = db.get_plan_artifact(version_id, "psi_locks.json") or {}
     return set(obj.get("locks") or [])
 
 
-def _save_locks(version_id: str, locks: set[str]) -> None:
+def _save_locks(
+    version_id: str, locks: set[str], *, actor: str, note: str | None = None
+) -> None:
+    overrides: list[Dict[str, Any]] = []
+    events: list[Dict[str, Any]] = []
+    lock_keys = set(locks)
+    handled_new: set[str] = set()
+    for level in ("aggregate", "det"):
+        existing_rows = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, level)
+        existing = {row.get("key_hash"): row for row in existing_rows}
+        for key_hash, row in existing.items():
+            is_locked = key_hash in lock_keys
+            payload = row.get("payload") or {}
+            payload_text = json.dumps(payload, ensure_ascii=False)
+            overrides.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "payload_json": payload_text,
+                    "lock_flag": is_locked,
+                    "locked_by": row.get("locked_by") if is_locked else None,
+                    "weight": row.get("weight"),
+                    "author": row.get("author"),
+                    "source": row.get("source") or "psi",
+                }
+            )
+            events.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "event_type": "lock" if is_locked else "unlock",
+                    "payload_json": json.dumps({"lock": is_locked}, ensure_ascii=False),
+                    "actor": actor,
+                    "notes": note,
+                }
+            )
+            handled_new.add(key_hash)
+        for key_hash in lock_keys:
+            if key_hash in handled_new:
+                continue
+            if _overlay_level_from_key(key_hash) != level:
+                continue
+            overrides.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "payload_json": "{}",
+                    "lock_flag": True,
+                    "locked_by": None,
+                    "source": "psi",
+                }
+            )
+            events.append(
+                {
+                    "version_id": version_id,
+                    "level": level,
+                    "key_hash": key_hash,
+                    "event_type": "lock",
+                    "payload_json": json.dumps({"lock": True}, ensure_ascii=False),
+                    "actor": actor,
+                    "notes": note,
+                }
+            )
+            handled_new.add(key_hash)
+    if overrides:
+        try:
+            _PLAN_REPOSITORY.upsert_overrides(
+                version_id, overrides=overrides, events=events
+            )
+        except PlanRepositoryError:
+            logging.exception(
+                "plans_api_plan_repository_lock_failed",
+                extra={"version_id": version_id},
+            )
     db.upsert_plan_artifact(
         version_id,
         "psi_locks.json",
@@ -74,23 +314,109 @@ def _save_locks(version_id: str, locks: set[str]) -> None:
     )
 
 
+def _record_audit_event(
+    version_id: str,
+    event_type: str,
+    *,
+    actor: str,
+    note: str | None = None,
+    payload: Optional[Dict[str, Any]] = None,
+) -> None:
+    key_hash = f"audit:{event_type}"
+    overrides = [
+        {
+            "version_id": version_id,
+            "level": "audit",
+            "key_hash": key_hash,
+            "payload_json": "{}",
+            "lock_flag": False,
+            "locked_by": None,
+            "weight": None,
+            "author": actor,
+            "source": "audit",
+        }
+    ]
+    payload_map = {"event": event_type}
+    if payload:
+        payload_map.update(payload)
+    events = [
+        {
+            "version_id": version_id,
+            "level": "audit",
+            "key_hash": key_hash,
+            "event_type": event_type,
+            "payload_json": json.dumps(payload_map, ensure_ascii=False),
+            "actor": actor,
+            "notes": note,
+        }
+    ]
+    try:
+        _PLAN_REPOSITORY.upsert_overrides(
+            version_id, overrides=overrides, events=events
+        )
+    except PlanRepositoryError:
+        logging.exception(
+            "plans_api_plan_repository_audit_failed",
+            extra={"version_id": version_id, "event_type": event_type},
+        )
+
+
 def _get_weights(version_id: str) -> dict[str, float]:
-    obj = db.get_plan_artifact(version_id, "psi_weights.json") or {}
-    out: dict[str, float] = {}
-    for k, v in (obj.get("weights") or {}).items():
+    weights: dict[str, float] = {}
+    for level in ("aggregate", "det"):
+        for row in repo_fetch_overrides(_PLAN_REPOSITORY, version_id, level):
+            key_hash = row.get("key_hash")
+            weight = row.get("weight")
+            if key_hash is None or weight is None:
+                continue
+            try:
+                weights[str(key_hash)] = float(weight)
+            except Exception:
+                continue
+    return weights
+
+
+def _save_weights(
+    version_id: str, weights: dict[str, float], *, actor: str, note: str | None = None
+) -> None:
+    overrides: list[Dict[str, Any]] = []
+    events: list[Dict[str, Any]] = []
+    for key_hash, weight in weights.items():
+        level = _overlay_level_from_key(key_hash)
+        overrides.append(
+            {
+                "version_id": version_id,
+                "level": level,
+                "key_hash": key_hash,
+                "payload_json": "{}",
+                "lock_flag": False,
+                "locked_by": None,
+                "weight": weight,
+                "author": actor,
+                "source": "weights",
+            }
+        )
+        events.append(
+            {
+                "version_id": version_id,
+                "level": level,
+                "key_hash": key_hash,
+                "event_type": "weight",
+                "payload_json": json.dumps({"weight": weight}, ensure_ascii=False),
+                "actor": actor,
+                "notes": note,
+            }
+        )
+    if overrides:
         try:
-            out[str(k)] = float(v)
-        except Exception:
-            pass
-    return out
-
-
-def _save_weights(version_id: str, weights: dict[str, float]) -> None:
-    db.upsert_plan_artifact(
-        version_id,
-        "psi_weights.json",
-        json.dumps({"weights": weights}, ensure_ascii=False),
-    )
+            _PLAN_REPOSITORY.upsert_overrides(
+                version_id, overrides=overrides, events=events
+            )
+        except PlanRepositoryError:
+            logging.exception(
+                "plans_api_plan_repository_weights_failed",
+                extra={"version_id": version_id},
+            )
 
 
 def _apply_overlay(
@@ -194,7 +520,6 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     out_dir = Path(
         _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
     )
-    weeks = str(_get_param(body, "weeks") or 4)
     round_mode = _get_param(body, "round_mode") or "int"
     lt_unit = _get_param(body, "lt_unit") or "day"
     cutover_date = _get_param(body, "cutover_date")
@@ -208,7 +533,16 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     tol_abs = _get_param(body, "tol_abs")
     tol_rel = _get_param(body, "tol_rel")
     calendar_mode = _get_param(body, "calendar_mode")
+    storage_mode = _storage_mode(body.get("storage_mode"))
+    use_db = _should_use_db(storage_mode)
+    use_files = _should_use_files(storage_mode)
+    lightweight = bool(_get_param(body, "lightweight") or False)
+    weeks_param = _get_param(body, "weeks")
+    default_weeks = 1 if lightweight else 4
+    weeks = str(weeks_param if weeks_param not in (None, "") else default_weeks)
     apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
+    if lightweight:
+        apply_adjusted = False
 
     out_dir.mkdir(parents=True, exist_ok=True)
     config_version_id = _get_param(body, "config_version_id")
@@ -270,86 +604,87 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             round_mode,
         ]
     )
-    # 3) mrp
-    _run_py(
-        [
-            "scripts/mrp.py",
-            "-i",
-            str(out_dir / "sku_week.json"),
-            "-I",
-            input_dir,
-            "-o",
-            str(out_dir / "mrp.json"),
-            "--lt-unit",
-            lt_unit,
-            "--weeks",
-            weeks,
-        ]
-    )
-    # 4) reconcile
-    _run_py(
-        [
-            "scripts/reconcile.py",
-            "-i",
-            str(out_dir / "sku_week.json"),
-            str(out_dir / "mrp.json"),
-            "-I",
-            input_dir,
-            "-o",
-            str(out_dir / "plan_final.json"),
-            "--weeks",
-            weeks,
-            *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-            *(
-                ["--recon-window-days", str(recon_window_days)]
-                if recon_window_days is not None
-                else []
-            ),
-            *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-            *(
-                ["--blend-split-next", str(blend_split_next)]
-                if (blend_split_next is not None)
-                else []
-            ),
-            *(
-                ["--blend-weight-mode", str(blend_weight_mode)]
-                if blend_weight_mode
-                else []
-            ),
-        ]
-    )
-    # 4.5) reconcile-levels (before)
-    _run_py(
-        [
-            "scripts/reconcile_levels.py",
-            "-i",
-            str(out_dir / "aggregate.json"),
-            str(out_dir / "sku_week.json"),
-            "-o",
-            str(out_dir / "reconciliation_log.json"),
-            "--version",
-            version_id,
-            *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-            *(
-                ["--recon-window-days", str(recon_window_days)]
-                if recon_window_days is not None
-                else []
-            ),
-            *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-            *(
-                ["--tol-abs", str(tol_abs)]
-                if tol_abs is not None
-                else ["--tol-abs", "1e-6"]
-            ),
-            *(
-                ["--tol-rel", str(tol_rel)]
-                if tol_rel is not None
-                else ["--tol-rel", "1e-6"]
-            ),
-        ]
-    )
+    if not lightweight:
+        # 3) mrp
+        _run_py(
+            [
+                "scripts/mrp.py",
+                "-i",
+                str(out_dir / "sku_week.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "mrp.json"),
+                "--lt-unit",
+                lt_unit,
+                "--weeks",
+                weeks,
+            ]
+        )
+        # 4) reconcile
+        _run_py(
+            [
+                "scripts/reconcile.py",
+                "-i",
+                str(out_dir / "sku_week.json"),
+                str(out_dir / "mrp.json"),
+                "-I",
+                input_dir,
+                "-o",
+                str(out_dir / "plan_final.json"),
+                "--weeks",
+                weeks,
+                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                *(
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
+                    else []
+                ),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                *(
+                    ["--blend-split-next", str(blend_split_next)]
+                    if (blend_split_next is not None)
+                    else []
+                ),
+                *(
+                    ["--blend-weight-mode", str(blend_weight_mode)]
+                    if blend_weight_mode
+                    else []
+                ),
+            ]
+        )
+        # 4.5) reconcile-levels (before)
+        _run_py(
+            [
+                "scripts/reconcile_levels.py",
+                "-i",
+                str(out_dir / "aggregate.json"),
+                str(out_dir / "sku_week.json"),
+                "-o",
+                str(out_dir / "reconciliation_log.json"),
+                "--version",
+                version_id,
+                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                *(
+                    ["--recon-window-days", str(recon_window_days)]
+                    if recon_window_days is not None
+                    else []
+                ),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                *(
+                    ["--tol-abs", str(tol_abs)]
+                    if tol_abs is not None
+                    else ["--tol-abs", "1e-6"]
+                ),
+                *(
+                    ["--tol-rel", str(tol_rel)]
+                    if tol_rel is not None
+                    else ["--tol-rel", "1e-6"]
+                ),
+            ]
+        )
     # optional: anchor/adjusted flow
-    if anchor_policy and cutover_date:
+    if not lightweight and anchor_policy and cutover_date:
         _run_py(
             [
                 "scripts/anchor_adjust.py",
@@ -481,21 +816,22 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             return p.read_text(encoding="utf-8")
         return None
 
-    for name in (
-        "aggregate.json",
-        "sku_week.json",
-        "mrp.json",
-        "plan_final.json",
-        "reconciliation_log.json",
-        "sku_week_adjusted.json",
-        "mrp_adjusted.json",
-        "plan_final_adjusted.json",
-        "reconciliation_log_adjusted.json",
-    ):
-        t = _load(out_dir / name)
-        if t is not None:
-            db.upsert_plan_artifact(version_id, name, t)
-    if canonical_config is not None:
+    if use_files:
+        for name in (
+            "aggregate.json",
+            "sku_week.json",
+            "mrp.json",
+            "plan_final.json",
+            "reconciliation_log.json",
+            "sku_week_adjusted.json",
+            "mrp_adjusted.json",
+            "plan_final_adjusted.json",
+            "reconciliation_log_adjusted.json",
+        ):
+            t = _load(out_dir / name)
+            if t is not None:
+                db.upsert_plan_artifact(version_id, name, t)
+    if canonical_config is not None and use_files:
         if canonical_snapshot_path and canonical_snapshot_path.exists():
             db.upsert_plan_artifact(
                 version_id,
@@ -521,40 +857,63 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 (out_dir / "period_score.json").read_text(encoding="utf-8"),
             )
     # Optional: record source linkage (e.g., created from run)
-    try:
-        src_run = _get_param(body, "source_run_id")
-        if src_run:
-            db.upsert_plan_artifact(
-                version_id,
-                "source.json",
-                json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+    if use_files:
+        try:
+            src_run = _get_param(body, "source_run_id")
+            if src_run:
+                db.upsert_plan_artifact(
+                    version_id,
+                    "source.json",
+                    json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+                )
+        except Exception:
+            pass
+    if use_files:
+        artifacts = [
+            name
+            for name in (
+                "aggregate.json",
+                "sku_week.json",
+                "mrp.json",
+                "plan_final.json",
+                "reconciliation_log.json",
+                "sku_week_adjusted.json",
+                "mrp_adjusted.json",
+                "plan_final_adjusted.json",
+                "reconciliation_log_adjusted.json",
             )
-    except Exception:
-        pass
-    artifacts = [
-        name
-        for name in (
-            "aggregate.json",
-            "sku_week.json",
-            "mrp.json",
-            "plan_final.json",
-            "reconciliation_log.json",
-            "sku_week_adjusted.json",
-            "mrp_adjusted.json",
-            "plan_final_adjusted.json",
-            "reconciliation_log_adjusted.json",
-        )
-        if (out_dir / name).exists()
-    ]
-    if canonical_config is not None:
-        for name in (
-            "canonical_snapshot.json",
-            "planning_inputs.json",
-            "period_cost.json",
-            "period_score.json",
-        ):
-            if (out_dir / name).exists():
-                artifacts.append(name)
+            if (out_dir / name).exists()
+        ]
+        if canonical_config is not None:
+            for name in (
+                "canonical_snapshot.json",
+                "planning_inputs.json",
+                "period_cost.json",
+                "period_score.json",
+            ):
+                if (out_dir / name).exists():
+                    artifacts.append(name)
+    else:
+        artifacts = []
+    aggregate_obj = _load_json(out_dir / "aggregate.json")
+    detail_obj = _load_json(out_dir / "sku_week.json")
+    plan_series_rows: list[Dict[str, Any]] = []
+    plan_kpi_rows: list[Dict[str, Any]] = []
+    if aggregate_obj or detail_obj:
+        try:
+            plan_series_rows = build_plan_series(
+                version_id,
+                aggregate=aggregate_obj,
+                detail=detail_obj,
+            )
+            plan_kpi_rows = build_plan_kpis_from_aggregate(version_id, aggregate_obj)
+        except Exception:
+            logging.exception(
+                "plans_api_plan_repository_build_failed",
+                extra={"version_id": version_id},
+            )
+
+    repository_status = "skipped" if use_db else "disabled"
     recorded_run_id: Optional[str] = None
     if canonical_config is not None:
         scenario_id: Optional[int] = None
@@ -570,6 +929,36 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             scenario_id=scenario_id,
             plan_version_id=version_id,
         )
+
+    if use_db and (plan_series_rows or plan_kpi_rows):
+        try:
+            _PLAN_REPOSITORY.write_plan(
+                version_id,
+                series=plan_series_rows,
+                kpis=plan_kpi_rows,
+                job=None,
+                storage_mode=storage_mode,
+            )
+            repository_status = "stored"
+            PLAN_DB_WRITE_TOTAL.labels(storage_mode=storage_mode).inc()
+        except PlanRepositoryError:
+            repository_status = "failed"
+            logging.exception(
+                "plans_api_plan_repository_write_failed",
+                extra={"version_id": version_id},
+            )
+            PLAN_DB_WRITE_ERROR_TOTAL.labels(
+                storage_mode=storage_mode, error_type="repository"
+            ).inc()
+        except Exception:
+            repository_status = "failed"
+            logging.exception(
+                "plans_api_plan_repository_unexpected_error",
+                extra={"version_id": version_id},
+            )
+            PLAN_DB_WRITE_ERROR_TOTAL.labels(
+                storage_mode=storage_mode, error_type="unknown"
+            ).inc()
     try:
         out_dir_display = str(out_dir.relative_to(BASE_DIR))
     except ValueError:
@@ -581,6 +970,13 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         "out_dir": out_dir_display,
         "artifacts": artifacts,
         "run_id": recorded_run_id,
+        "lightweight": lightweight,
+        "storage": {
+            "plan_repository": repository_status,
+            "series_rows": len(plan_series_rows),
+            "kpi_rows": len(plan_kpi_rows),
+            "mode": storage_mode,
+        },
     }
 
 
@@ -593,42 +989,44 @@ def get_plan_psi(
     offset: int = Query(0),
 ):
     level = level if level in ("aggregate", "det") else "aggregate"
-    agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
-    det = db.get_plan_artifact(version_id, "sku_week.json") or {}
-    base_rows: list[Dict[str, Any]]
     if level == "aggregate":
-        base_rows = list(agg.get("rows") or [])
-        # 統一的に必要なキーのみサブセット
-        base_rows = [
-            {
-                "period": r.get("period"),
-                "family": r.get("family"),
-                "demand": r.get("demand"),
-                "supply": r.get("supply"),
-                "backlog": r.get("backlog"),
-            }
-            for r in base_rows
-        ]
+        base_rows = repo_fetch_aggregate_rows(_PLAN_REPOSITORY, version_id)
     else:
-        base_rows = list(det.get("rows") or [])
-        base_rows = [
-            {
-                "week": r.get("week"),
-                "sku": r.get("sku"),
-                "demand": r.get("demand"),
-                "supply_plan": r.get("supply_plan"),
-                "backlog": r.get("backlog"),
-                "on_hand_start": r.get("on_hand_start"),
-                "on_hand_end": r.get("on_hand_end"),
-            }
-            for r in base_rows
-        ]
+        base_rows = repo_fetch_detail_rows(_PLAN_REPOSITORY, version_id)
+
+    if not base_rows:
+        if level == "aggregate":
+            agg = db.get_plan_artifact(version_id, "aggregate.json") or {}
+            base_rows = [
+                {
+                    "period": r.get("period"),
+                    "family": r.get("family"),
+                    "demand": r.get("demand"),
+                    "supply": r.get("supply"),
+                    "backlog": r.get("backlog"),
+                }
+                for r in list(agg.get("rows") or [])
+            ]
+        else:
+            det = db.get_plan_artifact(version_id, "sku_week.json") or {}
+            base_rows = [
+                {
+                    "week": r.get("week"),
+                    "sku": r.get("sku"),
+                    "demand": r.get("demand"),
+                    "supply_plan": r.get("supply_plan"),
+                    "backlog": r.get("backlog"),
+                    "on_hand_start": r.get("on_hand_start"),
+                    "on_hand_end": r.get("on_hand_end"),
+                }
+                for r in list(det.get("rows") or [])
+            ]
     overlay = _get_overlay(version_id)
     locks = _get_locks(version_id)
     rows = _apply_overlay(level, base_rows, overlay.get(level) or [])
     # フィルタ
-    if q:
-        s = (q or "").lower().strip()
+    if isinstance(q, str) and q.strip():
+        s = q.strip().lower()
         rows = [r for r in rows if s in json.dumps(r, ensure_ascii=False).lower()]
     total = len(rows)
     # ページング
@@ -676,8 +1074,6 @@ def patch_plan_psi(
     # 監査ログの準備
     import time as _time
 
-    audit = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
-    events = list(audit.get("events") or [])
     distribute = body.get("distribute") or {}
     weight_mode = str(distribute.get("weight_mode") or "current")
     round_map = distribute.get("round") or {}
@@ -733,16 +1129,6 @@ def patch_plan_psi(
                     row[fn] = val
         omap[key] = row
         updated += 1
-        # 監査イベント追加
-        events.append(
-            {
-                "ts": int(_time.time() * 1000),
-                "level": level,
-                "key": e.get("key") or {},
-                "fields": fields,
-                "lock": None,
-            }
-        )
     # rebuild overlay list
     new_rows: list[Dict[str, Any]] = []
     for v in omap.values():
@@ -750,7 +1136,8 @@ def patch_plan_psi(
         payload = {k: v.get(k) for k in v.keys()}
         new_rows.append(payload)
     overlay[level] = new_rows
-    _save_overlay(version_id, overlay)
+    actor = _request_actor(request)
+    _save_overlay(version_id, overlay, actor=actor, note=note)
     # lock operation
     explicit_lock_keys = set()
     for lk in list(body.get("lock_keys") or []):
@@ -773,17 +1160,7 @@ def patch_plan_psi(
                     locks.discard(k)
                 else:
                     locks.add(k)
-        _save_locks(version_id, locks)
-        # 監査イベント（ロック）
-        events.append(
-            {
-                "ts": int(_time.time() * 1000),
-                "level": level,
-                "keys": sorted(list(keys_to_apply)),
-                "fields": {},
-                "lock": lock_mode,
-            }
-        )
+        _save_locks(version_id, locks, actor=actor, note=note)
     # 自動集計（Detail→Aggregate, 編集対象のみロールアップ）
     try:
         if level == "det" and updated > 0 and not body.get("no_auto"):
@@ -908,7 +1285,12 @@ def patch_plan_psi(
                                         overlay_full["aggregate"] = list(
                                             agg_overlay_map.values()
                                         )
-                                        _save_overlay(version_id, overlay_full)
+                                        _save_overlay(
+                                            version_id,
+                                            overlay_full,
+                                            actor=actor,
+                                            note=note,
+                                        )
     except Exception:
         pass
     # 自動分配（Aggregate→Detail, 比例配分・セル/行ロック尊重）
@@ -1056,19 +1438,33 @@ def patch_plan_psi(
                                 pass
             ov = _get_overlay(version_id)
             ov["det"] = det_rows_new
-            _save_overlay(version_id, ov)
-    except Exception:
-        pass
-    # 監査保存
-    try:
-        db.upsert_plan_artifact(
-            version_id,
-            "psi_audit.json",
-            json.dumps({"events": events[-10000:]}, ensure_ascii=False),
-        )
+            _save_overlay(version_id, ov, actor=actor, note=note)
     except Exception:
         pass
     return {"updated": updated, "skipped": skipped, "locked": sorted(list(locks))}
+
+@app.get("/plans/{version_id}/psi/events")
+def get_plan_psi_events(
+    version_id: str,
+    level: Optional[str] = Query(None),
+    limit: int = Query(100),
+    offset: int = Query(0),
+):
+    events = repo_fetch_override_events(_PLAN_REPOSITORY, version_id, level)
+    events_sorted = sorted(
+        events,
+        key=lambda e: (int(e.get("event_ts") or 0), e.get("event_id") or 0),
+        reverse=True,
+    )
+    start = max(0, int(offset))
+    end = start + max(1, int(limit))
+    sliced = summarize_audit_events(events_sorted[start:end])
+    return {
+        "version_id": version_id,
+        "level": level,
+        "total": len(events_sorted),
+        "events": sliced,
+    }
 
 
 @app.post("/plans/{version_id}/psi/reconcile")
@@ -1335,17 +1731,39 @@ def get_plan_psi_audit(
     limit: int = Query(200),
 ):
     """PSI編集/ロックの監査ログ（最新順）を返す。"""
-    obj = db.get_plan_artifact(version_id, "psi_audit.json") or {"events": []}
-    rows: list[dict] = list(obj.get("events") or [])
-    # 絞り込み
-    if level in ("aggregate", "det"):
-        rows = [r for r in rows if (r.get("level") == level)]
-    if q:
-        s = q.lower().strip()
-        rows = [r for r in rows if s in json.dumps(r, ensure_ascii=False).lower()]
-    rows = rows[-max(1, int(limit)) :]
-    rows.reverse()
-    return {"events": rows}
+    events = repo_fetch_override_events(_PLAN_REPOSITORY, version_id, level)
+    filter_text: Optional[str] = None
+    if isinstance(q, str) and q.strip():
+        filter_text = q.lower().strip()
+        events = [
+            e
+            for e in events
+            if filter_text
+            in json.dumps(e.get("payload") or {}, ensure_ascii=False).lower()
+            or filter_text in str(e.get("notes") or "").lower()
+        ]
+    events_sorted = sorted(
+        events,
+        key=lambda e: (int(e.get("event_ts") or 0), e.get("event_id") or 0),
+        reverse=True,
+    )
+    return {"events": summarize_audit_events(events_sorted[: max(1, int(limit))])}
+
+
+@app.get("/plans/{version_id}/psi/state")
+def get_plan_psi_state(version_id: str):
+    events = repo_fetch_override_events(_PLAN_REPOSITORY, version_id, "audit")
+    state = latest_state_from_events(events)
+    if state:
+        return {"state": state, "source": "plan_repository"}
+    fallback = db.get_plan_artifact(version_id, "psi_state.json") or {}
+    display_status = fallback.get("status") if isinstance(fallback, dict) else None
+    if display_status:
+        fallback = {
+            **fallback,
+            "display_status": str(display_status),
+        }
+    return {"state": fallback, "source": "legacy" if fallback else "unknown"}
 
 
 @app.get("/plans/{version_id}/psi/weights")
@@ -1393,7 +1811,9 @@ def post_plan_psi_weights(
             weights[str(k)] = v
     else:
         return JSONResponse(status_code=400, content={"detail": "rows or csv required"})
-    _save_weights(version_id, weights)
+    actor = _request_actor(request)
+    note = body.get("reason") or body.get("note") or body.get("notes")
+    _save_weights(version_id, weights, actor=actor, note=note)
     return {"ok": True, "count": len(weights)}
 
 
@@ -1402,14 +1822,12 @@ def post_plan_psi_submit(
     version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
 ):  # noqa: E501
     # だれでも提出可（APIキー設定時は推奨）
-    state = db.get_plan_artifact(version_id, "psi_state.json") or {}
-    state.update(
-        {
-            "status": "pending",
-            "note": body.get("note"),
-            "submitted_at": int(__import__("time").time() * 1000),
-        }
-    )
+    actor = _request_actor(request)
+    state = {
+        "status": "pending",
+        "note": body.get("note"),
+        "submitted_at": int(__import__("time").time() * 1000),
+    }
     db.upsert_plan_artifact(
         version_id, "psi_state.json", json.dumps(state, ensure_ascii=False)
     )
@@ -1424,6 +1842,13 @@ def post_plan_psi_submit(
         "psi_audit.json",
         json.dumps({"events": ev[-10000:]}, ensure_ascii=False),
     )
+    _record_audit_event(
+        version_id,
+        "submit",
+        actor=actor,
+        note=body.get("note"),
+        payload={"submitted_at": state.get("submitted_at")},
+    )
     return {"ok": True, "status": state.get("status")}
 
 
@@ -1433,14 +1858,9 @@ def post_plan_psi_approve(
 ):  # noqa: E501
     if not _auth_ok(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
-    state = db.get_plan_artifact(version_id, "psi_state.json") or {}
+    actor = _request_actor(request)
     now = int(__import__("time").time() * 1000)
-    state.update(
-        {
-            "status": "approved",
-            "approved_at": now,
-        }
-    )
+    state = {"status": "approved", "approved_at": now}
     db.upsert_plan_artifact(
         version_id, "psi_state.json", json.dumps(state, ensure_ascii=False)
     )
@@ -1463,12 +1883,107 @@ def post_plan_psi_approve(
         "psi_audit.json",
         json.dumps({"events": ev[-10000:]}, ensure_ascii=False),
     )
+    _record_audit_event(
+        version_id,
+        "approve",
+        actor=actor,
+        note=body.get("note"),
+        payload={"approved_at": now, "auto_reconcile": bool(body.get("auto_reconcile") or False)},
+    )
     return {"ok": True, "status": state.get("status")}
 
 
 @app.get("/plans")
-def get_plans(limit: int = 100):
-    return {"plans": db.list_plan_versions(limit)}
+def get_plans(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    order: str = Query("created_desc"),
+    include: str = Query("summary"),
+):
+    db.init_db()
+
+    limit_value = int(limit)
+    offset_value = int(offset)
+    include_tokens = _parse_include(include)
+    legacy_only = include_tokens == {"legacy"}
+
+    order_value = order if order in _PLAN_ORDER_CHOICES else "created_desc"
+    plans = db.list_plan_versions(limit=limit_value, offset=offset_value, order=order_value)
+    total = db.count_plan_versions()
+
+    pagination = {
+        "limit": limit_value,
+        "offset": offset_value,
+        "count": len(plans),
+        "total": total,
+    }
+    if offset_value + len(plans) < total:
+        pagination["next_offset"] = offset_value + len(plans)
+
+    if legacy_only:
+        return {"plans": plans, "pagination": pagination, "includes": ["legacy"]}
+
+    include_tokens.discard("legacy")
+
+    include_summary = "summary" in include_tokens
+    include_kpi = "kpi" in include_tokens or include_summary
+    include_jobs = "jobs" in include_tokens
+    include_artifacts = "artifacts" in include_tokens
+
+    version_ids = [p.get("version_id") for p in plans if p.get("version_id")]
+
+    summaries = (
+        build_plan_summaries(_PLAN_REPOSITORY, version_ids, include_kpi=include_kpi)
+        if (include_summary or include_kpi)
+        else {}
+    )
+    jobs_map = (
+        _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
+    )
+
+    enriched_plans: list[dict[str, Any]] = []
+    for row in plans:
+        plan = dict(row)
+        vid = plan.get("version_id")
+        summary_data = summaries.get(vid, {})
+
+        storage_info = summary_data.get("storage", {"plan_repository": False})
+
+        if include_summary:
+            plan["summary"] = {
+                k: v
+                for k, v in summary_data.items()
+                if k in {"series", "last_updated_at", "series_rows", "kpi"}
+            }
+            # ensure KPI under summary if available
+            if "kpi" in plan["summary"] and not include_kpi:
+                plan["summary"].pop("kpi", None)
+
+        if include_kpi and summary_data.get("kpi"):
+            plan["kpi"] = summary_data.get("kpi")
+
+        if include_jobs:
+            last_job = jobs_map.get(vid)
+            if last_job:
+                plan["jobs"] = {"last": last_job}
+
+        artifacts_flag = None
+        if include_artifacts and vid:
+            artifacts_flag = db.get_plan_artifact(vid, "plan_final.json") is not None
+
+        plan["storage"] = {
+            **storage_info,
+            "artifacts": artifacts_flag,
+        }
+        enriched_plans.append(plan)
+
+    response = {
+        "plans": enriched_plans,
+        "pagination": pagination,
+        "includes": sorted(include_tokens - {"legacy"}),
+        "order": order_value,
+    }
+    return response
 
 
 @app.get("/plans/by_base")

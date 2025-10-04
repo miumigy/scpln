@@ -148,7 +148,7 @@
 
 ## 8. 検証計画
 
-- PH2完了時: Canonical→PSI/Planning変換の単体テストと `scripts/run_planning_pipeline.sh` のスモークをCIに追加。
+- PH2完了時: Canonical→PSI/Planning変換の単体テストと `scripts/run_planning_pipeline.py` のスモークをCIに追加。
 - PH3完了時: `/plans/integrated/run` → `/simulation` 連携の統合テストとRunRegistryトレーサビリティ確認。
 - PH5前: 代表シナリオ3件でPlan & Run → KPI確認 → 差分ゼロをレビューし運用承認。
 

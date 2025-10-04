@@ -41,7 +41,7 @@
    - **計画週数 (weeks)**: `8`
    - （任意）`カットオーバー日`、`アンカー方針` などを指定します。
 4) 「Run（作成）」ボタンをクリックします。
-5) 作成されたプラン詳細ページ（`/ui/plans/{version_id}`）に自動的に遷移します。
+5) 作成されたプラン詳細ページ（`/ui/plans/{version_id}`）に自動的に遷移します。このとき、生成されたPlanのデータは、従来のファイル形式ではなくデータベースに直接保存され、版管理されます。
 
 ヒント: 実行が完了すると、画面下部に実行ログやKPIサマリが表示されます。まずは「Overview」タブで計画の全体像を把握しましょう。
 
@@ -88,7 +88,8 @@ curl -sS http://localhost:8000/plans/integrated/run \
         \"round_mode\":\"int\",
         \"lt_unit\":\"day\",
         \"cutover_date\":\"2025-09-01\",
-        \"anchor_policy\":\"blend\"
+        \"anchor_policy\":\"blend\",
+        \"storage_mode\":\"db\"
       }" | jq .
 ```
 

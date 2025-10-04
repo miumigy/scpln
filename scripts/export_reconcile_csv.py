@@ -20,7 +20,16 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
+from pathlib import Path
 from typing import Any, Dict, List
+
+from app import db
+from core.plan_repository import PlanRepositoryError
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_report_csv_payload,
+)
 
 
 def _load(path: str) -> Dict[str, Any]:
@@ -75,46 +84,87 @@ def main() -> None:
         action="store_true",
         help="違反行(ok=false)のみ出力",
     )
+    ap.add_argument(
+        "--storage",
+        dest="storage",
+        choices=["db", "files", "both"],
+        default=None,
+        help="保存先: db/files/both（未指定は環境変数 PLAN_STORAGE_MODE）",
+    )
+    ap.add_argument(
+        "--version-id",
+        dest="version_id",
+        default=None,
+        help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
+    )
     args = ap.parse_args()
 
-    p1 = _load(args.input1)
+    storage_config, warning = resolve_storage_config(
+        args.storage, args.version_id, cli_label="export_reconcile_csv"
+    )
+    if warning:
+        print(warning, file=sys.stderr)
+
+    def _load_source(raw_path: str) -> Dict[str, Any]:
+        path = Path(raw_path)
+        if path.exists():
+            return _load(str(path))
+        if storage_config.use_db and storage_config.version_id:
+            artifact = db.get_plan_artifact(storage_config.version_id, path.name)
+            if artifact:
+                return artifact
+        raise FileNotFoundError(f"input not found: {raw_path}")
+
+    p1 = _load_source(args.input1)
     rows = _rows(p1, args.label1)
     if args.input2:
-        p2 = _load(args.input2)
+        p2 = _load_source(args.input2)
         rows += _rows(p2, args.label2)
 
     if args.only_violations:
         rows = [r for r in rows if not bool(r.get("ok"))]
 
-    with open(args.output, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=[
-                "label",
-                "family",
-                "period",
-                "agg_demand",
-                "det_demand",
-                "delta_demand",
-                "rel_demand",
-                "ok_demand",
-                "agg_supply",
-                "det_supply",
-                "delta_supply",
-                "rel_supply",
-                "ok_supply",
-                "agg_backlog",
-                "det_backlog",
-                "delta_backlog",
-                "rel_backlog",
-                "ok_backlog",
-                "ok",
-            ],
+    fieldnames = [
+        "label",
+        "family",
+        "period",
+        "agg_demand",
+        "det_demand",
+        "delta_demand",
+        "rel_demand",
+        "ok_demand",
+        "agg_supply",
+        "det_supply",
+        "delta_supply",
+        "rel_supply",
+        "ok_supply",
+        "agg_backlog",
+        "det_backlog",
+        "delta_backlog",
+        "rel_backlog",
+        "ok_backlog",
+        "ok",
+    ]
+
+    try:
+        wrote_db = store_report_csv_payload(
+            storage_config,
+            rows=rows,
+            fieldnames=fieldnames,
+            output_path=Path(args.output),
+            artifact_name=Path(args.output).name,
         )
-        w.writeheader()
-        for r in rows:
-            w.writerow(r)
-    print(f"[ok] wrote {args.output}")
+    except PlanRepositoryError as exc:
+        print(f"[error] PlanRepository書き込みに失敗しました: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if storage_config.use_files:
+        print(f"[ok] wrote {args.output}")
+    if wrote_db:
+        print(
+            "[ok] stored reconcile CSV in PlanRepository "
+            f"version={storage_config.version_id}"
+        )
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
 from fastapi import Response
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 import time
+import os
 from starlette.requests import Request
 from app.api import app
+from app.db import _db_path
 
 RUNS_TOTAL = Counter("runs_total", "Total number of simulation runs")
 SIM_DURATION = Histogram(
@@ -61,6 +63,46 @@ COMPARE_DURATION = Histogram(
 )
 
 
+# --- Plan DB Metrics (T3-4) ---
+PLAN_DB_WRITE_TOTAL = Counter(
+    "plan_db_write_total",
+    "Total successful writes to PlanRepository",
+    labelnames=("storage_mode",),
+)
+PLAN_DB_WRITE_ERROR_TOTAL = Counter(
+    "plan_db_write_error_total",
+    "Total errors during writes to PlanRepository",
+    labelnames=("storage_mode", "error_type"),
+)
+PLAN_DB_WRITE_LATENCY = Histogram(
+    "plan_db_write_latency_seconds",
+    "PlanRepository write_plan processing time",
+    labelnames=("storage_mode",),
+    buckets=(0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, float("inf")),
+)
+PLAN_SERIES_ROWS_TOTAL = Gauge(
+    "plan_series_rows_written",
+    "Number of rows written to plan_series table in the last successful write",
+)
+PLAN_DB_SIZE_BYTES = Gauge(
+    "plan_db_size_bytes",
+    "Size of the SQLite database file in bytes",
+)
+PLAN_DB_LAST_SUCCESS_TIMESTAMP = Gauge(
+    "plan_db_last_success_timestamp_seconds",
+    "Timestamp of the last successful PlanRepository write",
+)
+PLAN_DB_CAPACITY_TRIM_TOTAL = Counter(
+    "plan_db_capacity_trim_total",
+    "Number of plan versions trimmed by capacity guard",
+    labelnames=("reason",),
+)
+PLAN_DB_LAST_TRIM_TIMESTAMP = Gauge(
+    "plan_db_last_trim_timestamp_seconds",
+    "Timestamp of the most recent PlanRepository capacity trim",
+)
+
+
 def observe_http(request: Request, status: int, started_at: float) -> None:
     try:
         path = request.url.path
@@ -76,5 +118,14 @@ def observe_http(request: Request, status: int, started_at: float) -> None:
 
 @app.get("/metrics")
 def metrics():
+    # --- Update gauges ---
+    try:
+        db_path = _db_path()
+        if os.path.exists(db_path):
+            PLAN_DB_SIZE_BYTES.set(os.path.getsize(db_path))
+    except Exception:
+        # Fails silently if db path is not available or accessible
+        pass
+
     data = generate_latest()
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)

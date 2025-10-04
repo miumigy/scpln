@@ -18,10 +18,18 @@ Anchor調整（v2最小）: anchor=DET_near 用の簡易再配分
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, DefaultDict
-import csv
+
+from core.plan_repository import PlanRepositoryError
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_anchor_adjust_payload,
+)
 
 
 def _period_from_week(week_key: str) -> str:
@@ -173,7 +181,26 @@ def main() -> None:
         default=0.0,
         help="コストに対する抑制係数（0..1推奨）",
     )
+    ap.add_argument(
+        "--storage",
+        dest="storage",
+        choices=["db", "files", "both"],
+        default=None,
+        help="保存先: db/files/both（未指定は環境変数 PLAN_STORAGE_MODE）",
+    )
+    ap.add_argument(
+        "--version-id",
+        dest="version_id",
+        default=None,
+        help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
+    )
     args = ap.parse_args()
+
+    storage_config, warning = resolve_storage_config(
+        args.storage, args.version_id, cli_label="anchor_adjust"
+    )
+    if warning:
+        print(warning, file=sys.stderr)
 
     agg = _load_json(args.inputs[0])
     det = _load_json(args.inputs[1])
@@ -182,10 +209,18 @@ def main() -> None:
 
     if not det_rows:
         # no-op
-        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-        with open(args.output, "w", encoding="utf-8") as f:
-            json.dump(det, f, ensure_ascii=False, indent=2)
-        print(f"[ok] wrote {args.output} (no-op)")
+        wrote_db = store_anchor_adjust_payload(
+            storage_config,
+            adjusted_data=det,
+            output_path=Path(args.output),
+        )
+        if storage_config.use_files:
+            print(f"[ok] wrote {args.output} (no-op)")
+        if wrote_db:
+            print(
+                "[ok] stored adjusted det rows in PlanRepository "
+                f"version={storage_config.version_id}"
+            )
         return
 
     # cutover month
@@ -882,10 +917,23 @@ def main() -> None:
             "headroom_capacity_weight": args.headroom_capacity_weight,
         },
     }
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    print(f"[ok] wrote {args.output}")
+    try:
+        wrote_db = store_anchor_adjust_payload(
+            storage_config,
+            adjusted_data=payload,
+            output_path=Path(args.output),
+        )
+    except PlanRepositoryError as exc:
+        print(f"[error] PlanRepository書き込みに失敗しました: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if storage_config.use_files:
+        print(f"[ok] wrote {args.output}")
+    if wrote_db:
+        print(
+            "[ok] stored adjusted det rows in PlanRepository "
+            f"version={storage_config.version_id}"
+        )
 
 
 if __name__ == "__main__":

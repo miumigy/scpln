@@ -44,7 +44,7 @@
 - [x] T0-1: 現行Plan利用フロー（UI/CLI/バッチ）の棚卸しとデータフロー図の更新。
   - UI: Planning Hub `/ui/plans` がPlan作成・参照・再整合の中心。`docs/TUTORIAL-JA.md` のステップ(1)〜(5)と `README.md` セクション「Planning Hub」で state 遷移・タブ構造・Plan & Run 連携を説明済み。`app/ui_plans.py` ではPlan成果物・RunリンクをDB(JSON)から読み出し、編集/ロックを `plan_artifacts` へ保存している。
   - API: `POST /plans/integrated/run`（`app/plans_api.py`）がaggregate→allocate→mrp→reconcile→artifact保存を順次実行し `plan_versions` を登録。`docs/API-OVERVIEW-JA.md` はPlanサマリ取得、比較CSV、再整合、Plan & Run自動補完などのエンドポイントを列挙。
-  - CLI/バッチ: `scripts/run_planning_pipeline.sh` がAggregate〜Reportの一括実行を提供し、個別スクリプト群（`plan_aggregate.py`, `allocate.py`, `mrp.py`, `reconcile.py`, `report.py` 等）が `samples/planning` を入力にJSON/CSVを `out/` 配下へ出力。README「API & 実行エントリ」とTutorial「参考」でAPI/CLI利用例が案内されている。
+  - CLI/バッチ: `scripts/run_planning_pipeline.py` がAggregate〜Reportの一括実行を提供し、個別スクリプト群（`plan_aggregate.py`, `allocate.py`, `mrp.py`, `reconcile.py`, `report.py` 等）が `samples/planning` を入力にJSON/CSVを `out/` 配下へ出力（`.sh` は互換ラッパ）。README「API & 実行エントリ」とTutorial「参考」でAPI/CLI利用例が案内されている。
 - [x] T0-2: 利用部門ヒアリングの代わりに想定仕様を定義し、クエリ例・KPI粒度・保管期間を仮決めする。
   - 想定仕様は `docs/plan_db_assumed_requirements.md` にまとめ、粒度/KPI/保持ポリシー/連携要件を記載。
   - 想定KPI: fill rate, backlog days, inventory turns, capacity util, cost variance, service level, on_time_rate。
@@ -122,7 +122,7 @@
   - ドキュメント: `docs/plan_db_assumed_requirements.md` に基づき、PlanRepository内でのハードコード値（KPIリスト、イベント種別）を定数モジュールにまとめる。
 
 ### P2: 永続化レイヤ実装
-- [ ] T2-1: `core/plan_repository.PlanRepository`（仮）を実装し、トランザクション制御・バルクインサート・ロールバックAPIを提供。
+- [x] T2-1: `core/plan_repository.PlanRepository` を実装し、トランザクション制御・バルクインサート・ロールバックAPIを提供。
   - 実装概要:
     - エントリポイント: `core/plan_repository.py` にクラス `PlanRepository` を実装し、`__init__(self, conn_factory: Callable[[], sqlite3.Connection])` で接続供給。
     - 主要API（型はT1-4参照）:
@@ -142,8 +142,8 @@
     - `app/plans_api.py` と `app/jobs.py` からPlanRepositoryを呼び出し、`db.upsert_plan_artifact` は互換用途に限定。
     - CLIスクリプトは `scripts/_plan_repository_utils.py`（仮）を経由し、ファイル出力とDB保存を両立させる。
   - 未決: テスト用のインメモリ接続（`:memory:`）をサポートするか要判断。
-- [ ] T2-2: 既存 `scripts/plan_*.py` をリファクタし、計算結果を `PlanRepository` 経由で保存できるよう抽象化。
-  - 対象スクリプト: `plan_aggregate.py`, `allocate.py`, `mrp.py`, `reconcile.py`, `reconcile_levels.py`, `anchor_adjust.py`, `export_reconcile_csv.py`, `report.py`, `run_planning_pipeline.sh`。
+- [x] T2-2: 既存 `scripts/plan_*.py` をリファクタし、計算結果を `PlanRepository` 経由で保存できるよう抽象化。
+  - 対象スクリプト: `plan_aggregate.py`, `allocate.py`, `mrp.py`, `reconcile.py`, `reconcile_levels.py`, `anchor_adjust.py`, `export_reconcile_csv.py`, `report.py`, `run_planning_pipeline.py`。
   - 方針:
     1. スクリプト本体からファイルI/Oロジックを分離し、共通モジュール `scripts/plan_pipeline_io.py`（仮）に集約。
     2. `PlanRepository` と `LocalArtifactsWriter` の2系統を切り替え可能にする（`--storage=db|files|both`）。既定は `both`（互換性確保）。
@@ -154,23 +154,22 @@
     - Step2: `scripts/plan_pipeline_io.py` で PlanRepository への書込みユーティリティを実装。`PlanRunContext`（config_version_id, version_id 等）を受け取る。
     - Step3: `app/plans_api.py` と `app/jobs.py` で新APIを呼び出し、`storage=db|files` を選択可能にする。
     - Step4: 既存テストを更新し、DBモード/ファイルモード双方で検証。
+  - 進捗メモ (2025-10-05): `plan_aggregate.py` / `allocate.py` / `mrp.py` / `reconcile.py` / `reconcile_levels.py` / `anchor_adjust.py` / `export_reconcile_csv.py` / `report.py` に `--storage/--version-id` を追加し、PlanRepository への書込みとアーティファクト保存に対応。共通ヘルパ `scripts/plan_pipeline_io.py` で JSON/CSV を一元ハンドリングし、`tests/test_plan_storage_cli.py` で CLI 経路（DB/Files双方）の検証を追加済み。その後のUI/API連携（T3系）も反映済み。
   - CLI互換性: 既存コマンドライン引数を保持しつつ、`--no-files` や `--no-db` を追加。従来のJSON成果物は `PlanRepository` からエクスポート可能。
-  - 影響範囲: `scripts/run_planning_pipeline.sh` は段階的に廃止予定（README更新が必要）。
-- [ ] T2-3: `app/jobs.prepare_canonical_inputs` / `app/plans_api.py` を直接DB書込みに切替（tempディレクトリは互換用途のみ保持）。
-  - 方針:
-    - `prepare_canonical_inputs` は従来通り一時ディレクトリを返しつつ、PlanRepositoryへ渡すための構造化データ（Aggregate/DET/MRP結果）を返却する。
-    - `app/plans_api.py::post_plans_integrated_run` と `app/jobs::_run_planning_pipeline` は、ストレージモードを `storage_mode = os.getenv("PLAN_STORAGE_MODE", "both")` などで切替可能にする。
-    - ファイル出力はオプション化（互換用）。`out_dir` が指定された場合のみJSON/CSVを生成し、PlanRepositoryへの書込みは常時行う。
-  - 実装ステップ案:
-    1. PlanRepositoryをDI（依存性注入）で受け取れるよう `app/__init__.py` で初期化。
-    2. `post_plans_integrated_run` で計算ステップ結果を受け取り、`PlanRepository.write_plan(...)` を呼び出す。
-    3. `app/jobs.py::_run_planning_pipeline` でも同様にPlanRepositoryへ書込み、ジョブ結果`result_json` にはDB保存情報を追加（`storage="db"` フラグ等）。
-    4. 旧 `db.upsert_plan_artifact` の呼び出しは段階的に削除（互換期間中は `storage_mode in {"files", "both"}` の場合のみ実行）。
-  - 注意点:
-    - PlanRepository書込み失敗時は例外をRaiseし、APIレスポンス/ジョブステータスにエラーを設定。
-    - `PlanRepository` 呼び出し後にRunRegistry連携 (`record_canonical_run`) を実行し、`plan_jobs` の run_id を更新。
-    - `PlanRepository` への書込み後、必要に応じ `PlanRepository.delete_plan(version_id)` で再実行時にクリーンアップ。
-- [ ] T2-4: ユニットテストを追加（Aggregate/Detail/Overridesの読み書き、トランザクション失敗時のロールバック確認）。
+  - 影響範囲: `scripts/run_planning_pipeline.py` を新基盤とし、`.sh` は互換ラッパとして維持。
+- [x] T2-3: `app/jobs.prepare_canonical_inputs` / `app/plans_api.py` を直接DB書込みに切替（tempディレクトリは互換用途のみ保持）。
+  - 実装結果:
+    - `post_plans_integrated_run` / `_run_planning` で PlanRepository を優先利用し、レスポンスに `storage.plan_repository` ステータスを返却。
+    - `/plans/{version_id}/psi` 参照は PlanRepository ビューを使用し、未移行環境では `plan_artifacts` をフォールバック。
+    - overlay/lock 編集APIは PlanRepository の `plan_overrides` / `plan_override_events` を更新し、actor/notes付きで編集・ロック履歴をDBに記録。
+    - 監査参照用に `/plans/{version_id}/psi/events` エンドポイントを追加し、PlanRepository上のイベント履歴をページング取得可能にした。
+    - `psi_weights` はPlanRepositoryの `plan_overrides` を利用して保存・取得するよう更新し、従来のJSONは互換用に維持。
+    - `psi_audit` はPlanRepositoryイベントに統合され、旧JSONはレガシー互換用途のみ保持。`psi_state` はsubmit/approveイベントから算出可能なため、UI/APIから `GET /plans/{version_id}/psi/state` で再構成する。
+    - `storage_mode=db|files|both`（および `PLAN_STORAGE_MODE`）でDB書込みとファイル保存を切替可能にした。
+    - 書込み失敗時はログ出力し、既存JSON成果物にフォールバック。
+  - TODO:
+    - 監査イベントのactor/notes設計とUI表示を仕上げ、Plan UIの履歴ダイアログへ露出させる。
+- [x] T2-4: ユニットテストを追加（Aggregate/Detail/Overridesの読み書き、トランザクション失敗時のロールバック確認）。
   - テストスイート: `tests/test_plan_repository.py`（新規）。pytest + sqlite一時ファイルを使用。
   - 主要ケース:
     1. `write_plan` → `fetch_plan_series`/`fetch_plan_overrides`/`fetch_plan_kpis` が正しくデータを返す。
@@ -181,22 +180,24 @@
     6. 大量挿入（例: 10万行）でバッチ挿入が成功し、パフォーマンスが許容範囲。
   - 補助ユーティリティ: `tests/util_plan_db.py` を作成し、テンポラリDBの初期化（Alembic適用）を共通化。
   - CI: `pytest tests/test_plan_repository.py -k "not slow"` を通常ジョブに組込み。大量挿入テストは `@pytest.mark.slow` で別ジョブに分離。
+  - 補足: 追加で `tests/test_plan_repository_views.py`、`tests/test_plan_overrides_repository.py`、`tests/test_plans_canonical.py` を拡張し、PlanRepository経路の統合確認を実施。
 
 ### P3: UI/API/RunRegistry連携
-- [ ] T3-1: `/plans` APIレスポンスを新DB構造に合わせて更新（ページング・フィルタ・サマリ項目追加）。
+- [x] T3-1: `/plans` APIレスポンスを新DB構造に合わせて更新（ページング・フィルタ・サマリ項目追加）。
   - 目的: Plan一覧/APIレスポンスで `plan_series` / `plan_kpis` の要約値を提供し、UIで即時集計を表示できるようにする。
   - 変更点:
     - エンドポイント: `GET /plans` にクエリパラメータ `include=summary,kpi` を追加。既定は `summary`。
     - レスポンス項目例: `{version_id, status, cutover_date, summary: {agg_rows, det_rows, kpi: {fill_rate, backlog_days, inventory_turns}, last_updated_at}, jobs: {last_job_id, status}}`。
     - データ取得: `PlanRepository.fetch_plan_kpis()` と `PlanRepository.fetch_plan_series()` を内部で呼び出し、必要な指標だけを集計。大規模Planでは `LIMIT` を設定し、`total_rows` を返す。
     - ページング: `GET /plans` は既存の `offset/limit` を維持しつつ、`order_by=created_at|version_id` を追加。
+  - 進捗メモ (2025-10-05): APIで `limit/offset/order/include` を実装し、PlanRepository集計による `series_rows`・`last_updated_at`・`kpi` 要約、および `jobs.last` を返却。`include=legacy` で旧レスポンスにも対応。後続のUI更新（T3-2）も連動完了。
   - 実装ステップ案:
     1. バックエンド: `app/plans_api.py::get_plans` をPlanRepositoryベースにリファクタ。`db.list_plan_versions` から `PlanRepository` / `db` コンボへ。
     2. `PlanSummaryAssembler`（新規ヘルパ）を作成し、PlanRepositoryから取得したデータを整形。
     3. UI (`app/ui_plans.py`) で新サマリを利用し、従来のJSON blob依存部分を削除。
     4. テスト: `/plans` APIのレスポンススナップショットを更新し、kpi/summaryが返却されることを確認。
   - 後方互換性: `include=legacy` を指定した場合、従来の`plan_artifacts`ベースレスポンスを返す期間を設ける（デフォルトは新形式）。
-- [ ] T3-2: `/ui/plans` 表示・編集画面を `plan_series` / `plan_overrides` 読込に置換し、JSON blob依存を削除。
+- [x] T3-2: `/ui/plans` 表示・編集画面を `plan_series` / `plan_overrides` 読込に置換し、JSON blob依存を削除。
   - UI構成:
     - Overviewタブ: `PlanRepository.fetch_plan_series(..., level="aggregate")` の要約と `plan_kpis` を表示。
     - Aggregateタブ: `plan_series` のaggregate行をテーブル表示（ページング）。現行の `plan_artifact` 読込を置換。
@@ -210,7 +211,7 @@
     5. CSVエクスポートは PlanRepository → ファイル生成へ切り替え。
   - UX改善: 画面読み込み時のレスポンスを改善するため、初回は集約表示のみ（詳細はlazyロード）。
   - 過渡期: `?legacy=1` で旧表示にフォールバックできるよう暫定対応。
-- [ ] T3-3: RunRegistry記録 (`record_canonical_run`) に `plan_job_id` と `plan_series` リンクを追加。Run詳細からPlanへのドリルダウン（集計/詳細ビュー）を実装。
+- [x] T3-3: RunRegistry記録 (`record_canonical_run`) に `plan_job_id` と `plan_series` リンクを追加。Run詳細からPlanへのドリルダウン（集計/詳細ビュー）を実装。
   - 目的: Run履歴UI/APIでPlan詳細へ即座に遷移できるよう、PlanRepositoryのデータとRunRegistryを双方向リンク。
   - 方針:
     - `record_canonical_run` で `plan_job_id`（PlanRepositoryに書き込んだジョブID）を `runs` テーブルへ保存。
@@ -223,7 +224,7 @@
     3. Plan UI のResultsタブでRun情報を`PlanRepository` ではなくRunRegistryから参照し、差分/比較を容易にする。
     4. テスト: `/runs` API・UIでPlanリンクが表示され、双方向遷移が機能することを検証。
   - 後方互換: `plan_job_id` 未設定のRun（旧データ）は従来通り動作。
-- [ ] T3-4: メトリクス導入（`PLAN_SERIES_ROWS_TOTAL`, `PLAN_DB_WRITE_LATENCY`）とPrometheusエクスポートの追加。
+- [x] T3-4: メトリクス導入（`PLAN_SERIES_ROWS_TOTAL`, `PLAN_DB_WRITE_LATENCY`）とPrometheusエクスポートの追加。
   - 目的: PlanRepository運用状況を監視し、書込み失敗・遅延・容量増を早期検知。
   - メトリクス案:
     - Counter `plan_db_write_total`：PlanRepository書込み成功件数（labels: storage_mode）。
@@ -242,18 +243,26 @@
     - Dashboard: Plan書込み件数、失敗率、DBサイズ推移。
 
 ### P4: CLI・運用整備
-- [ ] T4-1: `scripts/plan_export.py`（新規）を実装し、DB→JSON/CSVエクスポートを標準化。
-- [ ] T4-2: 既存Runbook (`docs/TUTORIAL-JA.md`, `docs/run_registry_operations.md`) をPlan DB永続化前提へ更新。
-- [ ] T4-3: 運用向けメンテスクリプト（バックアップ、アーカイブ、トリミング）を `scripts/plan_db_maint.py` として提供。
+- [x] T4-1: `scripts/plan_export.py`（新規）を実装し、DB→JSON/CSVエクスポートを標準化。
+- [x] T4-2: 既存Runbook (`docs/TUTORIAL-JA.md`, `docs/run_registry_operations.md`) をPlan DB永続化前提へ更新。
+- [x] T4-3: 運用向けメンテスクリプト（バックアップ、アーカイブ、トリミング）を `scripts/plan_db_maint.py` として提供。
 
 ### P5: 移行・検証・リリース
-- [ ] T5-1: 既存 `plan_artifacts` JSON から新テーブルへコピーするバックフィルスクリプトを実装（Dry-runモード付き）。
-- [ ] T5-2: `tests/test_plans_*` を新DB構造で動作するよう更新し、CIに `PlanRepository` 経路の統合テストを追加。
-- [ ] T5-3: Dev→Staging→Production の段階移行チェックリストを作成（DBバックアップ、Alembic実行、Smokeテスト、監視確認）。
-- [ ] T5-4: カットオーバー時のロールバック手順（旧`plan_artifacts`へのフォールバック、RunRegistry影響）をRunbook化。
+- [x] T5-1: 既存 `plan_artifacts` JSON から新テーブルへコピーするバックフィルスクリプトを実装（Dry-runモード付き）。
+- `scripts/plan_backfill_repository.py` を追加。`--dry-run`/`--state-file`/`--force`/`--limit`/`--resume-from` をサポートし、aggregate・det・mrp・plan_final・weekly_summaryから `plan_series` を生成。KPIは aggregate から算出し、`source.json` の run_id を `source_run_id` に転写。
+- 正常系・dry-run・ステートスキップを `tests/test_plan_backfill_repository.py` で検証。stateファイルへ完了/失敗を出力し再実行安全性を担保。
+- Backfill実行履歴を監査できるよう `plan_backfill_runs` テーブルを追加。`scripts/plan_backfill_repository.py` 実行時に run_id/件数/エラー数/所要時間を記録し、`status=success|partial|failed` を保持する。最新実行時刻は `plan_db_last_trim_timestamp` と併せて運用ダッシュボードから参照する。
+- [x] T5-2: `tests/test_plans_*` を新DB構造で動作するよう更新し、CIに `PlanRepository` 経路の統合テストを追加。
+  - `tests/test_plans_api_e2e.py` / `tests/test_plans_ui_and_schedule.py` で PlanRepository にaggregate/KPI/詳細行が作成されることを確認。
+  - `tests/test_plan_backfill_repository.py` でバックフィルユーティリティの統合経路を追加。CIでは `PYTHONPATH=. pytest tests/test_plan_backfill_repository.py` を新設想定。
+- [x] T5-3: Dev→Staging→Production の段階移行チェックリストを作成（DBバックアップ、Alembic実行、Smokeテスト、監視確認）。
+  - `docs/plan_db_migration_checklist.md` を追加し、環境別の準備・実行・フォローアップ手順を明文化。バックアップ、backfillコマンド、メトリクス確認、通知フローを網羅。
+- [x] T5-4: カットオーバー時のロールバック手順（旧`plan_artifacts`へのフォールバック、RunRegistry影響）をRunbook化。
+  - `docs/plan_db_rollback_runbook.md` を作成し、初動/データ保全/アプリ切替/RunRegistry補正/検証/ロールフォワードの各手順とコマンド例を整理。
+  - `/plans/integrated/run` に `lightweight=true` フラグを追加し、CI/E2Eでは aggregate→allocate のみ実行する軽量モードを選択可能にした（MRP/再整合/anchor系はスキップし、PlanRepositoryへの書込みは維持）。
 
 ## 6. リスクと対応策
-- データ量肥大: `plan_series` はレベル×期間×SKUで膨大になるため、週次で `version_id` 単位の圧縮・削除ポリシーを導入。`RUNS_DB_MAX_ROWS` 相当の `PLANS_DB_MAX_ROWS` を環境変数で設定できるようにする。
+- データ量肥大: `plan_series` はレベル×期間×SKUで膨大になるため、週次で `version_id` 単位の圧縮・削除ポリシーを導入。`PLANS_DB_MAX_ROWS` を設定するとPlanRepositoryが自動で超過分を削除し、`plan_db_capacity_trim_total`（件数）と `plan_db_last_trim_timestamp`（発生日）で状況を可視化できる。閾値超過時の通知は `PLANS_DB_GUARD_ALERT_THRESHOLD` で設定し、発火時に `plan_repository_capacity_trim_alert` ログが出力される。
 - 同時編集競合: UI編集は `plan_overrides` に行ロック情報を保持し、APIでバージョン・タイムスタンプチェックを実装。悲観/楽観どちらを採用するかP0で決定。
 - 後方互換: 既存JSON APIを即時廃止せず、`?legacy=1` フラグで旧構造を返す期間を設け、依存サービスの移行計画を共有。
 - マイグレーション失敗: Alembic実行前に `data/scpln.db` のバックアップを取得し、`alembic downgrade` 手順と検知アラートを整備。
@@ -264,10 +273,28 @@
 - 監査ログの詳細度: UI操作ごとに差分スナップショットを保持するか、フィールド単位にするか判断が必要。
 
 ## 8. 検証・監視計画
-- ユニットテスト: `tests/test_plans_persistence.py`（新規）でCRUDと集計APIを検証。
-- 統合テスト: `make smoke-plan-run` をPlan DB経路に更新し、Aggregate/Detail反映とRunRegistry連携を確認。
+- ユニットテスト: `tests/test_plan_repository.py` / `tests/test_plan_repository_views.py` / `tests/test_plan_overrides_repository.py` でCRUD・ビュー層を検証。
+- 統合テスト: `tests/test_plan_backfill_repository.py`（バックフィル）、`tests/test_plans_api_e2e.py`（/plans API）、`tests/test_plans_ui_and_schedule.py`（UI・CSV）でPlanRepository経路をカバー。CIでは `PYTHONPATH=. pytest tests/test_plan_backfill_repository.py` を最小セットとして実行。
 - 監視: Prometheusメトリクスに `plan_db_write_latency_seconds`, `plan_series_rows_total`, `plan_db_errors_total` を追加し、Grafanaダッシュボードを更新。
 - バックアップ: `scripts/backup_plan_db.py` を作成し、RunRegistryバックアップと同じスケジュールで日次取得。
+
+### 容量監視
+- **目的**: `PLANS_DB_MAX_ROWS` 環境変数に基づくPlanRepositoryの自動トリム機能が正常に動作していることを確認し、予期せぬデータ削除やDBの肥大化を早期に検知する。
+- **監視対象**: `logging.warning`レベルで出力される以下のログメッセージ。
+  - `plan_repository_capacity_trim_alert`
+- **ログ情報**: アラートログには、以下の情報が `extra` フィールドに含まれる。
+  - `deleted_versions`: 削除されたPlanのバージョン数。
+  - `max_rows`: 設定されている最大保持Plan数。
+  - `alert_threshold`: アラートを発報する閾値（削除されたバージョン数）。
+- **検知コマンド例**:
+  ```bash
+  # systemdサービスとして実行している場合
+  journalctl -u your-app-service.service | grep plan_repository_capacity_trim_alert
+
+  # ファイルにログ出力している場合
+  grep plan_repository_capacity_trim_alert /var/log/your-app.log
+  ```
+- **推奨アクション**: このアラートが頻繁に発生する場合、`PLANS_DB_MAX_ROWS` の設定値が小さすぎる可能性があります。システムの利用状況に応じて、この値を調整することを検討してください。また、意図しない大量削除が発生した場合は、バックアップからのリストアを検討します。
 
 ## 9. リリース計画
 1. DevでAlembic適用→バックフィル→Smokeテスト。

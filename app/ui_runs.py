@@ -6,6 +6,24 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app import db
 from app.utils import ms_to_jst_str
+from app.metrics import (
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
+from core.plan_repository import PlanRepository
+
+
+_PLAN_REPOSITORY = PlanRepository(
+    db._conn,
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
 
 
 def _get_registry():
@@ -129,6 +147,16 @@ def ui_run_detail(request: Request, run_id: str):
     plan_version_id = rec.get("plan_version_id") or (
         summary.get("_plan_version_id") if isinstance(summary, dict) else None
     )
+    plan_job_id = rec.get("plan_job_id")
+
+    plan_kpi_summary: dict[str, float] = {}
+    if plan_version_id:
+        try:
+            kpi_totals = _PLAN_REPOSITORY.fetch_plan_kpi_totals([plan_version_id])
+            if plan_version_id in kpi_totals:
+                plan_kpi_summary = kpi_totals[plan_version_id]
+        except Exception:
+            logging.exception("ui_run_detail_fetch_kpi_failed")
     try:
         cfg_json_str = (
             json.dumps(cfg_json, ensure_ascii=False, indent=2)
@@ -212,6 +240,8 @@ def ui_run_detail(request: Request, run_id: str):
             "config_version_id": config_version_id,
             "scenario_id": scenario_id,
             "plan_version_id": plan_version_id,
+            "plan_job_id": plan_job_id,
+            "plan_kpi_summary": plan_kpi_summary,
             "config_json_str": cfg_json_str,
             "subtitle": "Run Viewer",
             "from_jobs": from_jobs,

@@ -353,13 +353,38 @@ def get_plan_version(version_id: str) -> Dict[str, Any] | None:
         return dict(row) if row else None
 
 
-def list_plan_versions(limit: int = 100) -> List[Dict[str, Any]]:
+def list_plan_versions(
+    limit: int = 100,
+    offset: int = 0,
+    order: str = "created_desc",
+) -> List[Dict[str, Any]]:
+    order_map = {
+        "created_desc": "created_at DESC",
+        "created_asc": "created_at ASC",
+        "version_desc": "version_id DESC",
+        "version_asc": "version_id ASC",
+        "status": "status ASC, created_at DESC",
+    }
+    order_sql = order_map.get(order, order_map["created_desc"])
+
     with _conn() as c:
         rows = c.execute(
-            "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at FROM plan_versions ORDER BY created_at DESC LIMIT ?",
-            (limit,),
+            f"""
+            SELECT version_id, status, cutover_date, recon_window_days,
+                   config_version_id, base_scenario_id, created_at
+            FROM plan_versions
+            ORDER BY {order_sql}
+            LIMIT ? OFFSET ?
+            """,
+            (limit, offset),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+def count_plan_versions() -> int:
+    with _conn() as c:
+        row = c.execute("SELECT COUNT(*) AS cnt FROM plan_versions").fetchone()
+        return int(row["cnt"] if row else 0)
 
 
 def list_plan_versions_by_base(

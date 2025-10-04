@@ -16,6 +16,13 @@
   - 詳細設計書。
   - スキーマ、マイグレーション、PlanRepository、UI/API対応、テスト・監視方針を章立てで記録。
   - 実装内容が設計とズレた場合はここを修正して整合性を保つ。
+- `docs/plan_db_rollback_runbook.md`
+  - PlanRepository 障害時に旧 `plan_artifacts` 運用へ戻すためのRunbook。
+  - 初動対応、データ保全、アプリ切替、RunRegistry補正、検証・ロールフォワードの手順とコマンドをまとめている。
+  - インシデント訓練やチェックリスト更新時はここを基準にする。
+- `plan_backfill_runs` テーブル
+  - `scripts/plan_backfill_repository.py` の実行履歴を保持。`status`/`processed`/`errors`/`duration_ms` などを確認できる。
+  - 運用監視ではこのテーブルとログ（`backfill_completed`）を参照する。
 
 ## 実装時の更新目安
 
@@ -24,4 +31,3 @@
 3. 設計詳細の変更・補足 → `plan_db_persistence_plan.md`
 
 この3ファイルを役割ごとに保守することで、実装とドキュメントの整合を維持する。
-

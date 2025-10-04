@@ -1,6 +1,14 @@
 import time
 from fastapi.testclient import TestClient
-from app.api import app
+
+from app import db
+from main import app
+from app.metrics import (
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+)
+from core.plan_repository import PlanRepository
 
 
 def _make_plan_with_artifacts(version_id: str) -> None:
@@ -14,10 +22,19 @@ def _make_plan_with_artifacts(version_id: str) -> None:
             "weeks": 4,
             "round_mode": "int",
             "lt_unit": "day",
+            "lightweight": False,
         },
         timeout=120,
     )
     assert r.status_code == 200, r.text
+    repo = PlanRepository(
+        db._conn,
+        PLAN_DB_WRITE_LATENCY,
+        PLAN_SERIES_ROWS_TOTAL,
+        PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    )
+    assert repo.fetch_plan_series(version_id, "aggregate"), "PlanRepositoryにaggregate行が存在すること"
+    assert repo.fetch_plan_series(version_id, "det"), "PlanRepositoryにdet行が存在すること"
 
 
 def test_schedule_csv_and_ui_tabs_present(seed_canonical_data, monkeypatch):

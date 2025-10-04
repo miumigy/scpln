@@ -289,7 +289,7 @@ graph TD;
 - 整合ログの閾値: `--tol-abs`, `--tol-rel` を `1e-6` 程度に設定し、`summary.tol_violations=0` を確認。
 - 境界一致: `boundary.period` の行で `ok=true` を確認。UI/CSVで `top` の偏差上位を見る。
 - 能力整合: `plan_final.json.weekly_summary[*]` の `spill_out=0` または許容内かを確認。
-- 回帰: `scripts/run_planning_pipeline.sh`（存在時）を用いて一連の成果物が生成されること。
+- 回帰: `scripts/run_planning_pipeline.py`（`.sh` ラッパ経由も可）を用いて一連の成果物が生成されること。
 - スモーク/アサート:
   - `python scripts/spill_smoke.py -i out/plan_final.json` で zone別の `spill_in/out` 合計を俯瞰。
   - `python scripts/spill_assert.py -i out/plan_final.json` で zone毎の `spill_in>eps` の週数が1以下であることを検証（セグメント先頭のみ流入がある想定）。

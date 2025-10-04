@@ -7,7 +7,7 @@
 
 ## 0. 現行運用サマリ
 - 2025-09-30 に Plan 経由 Run への切替を完了し、レガシー Run 投入経路は停止済み。
-- RunRegistry DB は `config_version_id` と `plan_version_id` を必須キーとして保持し、Canonical 設定スナップショットとRun成果物を相互トレースできる。
+- RunRegistry DB は `config_version_id`, `plan_version_id`, `plan_job_id` を必須キーとして保持し、Canonical 設定スナップショットとRun成果物を相互トレースできる。
 - 運用チェックリスト・バックアップ手順は `docs/config_integration_plan.md` と `docs/ops_backup.md` に統合管理し、本ドキュメントはRun履歴運用の一次リファレンスとして恒久保守する。
 - KPI監視・CIテストは Plan 中心パスに合わせて更新済み。Run 再構築スクリプト(`scripts/rebuild_run_registry.py`) をフォールバック手順に組み込み済み。
 
@@ -26,7 +26,7 @@
 
 ## 3. 運用フロー
 1. `/ui/plans` で Plan を作成し、Base Scenario と Canonical Config を選択して実行する。作成後は Summary に `config_version_id` と `base_scenario_id` が表示され、Run履歴と双方向リンクが張られる。
-2. Run履歴(`/ui/runs`)では `plan_version_id` 列と `scenario_id` 列から該当Plan/シナリオに遷移できる。Run詳細(`/ui/runs/{run_id}`)でも Summary にリンクを表示し、レスポンスJSONにも `plan_version_id` が含まれる。
+2. Run履歴(`/ui/runs`)では `plan_version_id` 列と `scenario_id` 列から該当Plan/シナリオに遷移できる。Run詳細(`/ui/runs/{run_id}`)でもPlanへのリンクと主要KPIサマリを表示し、レスポンスJSONにも `plan_version_id` と `plan_job_id` が含まれる。
 3. Aggregate Jobフォームでは Plan version を指定できる。Plan起点で Run を再処理する際はここで `plan_version_id` を入力し、成果物をPlanにひも付けて管理する。
 4. `/ui/jobs` では Plan作成ジョブが `plan_version_id` を示すため、完了後に該当Plan詳細へ遷移して結果を確認する。
 
@@ -73,7 +73,7 @@
 - `SCPLN_SKIP_SIMULATION_API=1` を利用してPSI実行をスキップし、CI時間を短縮。
 
 ## 7. 今後のフォローアップ候補
-- `/runs` APIレスポンスに `plan_version_id` を公式フィールドとして追加し、summary依存を解消する。
+- `/runs` APIレスポンスに `plan_version_id` と `plan_job_id` を公式フィールドとして追加し、summary依存を解消する。（対応済み）
 - Run履歴フィルタに「Plan version」「Scenario name」を追加し、Plan中心運用での検索利便性を向上。
 - 旧ドキュメント（README/Tutorial）からレガシーRun手順を完全に除去し、Plan中心フローへ統一。
 - RunRegistryバックアップ/データ保持ポリシーの自動化（例: cron でのエクスポート）。

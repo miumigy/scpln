@@ -30,6 +30,7 @@ class RunRegistryDB:
                 "config_version_id": payload.get("config_version_id"),
                 "scenario_id": payload.get("scenario_id"),
                 "plan_version_id": payload.get("plan_version_id"),
+                "plan_job_id": payload.get("plan_job_id"),
                 "config_json": (
                     json.dumps(payload.get("config_json"))
                     if payload.get("config_json") is not None
@@ -42,7 +43,7 @@ class RunRegistryDB:
                 c.execute(
                     """
                     UPDATE runs SET started_at=?, duration_ms=?, schema_version=?, summary=?, results=?,
-                        daily_profit_loss=?, cost_trace=?, config_id=?, config_version_id=?, scenario_id=?, plan_version_id=?, config_json=?, updated_at=?
+                        daily_profit_loss=?, cost_trace=?, config_id=?, config_version_id=?, scenario_id=?, plan_version_id=?, plan_job_id=?, config_json=?, updated_at=?
                     WHERE run_id=?
                     """,
                     (
@@ -57,6 +58,7 @@ class RunRegistryDB:
                         doc["config_version_id"],
                         doc["scenario_id"],
                         doc["plan_version_id"],
+                        doc["plan_job_id"],
                         doc["config_json"],
                         doc["updated_at"],
                         run_id,
@@ -66,8 +68,8 @@ class RunRegistryDB:
                 c.execute(
                     """
                     INSERT INTO runs(run_id, started_at, duration_ms, schema_version, summary, results,
-                        daily_profit_loss, cost_trace, config_id, config_version_id, scenario_id, plan_version_id, config_json, created_at, updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        daily_profit_loss, cost_trace, config_id, config_version_id, scenario_id, plan_version_id, plan_job_id, config_json, created_at, updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         doc["run_id"],
@@ -82,6 +84,7 @@ class RunRegistryDB:
                         doc["config_version_id"],
                         doc["scenario_id"],
                         doc["plan_version_id"],
+                        doc["plan_job_id"],
                         doc["config_json"],
                         doc["created_at"],
                         doc["updated_at"],

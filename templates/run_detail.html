@@ -28,6 +28,13 @@
             {% else %}-{% endif %}
           </td>
         </tr>
+        <tr><th class="mono">plan_job_id</th>
+          <td class="mono">
+            {% if plan_job_id %}
+              <a href="/ui/jobs/{{ plan_job_id }}">{{ plan_job_id }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
         <tr><th class="mono">scenario_id</th>
           <td class="mono">
             {% if scenario_id %}
@@ -39,6 +46,21 @@
         <tr><th class="mono">raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section>
+    <h3>Plan KPI Summary</h3>
+    {% if plan_kpi_summary %}
+    <table>
+      <tbody>
+        {% for k, v in plan_kpi_summary.items() %}
+        <tr><th class="mono">{{ k }}</th><td>{{ "%.3f"|format(v) if v is not none else '' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No plan KPI summary available.</p>
+    {% endif %}
   </section>
 
   <section>

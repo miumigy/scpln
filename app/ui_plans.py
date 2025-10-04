@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from app.api import app
+from fastapi import APIRouter
+
+router = APIRouter()
+
 import logging
 import json
 from fastapi.responses import HTMLResponse
@@ -12,10 +15,44 @@ from app import plans_api as _plans_api  # for reuse handlers
 from app import runs_api as _runs_api  # for Plan & Run adapter
 from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
 from app.utils import ms_to_jst_str
-from core.config.storage import list_canonical_version_summaries
+from core.config.storage import (
+    list_canonical_version_summaries,
+    get_canonical_config,
+    CanonicalConfigNotFoundError,
+)
+from core.config import build_planning_inputs
+from core.plan_repository import PlanRepository
+from app.metrics import (
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
+from core.plan_repository_views import (
+    fetch_aggregate_rows as repo_fetch_aggregate_rows,
+    fetch_detail_rows as repo_fetch_detail_rows,
+    fetch_override_events as repo_fetch_override_events,
+    latest_state_from_events,
+    summarize_audit_events,
+)
+from datetime import datetime, timezone
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
+
+
+def get_plan_repository() -> PlanRepository:
+    return PlanRepository(
+        db._conn,
+        PLAN_DB_WRITE_LATENCY,
+        PLAN_SERIES_ROWS_TOTAL,
+        PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+        PLAN_DB_CAPACITY_TRIM_TOTAL,
+        PLAN_DB_LAST_TRIM_TIMESTAMP,
+    )
+
+
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
@@ -93,58 +130,57 @@ def _scenario_options(limit: int = 200):
     return options
 
 
-def _fetch_plan_rows(limit: int = 200):
-    plans = db.list_plan_versions(limit=limit)
-    rows = []
-    for p in plans:
-        ver = p.get("version_id")
-        recon = db.get_plan_artifact(ver, "reconciliation_log.json") or {}
-        summary = (recon or {}).get("summary") or {}
-        cut = (recon or {}).get("cutover") or {}
-        recon_adj = db.get_plan_artifact(ver, "reconciliation_log_adjusted.json") or {}
-        cut_adj = (recon_adj or {}).get("cutover") or {}
-        plan_final = db.get_plan_artifact(ver, "plan_final.json") or {}
-        plan_final_adj = db.get_plan_artifact(ver, "plan_final_adjusted.json") or {}
-        bs = (plan_final or {}).get("boundary_summary") or {}
-        bs_adj = (plan_final_adj or {}).get("boundary_summary") or {}
+def _normalize_plan_state(raw: dict | None) -> dict | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    state = dict(raw)
+    status = state.get("status") or state.get("state")
+    if status is None:
+        status = "draft"
+    state["status"] = status
+    state.setdefault("state", status)
+    state.setdefault("display_status", str(status))
+    timestamp = (
+        state.get("approved_at")
+        or state.get("submitted_at")
+        or state.get("timestamp")
+    )
+    if state.get("display_time") is None and timestamp is not None:
+        try:
+            ts_int = int(timestamp)
+            dt = datetime.fromtimestamp(ts_int / 1000, tz=timezone.utc)
+            state["display_time"] = dt.isoformat().replace("+00:00", "Z")
+        except Exception:
+            pass
+    invalid = state.get("invalid")
+    if invalid is None:
+        state["invalid"] = []
+    elif not isinstance(invalid, list):
+        state["invalid"] = [invalid]
+    state.setdefault("source", "unknown")
+    return state
 
-        cutover_date = (
-            p.get("cutover_date")
-            or cut.get("cutover_date")
-            or cut_adj.get("cutover_date")
-        )
-        recon_window_days = p.get("recon_window_days")
-        if recon_window_days is None:
-            recon_window_days = cut.get("recon_window_days")
-        if recon_window_days is None:
-            recon_window_days = cut_adj.get("recon_window_days")
-        if recon_window_days is None:
-            recon_window_days = bs.get("window_days")
-        if recon_window_days is None:
-            recon_window_days = bs_adj.get("window_days")
-        policy = (
-            cut.get("anchor_policy")
-            or cut_adj.get("anchor_policy")
-            or bs.get("anchor_policy")
-            or bs_adj.get("anchor_policy")
-        )
 
-        rows.append(
-            {
-                **p,
-                "cutover_date": cutover_date,
-                "recon_window_days": recon_window_days,
-                "recon_summary": summary,
-                "policy": policy,
-            }
+def _fetch_plan_rows(limit: int = 50, offset: int = 0):
+    try:
+        response = _plans_api.get_plans(
+            limit=limit, offset=offset, include="summary,kpi,jobs"
         )
-    return rows
+        plans = response.get("plans", [])
+        pagination = response.get("pagination", {})
+        return plans, pagination
+    except Exception:
+        logging.exception("ui_plans_fetch_plans_failed")
+        return [], {}
 
 
 def _render_plans_page(
     request: Request,
     *,
     plans,
+    pagination: dict | None = None,
     error: str | None = None,
     form_defaults: dict | None = None,
 ):
@@ -156,6 +192,7 @@ def _render_plans_page(
         {
             "subtitle": "Plan Versions",
             "plans": plans,
+            "pagination": pagination or {},
             "error": error,
             "form_defaults": form_defaults or {},
             "canonical_options": canonical_options,
@@ -164,13 +201,13 @@ def _render_plans_page(
     )
 
 
-@app.get("/ui/plans", response_class=HTMLResponse)
-def ui_plans(request: Request):
-    rows = _fetch_plan_rows()
-    return _render_plans_page(request, plans=rows)
+@router.get("/ui/plans", response_class=HTMLResponse)
+def ui_plans(request: Request, limit: int = 50, offset: int = 0):
+    rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
+    return _render_plans_page(request, plans=rows, pagination=pagination)
 
 
-@app.get("/ui/plans/{version_id}", response_class=HTMLResponse)
+@router.get("/ui/plans/{version_id}", response_class=HTMLResponse)
 def ui_plan_detail(version_id: str, request: Request):
     ver = db.get_plan_version(version_id)
     if not ver:
@@ -187,72 +224,93 @@ def ui_plan_detail(version_id: str, request: Request):
         db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
-    plan_mrp = db.get_plan_artifact(version_id, "mrp.json") or {}
-    source_meta = db.get_plan_artifact(version_id, "source.json") or {}
-    plan_state = db.get_plan_artifact(version_id, "state.json") or {
-        "state": "draft",
-        "invalid": [],
-    }
-    aggregate = db.get_plan_artifact(version_id, "aggregate.json") or {}
-    sku_week = db.get_plan_artifact(version_id, "sku_week.json") or {}
+    plan_jobs = get_plan_repository().fetch_plan_jobs(version_id=version_id)
+    created_from_run_id: str | None = None
+    if plan_jobs:
+        created_from_run_id = plan_jobs[0].get("run_id")
+    events = repo_fetch_override_events(get_plan_repository(), version_id)
+    audit_events_raw = sorted(
+        events,
+        key=lambda e: (int(e.get("event_ts") or 0), e.get("event_id") or 0),
+        reverse=True,
+    )
+    audit_events = summarize_audit_events(audit_events_raw[:200])  # 最新200件を初期表示
+    plan_state_repo = latest_state_from_events(events)
+    if plan_state_repo:
+        plan_state = _normalize_plan_state(
+            {**plan_state_repo, "source": "plan_repository"}
+        )
+    else:
+        fallback_state = db.get_plan_artifact(version_id, "state.json")
+        if isinstance(fallback_state, dict):
+            plan_state = _normalize_plan_state({**fallback_state, "source": "legacy"})
+        else:
+            plan_state = None
+    if plan_state is None:
+        plan_state = _normalize_plan_state(
+            {
+                "state": "draft",
+                "invalid": [],
+                "source": "default",
+            }
+        )
+    aggregate_rows = repo_fetch_aggregate_rows(get_plan_repository(), version_id)
+    detail_rows = repo_fetch_detail_rows(get_plan_repository(), version_id)
+    aggregate = {"rows": aggregate_rows}
+    sku_week = {"rows": detail_rows}
+
     disagg_rows_sample = []
     try:
-        disagg_rows_sample = list((sku_week.get("rows") or [])[:200])
+        disagg_rows_sample = detail_rows[:200]
     except Exception:
         disagg_rows_sample = []
     # schedule rows from mrp.json (first 200)
     schedule_rows_sample = []
     schedule_total = 0
     try:
-        mrows = list((plan_mrp.get("rows") or []))
+        mrows = get_plan_repository().fetch_plan_series(version_id, level="mrp")
         schedule_total = len(mrows)
         schedule_rows_sample = mrows[:200]
     except Exception:
+        mrows = []
         schedule_rows_sample = []
         schedule_total = 0
 
     config_version_id = ver.get("config_version_id")
-    canonical_snapshot = (
-        db.get_plan_artifact(version_id, "canonical_snapshot.json") or {}
-    )
-    canonical_meta = (
-        canonical_snapshot.get("meta") if isinstance(canonical_snapshot, dict) else {}
-    )
-    if hasattr(canonical_meta, "model_dump"):
-        canonical_meta = canonical_meta.model_dump()
+    canonical_config = None
+    canonical_meta: dict[str, Any] = {}
     canonical_counts: dict[str, int] = {}
-    if isinstance(canonical_snapshot, dict):
-        for key in (
-            "items",
-            "nodes",
-            "arcs",
-            "bom",
-            "demands",
-            "capacities",
-            "calendars",
-            "hierarchies",
-        ):
-            val = canonical_snapshot.get(key)
-            if isinstance(val, list):
-                canonical_counts[key] = len(val)
-
-    planning_inputs = db.get_plan_artifact(version_id, "planning_inputs.json") or {}
-    planning_summary = {}
-    if isinstance(planning_inputs, dict):
-
-        def _len(key: str) -> int:
-            val = planning_inputs.get(key)
-            return len(val) if isinstance(val, list) else 0
-
-        planning_summary = {
-            "schema_version": planning_inputs.get("schema_version"),
-            "demand_family": _len("demand_family"),
-            "capacity": _len("capacity"),
-            "mix_share": _len("mix_share"),
-            "item_master": _len("item_master"),
-            "inventory": _len("inventory"),
-            "open_po": _len("open_po"),
-        }
+    planning_summary: dict[str, Any] = {}
+    if config_version_id:
+        try:
+            canonical_config = get_canonical_config(config_version_id)
+            if canonical_config:
+                canonical_meta = canonical_config.meta.model_dump()
+                canonical_counts = {
+                    "items": len(canonical_config.items),
+                    "nodes": len(canonical_config.nodes),
+                    "arcs": len(canonical_config.arcs),
+                    "bom": len(canonical_config.bom),
+                    "demands": len(canonical_config.demands),
+                    "capacities": len(canonical_config.capacities),
+                    "calendars": len(canonical_config.calendars),
+                    "hierarchies": len(canonical_config.hierarchies),
+                }
+                planning_bundle = build_planning_inputs(canonical_config)
+                agg_input = planning_bundle.aggregate_input
+                planning_summary = {
+                    "schema_version": agg_input.schema_version,
+                    "demand_family": len(agg_input.demand_family),
+                    "capacity": len(agg_input.capacity),
+                    "mix_share": len(agg_input.mix_share),
+                    "item_master": len(agg_input.item_master),
+                    "inventory": len(agg_input.inventory),
+                    "open_po": len(agg_input.open_po),
+                }
+        except CanonicalConfigNotFoundError:
+            pass  # not found
+        except Exception:
+            logging.exception("ui_plan_detail_build_planning_inputs_failed")
 
     # Validate summary (MVP)
     validate = {}
@@ -261,27 +319,27 @@ def ui_plan_detail(version_id: str, request: Request):
         tol_before = (recon.get("summary") or {}).get("tol_violations")
         tol_after = (recon_adj.get("summary") or {}).get("tol_violations")
         # 2) negative inventory counts from mrp rows
-        mrows = list((plan_mrp.get("rows") or []))
         neg_inv = 0
         frac_sched = 0
         for r in mrows:
             try:
-                ohs = float(r.get("on_hand_start") or 0)
-                ohe = float(r.get("on_hand_end") or 0)
+                extra = json.loads(r.get("extra_json") or "{}")
+                ohs = float(extra.get("on_hand_start") or 0)
+                ohe = float(extra.get("on_hand_end") or 0)
                 if ohe < 0 or ohs < 0:
                     neg_inv += 1
-                sr = float(r.get("scheduled_receipts") or 0)
+                sr = float(extra.get("scheduled_receipts") or 0)
                 if abs(sr - round(sr)) > 1e-6:
                     frac_sched += 1
             except Exception:
                 pass
         # 3) capacity violations from weekly_summary (adjusted_load > capacity)
-        ws = plan_final.get("weekly_summary") or []
+        ws = get_plan_repository().fetch_plan_series(version_id, level="weekly_summary")
         cap_over = 0
         for r in ws:
             try:
-                cap = float(r.get("capacity") or 0)
-                adj = float(r.get("adjusted_load") or 0)
+                cap = float(r.get("capacity_used") or 0)
+                adj = float(r.get("supply") or 0)
                 if adj - cap > 1e-6:
                     cap_over += 1
             except Exception:
@@ -384,65 +442,12 @@ def ui_plan_detail(version_id: str, request: Request):
         except Exception:
             related_plans = []
     # KPI preview (MVP): capacity/utilization and spill totals
-    kpi_preview = {}
-    try:
-        ws = plan_final.get("weekly_summary") or []
-        cap_total = sum(float(r.get("capacity") or 0) for r in ws)
-        adj_total = sum(float(r.get("adjusted_load") or 0) for r in ws)
-        spill_in_total = sum(float(r.get("spill_in") or 0) for r in ws)
-        spill_out_total = sum(float(r.get("spill_out") or 0) for r in ws)
-        util = (adj_total / cap_total * 100.0) if cap_total else None
-        # DET集計（需要/供給/バックログ）から SL と発注合計を推定
-        det_dem = det_sup = det_bkl = 0.0
-        try:
-            for row in recon.get("deltas") or []:
-                det_dem += float(row.get("det_demand") or 0)
-                det_sup += float(row.get("det_supply") or 0)
-                det_bkl += float(row.get("det_backlog") or 0)
-        except Exception:
-            det_dem = det_sup = det_bkl = 0.0
-        sl = ((det_dem - det_bkl) / det_dem * 100.0) if det_dem else None
-        # 在庫（MVP）: MRPの最初の週の on_hand_start 合計を在庫初期合計として表示
-        inv_init_total = None
-        try:
-            mrows = list(plan_mrp.get("rows") or [])
-            if mrows:
-                weeks = []
-                for r in mrows:
-                    w = str(r.get("week"))
-                    if w and w not in weeks:
-                        weeks.append(w)
-                firstw = weeks[0] if weeks else None
-                if firstw:
-                    inv_init_total = sum(
-                        float(r.get("on_hand_start") or 0)
-                        for r in mrows
-                        if str(r.get("week")) == firstw
-                    )
-        except Exception:
-            inv_init_total = None
-        kpi_preview = {
-            "capacity_total": cap_total,
-            "adjusted_total": adj_total,
-            "util_pct": util,
-            "spill_in_total": spill_in_total,
-            "spill_out_total": spill_out_total,
-            "det_demand_total": det_dem,
-            "det_supply_total": det_sup,
-            "det_backlog_total": det_bkl,
-            "sl_pct": sl,
-            "inv_initial_total": inv_init_total,
-            "viol_before": (recon.get("summary") or {}).get("tol_violations"),
-            "viol_after": (recon_adj.get("summary") or {}).get("tol_violations"),
-            "window_days": (plan_final.get("boundary_summary") or {}).get(
-                "window_days"
-            ),
-            "anchor_policy": (plan_final.get("boundary_summary") or {}).get(
-                "anchor_policy"
-            ),
-        }
-    except Exception:
-        kpi_preview = {}
+    kpi_rows = get_plan_repository().fetch_plan_kpis(version_id)
+    kpi_preview: dict[str, Any] = {
+        row["metric"]: row
+        for row in kpi_rows
+        if (row.get("bucket_type") or "total") == "total"
+    }
     # 計測イベント: plan_results_viewed（詳細表示）
     try:
         logging.info(
@@ -466,7 +471,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "subtitle": f"プラン詳細 {version_id}",
             "version_id": version_id,
             "version": ver,
-            "created_from_run_id": (source_meta or {}).get("source_run_id"),
+            "created_from_run_id": created_from_run_id,
             "recon": recon,
             "recon_adj": recon_adj,
             "weekly_summary": plan_final.get("weekly_summary"),
@@ -479,9 +484,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "related_plans": related_plans,
             "aggregate": aggregate,
             "disagg_rows": disagg_rows_sample,
-            "disagg_total": (
-                len((sku_week.get("rows") or [])) if isinstance(sku_week, dict) else 0
-            ),
+            "disagg_total": len(detail_rows),
             "schedule_rows": schedule_rows_sample,
             "schedule_total": schedule_total,
             "validate": validate,
@@ -493,11 +496,12 @@ def ui_plan_detail(version_id: str, request: Request):
             "config_runs": config_runs,
             "plan_runs": plan_runs,
             "plan_run_ids": plan_run_ids,
+            "audit_events": audit_events,
         },
     )
 
 
-@app.post("/ui/plans/{version_id}/reconcile")
+@router.post("/ui/plans/{version_id}/reconcile")
 def ui_plan_reconcile(
     version_id: str,
     request: Request,
@@ -580,7 +584,7 @@ def ui_plan_reconcile(
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@app.post("/ui/plans/{version_id}/plan_run_auto")
+@router.post("/ui/plans/{version_id}/plan_run_auto")
 def ui_plan_run_auto(
     version_id: str,
     request: Request,
@@ -596,6 +600,7 @@ def ui_plan_run_auto(
     carryover_split: str | None = Form(""),
     apply_adjusted: str | None = Form(default=None),
     queue_job: str | None = Form(default=None),
+    lightweight: str | None = Form(default=None),
 ):
     """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
     - queue_job チェック時は非同期（ジョブ投入）。
@@ -637,6 +642,7 @@ def ui_plan_run_auto(
             "carryover": carryover,
             "carryover_split": carryover_split,
             "apply_adjusted": _form_bool(apply_adjusted),
+            "lightweight": _form_bool(lightweight),
             "config_version_id": config_version_id,
             "base_scenario_id": ver.get("base_scenario_id"),
             "source_run_id": source_meta.get("source_run_id"),
@@ -655,7 +661,7 @@ def ui_plan_run_auto(
 _STEPS = ["draft", "aggregated", "disaggregated", "scheduled", "executed"]
 
 
-@app.post("/ui/plans/{version_id}/state/advance")
+@router.post("/ui/plans/{version_id}/state/advance")
 def ui_plan_state_advance(version_id: str, request: Request, to: str = Form(...)):
     if to not in _STEPS:
         from fastapi.responses import RedirectResponse
@@ -686,7 +692,7 @@ def ui_plan_state_advance(version_id: str, request: Request, to: str = Form(...)
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@app.post("/ui/plans/{version_id}/state/invalidate")
+@router.post("/ui/plans/{version_id}/state/invalidate")
 def ui_plan_state_invalidate(
     version_id: str, request: Request, from_step: str = Form(...)
 ):
@@ -711,7 +717,7 @@ def ui_plan_state_invalidate(
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@app.post("/ui/plans/run")
+@router.post("/ui/plans/run")
 def ui_plans_run(
     request: Request,
     weeks: int = Form(4),
