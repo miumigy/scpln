@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -67,10 +69,12 @@ def test_carryover_both_policy_split(tmp_path: Path):
     }
     wj(tmp_path / "aggregate.json", agg)
     wj(tmp_path / "sku_week.json", det)
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/anchor_adjust.py",
             "-i",
             str(tmp_path / "aggregate.json"),

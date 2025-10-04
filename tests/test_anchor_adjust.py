@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -42,11 +44,13 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     _write_json(out_dir / "aggregate.json", agg)
     _write_json(out_dir / "sku_week.json", det)
 
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     # before: compute reconciliation
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/reconcile_levels.py",
             "-i",
             str(out_dir / "aggregate.json"),
@@ -68,7 +72,7 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     # adjust
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/anchor_adjust.py",
             "-i",
             str(out_dir / "aggregate.json"),
@@ -87,7 +91,7 @@ def test_anchor_adjust_reduces_boundary_delta(tmp_path: Path):
     # after: compute reconciliation on adjusted
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/reconcile_levels.py",
             "-i",
             str(out_dir / "aggregate.json"),

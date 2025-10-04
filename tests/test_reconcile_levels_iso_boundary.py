@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -33,11 +35,13 @@ def test_iso_boundary_marking(tmp_path: Path):
     }
     (tmp_path / "aggregate.json").write_text(json.dumps(agg), encoding="utf-8")
     (tmp_path / "det.json").write_text(json.dumps(det), encoding="utf-8")
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     outp = tmp_path / "recon.json"
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/reconcile_levels.py",
             "-i",
             str(tmp_path / "aggregate.json"),

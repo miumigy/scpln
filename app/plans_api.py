@@ -4,6 +4,8 @@ import json
 import time
 import uuid
 import logging
+import os
+import sys
 from pathlib import Path
 from collections import defaultdict
 from typing import Any, Dict, Optional
@@ -47,7 +49,6 @@ from core.plan_repository_views import (
     latest_state_from_events,
 )
 import subprocess
-import os
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -74,7 +75,7 @@ def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
 def _run_py(args: list[str]) -> None:
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", str(BASE_DIR))
-    subprocess.run(["python3", *args], cwd=str(BASE_DIR), env=env, check=True)
+    subprocess.run([sys.executable, *args], cwd=str(BASE_DIR), env=env, check=True)
 
 
 def _load_json(path: Path) -> Dict[str, Any] | None:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -37,10 +39,12 @@ def test_anchor_adjust_tol_rel_skip(tmp_path: Path):
     }
     write_json(tmp_path / "aggregate.json", agg)
     write_json(tmp_path / "sku_week.json", det)
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/anchor_adjust.py",
             "-i",
             str(tmp_path / "aggregate.json"),
@@ -96,10 +100,12 @@ def test_anchor_adjust_carryover_both(tmp_path: Path):
     }
     write_json(tmp_path / "aggregate.json", agg)
     write_json(tmp_path / "sku_week.json", det)
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     subprocess.run(
         [
-            "python3",
+            sys.executable,
             "scripts/anchor_adjust.py",
             "-i",
             str(tmp_path / "aggregate.json"),

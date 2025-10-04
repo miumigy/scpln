@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -11,10 +13,12 @@ def _run_recon(tmp: Path, agg_rows, det_rows, cutover: str | None = None):
         json.dumps({"rows": agg_rows}), encoding="utf-8"
     )
     (tmp / "det.json").write_text(json.dumps({"rows": det_rows}), encoding="utf-8")
-    env = {"PYTHONPATH": str(base)}
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(base)
+    env.setdefault("PLAN_STORAGE_MODE", "files")
     outp = tmp / "recon.json"
     cmd = [
-        "python3",
+        sys.executable,
         "scripts/reconcile_levels.py",
         "-i",
         str(tmp / "aggregate.json"),

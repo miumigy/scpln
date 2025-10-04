@@ -6,6 +6,7 @@ import json
 from uuid import uuid4
 from typing import Any, Dict, Optional, Tuple
 import os
+import sys
 import logging
 from pathlib import Path
 
@@ -448,7 +449,7 @@ class JobManager:
             planning_inputs_path = artifact_paths.get("planning_inputs.json")
 
             def runpy(args: list[str]):
-                subprocess.run(["python3", *args], cwd=str(base), env=env, check=True)
+                subprocess.run([sys.executable, *args], cwd=str(base), env=env, check=True)
 
             runpy(
                 [
