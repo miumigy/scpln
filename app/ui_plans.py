@@ -72,7 +72,8 @@ def _form_bool(value) -> bool:
 def _canonical_version_options(limit: int = 50):
     try:
         summaries = list_canonical_version_summaries(limit=limit)
-    except Exception:
+    except Exception as e:
+        logging.exception(f"ui_plans_canonical_version_options_failed: {e}")
         return []
 
     options = []
@@ -101,8 +102,8 @@ def _scenario_options(limit: int = 200):
     try:
         db.init_db()
         rows = db.list_scenarios(limit=limit)
-    except Exception:
-        logging.exception("ui_plans_list_scenarios_failed")
+    except Exception as e:
+        logging.exception(f"ui_plans_list_scenarios_failed: {e}")
         return []
 
     options = []

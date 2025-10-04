@@ -1902,90 +1902,94 @@ def get_plans(
     order: str = Query("created_desc"),
     include: str = Query("summary"),
 ):
-    db.init_db()
+    try:
+        db.init_db()
 
-    limit_value = int(limit)
-    offset_value = int(offset)
-    include_tokens = _parse_include(include)
-    legacy_only = include_tokens == {"legacy"}
+        limit_value = int(limit)
+        offset_value = int(offset)
+        include_tokens = _parse_include(include)
+        legacy_only = include_tokens == {"legacy"}
 
-    order_value = order if order in _PLAN_ORDER_CHOICES else "created_desc"
-    plans = db.list_plan_versions(limit=limit_value, offset=offset_value, order=order_value)
-    total = db.count_plan_versions()
+        order_value = order if order in _PLAN_ORDER_CHOICES else "created_desc"
+        plans = db.list_plan_versions(limit=limit_value, offset=offset_value, order=order_value)
+        total = db.count_plan_versions()
 
-    pagination = {
-        "limit": limit_value,
-        "offset": offset_value,
-        "count": len(plans),
-        "total": total,
-    }
-    if offset_value + len(plans) < total:
-        pagination["next_offset"] = offset_value + len(plans)
-
-    if legacy_only:
-        return {"plans": plans, "pagination": pagination, "includes": ["legacy"]}
-
-    include_tokens.discard("legacy")
-
-    include_summary = "summary" in include_tokens
-    include_kpi = "kpi" in include_tokens or include_summary
-    include_jobs = "jobs" in include_tokens
-    include_artifacts = "artifacts" in include_tokens
-
-    version_ids = [p.get("version_id") for p in plans if p.get("version_id")]
-
-    summaries = (
-        build_plan_summaries(_PLAN_REPOSITORY, version_ids, include_kpi=include_kpi)
-        if (include_summary or include_kpi)
-        else {}
-    )
-    jobs_map = (
-        _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
-    )
-
-    enriched_plans: list[dict[str, Any]] = []
-    for row in plans:
-        plan = dict(row)
-        vid = plan.get("version_id")
-        summary_data = summaries.get(vid, {})
-
-        storage_info = summary_data.get("storage", {"plan_repository": False})
-
-        if include_summary:
-            plan["summary"] = {
-                k: v
-                for k, v in summary_data.items()
-                if k in {"series", "last_updated_at", "series_rows", "kpi"}
-            }
-            # ensure KPI under summary if available
-            if "kpi" in plan["summary"] and not include_kpi:
-                plan["summary"].pop("kpi", None)
-
-        if include_kpi and summary_data.get("kpi"):
-            plan["kpi"] = summary_data.get("kpi")
-
-        if include_jobs:
-            last_job = jobs_map.get(vid)
-            if last_job:
-                plan["jobs"] = {"last": last_job}
-
-        artifacts_flag = None
-        if include_artifacts and vid:
-            artifacts_flag = db.get_plan_artifact(vid, "plan_final.json") is not None
-
-        plan["storage"] = {
-            **storage_info,
-            "artifacts": artifacts_flag,
+        pagination = {
+            "limit": limit_value,
+            "offset": offset_value,
+            "count": len(plans),
+            "total": total,
         }
-        enriched_plans.append(plan)
+        if offset_value + len(plans) < total:
+            pagination["next_offset"] = offset_value + len(plans)
 
-    response = {
-        "plans": enriched_plans,
-        "pagination": pagination,
-        "includes": sorted(include_tokens - {"legacy"}),
-        "order": order_value,
-    }
-    return response
+        if legacy_only:
+            return {"plans": plans, "pagination": pagination, "includes": ["legacy"]}
+
+        include_tokens.discard("legacy")
+
+        include_summary = "summary" in include_tokens
+        include_kpi = "kpi" in include_tokens or include_summary
+        include_jobs = "jobs" in include_tokens
+        include_artifacts = "artifacts" in include_tokens
+
+        version_ids = [p.get("version_id") for p in plans if p.get("version_id")]
+
+        summaries = (
+            build_plan_summaries(_PLAN_REPOSITORY, version_ids, include_kpi=include_kpi)
+            if (include_summary or include_kpi)
+            else {}
+        )
+        jobs_map = (
+            _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
+        )
+
+        enriched_plans: list[dict[str, Any]] = []
+        for row in plans:
+            plan = dict(row)
+            vid = plan.get("version_id")
+            summary_data = summaries.get(vid, {})
+
+            storage_info = summary_data.get("storage", {"plan_repository": False})
+
+            if include_summary:
+                plan["summary"] = {
+                    k: v
+                    for k, v in summary_data.items()
+                    if k in {"series", "last_updated_at", "series_rows", "kpi"}
+                }
+                # ensure KPI under summary if available
+                if "kpi" in plan["summary"] and not include_kpi:
+                    plan["summary"].pop("kpi", None)
+
+            if include_kpi and summary_data.get("kpi"):
+                plan["kpi"] = summary_data.get("kpi")
+
+            if include_jobs:
+                last_job = jobs_map.get(vid)
+                if last_job:
+                    plan["jobs"] = {"last": last_job}
+
+            artifacts_flag = None
+            if include_artifacts and vid:
+                artifacts_flag = db.get_plan_artifact(vid, "plan_final.json") is not None
+
+            plan["storage"] = {
+                **storage_info,
+                "artifacts": artifacts_flag,
+            }
+            enriched_plans.append(plan)
+
+        response = {
+            "plans": enriched_plans,
+            "pagination": pagination,
+            "includes": sorted(include_tokens - {"legacy"}),
+            "order": order_value,
+        }
+        return response
+    except Exception as e:
+        logging.exception(f"plans_api_get_plans_failed: {e}")
+        return {"plans": [], "pagination": {"limit": limit, "offset": offset, "count": 0, "total": 0}, "includes": []}
 
 
 @app.get("/plans/by_base")
