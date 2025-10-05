@@ -45,11 +45,12 @@ jobs:
             sleep 1
           done
 
+      - name: Seed canonical database
+        run: PYTHONPATH=. python scripts/seed_canonical.py --save-db
+
       - name: Run acceptance smoke
-        env:
-          SCPLN_DB: scpln.db
         run: |
-          python scripts/acceptance_smoke.py --base-url http://127.0.0.1:8000
+          docker-compose -f docker-compose.acceptance.yml run --rm acceptance-smoke
 
       - name: Show server log on failure
         if: failure()
