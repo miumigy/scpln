@@ -10,69 +10,37 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    env:
+      DATABASE_URL: sqlite:///$(pwd)/scpln.db
+      SCPLN_DB: $(pwd)/scpln.db
+      REGISTRY_BACKEND: db
+      AUTH_MODE: none
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Run DB migrations (alembic upgrade head)
-        env:
-          SCPLN_DB: scpln.db
-          DATABASE_URL: sqlite:///scpln.db
-        run: |
-          python -m alembic upgrade head
-
-      - name: Seed canonical sample into DB
-        env:
-          SCPLN_DB: scpln.db
-          DATABASE_URL: sqlite:///scpln.db
-        run: |
-          PYTHONPATH=. python scripts/seed_canonical.py --save-db
-
-      - name: Launch app (background)
-        env:
-          SCPLN_DB: scpln.db
-          REGISTRY_BACKEND: db
-          RUNS_DB_MAX_ROWS: '500'
-          AUTH_MODE: 'none'
+      - name: Run DB migrations
+        run: python -m alembic upgrade head
+      - name: Seed canonical
+        run: PYTHONPATH=. python scripts/seed_canonical.py --save-db
+      - name: Launch app (bg)
         run: |
           nohup uvicorn main:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
           echo $! > server.pid
-          tries=0
-          until curl -sfS http://127.0.0.1:8000/healthz >/dev/null; do
-            tries=$((tries+1))
-            if [ $tries -gt 60 ]; then
-              echo 'Server did not become healthy in time' >&2
-              tail -n 200 server.log || true
-              exit 1
-            fi
-            sleep 1
+          for i in {1..60}; do
+            curl -sfS http://127.0.0.1:8000/healthz && exit 0 || sleep 1
           done
-
-      - name: Run acceptance smoke
+          echo "Server not healthy"; tail -n 200 server.log; exit 1
+      - name: Acceptance smoke
         run: |
-          PYTHONPATH=. python scripts/acceptance_smoke.py
-
-      - name: Show server log on failure
-        if: failure()
-        run: |
-          echo '==== server.log (tail) ===='
-          tail -n 400 server.log || true
-
-      - name: Upload server log (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-log
-          path: server.log
+          python scripts/acceptance_smoke.py --base-url http://127.0.0.1:8000 || {
+            echo "---- server.log (tail) ----"
+            tail -n 200 server.log || true
+            exit 1
+          }
 

@@ -20,7 +20,12 @@ from app.metrics import (
     PLANS_RECONCILED,
     PLANS_VIEWED,
 )
-from app.utils import ms_to_jst_str
+from sqlalchemy import inspect
+
+def table_exists(db_conn, name: str) -> bool:
+    """Check if a table exists in the database."""
+    inspector = inspect(db_conn)
+    return name in inspector.get_table_names()from app.utils import ms_to_jst_str
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
@@ -202,6 +207,7 @@ def _render_plans_page(
     pagination: dict | None = None,
     error: str | None = None,
     form_defaults: dict | None = None,
+    has_data: bool = True,
 ):
     print(f"DEBUG: _render_plans_page plans: {plans}")
     print(f"DEBUG: _render_plans_page pagination: {pagination}")
@@ -220,6 +226,7 @@ def _render_plans_page(
             "form_defaults": form_defaults or {},
             "canonical_options": canonical_options,
             "scenario_options": scenario_options,
+            "has_data": has_data,
         },
     )
 
@@ -227,8 +234,14 @@ def _render_plans_page(
 @router.get("/ui/plans", response_class=HTMLResponse)
 def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     print("DEBUG: Calling _fetch_plan_rows")
-    rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
-    return _render_plans_page(request, plans=rows, pagination=pagination)
+    has_data = False
+    rows, pagination = [], {}
+    if table_exists(db._conn(), "plan_versions"):
+        rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
+        if rows:
+            has_data = True
+
+    return _render_plans_page(request, plans=rows, pagination=pagination, has_data=has_data)
 
 
 @router.get("/ui/plans/{version_id}", response_class=HTMLResponse)
