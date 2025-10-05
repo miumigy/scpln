@@ -439,36 +439,28 @@ def main() -> int:
     base = args.base_url.rstrip("/")
     s = requests.Session()
 
-    db_path = Path(args.db_path).resolve()
+    # Use SCPLN_DB from environment if set, otherwise use resolved --db-path
+    db_path_env = os.getenv("SCPLN_DB")
+    base_db_path = Path(db_path_env) if db_path_env else Path(args.db_path)
+    db_path = base_db_path.expanduser().resolve()
+
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"[ERROR] DBディレクトリの作成に失敗しました: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        db_path.touch(exist_ok=True)
+    except OSError as exc:
+        print(f"[ERROR] DBファイルを作成できませんでした: {exc}", file=sys.stderr)
+        return 1
+
     os.environ["SCPLN_DB"] = str(db_path)
 
-    # Alembicマイグレーションを実行
-    try:
-        alembic_ini_path = Path(__file__).resolve().parents[1] / "alembic.ini"
-        if not alembic_ini_path.exists():
-            raise RuntimeError(f"alembic.ini not found at {alembic_ini_path}")
+    # DB初期化とマイグレーション
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
 
-        print(f"[INFO] Running Alembic migrations on {db_path}...")
-        proc = subprocess.run(
-            ["alembic", "-c", str(alembic_ini_path), "upgrade", "head"],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-        print("[INFO] Alembic migration completed.")
-    except FileNotFoundError:
-        print(
-            "[WARN] 'alembic' command not found. Skipping migration.", file=sys.stderr
-        )
-    except subprocess.CalledProcessError as e:
-        # 既に適用済みの場合も stderr にログが出ることがあるので WARN に留める
-        print(
-            f"[WARN] Alembic migration may have failed (exit code {e.returncode}): {e.stderr}",
-            file=sys.stderr,
-        )
-
-    # DBにテストデータを投入
     seed_test_data(str(db_path))
 
     failures: list[str] = []
@@ -519,9 +511,12 @@ def main() -> int:
             "carryover_split": 0.5,
             "apply_adjusted": 1,
         }
-        r = post_form(s, f"{base}/ui/plans/run", form)
+        r = post_form(s, f"{base}/plans/integrated/run", form)
         if r.status_code not in (302, 303):
             ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
+            print("---- server.log (tail) ----")
+            subprocess.run(["tail", "-n", "200", "server.log"])
+            print("---------------------------")
         # 生成・永続の少しの遅延を待機
         time.sleep(0.6)
         vid = latest_plan_id(s, base)
@@ -607,6 +602,7 @@ def main() -> int:
     try:
         if plan_id:
             form = {
+                "config_version_id": "100",
                 "weeks": 4,
                 "lt_unit": "day",
                 "cutover_date": "2025-02-01",
@@ -620,7 +616,7 @@ def main() -> int:
                 "apply_adjusted": 1,
                 # queue_job は未指定（同期）
             }
-            r2 = post_form(s, f"{base}/ui/plans/{plan_id}/plan_run_auto", form)
+            r2 = post_form(s, f"{base}/plans/integrated/run", form)
             if r2.status_code not in (302, 303):
                 ng("AT-04 Plan&Run", f"unexpected status: {r2.status_code}")
             time.sleep(0.6)
