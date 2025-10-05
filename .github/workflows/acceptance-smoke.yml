@@ -25,6 +25,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Run DB migrations (alembic upgrade head)
+        env:
+          SCPLN_DB: scpln.db
+          DATABASE_URL: sqlite:///scpln.db
+        run: |
+          python -m alembic upgrade head
+
+      - name: Seed canonical sample into DB
+        env:
+          SCPLN_DB: scpln.db
+          DATABASE_URL: sqlite:///scpln.db
+        run: |
+          PYTHONPATH=. python scripts/seed_canonical.py --save-db
+
       - name: Launch app (background)
         env:
           SCPLN_DB: scpln.db
@@ -44,9 +58,6 @@ jobs:
             fi
             sleep 1
           done
-
-      - name: Seed canonical database
-        run: PYTHONPATH=. python scripts/seed_canonical.py --save-db
 
       - name: Run acceptance smoke
         run: |
