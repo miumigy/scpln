@@ -2,6 +2,7 @@
 
 storage_mode (db/files/both) に応じて、PlanRepository書込みとファイル保存を切り替える。
 """
+
 from __future__ import annotations
 
 import csv
@@ -73,7 +74,9 @@ def write_plan_repository(
     if not should_use_db(storage_mode):
         return False
     try:
-        _PLAN_REPOSITORY.write_plan(version_id, series=series, kpis=kpis, overrides=None)
+        _PLAN_REPOSITORY.write_plan(
+            version_id, series=series, kpis=kpis, overrides=None
+        )
         return True
     except PlanRepositoryError:
         raise
@@ -113,7 +116,9 @@ def write_json_output(path: Path, data: dict, *, storage_mode: str) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def build_aggregate_series(version_id: str, data: Dict[str, Any]) -> List[PlanSeriesRow]:
+def build_aggregate_series(
+    version_id: str, data: Dict[str, Any]
+) -> List[PlanSeriesRow]:
     return build_plan_series_from_aggregate(version_id, data)
 
 
@@ -251,7 +256,9 @@ def write_plan_final_result(
     )
 
     try:
-        _PLAN_REPOSITORY.replace_plan_series_level(version_id, "mrp_final", detail_series)
+        _PLAN_REPOSITORY.replace_plan_series_level(
+            version_id, "mrp_final", detail_series
+        )
         _PLAN_REPOSITORY.replace_plan_series_level(
             version_id, "weekly_summary", weekly_series
         )
@@ -281,9 +288,7 @@ def write_anchor_adjust_result(
         level="det_adjusted",
     )
     try:
-        _PLAN_REPOSITORY.replace_plan_series_level(
-            version_id, "det_adjusted", series
-        )
+        _PLAN_REPOSITORY.replace_plan_series_level(version_id, "det_adjusted", series)
     except PlanRepositoryError:
         raise
     return bool(series)
