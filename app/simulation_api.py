@@ -13,7 +13,7 @@ if os.path.exists(_metrics_path):
         print(f"DEBUG: Content of app/metrics.py:\n{{f.read()}}")
 
 from app.metrics import RUNS_TOTAL
-from app.metrics import SIM_DURATION
+# from app.metrics import SIM_DURATION
 from app import run_latest as _run_latest
 from typing import Optional
 
@@ -139,7 +139,7 @@ def post_simulation(
     results, daily_pl = sim.run()
     duration_ms = int((time.time() - start) * 1000)
     try:
-        SIM_DURATION.observe(duration_ms)
+        app.metrics.SIM_DURATION.observe(duration_ms)
         RUNS_TOTAL.inc()
     except Exception:
         pass
