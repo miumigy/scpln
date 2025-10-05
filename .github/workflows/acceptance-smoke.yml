@@ -17,25 +17,39 @@ jobs:
       AUTH_MODE: none
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Prepare DB file (create & verify)
+        run: |
+          echo "DB path: $SCPLN_DB"
+          mkdir -p "$(dirname "$SCPLN_DB")"
+          touch "$SCPLN_DB"
+          ls -l "$SCPLN_DB"
+
       - name: Run DB migrations
         run: python -m alembic upgrade head
+
       - name: Seed canonical
         run: PYTHONPATH=. python scripts/seed_canonical.py --save-db
-      - name: Launch app (bg)
+
+      - name: Launch app (background)
         run: |
+          echo "DATABASE_URL=$DATABASE_URL"
           nohup uvicorn main:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
           echo $! > server.pid
           for i in {1..60}; do
             curl -sfS http://127.0.0.1:8000/healthz && exit 0 || sleep 1
           done
           echo "Server not healthy"; tail -n 200 server.log; exit 1
+
       - name: Acceptance smoke
         run: |
           python scripts/acceptance_smoke.py --base-url http://127.0.0.1:8000 || {
