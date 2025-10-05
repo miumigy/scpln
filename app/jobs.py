@@ -949,6 +949,7 @@ def prepare_canonical_inputs(
             for issue in validation.issues
             if issue.severity == "error"
         )
+        logging.error(f"Canonical config validation issues: {validation.issues}") # Add this line
         raise RuntimeError(f"canonical config validation failed: {errors}")
 
     planning_bundle = build_planning_inputs(canonical_config)

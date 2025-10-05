@@ -41,12 +41,17 @@ jobs:
         run: PYTHONPATH=. python scripts/seed_canonical.py --save-db
 
       - name: Launch app (background)
+        env:
+          SCPLN_DB: ${{ github.workspace }}/scpln.db
+          DATABASE_URL: sqlite:///${{ github.workspace }}/scpln.db
+          REGISTRY_BACKEND: db
+          AUTH_MODE: none
         run: |
           echo "DATABASE_URL=$DATABASE_URL"
           nohup uvicorn main:app --host 127.0.0.1 --port 8000 > server.log 2>&1 &
           echo $! > server.pid
           for i in {1..60}; do
-            curl -sfS http://127.0.0.1:8000/healthz && exit 0 || sleep 1
+            curl -sfS http://172.0.0.1:8000/healthz && exit 0 || sleep 1
           done
           echo "Server not healthy"; tail -n 200 server.log; exit 1
 
