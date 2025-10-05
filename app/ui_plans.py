@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+print("DEBUG: ui_plans.py started")
+
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -53,6 +55,7 @@ def get_plan_repository() -> PlanRepository:
     )
 
 
+print("DEBUG: Initializing Jinja2Templates")
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
