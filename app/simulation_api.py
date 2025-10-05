@@ -6,7 +6,8 @@ from fastapi import Query, Request, HTTPException, APIRouter
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import time
-from app.metrics import RUNS_TOTAL, SIM_DURATION
+from app.metrics import RUNS_TOTAL
+from app.metrics import SIM_DURATION
 from app import run_latest as _run_latest
 from typing import Optional
 
