@@ -59,16 +59,9 @@ jobs:
             sleep 1
           done
 
-      - name: Install Docker Compose v2
-        run: |
-          DOCKER_CONFIG=${DOCKER_CONFIG:-$HOME/.docker}
-          mkdir -p $DOCKER_CONFIG/cli-plugins
-          curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-$(uname -m) -o $DOCKER_CONFIG/cli-plugins/docker-compose
-          chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
-
       - name: Run acceptance smoke
         run: |
-          docker compose -f docker-compose.acceptance.yml run --rm acceptance-smoke
+          PYTHONPATH=. python scripts/acceptance_smoke.py
 
       - name: Show server log on failure
         if: failure()
