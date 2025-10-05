@@ -1,12 +1,11 @@
-from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from pathlib import Path
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse
 import logging
 from starlette.middleware.cors import CORSMiddleware
-
-# from app.ui_plans import router as ui_plans_router
+from app.ui_plans import router as ui_plans_router
+from app import metrics as app_metrics
+from app.db import _db_path
+import os
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi import Response
 
 # 詳細なログ設定
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +91,21 @@ async def seed_defaults_if_empty() -> None:
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics():
+    # --- Update gauges ---
+    try:
+        db_path = _db_path()
+        if os.path.exists(db_path):
+            app_metrics.PLAN_DB_SIZE_BYTES.set(os.path.getsize(db_path))
+    except Exception:
+        # Fails silently if db path is not available or accessible
+        pass
+
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 
 # ルートパス（/ui/plansへのリダイレクト）
