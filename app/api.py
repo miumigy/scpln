@@ -1,17 +1,24 @@
 import logging
+import os
+from pathlib import Path
+
+from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.middleware.cors import CORSMiddleware
-from app.ui_plans import router as ui_plans_router
+
 from app import metrics as app_metrics
 from app.db import _db_path
-import os
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-from fastapi import Response
 
 # 詳細なログ設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+from app.ui_plans import router as ui_plans_router  # noqa: E402
 
 app.include_router(ui_plans_router, prefix="/ui")
 

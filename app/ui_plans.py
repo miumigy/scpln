@@ -1,36 +1,33 @@
 from __future__ import annotations
 
-print("DEBUG: ui_plans.py started")
-
-from fastapi import APIRouter
-
-router = APIRouter()
-
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import logging
 import json
-from fastapi.responses import HTMLResponse
-from fastapi import Request, Form
-from fastapi.templating import Jinja2Templates
+from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
+
 from app import db
-from app import plans_api as _plans_api  # for reuse handlers
-from app import runs_api as _runs_api  # for Plan & Run adapter
-from app.metrics import PLANS_CREATED, PLANS_RECONCILED, PLANS_VIEWED
+from app.metrics import (
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLANS_CREATED,
+    PLANS_RECONCILED,
+    PLANS_VIEWED,
+)
 from app.utils import ms_to_jst_str
 from core.config.storage import (
-    list_canonical_version_summaries,
-    get_canonical_config,
     CanonicalConfigNotFoundError,
+    get_canonical_config,
+    list_canonical_version_summaries,
 )
 from core.config import build_planning_inputs
 from core.plan_repository import PlanRepository
-from app.metrics import (
-    PLAN_DB_WRITE_LATENCY,
-    PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
-    PLAN_DB_CAPACITY_TRIM_TOTAL,
-    PLAN_DB_LAST_TRIM_TIMESTAMP,
-)
 from core.plan_repository_views import (
     fetch_aggregate_rows as repo_fetch_aggregate_rows,
     fetch_detail_rows as repo_fetch_detail_rows,
@@ -38,10 +35,26 @@ from core.plan_repository_views import (
     latest_state_from_events,
     summarize_audit_events,
 )
-from datetime import datetime, timezone
+
+
+router = APIRouter()
 
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
+
+
+@lru_cache(maxsize=1)
+def _get_plans_api():
+    from app import plans_api
+
+    return plans_api
+
+
+@lru_cache(maxsize=1)
+def _get_runs_api():
+    from app import runs_api
+
+    return runs_api
 
 
 def get_plan_repository() -> PlanRepository:
@@ -169,10 +182,11 @@ def _normalize_plan_state(raw: dict | None) -> dict | None:
 
 def _fetch_plan_rows(limit: int = 50, offset: int = 0):
     try:
-        response = _plans_api.get_plans(
+        plans_api = _get_plans_api()
+        response = plans_api.get_plans(
             limit=limit, offset=offset, include="summary,kpi,jobs"
         )
-        print(f"DEBUG: _plans_api.get_plans response: {response}")
+        print(f"DEBUG: plans_api.get_plans response: {response}")
         plans = response.get("plans", [])
         pagination = response.get("pagination", {})
         return plans, pagination
@@ -546,7 +560,7 @@ def ui_plan_reconcile(
         "lt_unit": lt_unit,
     }
     try:
-        _plans_api.post_plan_reconcile(version_id, body)  # reuse handler
+        _get_plans_api().post_plan_reconcile(version_id, body)  # reuse handler
         # 実行ステートを自動前進（MVP）
         try:
             state = db.get_plan_artifact(version_id, "state.json") or {
@@ -658,7 +672,8 @@ def ui_plan_run_auto(
             "source_run_id": source_meta.get("source_run_id"),
         },
     }
-    res = _runs_api.post_runs(body)
+    runs_api = _get_runs_api()
+    res = runs_api.post_runs(body)
     from fastapi.responses import RedirectResponse
 
     # 正常系でlocationへ誘導
@@ -789,7 +804,7 @@ def ui_plans_run(
         "config_version_id": config_version_id,
         "base_scenario_id": base_scenario_int,
     }
-    res = _plans_api.post_plans_integrated_run(body)
+    res = _get_plans_api().post_plans_integrated_run(body)
     if hasattr(res, "status_code") and res.status_code >= 400:
         error_message = "Plan作成に失敗しました。"
         try:
