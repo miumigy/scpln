@@ -6,11 +6,15 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import logging
 from starlette.middleware.cors import CORSMiddleware
 
+from app.ui_plans import router as ui_plans_router
+
 # 詳細なログ設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+app.include_router(ui_plans_router, prefix="/ui")
 
 app.add_middleware(
     CORSMiddleware,

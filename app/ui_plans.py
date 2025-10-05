@@ -210,7 +210,7 @@ def _render_plans_page(
     )
 
 
-@router.get("/ui/plans", response_class=HTMLResponse)
+@router.get("/plans", response_class=HTMLResponse)
 def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     print("DEBUG: Calling _fetch_plan_rows")
     rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
