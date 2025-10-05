@@ -20,12 +20,14 @@ from app.metrics import (
     PLANS_RECONCILED,
     PLANS_VIEWED,
 )
+from app.utils import ms_to_jst_str
 from sqlalchemy import inspect
+
 
 def table_exists(db_conn, name: str) -> bool:
     """Check if a table exists in the database."""
     inspector = inspect(db_conn)
-    return name in inspector.get_table_names()from app.utils import ms_to_jst_str
+    return name in inspector.get_table_names()
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
