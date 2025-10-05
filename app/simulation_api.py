@@ -6,6 +6,12 @@ from fastapi import Query, Request, HTTPException, APIRouter
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import time
+import os
+_metrics_path = os.path.join(os.path.dirname(__file__), "metrics.py")
+if os.path.exists(_metrics_path):
+    with open(_metrics_path, "r") as f:
+        print(f"DEBUG: Content of app/metrics.py:\n{{f.read()}}")
+
 from app.metrics import RUNS_TOTAL
 from app.metrics import SIM_DURATION
 from app import run_latest as _run_latest
