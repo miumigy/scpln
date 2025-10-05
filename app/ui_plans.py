@@ -172,6 +172,7 @@ def _fetch_plan_rows(limit: int = 50, offset: int = 0):
         response = _plans_api.get_plans(
             limit=limit, offset=offset, include="summary,kpi,jobs"
         )
+        print(f"DEBUG: _plans_api.get_plans response: {response}")
         plans = response.get("plans", [])
         pagination = response.get("pagination", {})
         return plans, pagination
@@ -188,8 +189,12 @@ def _render_plans_page(
     error: str | None = None,
     form_defaults: dict | None = None,
 ):
+    print(f"DEBUG: _render_plans_page plans: {plans}")
+    print(f"DEBUG: _render_plans_page pagination: {pagination}")
     canonical_options = _canonical_version_options()
+    print(f"DEBUG: _render_plans_page canonical_options: {canonical_options}")
     scenario_options = _scenario_options()
+    print(f"DEBUG: _render_plans_page scenario_options: {scenario_options}")
     return templates.TemplateResponse(
         request,
         "plans.html",
