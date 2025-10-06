@@ -46,9 +46,27 @@ def test_build_plan_series_combines_levels():
 def test_build_plan_kpis_from_aggregate():
     aggregate = {
         "rows": [
-            {"family": "F1", "period": "2025-01", "demand": 100, "supply": 90, "backlog": 10},
-            {"family": "F2", "period": "2025-01", "demand": 50, "supply": 50, "backlog": 0},
-            {"family": "F1", "period": "2025-02", "demand": 120, "supply": 100, "backlog": 20},
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "demand": 100,
+                "supply": 90,
+                "backlog": 10,
+            },
+            {
+                "family": "F2",
+                "period": "2025-01",
+                "demand": 50,
+                "supply": 50,
+                "backlog": 0,
+            },
+            {
+                "family": "F1",
+                "period": "2025-02",
+                "demand": 120,
+                "supply": 100,
+                "backlog": 20,
+            },
         ]
     }
 
@@ -58,7 +76,9 @@ def test_build_plan_kpis_from_aggregate():
     month_kpi = next(
         r
         for r in kpis
-        if r["metric"] == "fill_rate" and r["bucket_type"] == "month" and r["bucket_key"] == "2025-01"
+        if r["metric"] == "fill_rate"
+        and r["bucket_type"] == "month"
+        and r["bucket_key"] == "2025-01"
     )
     assert round(month_kpi["value"], 4) == round((90 + 50) / (100 + 50), 4)
     total_backlog = next(

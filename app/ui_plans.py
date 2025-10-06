@@ -28,6 +28,8 @@ def table_exists(db_conn, name: str) -> bool:
     """Check if a table exists in the database."""
     inspector = inspect(db_conn)
     return name in inspector.get_table_names()
+
+
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
@@ -167,9 +169,7 @@ def _normalize_plan_state(raw: dict | None) -> dict | None:
     state.setdefault("state", status)
     state.setdefault("display_status", str(status))
     timestamp = (
-        state.get("approved_at")
-        or state.get("submitted_at")
-        or state.get("timestamp")
+        state.get("approved_at") or state.get("submitted_at") or state.get("timestamp")
     )
     if state.get("display_time") is None and timestamp is not None:
         try:
@@ -243,7 +243,9 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
         if rows:
             has_data = True
 
-    return _render_plans_page(request, plans=rows, pagination=pagination, has_data=has_data)
+    return _render_plans_page(
+        request, plans=rows, pagination=pagination, has_data=has_data
+    )
 
 
 @router.get("/ui/plans/{version_id}", response_class=HTMLResponse)

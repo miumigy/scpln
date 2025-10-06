@@ -39,7 +39,9 @@ def test_plan_aggregate_storage_db_only(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -129,7 +131,9 @@ def test_allocate_storage_db_with_aggregate_merge(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -216,7 +220,9 @@ def test_mrp_storage_db_append(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -303,7 +309,9 @@ def test_anchor_adjust_storage_db(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -462,7 +470,9 @@ def test_reconcile_storage_db(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -591,7 +601,9 @@ def test_report_storage_db(db_setup, tmp_path):
     with db._conn() as conn:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))

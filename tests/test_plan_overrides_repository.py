@@ -14,7 +14,6 @@ from app.plans_api import (
     get_plan_psi_audit,
     get_plan_psi_state,
     _record_audit_event,
-    _request_actor,
 )
 from core.plan_repository import PlanRepository
 from app.metrics import (
@@ -98,7 +97,9 @@ def test_overlay_and_lock_persisted_via_repository(db_setup):
     # cleanup
     conn = db._conn()
     try:
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_versions WHERE version_id=?", (version_id,))
@@ -170,7 +171,9 @@ def test_weights_persisted_via_repository(db_setup):
     # cleanup
     conn = db._conn()
     try:
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_versions WHERE version_id=?", (version_id,))

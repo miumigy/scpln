@@ -4,11 +4,13 @@ import time
 
 import logging
 
-import pytest
 
 from app import db
 from core.plan_repository import PlanRepository
-from core.plan_repository_builders import build_plan_kpis_from_aggregate, build_plan_series
+from core.plan_repository_builders import (
+    build_plan_kpis_from_aggregate,
+    build_plan_series,
+)
 
 
 def test_plan_repository_write_and_read(db_setup):
@@ -43,7 +45,7 @@ def test_plan_repository_write_and_read(db_setup):
             "version_id": version_id,
             "level": "aggregate",
             "key_hash": "agg:period=2025-W01,family=FAMILY-A",
-            "payload_json": "{\"demand\": 125.0}",
+            "payload_json": '{"demand": 125.0}',
             "lock_flag": True,
             "locked_by": "planner",
             "created_at": now,
@@ -113,8 +115,20 @@ def test_plan_repository_write_with_builders(db_setup):
     version_id = "plan-builders-001"
     aggregate = {
         "rows": [
-            {"family": "F1", "period": "2025-01", "demand": 100, "supply": 90, "backlog": 10},
-            {"family": "F1", "period": "2025-02", "demand": 120, "supply": 120, "backlog": 0},
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "demand": 100,
+                "supply": 90,
+                "backlog": 10,
+            },
+            {
+                "family": "F1",
+                "period": "2025-02",
+                "demand": 120,
+                "supply": 120,
+                "backlog": 0,
+            },
         ]
     }
     detail = {

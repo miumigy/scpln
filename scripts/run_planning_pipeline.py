@@ -25,7 +25,9 @@ def _script(name: str) -> str:
     return str(SCRIPTS_DIR / name)
 
 
-def _extend_storage(cmd: List[str], storage: str | None, version_id: str | None) -> None:
+def _extend_storage(
+    cmd: List[str], storage: str | None, version_id: str | None
+) -> None:
     if storage:
         cmd.extend(["--storage", storage])
     if version_id:
@@ -62,7 +64,9 @@ def _apply_preset(args: argparse.Namespace) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Planningパイプライン統合CLI")
-    ap.add_argument("-I", "--input-dir", default="samples/planning", help="入力ディレクトリ")
+    ap.add_argument(
+        "-I", "--input-dir", default="samples/planning", help="入力ディレクトリ"
+    )
     ap.add_argument("-o", "--output-dir", default="out", help="出力ディレクトリ")
     ap.add_argument("--weeks", type=int, default=4, help="1期間あたりの週数")
     ap.add_argument(
@@ -81,9 +85,13 @@ def main() -> None:
     )
     ap.add_argument("--week-days", dest="week_days", type=int, default=7)
     ap.add_argument("--cutover-date", dest="cutover_date", default=None)
-    ap.add_argument("--recon-window-days", dest="recon_window_days", type=int, default=None)
+    ap.add_argument(
+        "--recon-window-days", dest="recon_window_days", type=int, default=None
+    )
     ap.add_argument("--anchor-policy", dest="anchor_policy", default=None)
-    ap.add_argument("--blend-split-next", dest="blend_split_next", type=float, default=None)
+    ap.add_argument(
+        "--blend-split-next", dest="blend_split_next", type=float, default=None
+    )
     ap.add_argument(
         "--blend-weight-mode",
         dest="blend_weight_mode",
@@ -100,9 +108,13 @@ def main() -> None:
         help="anchor関連オプションのプリセット",
     )
     ap.add_argument("--calendar-mode", dest="calendar_mode", default="simple")
-    ap.add_argument("--max-adjust-ratio", dest="max_adjust_ratio", type=float, default=None)
+    ap.add_argument(
+        "--max-adjust-ratio", dest="max_adjust_ratio", type=float, default=None
+    )
     ap.add_argument("--carryover", dest="carryover", default="none")
-    ap.add_argument("--carryover-split", dest="carryover_split", type=float, default=None)
+    ap.add_argument(
+        "--carryover-split", dest="carryover_split", type=float, default=None
+    )
     ap.add_argument("--tol-abs", dest="tol_abs", type=float, default=1e-6)
     ap.add_argument("--tol-rel", dest="tol_rel", type=float, default=1e-6)
     args = ap.parse_args()
@@ -129,7 +141,14 @@ def main() -> None:
     plan_final_adj_json = output_dir / "plan_final_adjusted.json"
 
     # aggregate
-    cmd = [sys.executable, _script("plan_aggregate.py"), "-i", str(input_dir), "-o", str(agg_json)]
+    cmd = [
+        sys.executable,
+        _script("plan_aggregate.py"),
+        "-i",
+        str(input_dir),
+        "-o",
+        str(agg_json),
+    ]
     _extend_storage(cmd, args.storage, args.version_id)
     steps.append(("aggregate", cmd))
 

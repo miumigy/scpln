@@ -415,9 +415,7 @@ def downgrade() -> None:
         op.drop_table("plan_kpis")
 
     if insp.has_table("plan_override_events"):
-        existing_idx = {
-            ix["name"] for ix in insp.get_indexes("plan_override_events")
-        }
+        existing_idx = {ix["name"] for ix in insp.get_indexes("plan_override_events")}
         if "idx_plan_override_events_override_ts" in existing_idx:
             op.drop_index(
                 "idx_plan_override_events_override_ts",
