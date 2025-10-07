@@ -62,7 +62,13 @@ _PLAN_REPOSITORY = PlanRepository(
 )
 _STORAGE_CHOICES = {"db", "files", "both"}
 _DEFAULT_PLAN_INCLUDES = {"summary"}
-_PLAN_ORDER_CHOICES = {"created_desc", "created_asc", "version_desc", "version_asc", "status"}
+_PLAN_ORDER_CHOICES = {
+    "created_desc",
+    "created_asc",
+    "version_desc",
+    "version_asc",
+    "status",
+}
 
 
 def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
@@ -176,7 +182,9 @@ def _save_overlay(
         }
         for entry in entries:
             if level == "aggregate":
-                key_hash = _psi_overlay_key_agg(entry.get("period"), entry.get("family"))
+                key_hash = _psi_overlay_key_agg(
+                    entry.get("period"), entry.get("family")
+                )
             else:
                 key_hash = _psi_overlay_key_det(entry.get("week"), entry.get("sku"))
             prior = existing.get(key_hash) or {}
@@ -1073,7 +1081,6 @@ def patch_plan_psi(
     skipped: list[str] = []
     affected_keys: set[str] = set()
     # 監査ログの準備
-    import time as _time
 
     distribute = body.get("distribute") or {}
     weight_mode = str(distribute.get("weight_mode") or "current")
@@ -1444,6 +1451,7 @@ def patch_plan_psi(
     except Exception:
         pass
     return {"updated": updated, "skipped": skipped, "locked": sorted(list(locks))}
+
 
 @app.get("/plans/{version_id}/psi/events")
 def get_plan_psi_events(
@@ -1890,7 +1898,10 @@ def post_plan_psi_approve(
         "approve",
         actor=actor,
         note=body.get("note"),
-        payload={"approved_at": now, "auto_reconcile": bool(body.get("auto_reconcile") or False)},
+        payload={
+            "approved_at": now,
+            "auto_reconcile": bool(body.get("auto_reconcile") or False),
+        },
     )
     return {"ok": True, "status": state.get("status")}
 
@@ -1911,7 +1922,9 @@ def get_plans(
         legacy_only = include_tokens == {"legacy"}
 
         order_value = order if order in _PLAN_ORDER_CHOICES else "created_desc"
-        plans = db.list_plan_versions(limit=limit_value, offset=offset_value, order=order_value)
+        plans = db.list_plan_versions(
+            limit=limit_value, offset=offset_value, order=order_value
+        )
         total = db.count_plan_versions()
 
         pagination = {
@@ -1940,9 +1953,7 @@ def get_plans(
             if (include_summary or include_kpi)
             else {}
         )
-        jobs_map = (
-            _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
-        )
+        jobs_map = _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
 
         enriched_plans: list[dict[str, Any]] = []
         for row in plans:
@@ -1972,7 +1983,9 @@ def get_plans(
 
             artifacts_flag = None
             if include_artifacts and vid:
-                artifacts_flag = db.get_plan_artifact(vid, "plan_final.json") is not None
+                artifacts_flag = (
+                    db.get_plan_artifact(vid, "plan_final.json") is not None
+                )
 
             plan["storage"] = {
                 **storage_info,
@@ -1989,7 +2002,11 @@ def get_plans(
         return response
     except Exception as e:
         logging.exception(f"plans_api_get_plans_failed: {e}")
-        return {"plans": [], "pagination": {"limit": limit, "offset": offset, "count": 0, "total": 0}, "includes": []}
+        return {
+            "plans": [],
+            "pagination": {"limit": limit, "offset": offset, "count": 0, "total": 0},
+            "includes": [],
+        }
 
 
 @app.get("/plans/by_base")
