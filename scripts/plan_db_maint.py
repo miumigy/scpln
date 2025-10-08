@@ -1,9 +1,8 @@
-'''Exports a plan from the database to JSON/CSV files.'''
+"""Exports a plan from the database to JSON/CSV files."""
 
 import argparse
 import shutil
 import sys
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -14,6 +13,7 @@ sys.path.append(str(project_root))
 from core.plan_repository import PlanRepository
 from app import db
 
+
 def backup_db(source_db_path: Path, destination_path: Path):
     """
     Backs up the SQLite database file.
@@ -22,20 +22,23 @@ def backup_db(source_db_path: Path, destination_path: Path):
     shutil.copy2(source_db_path, destination_path)
     print("Backup complete.")
 
+
 def trim_old_plans(repo: PlanRepository, days: int):
     """
     Deletes plan versions older than a specified number of days.
     """
     print(f"Trimming plans older than {days} days...")
-    cutoff_timestamp_ms = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
-    
+    cutoff_timestamp_ms = int(
+        (datetime.now() - timedelta(days=days)).timestamp() * 1000
+    )
+
     # Fetch plan versions (need a method in db.py or PlanRepository to list plan versions with created_at)
     # For now, we'll assume db.list_plan_versions returns created_at
     old_plans = []
-    for p in db.list_plan_versions(limit=99999): # Fetch all for now
+    for p in db.list_plan_versions(limit=99999):  # Fetch all for now
         if p.get("created_at", 0) < cutoff_timestamp_ms:
             old_plans.append(p["version_id"])
-    
+
     if not old_plans:
         print("No old plans to trim.")
         return
@@ -49,6 +52,7 @@ def trim_old_plans(repo: PlanRepository, days: int):
             print(f"Error deleting plan {version_id}: {e}", file=sys.stderr)
     print("Trim complete.")
 
+
 def trim_max_rows(repo: PlanRepository, max_rows: int):
     """
     Deletes oldest plan versions if the total count exceeds max_rows.
@@ -56,14 +60,20 @@ def trim_max_rows(repo: PlanRepository, max_rows: int):
     print(f"Trimming plans to keep max {max_rows} rows...")
     current_count = db.count_plan_versions()
     if current_count <= max_rows:
-        print(f"Current plan count ({current_count}) is within limit ({max_rows}). No trim needed.")
+        print(
+            f"Current plan count ({current_count}) is within limit ({max_rows}). No trim needed."
+        )
         return
-    
+
     to_delete_count = current_count - max_rows
-    print(f"Current plan count ({current_count}) exceeds limit. Deleting {to_delete_count} oldest plans.")
+    print(
+        f"Current plan count ({current_count}) exceeds limit. Deleting {to_delete_count} oldest plans."
+    )
 
     # Fetch oldest plan versions
-    plans_to_delete_objs = db.list_plan_versions(limit=to_delete_count, order="created_asc")
+    plans_to_delete_objs = db.list_plan_versions(
+        limit=to_delete_count, order="created_asc"
+    )
     plans_to_delete = [p["version_id"] for p in plans_to_delete_objs]
 
     if not plans_to_delete:
@@ -79,6 +89,7 @@ def trim_max_rows(repo: PlanRepository, max_rows: int):
             print(f"Error deleting plan {version_id}: {e}", file=sys.stderr)
     print("Trim complete.")
 
+
 def trim_kpis(repo: PlanRepository, months: int):
     """
     Deletes KPI records older than a specified number of months.
@@ -90,6 +101,7 @@ def trim_kpis(repo: PlanRepository, months: int):
     except Exception as e:
         print(f"Error trimming KPIs: {e}", file=sys.stderr)
 
+
 def show_backfill_summary(conn: sqlite3.Connection):
     """
     Displays a summary of backfill script runs.
@@ -98,7 +110,9 @@ def show_backfill_summary(conn: sqlite3.Connection):
     try:
         conn.row_factory = sqlite3.Row
         # Check if table exists
-        cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='plan_backfill_runs'")
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='plan_backfill_runs'"
+        )
         if cur.fetchone() is None:
             print("`plan_backfill_runs` table not found. No summary to show.")
             return
@@ -125,7 +139,7 @@ def show_backfill_summary(conn: sqlite3.Connection):
         last_run_str = "N/A"
         if summary["last_run_ts"]:
             last_run_dt = datetime.fromtimestamp(summary["last_run_ts"] / 1000)
-            last_run_str = last_run_dt.strftime('%Y-%m-%d %H:%M:%S')
+            last_run_str = last_run_dt.strftime("%Y-%m-%d %H:%M:%S")
 
         print("\n--- Backfill Run Summary ---")
         print(f"  Total Runs: {summary['total_runs']}")
@@ -135,13 +149,16 @@ def show_backfill_summary(conn: sqlite3.Connection):
         print(f"  Total Processed Plans: {summary['total_processed'] or 0}")
         print(f"  Total Skipped Plans: {summary['total_skipped'] or 0}")
         print(f"  Total Errors: {summary['total_errors'] or 0}")
-        print(f"  Average Duration (ms): {summary['avg_duration_ms']:.2f}" if summary['avg_duration_ms'] else "N/A")
+        print(
+            f"  Average Duration (ms): {summary['avg_duration_ms']:.2f}"
+            if summary["avg_duration_ms"]
+            else "N/A"
+        )
         print(f"  Last Run Started: {last_run_str}")
         print("--------------------------\n")
 
     except Exception as e:
         print(f"Error fetching backfill summary: {e}", file=sys.stderr)
-
 
 
 def main():
@@ -189,10 +206,10 @@ def main():
 
         if args.backup:
             backup_db(source_db_path, args.backup)
-        
+
         if args.trim_old:
             trim_old_plans(repo, args.trim_old)
-        
+
         if args.trim_max_rows:
             trim_max_rows(repo, args.trim_max_rows)
 
@@ -202,7 +219,13 @@ def main():
         if args.show_backfill_summary:
             show_backfill_summary(db._conn())
 
-        if not (args.backup or args.trim_old or args.trim_max_rows or args.trim_kpis or args.show_backfill_summary):
+        if not (
+            args.backup
+            or args.trim_old
+            or args.trim_max_rows
+            or args.trim_kpis
+            or args.show_backfill_summary
+        ):
             parser.print_help()
 
     except Exception as e:

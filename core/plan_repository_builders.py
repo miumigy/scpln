@@ -154,11 +154,13 @@ def build_plan_kpis_from_aggregate(
     total_demand = 0.0
     total_supply = 0.0
     total_backlog = 0.0
-    by_period: dict[str, dict[str, float]] = defaultdict(lambda: {
-        "demand": 0.0,
-        "supply": 0.0,
-        "backlog": 0.0,
-    })
+    by_period: dict[str, dict[str, float]] = defaultdict(
+        lambda: {
+            "demand": 0.0,
+            "supply": 0.0,
+            "backlog": 0.0,
+        }
+    )
     for entry in rows:
         period = str(entry.get("period"))
         demand = _as_float(entry.get("demand"))
