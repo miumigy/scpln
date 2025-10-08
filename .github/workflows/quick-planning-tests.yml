@@ -38,6 +38,7 @@ jobs:
           pip install -r requirements.txt
       - name: Migrate DB
         run: |
+          mkdir -p data
           source .venv/bin/activate
           alembic upgrade head
       - name: Smoke pipeline and verify artifacts
