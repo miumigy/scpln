@@ -5,6 +5,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import logging
 import json
+import sys
+import traceback
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -21,13 +23,13 @@ from app.metrics import (
     PLANS_VIEWED,
 )
 from app.utils import ms_to_jst_str
-from sqlalchemy import inspect
 
 
 def table_exists(db_conn, name: str) -> bool:
     """Check if a table exists in the database."""
-    inspector = inspect(db_conn)
-    return name in inspector.get_table_names()
+    cursor = db_conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,))
+    return cursor.fetchone() is not None
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
@@ -217,20 +219,26 @@ def _render_plans_page(
     print(f"DEBUG: _render_plans_page canonical_options: {canonical_options}")
     scenario_options = _scenario_options()
     print(f"DEBUG: _render_plans_page scenario_options: {scenario_options}")
-    return templates.TemplateResponse(
-        request,
-        "plans.html",
-        {
-            "subtitle": "Plan Versions",
-            "plans": plans,
-            "pagination": pagination or {},
-            "error": error,
-            "form_defaults": form_defaults or {},
-            "canonical_options": canonical_options,
-            "scenario_options": scenario_options,
-            "has_data": has_data,
-        },
-    )
+    try:
+        return templates.TemplateResponse(
+            request,
+            "plans.html",
+            {
+                "subtitle": "Plan Versions",
+                "plans": plans,
+                "pagination": pagination or {},
+                "error": error,
+                "form_defaults": form_defaults or {},
+                "canonical_options": canonical_options,
+                "scenario_options": scenario_options,
+                "has_data": has_data,
+            },
+        )
+    except Exception as e:
+        import traceback
+        print(f"ERROR: Template rendering failed: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise
 
 
 @router.get("/ui/plans", response_class=HTMLResponse)

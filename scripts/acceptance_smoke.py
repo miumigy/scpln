@@ -496,6 +496,7 @@ def main() -> int:
         ng("AT-02 Home リダイレクト", str(e))
 
     # AT-01: Plan 作成（UI経由: metrics計測も狙う）
+    plan_id: Optional[str] = None
     try:
         form = {
             "config_version_id": "100",
@@ -511,15 +512,21 @@ def main() -> int:
             "carryover_split": 0.5,
             "apply_adjusted": 1,
         }
-        r = post_form(s, f"{base}/plans/integrated/run", form)
+        r = post_form(s, f"{base}/ui/plans/run", form)
         if r.status_code not in (302, 303):
             ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
             print("---- server.log (tail) ----")
             subprocess.run(["tail", "-n", "200", "server.log"])
             print("---------------------------")
-        # 生成・永続の少しの遅延を待機
-        time.sleep(0.6)
-        vid = latest_plan_id(s, base)
+            vid = None
+        else:
+            location = r.headers.get("Location")
+            if not location or not location.startswith("/ui/plans/"):
+                ng("AT-01 Plan作成", f"invalid redirect location: {location}")
+                vid = None
+            else:
+                vid = location.split("/")[-1]
+
         if not vid:
             ng("AT-01 Plan作成", "version_id が取得できませんでした")
         else:
@@ -602,7 +609,6 @@ def main() -> int:
     try:
         if plan_id:
             form = {
-                "config_version_id": "100",
                 "weeks": 4,
                 "lt_unit": "day",
                 "cutover_date": "2025-02-01",
@@ -614,13 +620,19 @@ def main() -> int:
                 "carryover": "both",
                 "carryover_split": 0.5,
                 "apply_adjusted": 1,
-                # queue_job は未指定（同期）
             }
-            r2 = post_form(s, f"{base}/plans/integrated/run", form)
+            r2 = post_form(s, f"{base}/ui/plans/{plan_id}/plan_run_auto", form)
             if r2.status_code not in (302, 303):
                 ng("AT-04 Plan&Run", f"unexpected status: {r2.status_code}")
-            time.sleep(0.6)
-            new_plan_id = latest_plan_id(s, base)
+                new_plan_id = None
+            else:
+                location = r2.headers.get("Location")
+                if not location or not location.startswith("/ui/plans/"):
+                    ng("AT-04 Plan&Run", f"invalid redirect location: {location}")
+                    new_plan_id = None
+                else:
+                    new_plan_id = location.split("/")[-1]
+
             if new_plan_id and new_plan_id != plan_id:
                 ok("AT-04 Plan&Run（自動補完）で新規Plan作成")
             else:
