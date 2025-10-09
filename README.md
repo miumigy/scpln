@@ -67,8 +67,8 @@ flowchart LR
 ```
 
 #### 現状の対応状況
-- `/ui/plans` の一覧・詳細骨格、Run API アダプタ、差分/KPIプレビュー、計測イベント整備まで完了しています。
-- Aggregate/Disaggregate/Schedule タブ移植と履歴・固定リンク機能を実装済みで、Validate タブの高度化が残課題です。
+- Plan DB化（Canonical設定DB化）と、それに対応するUI（`/ui/plans`, `/ui/configs`）の主要機能実装を完了しています。
+- これには、Planのバージョン管理、ロールアップ/分配編集、差分プレビュー、PSIシミュレーション連携（RunRegistry）が含まれます。
 
 #### PSIシミュレーション/Run Registry（A）とPlanning Hub統合Plan（B）の連携
 - B側のPlanning HubでPlanを編集し「Plan & Run」を実行すると、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
@@ -133,7 +133,6 @@ PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
 - **APIから実行**: `POST /plans/integrated/run` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
 
 計画が完了すると、成果物（`plan_final.json`）やKPIレポート（`report.csv`）が生成され、UI上で確認・ダウンロードできます。
-旧来の個別スクリプトによる実行手順は `docs/TUTORIAL-JA.md` の「参考」セクションを参照してください。
 
 ---
 
@@ -159,7 +158,7 @@ flowchart LR
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
 | **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
-| **設定統合ロードマップ** | Canonical設定とRunRegistry統合の背景・意思決定記録 | `docs/config_integration_plan.md` |
+| **設定・DB統合** | Canonical設定とRunRegistry統合の背景・意思決定記録 | `docs/config_integration_plan.md` |
 | **API / 自動化** | REST/CSVエンドポイント、ジョブ投入の概要 | `docs/API-OVERVIEW-JA.md` |
 | **運用・セキュリティ** | シークレット対応、バックアップ、CI設定 | `docs/SECRET_ROTATION_JA.md`, `.github/workflows/*` |
 | **クラス設計** | SimulationInput系モデルとエンジン連携 | `docs/CLASS_DESIGN_JA.md` |

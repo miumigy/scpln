@@ -1,4 +1,6 @@
 server.log
+*.log
+server.pid
 package-lock.json
 venv/
 .venv/
