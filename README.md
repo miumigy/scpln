@@ -1,4 +1,4 @@
-# サプライチェーン計画シミュレーション
+# サプライチェーン計画MVP
 
 [![CI](https://github.com/miumigy/scpln/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/miumigy/scpln/actions/workflows/ci.yml)
 
