@@ -2,6 +2,18 @@
 
 このファイルはリリース単位の主要トピック（機能追加・互換性への影響・運用変更）を記録する公式な履歴です。詳細な設計や使い方は README からリンクされた各ドキュメントを参照し、細かな変更は PR/コミット履歴を確認してください。
 
+## v0.7.0 (2025-10-09)
+
+### Plan DB化（Canonical設定）の完了
+
+ファイルベース（`out/`ディレクトリ）でのPlan管理を廃止し、すべてのPlanとCanonical設定をデータベースで永続化する方式へ完全に移行しました。これにより、再現性、一貫性、監査性が向上します。
+
+- **feat(db)**: PlanおよびCanonical設定のDB永続化を導入。`Plan`, `CanonicalConfigVersion` などの新しいモデルを定義し、Alembicによるマイグレーションパスを整備。
+- **feat(ui)**: DB化に対応した新しいPlanning Hub UI (`/ui/plans`, `/ui/configs`) を正式リリース。設定のバージョン比較、Planの作成、実行、結果確認までを一貫してUIで完結できます。
+- **feat(api)**: DB化に対応した新しいAPIエンドポイント (`POST /plans/integrated/run`, `GET /plans/{id}` など) を整備。旧来のファイルベースAPIは廃止されました。
+- **docs**: READMEおよび関連ドキュメントを全面的に更新。DB中心のワークフローを反映し、古い開発ドキュメント (`plan_db_*`) は `docs/archive` へ移動しました。
+- **chore(ci)**: Plan DB化に関連するテストを追加・更新し、CIパイプラインを安定化。
+
 ## Unreleased
 
 - docs: README と集約関連ドキュメントを再構成し、`docs/release-notes-v0.5.0.md` を廃止（CHANGELOG を単一のリリースノートと位置付け）

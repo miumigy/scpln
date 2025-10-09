@@ -32,10 +32,18 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: |
+          python -m venv .venv
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+      - name: Migrate DB
+        run: |
+          mkdir -p data
+          source .venv/bin/activate
+          alembic upgrade head
       - name: Smoke pipeline and verify artifacts
         run: |
+          source .venv/bin/activate
           bash scripts/run_planning_pipeline.sh -I samples/planning -o out --weeks 4
           python - << 'PY'
           import json,sys
@@ -64,6 +72,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          source .venv/bin/activate
           pytest -q -n auto tests/test_planning_pipeline.py::test_aggregate_supply_backlog
           pytest -q -n auto tests/test_psi_sync.py
           pytest -q -n auto tests/test_ui_*.py

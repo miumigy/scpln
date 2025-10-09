@@ -199,8 +199,8 @@
             </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
             <td class="mono">{{ p.summary.series_rows if p.summary and p.summary.series_rows is not none else '' }}</td>
-            <td class="mono">{{ "%.2f"|format(p.summary.kpi.fill_rate * 100) if p.summary and p.summary.kpi and p.summary.kpi.fill_rate is not none else '' }}%</td>
-            <td class="mono">{{ "%.2f"|format(p.summary.kpi.backlog_days) if p.summary and p.summary.kpi and p.summary.kpi.backlog_days is not none else '' }}</td>
+            <td class="mono">{{ "%.2f"|format(p.summary.kpi.fill_rate * 100) if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else '' }}%</td>
+            <td class="mono">{{ "%.2f"|format(p.summary.kpi.backlog_days) if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else '' }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
             <td class="mono">{{ p.jobs.last.status if p.jobs and p.jobs.last else '' }}</td>
             <td class="table-actions">
