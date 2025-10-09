@@ -6,7 +6,6 @@ from fastapi.templating import Jinja2Templates
 import logging
 import json
 import sys
-import traceback
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -28,8 +27,12 @@ from app.utils import ms_to_jst_str
 def table_exists(db_conn, name: str) -> bool:
     """Check if a table exists in the database."""
     cursor = db_conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,))
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    )
     return cursor.fetchone() is not None
+
+
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
@@ -169,9 +172,7 @@ def _normalize_plan_state(raw: dict | None) -> dict | None:
     state.setdefault("state", status)
     state.setdefault("display_status", str(status))
     timestamp = (
-        state.get("approved_at")
-        or state.get("submitted_at")
-        or state.get("timestamp")
+        state.get("approved_at") or state.get("submitted_at") or state.get("timestamp")
     )
     if state.get("display_time") is None and timestamp is not None:
         try:
@@ -236,6 +237,7 @@ def _render_plans_page(
         )
     except Exception as e:
         import traceback
+
         print(f"ERROR: Template rendering failed: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         raise
@@ -251,7 +253,9 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
         if rows:
             has_data = True
 
-    return _render_plans_page(request, plans=rows, pagination=pagination, has_data=has_data)
+    return _render_plans_page(
+        request, plans=rows, pagination=pagination, has_data=has_data
+    )
 
 
 @router.get("/ui/plans/{version_id}", response_class=HTMLResponse)

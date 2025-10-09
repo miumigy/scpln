@@ -43,7 +43,11 @@ def _conn() -> sqlite3.Connection:
 
 def init_db(force: bool = False) -> None:
     """Alembicマイグレーションを適用し、SQLiteスキーマを最新化する。"""
-    _logger.info("DB URL: %s | SCPLN_DB: %s", os.environ.get("DATABASE_URL"), os.environ.get("SCPLN_DB"))
+    _logger.info(
+        "DB URL: %s | SCPLN_DB: %s",
+        os.environ.get("DATABASE_URL"),
+        os.environ.get("SCPLN_DB"),
+    )
 
     global _initialized
     if _initialized and not force:

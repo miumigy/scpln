@@ -57,9 +57,6 @@ JOBS_DURATION = _Histogram(
 )
 
 
-
-
-
 def _storage_mode(value: Optional[str] = None) -> str:
     if value:
         mode = str(value).lower()
@@ -449,7 +446,9 @@ class JobManager:
             planning_inputs_path = artifact_paths.get("planning_inputs.json")
 
             def runpy(args: list[str]):
-                subprocess.run([sys.executable, *args], cwd=str(base), env=env, check=True)
+                subprocess.run(
+                    [sys.executable, *args], cwd=str(base), env=env, check=True
+                )
 
             runpy(
                 [
@@ -783,11 +782,7 @@ class JobManager:
                         "plan_final_adjusted.json",
                         "report_adjusted.csv",
                     ]
-                    if (
-                        anchor_policy
-                        and cutover_date
-                        and apply_adjusted_flag
-                    )
+                    if (anchor_policy and cutover_date and apply_adjusted_flag)
                     else []
                 ),
                 "report.csv",
@@ -797,9 +792,7 @@ class JobManager:
             if not use_files:
                 file_list = []
             else:
-                file_list = [
-                    name for name in file_list if (out_dir / name).exists()
-                ]
+                file_list = [name for name in file_list if (out_dir / name).exists()]
             result = {
                 "out_dir": str(out_dir.relative_to(base)),
                 "files": file_list,
@@ -949,7 +942,9 @@ def prepare_canonical_inputs(
             for issue in validation.issues
             if issue.severity == "error"
         )
-        logging.error(f"Canonical config validation issues: {validation.issues}") # Add this line
+        logging.error(
+            f"Canonical config validation issues: {validation.issues}"
+        )  # Add this line
         raise RuntimeError(f"canonical config validation failed: {errors}")
 
     planning_bundle = build_planning_inputs(canonical_config)

@@ -18,7 +18,12 @@ if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
 
 from app import db
-from core.plan_repository import PlanRepository, PlanRepositoryError, PlanKpiRow, PlanSeriesRow
+from core.plan_repository import (
+    PlanRepository,
+    PlanRepositoryError,
+    PlanKpiRow,
+    PlanSeriesRow,
+)
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
     build_plan_series_from_aggregate,
@@ -63,7 +68,9 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Backfill PlanRepository tables from plan_artifacts."
     )
-    parser.add_argument("--limit", type=int, default=None, help="処理するPlan versionの最大数。")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="処理するPlan versionの最大数。"
+    )
     parser.add_argument(
         "--resume-from",
         dest="resume_from",
@@ -76,9 +83,16 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         default=None,
         help="進捗を保存する状態ファイルパス（JSON）。",
     )
-    parser.add_argument("--dry-run", action="store_true", help="書き込みを行わずに処理内容を表示する。")
-    parser.add_argument("--force", action="store_true", help="PlanRepositoryに既存データがあっても再実行する。")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="書き込みを行わずに処理内容を表示する。"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="PlanRepositoryに既存データがあっても再実行する。",
+    )
     return parser.parse_args(list(argv) if argv is not None else None)
+
 
 def load_state(path: Path | None) -> Tuple[set[str], Dict[str, str]]:
     if path is None or not path.exists():
@@ -92,7 +106,9 @@ def load_state(path: Path | None) -> Tuple[set[str], Dict[str, str]]:
     return completed, failed
 
 
-def save_state(path: Path | None, completed: Iterable[str], failed: Dict[str, str]) -> None:
+def save_state(
+    path: Path | None, completed: Iterable[str], failed: Dict[str, str]
+) -> None:
     if path is None:
         return
     payload = {
@@ -102,9 +118,14 @@ def save_state(path: Path | None, completed: Iterable[str], failed: Dict[str, st
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def iter_plan_versions(conn: sqlite3.Connection, resume_from: str | None) -> Iterable[Dict[str, object]]:
+
+def iter_plan_versions(
+    conn: sqlite3.Connection, resume_from: str | None
+) -> Iterable[Dict[str, object]]:
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT * FROM plan_versions ORDER BY created_at, version_id").fetchall()
+    rows = conn.execute(
+        "SELECT * FROM plan_versions ORDER BY created_at, version_id"
+    ).fetchall()
     started = resume_from is None
     for row in rows:
         version_id = row["version_id"]
@@ -115,6 +136,7 @@ def iter_plan_versions(conn: sqlite3.Connection, resume_from: str | None) -> Ite
                 continue
         yield dict(row)
 
+
 def has_plan_repository_data(conn: sqlite3.Connection, version_id: str) -> bool:
     cur = conn.execute(
         "SELECT 1 FROM plan_series WHERE version_id=? LIMIT 1",
@@ -122,11 +144,13 @@ def has_plan_repository_data(conn: sqlite3.Connection, version_id: str) -> bool:
     )
     return cur.fetchone() is not None
 
+
 def load_artifact(version_id: str, name: str) -> Dict[str, object] | None:
     try:
         return db.get_plan_artifact(version_id, name)
     except Exception:
         return None
+
 
 def build_plan_payload(
     version: Dict[str, object],
@@ -140,7 +164,9 @@ def build_plan_payload(
     source_meta = load_artifact(version_id, "source.json") or {}
 
     if not any([aggregate, detail, mrp, plan_final]):
-        raise BackfillError(version_id, "バックフィル対象の成果物が見つかりませんでした")
+        raise BackfillError(
+            version_id, "バックフィル対象の成果物が見つかりませんでした"
+        )
 
     series: List[PlanSeriesRow] = []
     kpis: List[PlanKpiRow] = []
@@ -214,6 +240,7 @@ def build_plan_payload(
 
     return series, kpis
 
+
 def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -240,6 +267,7 @@ def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
         ON plan_backfill_runs(started_at DESC)
         """
     )
+
 
 def _insert_backfill_run(
     conn: sqlite3.Connection,
@@ -270,6 +298,7 @@ def _insert_backfill_run(
         ),
     )
 
+
 def _update_backfill_run(
     conn: sqlite3.Connection,
     *,
@@ -298,6 +327,7 @@ def _update_backfill_run(
             run_id,
         ),
     )
+
 
 def run_backfill(args: argparse.Namespace) -> tuple[BackfillCounts, str]:
     setup_logging()
@@ -485,6 +515,7 @@ def run_backfill(args: argparse.Namespace) -> tuple[BackfillCounts, str]:
     )
 
     return counts, run_status
+
 
 def main(argv: Iterable[str] | None = None) -> None:
     args = parse_args(argv)

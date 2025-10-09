@@ -43,7 +43,9 @@ def test_plans_integrated_run_and_reconcile_e2e(seed_canonical_data, monkeypatch
         PLAN_SERIES_ROWS_TOTAL,
         PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     )
-    assert repo.fetch_plan_series(ver, "aggregate"), "PlanRepositoryにaggregate行が書き込まれていること"
+    assert repo.fetch_plan_series(
+        ver, "aggregate"
+    ), "PlanRepositoryにaggregate行が書き込まれていること"
     assert repo.fetch_plan_kpis(ver), "PlanRepositoryにKPIが書き込まれていること"
     # list
     r = client.get("/plans")
