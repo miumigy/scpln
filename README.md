@@ -198,21 +198,33 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  Config[(Canonical Config DB)] --> Builder[Canonical Builders]
+  subgraph "Application Database (SQLite)"
+    direction LR
+    ConfigDB[(Canonical Config DB)]
+    PlanDB[(Plan DB)]
+    RunDB[(RunRegistry DB)]
+  end
+
   UI[Planning Hub / UI] -->|REST| API[FastAPI レイヤ]
-  API --> Builder
-  Builder --> Jobs[計画ジョブ / Workers]
-  Builder --> Sim[SupplyChainSimulator]
-  Jobs --> Pipelines[計画パイプライン Scripts]
-  Pipelines --> Artifacts[Plan Artifacts / out/]
-  Sim --> RunDB[(RunRegistry DB)]
-  RunDB --> UI
-  Artifacts --> UI
+  
+  API --> Jobs[計画ジョブ / Workers]
+  
+  Jobs --> Pipelines[計画パイプライン]
+  Jobs --> Sim[SupplyChainSimulator]
+
+  Pipelines --> PlanDB
+  Sim --> RunDB
+
+  PlanDB --> API
+  RunDB --> API
+  ConfigDB --> API
+
+  API --> UI
+
   API --> Docs[CSV / Metrics / Logs]
-  Config --> UI
 ```
 
-`main.py` が FastAPI アプリを起動し、副作用インポートで API / UI ルートを登録します。計画パイプラインは CLI スクリプトとして独立実行も可能です。Canonical設定構成要素とRunRegistry運用の詳細は、それぞれ `docs/config_integration_plan.md` と `docs/run_registry_operations.md` に整理しています。
+`main.py` が FastAPI アプリを起動し、副作用インポートで API / UI ルートを登録します。計画パイプラインは API 経由で非同期ジョブとして実行され、その結果はすべて Application Database に永続化されます。UI は API を通じてこれらのDBから情報を取得し、ユーザーに表示します。
 
 ---
 
