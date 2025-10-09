@@ -2,12 +2,11 @@ import importlib
 import time
 from fastapi.testclient import TestClient
 from app import db
+from app.api import app
 
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.run_compare_api")
-
-from app.api import app
 
 
 def test_rbac_blocks_simulation_without_role(monkeypatch):

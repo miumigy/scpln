@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
+from app import db
+from core.plan_repository import PlanRepositoryError
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_report_csv_payload,
+)
 
 """
 整合ログCSVエクスポート
@@ -16,20 +28,6 @@ from __future__ import annotations
     -j out/reconciliation_log_adjusted.json --label2 after \
     -o out/reconciliation_compare.csv
 """
-
-import argparse
-import json
-import sys
-from pathlib import Path
-from typing import Any, Dict, List
-
-from app import db
-from core.plan_repository import PlanRepositoryError
-from scripts.plan_pipeline_io import (
-    resolve_storage_config,
-    store_report_csv_payload,
-)
-
 
 def _load(path: str) -> Dict[str, Any]:
     with open(path, encoding="utf-8") as f:

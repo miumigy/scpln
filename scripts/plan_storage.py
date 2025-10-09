@@ -210,7 +210,7 @@ def write_mrp_result(
     default_location_key: str = "global",
     default_location_type: str = "global",
 ) -> bool:
-    rows: List[Dict[str, Any]] = list(mrp_data.get("rows") or [])
+    list(mrp_data.get("rows") or [])
     write_json_output(output_path, mrp_data, storage_mode=storage_mode)
     if not version_id or not should_use_db(storage_mode):
         return False

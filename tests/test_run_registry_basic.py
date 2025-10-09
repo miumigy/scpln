@@ -1,10 +1,6 @@
 import re
 import importlib
 from fastapi.testclient import TestClient
-
-# /simulation を有効化
-importlib.import_module("app.simulation_api")
-
 from app.api import app
 from app.run_registry import REGISTRY
 from domain.models import (
@@ -17,6 +13,9 @@ from domain.models import (
     NetworkLink,
     CustomerDemand,
 )
+
+# /simulation を有効化
+importlib.import_module("app.simulation_api")
 
 UUID4_RE = re.compile(
     r"^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",

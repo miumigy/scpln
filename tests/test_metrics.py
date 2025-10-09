@@ -1,11 +1,10 @@
 import re
 import importlib
+from fastapi.testclient import TestClient
+from app.api import app
 
 # 副作用 import で /metrics を登録
 importlib.import_module("app.metrics")
-
-from fastapi.testclient import TestClient
-from app.api import app
 
 
 def test_metrics_endpoint_works():

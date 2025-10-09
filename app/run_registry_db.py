@@ -200,7 +200,6 @@ class RunRegistryDB:
                                 else None
                             ),
                             "scenario_id": r["scenario_id"],
-                            "plan_version_id": summary_obj.get("_plan_version_id"),
                             "plan_version_id": (
                                 r["plan_version_id"]
                                 if "plan_version_id" in r.keys()

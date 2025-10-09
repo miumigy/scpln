@@ -1,11 +1,10 @@
 import importlib
 import time
 from fastapi.testclient import TestClient
-
-importlib.import_module("app.jobs_api")
-
 from app.api import app
 from domain.models import SimulationInput, Product, StoreNode, CustomerDemand
+
+importlib.import_module("app.jobs_api")
 
 
 def _payload():

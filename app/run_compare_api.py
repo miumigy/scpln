@@ -1,7 +1,15 @@
 from typing import List, Dict, Any
 from fastapi import Body, HTTPException, Query, Request
 import os
+import time
+from app import db
 from app.api import app
+from app.metrics import (
+    RUNS_LIST_REQUESTS,
+    RUNS_LIST_RETURNED,
+    COMPARE_REQUESTS,
+    COMPARE_DURATION,
+)
 
 
 def _get_registry():
@@ -10,15 +18,6 @@ def _get_registry():
 
     return REGISTRY, _BACKEND
 
-
-from app.metrics import (
-    RUNS_LIST_REQUESTS,
-    RUNS_LIST_RETURNED,
-    COMPARE_REQUESTS,
-    COMPARE_DURATION,
-)
-import time
-from app import db
 
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [

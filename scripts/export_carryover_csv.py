@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+import argparse
+import csv
+import json
+from typing import Any, Dict
 
 """
 carryoverログCSVエクスポート
@@ -7,11 +11,6 @@ carryoverログCSVエクスポート
 入力: sku_week_adjusted.json（anchor_adjust出力）
 出力: carryover.csv
 """
-
-import argparse
-import csv
-import json
-from typing import Any, Dict
 
 
 def main() -> None:

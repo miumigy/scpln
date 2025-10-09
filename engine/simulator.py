@@ -2,6 +2,13 @@ import logging
 import math
 import random
 from collections import defaultdict
+from domain.models import (
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
+    MaterialNode,
+    FactoryNode,
+)
 
 try:
     from scipy.stats import norm as _scipy_norm  # type: ignore
@@ -23,13 +30,6 @@ def _service_level_z(p: float) -> float:
     return float(norm_ppf(p))
 
 
-from domain.models import (
-    SimulationInput,
-    StoreNode,
-    WarehouseNode,
-    MaterialNode,
-    FactoryNode,
-)
 
 
 class SupplyChainSimulator:
@@ -133,7 +133,7 @@ class SupplyChainSimulator:
             daily_events = defaultdict(lambda: defaultdict(float))
 
             logging.debug(f"--- Day {day}: Receiving Orders ---")
-            received_orders_today = defaultdict(list)
+            defaultdict(list)
             # in_transit_orders は廃止済み
 
             if day in self.pending_shipments:
@@ -170,12 +170,11 @@ class SupplyChainSimulator:
                     )
 
                     shipped_candidate = request_qty
-                    link_over_qty = 0.0
                     if not link_allow_over:
                         shipped_candidate = min(shipped_candidate, remaining_link_cap)
                     else:
                         if remaining_link_cap < shipped_candidate:
-                            link_over_qty = shipped_candidate - remaining_link_cap
+                            shipped_candidate - remaining_link_cap
 
                     storage_cap = getattr(dest_node, "storage_capacity", float("inf"))
                     storage_allow_over = getattr(
@@ -389,9 +388,9 @@ class SupplyChainSimulator:
                     for item_name in items_to_manage:
                         parent_name = next(
                             (
-                                l.from_node
-                                for l in self.input.network
-                                if l.to_node == node_name
+                            link.from_node
+                            for link in self.input.network
+                            if link.to_node == node_name
                             ),
                             None,
                         )
@@ -571,13 +570,13 @@ class SupplyChainSimulator:
                             if qty_to_order > 0:
                                 parent_name = next(
                                     (
-                                        l.from_node
-                                        for l in self.input.network
-                                        if l.to_node == node_name
-                                        and self.nodes_map[l.from_node].node_type
+                                        link.from_node
+                                        for link in self.input.network
+                                        if link.to_node == node_name
+                                        and self.nodes_map[link.from_node].node_type
                                         == "material"
                                         and item_name
-                                        in self.nodes_map[l.from_node].material_cost
+                                        in self.nodes_map[link.from_node].material_cost
                                     ),
                                     None,
                                 )
@@ -1455,116 +1454,5 @@ class SupplyChainSimulator:
                         f"day {day} {key} mismatch: pl={expected} trace={actual} (atol={atol})"
                     )
 
-        return None
 
-    def recompute_pl_from_trace(self) -> list[dict]:
-        """cost_trace を日別に集計し、PL風の辞書配列を返す。
 
-        - revenue は従来の self.daily_profit_loss を転用
-        - account のマップ:
-          material -> material_cost
-          production_fixed -> flow.production_fixed
-          production_var   -> flow.production_variable
-          transport_fixed  -> flow.transport_fixed
-          transport_var    -> flow.transport_variable
-          storage_fixed    -> stock.fixed
-          storage_var      -> stock.variable
-          penalty_stockout -> penalty.stockout
-          penalty_backorder-> penalty.backorder
-        - self.daily_profit_loss の日数に合わせて 1-based day で返す
-        - trace 側に該当日が無い場合は 0 埋め
-        """
-        days = (
-            len(self.daily_profit_loss)
-            if self.daily_profit_loss
-            else getattr(self.input, "planning_horizon", 0)
-        )
-
-        def _blank(day_num: int) -> dict:
-            return {
-                "day": day_num,
-                "revenue": 0.0,
-                "material_cost": 0.0,
-                "flow": {
-                    "production_fixed": 0.0,
-                    "production_variable": 0.0,
-                    "transport_fixed": 0.0,
-                    "transport_variable": 0.0,
-                    "total": 0.0,
-                },
-                "stock": {
-                    "fixed": 0.0,
-                    "variable": 0.0,
-                    "total": 0.0,
-                },
-                "penalty": {
-                    "stockout": 0.0,
-                    "backorder": 0.0,
-                    "total": 0.0,
-                },
-                "total_cost": 0.0,
-                "profit_loss": 0.0,
-            }
-
-        out = [_blank(i + 1) for i in range(days)]
-
-        # revenue を転用
-        for i in range(days):
-            try:
-                out[i]["revenue"] = float(
-                    self.daily_profit_loss[i].get("revenue", 0) or 0
-                )
-            except Exception:
-                out[i]["revenue"] = 0.0
-
-        # trace 集計
-        mapping = {
-            "material": ("material_cost", None),
-            "production_fixed": ("flow", "production_fixed"),
-            "production_var": ("flow", "production_variable"),
-            "transport_fixed": ("flow", "transport_fixed"),
-            "transport_var": ("flow", "transport_variable"),
-            "storage_fixed": ("stock", "fixed"),
-            "storage_var": ("stock", "variable"),
-            "penalty_stockout": ("penalty", "stockout"),
-            "penalty_backorder": ("penalty", "backorder"),
-        }
-
-        for rec in self.cost_trace:
-            day = int(rec.get("day", 0) or 0)
-            if not (1 <= day <= days):
-                continue
-            account = rec.get("account")
-            amount = float(rec.get("amount", 0) or 0)
-            target = mapping.get(account)
-            if not target:
-                continue
-            key, sub = target
-            if sub is None:
-                out[day - 1][key] += amount
-            else:
-                out[day - 1][key][sub] += amount
-
-        # 合計の計算
-        for d in out:
-            d["flow"]["total"] = (
-                d["flow"]["production_fixed"]
-                + d["flow"]["production_variable"]
-                + d["flow"]["transport_fixed"]
-                + d["flow"]["transport_variable"]
-            )
-            d["stock"]["total"] = d["stock"]["fixed"] + d["stock"]["variable"]
-            d["penalty"]["total"] = d["penalty"]["stockout"] + d["penalty"]["backorder"]
-            d["total_cost"] = (
-                d["material_cost"]
-                + d["flow"]["total"]
-                + d["stock"]["total"]
-                + d["penalty"]["total"]
-            )
-            d["profit_loss"] = d["revenue"] - d["total_cost"]
-
-        return out
-
-    def assert_pl_equals_trace_totals(self, *, atol: float = 1e-6) -> None:
-        """No-op for now."""
-        return

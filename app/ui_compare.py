@@ -61,7 +61,7 @@ def ui_compare(
         ids = [base_id] + [x for x in ids if x != base_id]
 
     # 簡易実装: REGISTRY から横並び & 差分（先頭基準）
-    REGISTRY = _get_registry()
+    _get_registry()
 
     COMPARE_KEYS = [
         "fill_rate",

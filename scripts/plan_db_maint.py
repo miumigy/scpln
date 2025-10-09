@@ -5,13 +5,15 @@ import shutil
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-
-# Add project root to path to allow imports from app, core, etc.
-project_root = Path(__file__).resolve().parents[1]
-sys.path.append(str(project_root))
+import sqlite3
 
 from core.plan_repository import PlanRepository
 from app import db
+
+# Add project root to path to allow imports from app, core, etc.
+project_root = Path(__file__).resolve().parents[1]
+if str(project_root) not in sys.path:
+    sys.path.append(str(project_root))
 
 
 def backup_db(source_db_path: Path, destination_path: Path):

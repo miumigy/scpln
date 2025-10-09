@@ -269,7 +269,6 @@ def main() -> None:
             net = max(0.0, gross - available)
 
             por = 0.0
-            pol = 0.0
             if net > 0:
                 por = _ceil_lot_moq(net, lot=lot, moq=moq)
                 on_hand = available + por - gross

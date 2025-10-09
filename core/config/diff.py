@@ -104,11 +104,11 @@ def _diff_meta(base: ConfigMeta, compare: ConfigMeta) -> Dict[str, Any]:
         "field_changes": {},
         "attribute_changes": {},
     }
-    for field in fields:
-        base_val = getattr(base, field, None)
-        compare_val = getattr(compare, field, None)
+    for f in fields:
+        base_val = getattr(base, f, None)
+        compare_val = getattr(compare, f, None)
         if base_val != compare_val:
-            result["field_changes"][field] = {
+            result["field_changes"][f] = {
                 "base": base_val,
                 "compare": compare_val,
             }

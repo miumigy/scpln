@@ -1,12 +1,5 @@
-import importlib
-from fastapi.testclient import TestClient
-
-# 有効なルートを登録
-importlib.import_module("app.simulation_api")
-importlib.import_module("app.run_list_api")
-importlib.import_module("app.ui_runs")
-
 from app.api import app
+from fastapi.testclient import TestClient
 
 
 def test_ui_runs_shows_scenario_column_and_value(db_setup):

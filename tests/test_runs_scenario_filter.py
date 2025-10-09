@@ -1,9 +1,5 @@
 import importlib
 from fastapi.testclient import TestClient
-
-importlib.import_module("app.simulation_api")
-importlib.import_module("app.run_list_api")
-
 from app.api import app
 from domain.models import (
     SimulationInput,
@@ -15,6 +11,9 @@ from domain.models import (
     NetworkLink,
     CustomerDemand,
 )
+
+importlib.import_module("app.simulation_api")
+importlib.import_module("app.run_list_api")
 
 
 def _payload(dm: float):

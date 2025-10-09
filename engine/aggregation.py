@@ -171,8 +171,8 @@ def rollup_axis(
     keep = list(keep_fields or [])
     for r in records:
         p = proj_product(r.get(product_key))
-        l = proj_location(r.get(location_key))
-        key_tuple = tuple([p, l] + [r.get(k) for k in keep])
+        loc = proj_location(r.get(location_key))
+        key_tuple = tuple([p, loc] + [r.get(k) for k in keep])
         for f in sum_fields:
             v = r.get(f)
             if isinstance(v, (int, float)):

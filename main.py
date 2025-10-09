@@ -1,4 +1,5 @@
 from app.api import app
+import os
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
 import logging
@@ -106,8 +107,6 @@ except Exception:
     pass
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
-
-import os
 
 try:
     from app.metrics import start_metrics_server

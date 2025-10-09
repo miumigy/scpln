@@ -1,12 +1,5 @@
-from fastapi.testclient import TestClient
-
-import importlib
-
-importlib.import_module("app.ui_scenarios")
-importlib.import_module("app.jobs_api")
-importlib.import_module("app.simulation_api")
-
 from app import db
+from fastapi.testclient import TestClient
 
 
 def test_ui_scenarios_run_returns_403(monkeypatch):

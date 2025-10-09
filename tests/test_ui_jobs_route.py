@@ -44,4 +44,4 @@ def test_ui_jobs_route_returns_200(db_setup_jobs):
         pytest.skip("fastapi not available in test env")
 
     client = TestClient(app)
-    res = client.get("/ui/jobs")
+    client.get("/ui/jobs")

@@ -5,15 +5,13 @@ from typing import Any, Dict, Iterable, List, Set
 from fastapi import HTTPException, Response
 from starlette.responses import StreamingResponse
 from app.api import app
+from app import db as _db
 
 
 def _get_registry():
     from app.run_registry import REGISTRY  # type: ignore
 
     return REGISTRY
-
-
-from app import db as _db
 
 
 def _get_rec(run_id: str):

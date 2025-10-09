@@ -1,12 +1,11 @@
 import importlib
 from fastapi.testclient import TestClient
+from app.api import app
+from domain.models import SimulationInput, Product, StoreNode, CustomerDemand
 
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.run_list_api")
 importlib.import_module("app.trace_export_api")
-
-from app.api import app
-from domain.models import SimulationInput, Product, StoreNode, CustomerDemand
 
 
 def _payload():

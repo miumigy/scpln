@@ -249,7 +249,7 @@ class TestSimulationConsistency(unittest.TestCase):
     def test_moq_and_multiples_applied(self):
         # Verify each placed order respects node/link MOQ and integer multiples when integers are specified
         nodes_map = {n.name: n for n in self.input.nodes}
-        network_map = {(l.from_node, l.to_node): l for l in self.input.network}
+        network_map = {(link.from_node, link.to_node): link for link in self.input.network}
 
         for day, orders in self.sim.order_history.items():
             for item, qty, supplier, dest in orders:

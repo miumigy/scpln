@@ -1,10 +1,5 @@
 import importlib
 from fastapi.testclient import TestClient
-
-# /simulation と /compare のAPIを副作用importで登録
-importlib.import_module("app.simulation_api")
-importlib.import_module("app.run_compare_api")
-
 from app.api import app
 from domain.models import (
     SimulationInput,
@@ -16,6 +11,10 @@ from domain.models import (
     NetworkLink,
     CustomerDemand,
 )
+
+# /simulation と /compare のAPIを副作用importで登録
+importlib.import_module("app.simulation_api")
+importlib.import_module("app.run_compare_api")
 
 
 def _payload(fill_rate_bias: float, days=3):

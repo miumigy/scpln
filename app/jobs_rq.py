@@ -112,7 +112,7 @@ def submit_aggregate(payload: Dict[str, Any]) -> str:
 def run_aggregate_task(job_id: str, cfg: Dict[str, Any]):
     started = int(time.time() * 1000)
     db.update_job_status(job_id, status="running", started_at=started)
-    t0 = time.monotonic()
+    time.monotonic()
     try:
         run_id = cfg.get("run_id")
         dataset = (cfg.get("dataset") or "daily_profit_loss").lower()

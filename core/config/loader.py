@@ -228,7 +228,7 @@ def _ingest_psi_nodes(
         )
 
         for item_code, qty in (raw.get("initial_stock") or {}).items():
-            ensure_item = item_records.setdefault(
+            item_records.setdefault(
                 item_code,
                 {
                     "code": item_code,

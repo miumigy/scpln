@@ -441,7 +441,7 @@ def get_run_meta(run_id: str) -> Dict[str, Any]:
 def upsert_run_meta(run_id: str, **fields: Any) -> None:
     # ensure row exists
     with _conn() as c:
-        now = int(time.time() * 1000)
+        int(time.time() * 1000)
         row = c.execute(
             "SELECT run_id FROM runs_meta WHERE run_id=?", (run_id,)
         ).fetchone()

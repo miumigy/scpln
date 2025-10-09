@@ -1,6 +1,7 @@
 from app.api import app
 import logging
 import json
+from pathlib import Path
 from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -31,8 +32,6 @@ def _get_registry():
 
     return REGISTRY
 
-
-from pathlib import Path
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))

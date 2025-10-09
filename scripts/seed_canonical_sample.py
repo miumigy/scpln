@@ -7,12 +7,12 @@ import json
 import sys
 from pathlib import Path
 
+from core.config import CanonicalConfig, load_canonical_config
+from core.config.storage import save_canonical_config
+
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
-
-from core.config import CanonicalConfig, load_canonical_config
-from core.config.storage import save_canonical_config
 
 
 def _build_config(

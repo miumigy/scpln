@@ -10,12 +10,12 @@ import sys
 from pathlib import Path
 import os
 
+from core.config import CanonicalLoaderError, load_canonical_config
+from core.config.storage import save_canonical_config
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from core.config import CanonicalLoaderError, load_canonical_config
-from core.config.storage import save_canonical_config
 
 # app/db.py と同じロジックでデフォルトパスを構築
 _BASE_DIR = Path(__file__).resolve().parents[1]

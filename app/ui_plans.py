@@ -9,6 +9,7 @@ import sys
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from app import db
 from app.metrics import (
@@ -22,17 +23,6 @@ from app.metrics import (
     PLANS_VIEWED,
 )
 from app.utils import ms_to_jst_str
-
-
-def table_exists(db_conn, name: str) -> bool:
-    """Check if a table exists in the database."""
-    cursor = db_conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
-    )
-    return cursor.fetchone() is not None
-
-
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     get_canonical_config,
@@ -47,6 +37,15 @@ from core.plan_repository_views import (
     latest_state_from_events,
     summarize_audit_events,
 )
+
+
+def table_exists(db_conn, name: str) -> bool:
+    """Check if a table exists in the database."""
+    cursor = db_conn.cursor()
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    )
+    return cursor.fetchone() is not None
 
 
 router = APIRouter()
@@ -308,7 +307,6 @@ def ui_plan_detail(version_id: str, request: Request):
     aggregate_rows = repo_fetch_aggregate_rows(get_plan_repository(), version_id)
     detail_rows = repo_fetch_detail_rows(get_plan_repository(), version_id)
     aggregate = {"rows": aggregate_rows}
-    sku_week = {"rows": detail_rows}
 
     disagg_rows_sample = []
     try:

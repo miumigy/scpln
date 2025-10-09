@@ -36,7 +36,7 @@ def ui_scenarios_post(
         pid = int(parent_id) if parent_id else None
     except (ValueError, TypeError):
         pid = None
-    sid = db.create_scenario(
+    db.create_scenario(
         name=name or "(no name)",
         parent_id=pid,
         tag=(tag or None),
