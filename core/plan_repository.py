@@ -21,8 +21,6 @@ else:
     from typing_extensions import NotRequired
 
 
-
-
 def _now_ms() -> int:
     return int(time.time() * 1000)
 
@@ -270,9 +268,7 @@ class PlanRepository:
         self._plan_db_guard_trim_total = plan_db_guard_trim_total or _NullMetric()
         self._capacity_env_key = "PLANS_DB_MAX_ROWS"
         self._trim_alert_threshold_key = "PLANS_DB_GUARD_ALERT_THRESHOLD"
-        self._plan_db_last_trim_timestamp = (
-            plan_db_last_trim_timestamp or _NullMetric()
-        )
+        self._plan_db_last_trim_timestamp = plan_db_last_trim_timestamp or _NullMetric()
 
     # --- public API -------------------------------------------------
     def write_plan(
@@ -307,7 +303,9 @@ class PlanRepository:
                 self._normalize_kpi_row(version_id, row, now) for row in (kpis or [])
             ]
             job_row = (
-                self._normalize_job_row(version_id, job, now) if job is not None else None
+                self._normalize_job_row(version_id, job, now)
+                if job is not None
+                else None
             )
 
             conn = self._conn_factory()
@@ -321,7 +319,9 @@ class PlanRepository:
                     )
                 if override_rows:
                     conn.executemany(
-                        self._build_insert_sql("plan_overrides", _PLAN_OVERRIDE_COLUMNS),
+                        self._build_insert_sql(
+                            "plan_overrides", _PLAN_OVERRIDE_COLUMNS
+                        ),
                         override_rows,
                     )
                 if event_rows:
@@ -362,7 +362,9 @@ class PlanRepository:
                 conn.close()
         finally:
             duration = time.monotonic() - t0
-            self._plan_db_write_latency.labels(storage_mode=storage_mode).observe(duration)
+            self._plan_db_write_latency.labels(storage_mode=storage_mode).observe(
+                duration
+            )
         if success:
             try:
                 self._enforce_capacity_guard()
@@ -390,7 +392,9 @@ class PlanRepository:
         sql.append("ORDER BY time_bucket_type, time_bucket_key, item_key, location_key")
         return self._fetch_rows(" ".join(sql), tuple(params))
 
-    def fetch_plan_overrides(self, version_id: str, level: str | None = None) -> list[dict]:
+    def fetch_plan_overrides(
+        self, version_id: str, level: str | None = None
+    ) -> list[dict]:
         sql = ["SELECT * FROM plan_overrides WHERE version_id=?"]
         params: list[object] = [version_id]
         if level is not None:
@@ -406,9 +410,7 @@ class PlanRepository:
         )
         return self._fetch_rows(sql, (version_id,))
 
-    def fetch_plan_kpis(
-        self, version_id: str, metric: str | None = None
-    ) -> list[dict]:
+    def fetch_plan_kpis(self, version_id: str, metric: str | None = None) -> list[dict]:
         sql = ["SELECT * FROM plan_kpis WHERE version_id=?"]
         params: list[object] = [version_id]
         if metric is not None:
@@ -442,9 +444,7 @@ class PlanRepository:
             conn.commit()
         except sqlite3.Error as exc:  # pragma: no cover - DB障害
             conn.rollback()
-            raise PlanRepositoryError(
-                f"planデータ削除に失敗しました: {exc}"
-            ) from exc
+            raise PlanRepositoryError(f"planデータ削除に失敗しました: {exc}") from exc
         except Exception:
             conn.rollback()
             raise
@@ -482,7 +482,9 @@ class PlanRepository:
             return deleted_count
         except sqlite3.Error as exc:
             conn.rollback()
-            raise PlanRepositoryError(f"KPIデータのトリムに失敗しました: {exc}") from exc
+            raise PlanRepositoryError(
+                f"KPIデータのトリムに失敗しました: {exc}"
+            ) from exc
         except Exception:
             conn.rollback()
             raise
@@ -530,7 +532,9 @@ class PlanRepository:
     def _delete_plan(self, conn: sqlite3.Connection, version_id: str) -> None:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-        conn.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+        conn.execute(
+            "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+        )
         conn.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
         conn.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
 
@@ -737,9 +741,7 @@ class PlanRepository:
             row.get("notes"),
         )
 
-    def _normalize_kpi_row(
-        self, version_id: str, row: PlanKpiRow, now: int
-    ) -> tuple:
+    def _normalize_kpi_row(self, version_id: str, row: PlanKpiRow, now: int) -> tuple:
         metric = row.get("metric")
         if not metric:
             raise PlanRepositoryError("PlanKpiRow.metric が未指定です")
@@ -760,9 +762,7 @@ class PlanRepository:
             row.get("updated_at", now),
         )
 
-    def _normalize_job_row(
-        self, version_id: str, row: PlanJobRow, now: int
-    ) -> tuple:
+    def _normalize_job_row(self, version_id: str, row: PlanJobRow, now: int) -> tuple:
         try:
             job_id = row["job_id"]
         except KeyError as exc:  # pragma: no cover - データ不備
@@ -846,7 +846,9 @@ class PlanRepository:
                 "supply_sum": float(row["supply_sum"] or 0.0),
                 "backlog_sum": float(row["backlog_sum"] or 0.0),
                 "capacity_sum": (
-                    float(row["capacity_sum"]) if row["capacity_sum"] is not None else None
+                    float(row["capacity_sum"])
+                    if row["capacity_sum"] is not None
+                    else None
                 ),
                 "max_updated_at": int(row["max_updated_at"] or 0),
             }
@@ -968,7 +970,9 @@ class PlanRepository:
                     normalized_event = self._normalize_override_event_row(
                         version_id, row, now
                     )
-                    event_dict = dict(zip(_PLAN_OVERRIDE_EVENT_COLUMNS, normalized_event))
+                    event_dict = dict(
+                        zip(_PLAN_OVERRIDE_EVENT_COLUMNS, normalized_event)
+                    )
                     level = str(event_dict.get("level") or "aggregate")
                     key_hash = str(event_dict.get("key_hash") or "")
                     override_id = event_dict.get("override_id")

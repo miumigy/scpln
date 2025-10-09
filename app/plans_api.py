@@ -62,7 +62,13 @@ _PLAN_REPOSITORY = PlanRepository(
 )
 _STORAGE_CHOICES = {"db", "files", "both"}
 _DEFAULT_PLAN_INCLUDES = {"summary"}
-_PLAN_ORDER_CHOICES = {"created_desc", "created_asc", "version_desc", "version_asc", "status"}
+_PLAN_ORDER_CHOICES = {
+    "created_desc",
+    "created_asc",
+    "version_desc",
+    "version_asc",
+    "status",
+}
 
 
 def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
@@ -70,6 +76,7 @@ def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
     if isinstance(val, str) and val == "":
         return None
     return val
+
 
 def _run_py(args: list[str]) -> None:
     env = os.environ.copy()
@@ -196,7 +203,9 @@ def _save_overlay(
         }
         for entry in entries:
             if level == "aggregate":
-                key_hash = _psi_overlay_key_agg(entry.get("period"), entry.get("family"))
+                key_hash = _psi_overlay_key_agg(
+                    entry.get("period"), entry.get("family")
+                )
             else:
                 key_hash = _psi_overlay_key_det(entry.get("week"), entry.get("sku"))
             prior = existing.get(key_hash) or {}
@@ -537,9 +546,12 @@ def _has_approve(req: Request) -> bool:
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     import traceback
+
     try:
         ts = int(time.time())
-        version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
+        version_id = str(
+            _get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}"
+        )
         out_dir = Path(
             _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
         )
@@ -593,7 +605,9 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 temp_input_dir,
                 artifact_paths,
                 canonical_config,
-            ) = prepare_canonical_inputs(config_version_id, out_dir, write_artifacts=True)
+            ) = prepare_canonical_inputs(
+                config_version_id, out_dir, write_artifacts=True
+            )
         except RuntimeError as exc:
             return JSONResponse(status_code=400, content={"detail": str(exc)})
         except CanonicalConfigNotFoundError as exc:
@@ -603,7 +617,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         input_dir = str(temp_input_dir)
         canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
         planning_inputs_path = artifact_paths.get("planning_inputs.json")
-        
+
         logging.info("Starting script execution: plan_aggregate.py")
         # 1) aggregate
         _run_py(
@@ -618,7 +632,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             ]
         )
         logging.info("Finished script execution: plan_aggregate.py")
-        
+
         logging.info("Starting script execution: allocate.py")
         # 2) allocate
         _run_py(
@@ -676,13 +690,13 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                     str(out_dir / "plan_final.json"),
                     "--weeks",
                     weeks,
-                    *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
                         if recon_window_days is not None
                         else []
                     ),
-                    *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                     *(
                         ["--blend-split-next", str(blend_split_next)]
                         if (blend_split_next is not None)
@@ -711,13 +725,13 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                     str(out_dir / "reconciliation_log.json"),
                     "--version",
                     version_id,
-                    *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
                         if recon_window_days is not None
                         else []
                     ),
-                    *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                     *(
                         ["--tol-abs", str(tol_abs)]
                         if tol_abs is not None
@@ -753,8 +767,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                     ),
                     "--weeks",
                     weeks,
-                    *(['--calendar-mode', str(calendar_mode)] if calendar_mode else []),
-                    *(['--carryover', str(carryover)] if carryover else []),
+                    *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
+                    *(["--carryover", str(carryover)] if carryover else []),
                     *(
                         ["--carryover-split", str(carryover_split)]
                         if (carryover_split is not None)
@@ -765,8 +779,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                         if (max_adjust_ratio is not None)
                         else []
                     ),
-                    *(['--tol-abs', str(tol_abs)] if (tol_abs is not None) else []),
-                    *(['--tol-rel', str(tol_rel)] if (tol_rel is not None) else []),
+                    *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                    *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                     "-I",
                     input_dir,
                     "--version-id",
@@ -793,7 +807,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                         if recon_window_days is not None
                         else []
                     ),
-                    *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                     *(
                         ["--tol-abs", str(tol_abs)]
                         if tol_abs is not None
@@ -842,13 +856,21 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                         str(out_dir / "plan_final_adjusted.json"),
                         "--weeks",
                         weeks,
-                        *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                        *(
+                            ["--cutover-date", str(cutover_date)]
+                            if cutover_date
+                            else []
+                        ),
                         *(
                             ["--recon-window-days", str(recon_window_days)]
                             if recon_window_days is not None
                             else []
                         ),
-                        *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                        *(
+                            ["--anchor-policy", str(anchor_policy)]
+                            if anchor_policy
+                            else []
+                        ),
                         *(
                             ["--blend-split-next", str(blend_split_next)]
                             if (blend_split_next is not None)
@@ -974,7 +996,9 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                     aggregate=aggregate_obj,
                     detail=detail_obj,
                 )
-                plan_kpi_rows = build_plan_kpis_from_aggregate(version_id, aggregate_obj)
+                plan_kpi_rows = build_plan_kpis_from_aggregate(
+                    version_id, aggregate_obj
+                )
             except Exception:
                 logging.exception(
                     "plans_api_plan_repository_build_failed",
@@ -1168,7 +1192,6 @@ def patch_plan_psi(
     skipped: list[str] = []
     affected_keys: set[str] = set()
     # 監査ログの準備
-    import time as _time
 
     distribute = body.get("distribute") or {}
     weight_mode = str(distribute.get("weight_mode") or "current")
@@ -1540,6 +1563,7 @@ def patch_plan_psi(
         pass
     return {"updated": updated, "skipped": skipped, "locked": sorted(list(locks))}
 
+
 @app.get("/plans/{version_id}/psi/events")
 def get_plan_psi_events(
     version_id: str,
@@ -1661,15 +1685,15 @@ def post_plan_psi_reconcile(
                     if recon_window_days is not None
                     else []
                 ),
-                *(['--calendar-mode', str(calendar_mode)] if calendar_mode else []),
-                *(['--carryover', str(carryover)] if carryover else []),
+                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
+                *(["--carryover", str(carryover)] if carryover else []),
                 *(
                     ["--carryover-split", str(carryover_split)]
                     if (carryover_split is not None)
                     else []
                 ),
-                *(['--tol-abs', str(tol_abs)] if (tol_abs is not None) else []),
-                *(['--tol-rel', str(tol_rel)] if (tol_rel is not None) else []),
+                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
             ]
@@ -1684,13 +1708,13 @@ def post_plan_psi_reconcile(
                 str(out_dir / "reconciliation_log_adjusted.json"),
                 "--version",
                 f"{version_id}-adjusted",
-                *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                 *(
                     ["--recon-window-days", str(recon_window_days)]
                     if recon_window_days is not None
                     else []
                 ),
-                *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                 *(
                     ["--tol-abs", str(tol_abs)]
                     if tol_abs is not None
@@ -1741,13 +1765,13 @@ def post_plan_psi_reconcile(
                     str(out_dir / "plan_final_adjusted.json"),
                     "--weeks",
                     weeks,
-                    *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
                         if recon_window_days is not None
                         else []
                     ),
-                    *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                 ]
             )
             db.upsert_plan_artifact(
@@ -1985,7 +2009,10 @@ def post_plan_psi_approve(
         "approve",
         actor=actor,
         note=body.get("note"),
-        payload={"approved_at": now, "auto_reconcile": bool(body.get("auto_reconcile") or False)},
+        payload={
+            "approved_at": now,
+            "auto_reconcile": bool(body.get("auto_reconcile") or False),
+        },
     )
     return {"ok": True, "status": state.get("status")}
 
@@ -2006,7 +2033,9 @@ def get_plans(
         legacy_only = include_tokens == {"legacy"}
 
         order_value = order if order in _PLAN_ORDER_CHOICES else "created_desc"
-        plans = db.list_plan_versions(limit=limit_value, offset=offset_value, order=order_value)
+        plans = db.list_plan_versions(
+            limit=limit_value, offset=offset_value, order=order_value
+        )
         total = db.count_plan_versions()
 
         pagination = {
@@ -2035,9 +2064,7 @@ def get_plans(
             if (include_summary or include_kpi)
             else {}
         )
-        jobs_map = (
-            _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
-        )
+        jobs_map = _PLAN_REPOSITORY.fetch_last_jobs(version_ids) if include_jobs else {}
 
         enriched_plans: list[dict[str, Any]] = []
         for row in plans:
@@ -2067,7 +2094,9 @@ def get_plans(
 
             artifacts_flag = None
             if include_artifacts and vid:
-                artifacts_flag = db.get_plan_artifact(vid, "plan_final.json") is not None
+                artifacts_flag = (
+                    db.get_plan_artifact(vid, "plan_final.json") is not None
+                )
 
             plan["storage"] = {
                 **storage_info,
@@ -2084,7 +2113,11 @@ def get_plans(
         return response
     except Exception as e:
         logging.exception(f"plans_api_get_plans_failed: {e}")
-        return {"plans": [], "pagination": {"limit": limit, "offset": offset, "count": 0, "total": 0}, "includes": []}
+        return {
+            "plans": [],
+            "pagination": {"limit": limit, "offset": offset, "count": 0, "total": 0},
+            "includes": [],
+        }
 
 
 @app.get("/plans/by_base")
@@ -2211,13 +2244,13 @@ def post_plan_reconcile(
             str(out_dir / "reconciliation_log.json"),
             "--version",
             version_id,
-            *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+            *(["--cutover-date", str(cutover_date)] if cutover_date else []),
             *(
                 ["--recon-window-days", str(recon_window_days)]
                 if recon_window_days is not None
                 else []
             ),
-            *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+            *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
             *(
                 ["--tol-abs", str(tol_abs)]
                 if tol_abs is not None
@@ -2255,15 +2288,15 @@ def post_plan_reconcile(
                     if recon_window_days is not None
                     else []
                 ),
-                *(['--calendar-mode', str(calendar_mode)] if calendar_mode else []),
-                *(['--carryover', str(carryover)] if carryover else []),
+                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
+                *(["--carryover", str(carryover)] if carryover else []),
                 *(
                     ["--carryover-split", str(carryover_split)]
                     if (carryover_split is not None)
                     else []
                 ),
-                *(['--tol-abs', str(tol_abs)] if (tol_abs is not None) else []),
-                *(['--tol-rel', str(tol_rel)] if (tol_rel is not None) else []),
+                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
             ]
@@ -2285,7 +2318,7 @@ def post_plan_reconcile(
                     if recon_window_days is not None
                     else []
                 ),
-                *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                 *(
                     ["--tol-abs", str(tol_abs)]
                     if tol_abs is not None
@@ -2337,13 +2370,13 @@ def post_plan_reconcile(
                     str(out_dir / "plan_final_adjusted.json"),
                     "--weeks",
                     str(body.get("weeks") or 4),
-                    *(['--cutover-date', str(cutover_date)] if cutover_date else []),
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
                         if recon_window_days is not None
                         else []
                     ),
-                    *(['--anchor-policy', str(anchor_policy)] if anchor_policy else []),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
                 ]
             )
             db.upsert_plan_artifact(

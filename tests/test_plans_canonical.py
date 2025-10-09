@@ -58,15 +58,21 @@ def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):
         assert psi_aggregate["rows"]
         psi_detail = get_plan_psi(version_id, level="det", limit=10, offset=0)
         assert psi_detail["total"] > 0
-        events_resp = get_plan_psi_events(version_id, level="aggregate", limit=5, offset=0)
+        events_resp = get_plan_psi_events(
+            version_id, level="aggregate", limit=5, offset=0
+        )
         assert events_resp["total"] >= 0
         state_resp = get_plan_psi_state(version_id)
         assert "state" in state_resp
         if state_resp["state"]:
             assert "display_status" in state_resp["state"]
 
-        plans_resp = _plans_api.get_plans(limit=10, offset=0, include="summary,kpi,jobs")
-        plan_entries = [p for p in plans_resp.get("plans", []) if p.get("version_id") == version_id]
+        plans_resp = _plans_api.get_plans(
+            limit=10, offset=0, include="summary,kpi,jobs"
+        )
+        plan_entries = [
+            p for p in plans_resp.get("plans", []) if p.get("version_id") == version_id
+        ]
         assert plan_entries, "expected plan to appear in /plans response"
         plan_entry = plan_entries[0]
         summary = plan_entry.get("summary") or {}
@@ -83,7 +89,9 @@ def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):
         with _conn() as c:
             c.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-            c.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+            c.execute(
+                "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+            )
             c.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
@@ -134,7 +142,9 @@ def test_post_plans_integrated_run_db_only_storage(db_setup, tmp_path):
         with _conn() as c:
             c.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
-            c.execute("DELETE FROM plan_override_events WHERE version_id=?", (version_id,))
+            c.execute(
+                "DELETE FROM plan_override_events WHERE version_id=?", (version_id,)
+            )
             c.execute("DELETE FROM plan_overrides WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_jobs WHERE version_id=?", (version_id,))
             c.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))

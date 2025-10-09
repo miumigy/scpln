@@ -194,10 +194,7 @@ def summarize_audit_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     for ev in events:
         event_type = str(ev.get("event_type") or ev.get("event") or "unknown")
         payload = _payload_to_dict(
-            ev.get("payload")
-            or ev.get("payload_json")
-            or ev.get("fields")
-            or {}
+            ev.get("payload") or ev.get("payload_json") or ev.get("fields") or {}
         )
         if not payload and ev.get("lock") is not None:
             payload = {"lock": ev.get("lock")}
@@ -210,9 +207,7 @@ def summarize_audit_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]
         key_hash = ev.get("key_hash") or ev.get("key")
         summarized.append(
             {
-                "event_id": ev.get("event_id")
-                or ev.get("id")
-                or ev.get("override_id"),
+                "event_id": ev.get("event_id") or ev.get("id") or ev.get("override_id"),
                 "event_type": event_type,
                 "timestamp": event_ts,
                 "display_time": display_time,
@@ -302,7 +297,9 @@ def build_plan_summaries(
             if level == "weekly_summary":
                 capacity = values.get("capacity_sum") or 0.0
                 adjusted = values.get("supply_sum") or 0.0
-                entry["utilization_pct"] = (adjusted / capacity * 100.0) if capacity else None
+                entry["utilization_pct"] = (
+                    (adjusted / capacity * 100.0) if capacity else None
+                )
             if level == "aggregate":
                 demand = values.get("demand_sum") or 0.0
                 supply = values.get("supply_sum") or 0.0

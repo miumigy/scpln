@@ -1,4 +1,4 @@
-'''Exports a plan from the database to JSON/CSV files.'''
+"""Exports a plan from the database to JSON/CSV files."""
 
 import argparse
 import json
@@ -12,6 +12,7 @@ sys.path.append(str(project_root))
 
 from core.plan_repository import PlanRepository
 from app import db
+
 
 def export_plan(version_id: str, out_dir: Path):
     """

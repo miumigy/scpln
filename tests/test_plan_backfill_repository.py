@@ -9,7 +9,9 @@ from app import db
 from core.plan_repository import PlanRepository
 
 
-def _insert_plan_fixture(db_path: str, version_id: str, *, config_version_id: int | None = 100) -> None:
+def _insert_plan_fixture(
+    db_path: str, version_id: str, *, config_version_id: int | None = 100
+) -> None:
     now = 1700000000000
     conn = sqlite3.connect(db_path)
     try:
@@ -135,7 +137,9 @@ def _insert_plan_fixture(db_path: str, version_id: str, *, config_version_id: in
         conn.close()
 
 
-def _run_script(db_path: str, *args: str, state_file: Path | None = None) -> subprocess.CompletedProcess[str]:
+def _run_script(
+    db_path: str, *args: str, state_file: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     cmd = [sys.executable, "scripts/plan_backfill_repository.py", *args]
     env = os.environ.copy()
     env["SCPLN_DB"] = db_path
@@ -213,7 +217,10 @@ def test_backfill_state_file_skip(db_setup, seed_canonical_data, tmp_path):
     _insert_plan_fixture(db_setup, version_id)
     state_file = tmp_path / "state.json"
     state_file.write_text(
-        json.dumps({"completed_versions": [version_id], "failed_versions": {}}, ensure_ascii=False),
+        json.dumps(
+            {"completed_versions": [version_id], "failed_versions": {}},
+            ensure_ascii=False,
+        ),
         encoding="utf-8",
     )
 

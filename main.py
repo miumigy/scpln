@@ -94,6 +94,7 @@ except Exception:
 # plans UI
 try:
     from app import ui_plans
+
     app.include_router(ui_plans.router)
 except Exception:
     pass

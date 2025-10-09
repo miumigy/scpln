@@ -331,7 +331,9 @@ def main() -> None:
     if storage_config.use_files:
         print(f"[ok] wrote {args.output}")
     if wrote_db:
-        print(f"[ok] stored mrp rows in PlanRepository version={storage_config.version_id}")
+        print(
+            f"[ok] stored mrp rows in PlanRepository version={storage_config.version_id}"
+        )
 
 
 if __name__ == "__main__":

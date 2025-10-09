@@ -33,8 +33,12 @@ def _make_plan_with_artifacts(version_id: str) -> None:
         PLAN_SERIES_ROWS_TOTAL,
         PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     )
-    assert repo.fetch_plan_series(version_id, "aggregate"), "PlanRepositoryにaggregate行が存在すること"
-    assert repo.fetch_plan_series(version_id, "det"), "PlanRepositoryにdet行が存在すること"
+    assert repo.fetch_plan_series(
+        version_id, "aggregate"
+    ), "PlanRepositoryにaggregate行が存在すること"
+    assert repo.fetch_plan_series(
+        version_id, "det"
+    ), "PlanRepositoryにdet行が存在すること"
 
 
 def test_schedule_csv_and_ui_tabs_present(seed_canonical_data, monkeypatch):
