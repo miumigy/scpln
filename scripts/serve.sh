@@ -24,6 +24,11 @@ if [[ -f .env ]]; then
   echo "[env] AUTH_MODE=${AUTH_MODE:-none} JOBS_BACKEND=${JOBS_BACKEND:-memory} REGISTRY_BACKEND=${REGISTRY_BACKEND:-memory}"
 fi
 
+# Use scpln.db for acceptance tests
+export SCPLN_DB="${SCPLN_DB:-scpln.db}"
+echo "[env] using SCPLN_DB=$SCPLN_DB"
+
+
 # Default to DB-backed RunRegistry if not specified
 if [[ -z "${REGISTRY_BACKEND:-}" ]]; then
   export REGISTRY_BACKEND=db

@@ -81,7 +81,28 @@ def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
 def _run_py(args: list[str]) -> None:
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", str(BASE_DIR))
-    subprocess.run([sys.executable, *args], cwd=str(BASE_DIR), env=env, check=True)
+    try:
+        subprocess.run(
+            [sys.executable, *args],
+            cwd=str(BASE_DIR),
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as e:
+        logging.error(
+            "Subprocess failed with exception",
+            extra={
+                "script": args[0],
+                "args": " ".join(args),
+                "exception_type": type(e).__name__,
+                "exception_message": str(e),
+                "stdout": getattr(e, "stdout", None),
+                "stderr": getattr(e, "stderr", None),
+            },
+        )
+        raise
 
 
 def _load_json(path: Path) -> Dict[str, Any] | None:
@@ -524,269 +545,149 @@ def _has_approve(req: Request) -> bool:
 
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
-    ts = int(time.time())
-    version_id = str(_get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}")
-    out_dir = Path(
-        _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
-    )
-    round_mode = _get_param(body, "round_mode") or "int"
-    lt_unit = _get_param(body, "lt_unit") or "day"
-    cutover_date = _get_param(body, "cutover_date")
-    recon_window_days = _get_param(body, "recon_window_days")
-    anchor_policy = _get_param(body, "anchor_policy")
-    blend_split_next = _get_param(body, "blend_split_next")
-    blend_weight_mode = _get_param(body, "blend_weight_mode")
-    carryover = _get_param(body, "carryover")
-    carryover_split = _get_param(body, "carryover_split")
-    max_adjust_ratio = _get_param(body, "max_adjust_ratio")
-    tol_abs = _get_param(body, "tol_abs")
-    tol_rel = _get_param(body, "tol_rel")
-    calendar_mode = _get_param(body, "calendar_mode")
-    storage_mode = _storage_mode(body.get("storage_mode"))
-    use_db = _should_use_db(storage_mode)
-    use_files = _should_use_files(storage_mode)
-    lightweight = bool(_get_param(body, "lightweight") or False)
-    weeks_param = _get_param(body, "weeks")
-    default_weeks = 1 if lightweight else 4
-    weeks = str(weeks_param if weeks_param not in (None, "") else default_weeks)
-    apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
-    if lightweight:
-        apply_adjusted = False
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    config_version_id = _get_param(body, "config_version_id")
-    canonical_config = None
-    canonical_snapshot_path: Optional[Path] = None
-    planning_inputs_path: Optional[Path] = None
-
-    if config_version_id in (None, ""):
-        return JSONResponse(
-            status_code=400,
-            content={"detail": "config_version_id is required for integrated run"},
-        )
+    import traceback
 
     try:
-        config_version_id = int(config_version_id)
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={"detail": "config_version_id must be integer"},
+        ts = int(time.time())
+        version_id = str(
+            _get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}"
         )
-    try:
-        (
-            _planning_bundle,
-            temp_input_dir,
-            artifact_paths,
-            canonical_config,
-        ) = prepare_canonical_inputs(config_version_id, out_dir, write_artifacts=True)
-    except RuntimeError as exc:
-        return JSONResponse(status_code=400, content={"detail": str(exc)})
-    except CanonicalConfigNotFoundError as exc:
-        return JSONResponse(status_code=404, content={"detail": str(exc)})
+        out_dir = Path(
+            _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
+        )
+        round_mode = _get_param(body, "round_mode") or "int"
+        lt_unit = _get_param(body, "lt_unit") or "day"
+        cutover_date = _get_param(body, "cutover_date")
+        recon_window_days = _get_param(body, "recon_window_days")
+        anchor_policy = _get_param(body, "anchor_policy")
+        blend_split_next = _get_param(body, "blend_split_next")
+        blend_weight_mode = _get_param(body, "blend_weight_mode")
+        carryover = _get_param(body, "carryover")
+        carryover_split = _get_param(body, "carryover_split")
+        max_adjust_ratio = _get_param(body, "max_adjust_ratio")
+        tol_abs = _get_param(body, "tol_abs")
+        tol_rel = _get_param(body, "tol_rel")
+        calendar_mode = _get_param(body, "calendar_mode")
+        storage_mode = _storage_mode(body.get("storage_mode"))
+        use_db = _should_use_db(storage_mode)
+        use_files = _should_use_files(storage_mode)
+        lightweight = bool(_get_param(body, "lightweight") or False)
+        weeks_param = _get_param(body, "weeks")
+        default_weeks = 1 if lightweight else 4
+        weeks = str(weeks_param if weeks_param not in (None, "") else default_weeks)
+        apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
+        if lightweight:
+            apply_adjusted = False
 
-    input_dir = str(temp_input_dir)
-    canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
-    planning_inputs_path = artifact_paths.get("planning_inputs.json")
-    # 1) aggregate
-    _run_py(
-        [
-            "scripts/plan_aggregate.py",
-            "-i",
-            input_dir,
-            "-o",
-            str(out_dir / "aggregate.json"),
-        ]
-    )
-    # 2) allocate
-    _run_py(
-        [
-            "scripts/allocate.py",
-            "-i",
-            str(out_dir / "aggregate.json"),
-            "-I",
-            input_dir,
-            "-o",
-            str(out_dir / "sku_week.json"),
-            "--weeks",
-            weeks,
-            "--round",
-            round_mode,
-        ]
-    )
-    if not lightweight:
-        # 3) mrp
+        out_dir.mkdir(parents=True, exist_ok=True)
+        config_version_id = _get_param(body, "config_version_id")
+        canonical_config = None
+        canonical_snapshot_path: Optional[Path] = None
+        planning_inputs_path: Optional[Path] = None
+
+        logging.info("Preparing canonical inputs...")
+        if config_version_id in (None, ""):
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "config_version_id is required for integrated run"},
+            )
+
+        try:
+            config_version_id = int(config_version_id)
+        except Exception:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "config_version_id must be integer"},
+            )
+        try:
+            (
+                _planning_bundle,
+                temp_input_dir,
+                artifact_paths,
+                canonical_config,
+            ) = prepare_canonical_inputs(
+                config_version_id, out_dir, write_artifacts=True
+            )
+        except RuntimeError as exc:
+            return JSONResponse(status_code=400, content={"detail": str(exc)})
+        except CanonicalConfigNotFoundError as exc:
+            return JSONResponse(status_code=404, content={"detail": str(exc)})
+        logging.info("Canonical inputs prepared.")
+
+        input_dir = str(temp_input_dir)
+        canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
+        planning_inputs_path = artifact_paths.get("planning_inputs.json")
+
+        logging.info("Starting script execution: plan_aggregate.py")
+        # 1) aggregate
         _run_py(
             [
-                "scripts/mrp.py",
+                "scripts/plan_aggregate.py",
                 "-i",
-                str(out_dir / "sku_week.json"),
-                "-I",
                 input_dir,
                 "-o",
-                str(out_dir / "mrp.json"),
-                "--lt-unit",
-                lt_unit,
-                "--weeks",
-                weeks,
-            ]
-        )
-        # 4) reconcile
-        _run_py(
-            [
-                "scripts/reconcile.py",
-                "-i",
-                str(out_dir / "sku_week.json"),
-                str(out_dir / "mrp.json"),
-                "-I",
-                input_dir,
-                "-o",
-                str(out_dir / "plan_final.json"),
-                "--weeks",
-                weeks,
-                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-                *(
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
-                    else []
-                ),
-                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-                *(
-                    ["--blend-split-next", str(blend_split_next)]
-                    if (blend_split_next is not None)
-                    else []
-                ),
-                *(
-                    ["--blend-weight-mode", str(blend_weight_mode)]
-                    if blend_weight_mode
-                    else []
-                ),
-            ]
-        )
-        # 4.5) reconcile-levels (before)
-        _run_py(
-            [
-                "scripts/reconcile_levels.py",
-                "-i",
                 str(out_dir / "aggregate.json"),
-                str(out_dir / "sku_week.json"),
-                "-o",
-                str(out_dir / "reconciliation_log.json"),
-                "--version",
+                "--version-id",
                 version_id,
-                *(["--cutover-date", str(cutover_date)] if cutover_date else []),
-                *(
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
-                    else []
-                ),
-                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-                *(
-                    ["--tol-abs", str(tol_abs)]
-                    if tol_abs is not None
-                    else ["--tol-abs", "1e-6"]
-                ),
-                *(
-                    ["--tol-rel", str(tol_rel)]
-                    if tol_rel is not None
-                    else ["--tol-rel", "1e-6"]
-                ),
             ]
         )
-    # optional: anchor/adjusted flow
-    if not lightweight and anchor_policy and cutover_date:
+        logging.info("Finished script execution: plan_aggregate.py")
+
+        logging.info("Starting script execution: allocate.py")
+        # 2) allocate
         _run_py(
             [
-                "scripts/anchor_adjust.py",
+                "scripts/allocate.py",
                 "-i",
                 str(out_dir / "aggregate.json"),
-                str(out_dir / "sku_week.json"),
-                "-o",
-                str(out_dir / "sku_week_adjusted.json"),
-                "--cutover-date",
-                str(cutover_date),
-                "--anchor-policy",
-                str(anchor_policy),
-                *(
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
-                    else []
-                ),
-                "--weeks",
-                weeks,
-                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
-                *(["--carryover", str(carryover)] if carryover else []),
-                *(
-                    ["--carryover-split", str(carryover_split)]
-                    if (carryover_split is not None)
-                    else []
-                ),
-                *(
-                    ["--max-adjust-ratio", str(max_adjust_ratio)]
-                    if (max_adjust_ratio is not None)
-                    else []
-                ),
-                *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
-                *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
-            ]
-        )
-        _run_py(
-            [
-                "scripts/reconcile_levels.py",
-                "-i",
-                str(out_dir / "aggregate.json"),
-                str(out_dir / "sku_week_adjusted.json"),
                 "-o",
-                str(out_dir / "reconciliation_log_adjusted.json"),
-                "--version",
-                f"{version_id}-adjusted",
-                "--cutover-date",
-                str(cutover_date),
-                *(
-                    ["--recon-window-days", str(recon_window_days)]
-                    if recon_window_days is not None
-                    else []
-                ),
-                *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
-                *(
-                    ["--tol-abs", str(tol_abs)]
-                    if tol_abs is not None
-                    else ["--tol-abs", "1e-6"]
-                ),
-                *(
-                    ["--tol-rel", str(tol_rel)]
-                    if tol_rel is not None
-                    else ["--tol-rel", "1e-6"]
-                ),
+                str(out_dir / "sku_week.json"),
+                "--weeks",
+                weeks,
+                "--round",
+                round_mode,
+                "--version-id",
+                version_id,
             ]
         )
-        if apply_adjusted:
+        logging.info("Finished script execution: allocate.py")
+
+        if not lightweight:
+            logging.info("Starting script execution: mrp.py")
+            # 3) mrp
             _run_py(
                 [
                     "scripts/mrp.py",
                     "-i",
-                    str(out_dir / "sku_week_adjusted.json"),
+                    str(out_dir / "sku_week.json"),
                     "-I",
                     input_dir,
                     "-o",
-                    str(out_dir / "mrp_adjusted.json"),
+                    str(out_dir / "mrp.json"),
                     "--lt-unit",
                     lt_unit,
                     "--weeks",
                     weeks,
+                    "--version-id",
+                    version_id,
                 ]
             )
+            logging.info("Finished script execution: mrp.py")
+
+            logging.info("Starting script execution: reconcile.py")
+            # 4) reconcile
             _run_py(
                 [
                     "scripts/reconcile.py",
                     "-i",
-                    str(out_dir / "sku_week_adjusted.json"),
-                    str(out_dir / "mrp_adjusted.json"),
+                    str(out_dir / "sku_week.json"),
+                    str(out_dir / "mrp.json"),
                     "-I",
                     input_dir,
                     "-o",
-                    str(out_dir / "plan_final_adjusted.json"),
+                    str(out_dir / "plan_final.json"),
                     "--weeks",
                     weeks,
                     *(["--cutover-date", str(cutover_date)] if cutover_date else []),
@@ -806,80 +707,206 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                         if blend_weight_mode
                         else []
                     ),
+                    "--version-id",
+                    version_id,
                 ]
             )
-    # persist to DB
-    db.create_plan_version(
-        version_id,
-        base_scenario_id=body.get("base_scenario_id"),
-        status="active",
-        cutover_date=cutover_date,
-        recon_window_days=recon_window_days,
-        objective=body.get("objective"),
-        note=body.get("note"),
-        config_version_id=config_version_id,
-    )
+            logging.info("Finished script execution: reconcile.py")
 
-    def _load(p: Path) -> Optional[str]:
-        if p.exists():
-            return p.read_text(encoding="utf-8")
-        return None
-
-    if use_files:
-        for name in (
-            "aggregate.json",
-            "sku_week.json",
-            "mrp.json",
-            "plan_final.json",
-            "reconciliation_log.json",
-            "sku_week_adjusted.json",
-            "mrp_adjusted.json",
-            "plan_final_adjusted.json",
-            "reconciliation_log_adjusted.json",
-        ):
-            t = _load(out_dir / name)
-            if t is not None:
-                db.upsert_plan_artifact(version_id, name, t)
-    if canonical_config is not None and use_files:
-        if canonical_snapshot_path and canonical_snapshot_path.exists():
-            db.upsert_plan_artifact(
-                version_id,
-                "canonical_snapshot.json",
-                canonical_snapshot_path.read_text(encoding="utf-8"),
-            )
-        if planning_inputs_path and planning_inputs_path.exists():
-            db.upsert_plan_artifact(
-                version_id,
-                "planning_inputs.json",
-                planning_inputs_path.read_text(encoding="utf-8"),
-            )
-        if (out_dir / "period_cost.json").exists():
-            db.upsert_plan_artifact(
-                version_id,
-                "period_cost.json",
-                (out_dir / "period_cost.json").read_text(encoding="utf-8"),
-            )
-        if (out_dir / "period_score.json").exists():
-            db.upsert_plan_artifact(
-                version_id,
-                "period_score.json",
-                (out_dir / "period_score.json").read_text(encoding="utf-8"),
-            )
-    # Optional: record source linkage (e.g., created from run)
-    if use_files:
-        try:
-            src_run = _get_param(body, "source_run_id")
-            if src_run:
-                db.upsert_plan_artifact(
+            logging.info("Starting script execution: reconcile_levels.py")
+            # 4.5) reconcile-levels (before)
+            _run_py(
+                [
+                    "scripts/reconcile_levels.py",
+                    "-i",
+                    str(out_dir / "aggregate.json"),
+                    str(out_dir / "sku_week.json"),
+                    "-o",
+                    str(out_dir / "reconciliation_log.json"),
+                    "--version",
                     version_id,
-                    "source.json",
-                    json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+                    *(["--cutover-date", str(cutover_date)] if cutover_date else []),
+                    *(
+                        ["--recon-window-days", str(recon_window_days)]
+                        if recon_window_days is not None
+                        else []
+                    ),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    *(
+                        ["--tol-abs", str(tol_abs)]
+                        if tol_abs is not None
+                        else ["--tol-abs", "1e-6"]
+                    ),
+                    *(
+                        ["--tol-rel", str(tol_rel)]
+                        if tol_rel is not None
+                        else ["--tol-rel", "1e-6"]
+                    ),
+                ]
+            )
+            logging.info("Finished script execution: reconcile_levels.py")
+        # optional: anchor/adjusted flow
+        if not lightweight and anchor_policy and cutover_date:
+            logging.info("Starting script execution: anchor_adjust.py")
+            _run_py(
+                [
+                    "scripts/anchor_adjust.py",
+                    "-i",
+                    str(out_dir / "aggregate.json"),
+                    str(out_dir / "sku_week.json"),
+                    "-o",
+                    str(out_dir / "sku_week_adjusted.json"),
+                    "--cutover-date",
+                    str(cutover_date),
+                    "--anchor-policy",
+                    str(anchor_policy),
+                    *(
+                        ["--recon-window-days", str(recon_window_days)]
+                        if recon_window_days is not None
+                        else []
+                    ),
+                    "--weeks",
+                    weeks,
+                    *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
+                    *(["--carryover", str(carryover)] if carryover else []),
+                    *(
+                        ["--carryover-split", str(carryover_split)]
+                        if (carryover_split is not None)
+                        else []
+                    ),
+                    *(
+                        ["--max-adjust-ratio", str(max_adjust_ratio)]
+                        if (max_adjust_ratio is not None)
+                        else []
+                    ),
+                    *(["--tol-abs", str(tol_abs)] if (tol_abs is not None) else []),
+                    *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
+                    "-I",
+                    input_dir,
+                    "--version-id",
+                    version_id,
+                ]
+            )
+            logging.info("Finished script execution: anchor_adjust.py")
+
+            logging.info("Starting script execution: reconcile_levels.py (adjusted)")
+            _run_py(
+                [
+                    "scripts/reconcile_levels.py",
+                    "-i",
+                    str(out_dir / "aggregate.json"),
+                    str(out_dir / "sku_week_adjusted.json"),
+                    "-o",
+                    str(out_dir / "reconciliation_log_adjusted.json"),
+                    "--version",
+                    f"{version_id}-adjusted",
+                    "--cutover-date",
+                    str(cutover_date),
+                    *(
+                        ["--recon-window-days", str(recon_window_days)]
+                        if recon_window_days is not None
+                        else []
+                    ),
+                    *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    *(
+                        ["--tol-abs", str(tol_abs)]
+                        if tol_abs is not None
+                        else ["--tol-abs", "1e-6"]
+                    ),
+                    *(
+                        ["--tol-rel", str(tol_rel)]
+                        if tol_rel is not None
+                        else ["--tol-rel", "1e-6"]
+                    ),
+                ]
+            )
+            logging.info("Finished script execution: reconcile_levels.py (adjusted)")
+
+            if apply_adjusted:
+                logging.info("Starting script execution: mrp.py (adjusted)")
+                _run_py(
+                    [
+                        "scripts/mrp.py",
+                        "-i",
+                        str(out_dir / "sku_week_adjusted.json"),
+                        "-I",
+                        input_dir,
+                        "-o",
+                        str(out_dir / "mrp_adjusted.json"),
+                        "--lt-unit",
+                        lt_unit,
+                        "--weeks",
+                        weeks,
+                        "--version-id",
+                        version_id,
+                    ]
                 )
-        except Exception:
-            pass
-    if use_files:
-        artifacts = [
-            name
+                logging.info("Finished script execution: mrp.py (adjusted)")
+
+                logging.info("Starting script execution: reconcile.py (adjusted)")
+                _run_py(
+                    [
+                        "scripts/reconcile.py",
+                        "-i",
+                        str(out_dir / "sku_week_adjusted.json"),
+                        str(out_dir / "mrp_adjusted.json"),
+                        "-I",
+                        input_dir,
+                        "-o",
+                        str(out_dir / "plan_final_adjusted.json"),
+                        "--weeks",
+                        weeks,
+                        *(
+                            ["--cutover-date", str(cutover_date)]
+                            if cutover_date
+                            else []
+                        ),
+                        *(
+                            ["--recon-window-days", str(recon_window_days)]
+                            if recon_window_days is not None
+                            else []
+                        ),
+                        *(
+                            ["--anchor-policy", str(anchor_policy)]
+                            if anchor_policy
+                            else []
+                        ),
+                        *(
+                            ["--blend-split-next", str(blend_split_next)]
+                            if (blend_split_next is not None)
+                            else []
+                        ),
+                        *(
+                            ["--blend-weight-mode", str(blend_weight_mode)]
+                            if blend_weight_mode
+                            else []
+                        ),
+                        "--version-id",
+                        version_id,
+                    ]
+                )
+                logging.info("Finished script execution: reconcile.py (adjusted)")
+
+        logging.info("Persisting to DB...")
+        # persist to DB
+        db.create_plan_version(
+            version_id,
+            base_scenario_id=body.get("base_scenario_id"),
+            status="active",
+            cutover_date=cutover_date,
+            recon_window_days=recon_window_days,
+            objective=body.get("objective"),
+            note=body.get("note"),
+            config_version_id=config_version_id,
+        )
+        logging.info("DB persistence complete.")
+
+        def _load(p: Path) -> Optional[str]:
+            if p.exists():
+                return p.read_text(encoding="utf-8")
+            return None
+
+        if use_files:
             for name in (
                 "aggregate.json",
                 "sku_week.json",
@@ -890,103 +917,187 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 "mrp_adjusted.json",
                 "plan_final_adjusted.json",
                 "reconciliation_log_adjusted.json",
-            )
-            if (out_dir / name).exists()
-        ]
-        if canonical_config is not None:
-            for name in (
-                "canonical_snapshot.json",
-                "planning_inputs.json",
-                "period_cost.json",
-                "period_score.json",
             ):
-                if (out_dir / name).exists():
-                    artifacts.append(name)
-    else:
-        artifacts = []
-    aggregate_obj = _load_json(out_dir / "aggregate.json")
-    detail_obj = _load_json(out_dir / "sku_week.json")
-    plan_series_rows: list[Dict[str, Any]] = []
-    plan_kpi_rows: list[Dict[str, Any]] = []
-    if aggregate_obj or detail_obj:
-        try:
-            plan_series_rows = build_plan_series(
-                version_id,
-                aggregate=aggregate_obj,
-                detail=detail_obj,
-            )
-            plan_kpi_rows = build_plan_kpis_from_aggregate(version_id, aggregate_obj)
-        except Exception:
-            logging.exception(
-                "plans_api_plan_repository_build_failed",
-                extra={"version_id": version_id},
+                t = _load(out_dir / name)
+                if t is not None:
+                    db.upsert_plan_artifact(version_id, name, t)
+        if canonical_config is not None and use_files:
+            if canonical_snapshot_path and canonical_snapshot_path.exists():
+                db.upsert_plan_artifact(
+                    version_id,
+                    "canonical_snapshot.json",
+                    canonical_snapshot_path.read_text(encoding="utf-8"),
+                )
+            if planning_inputs_path and planning_inputs_path.exists():
+                db.upsert_plan_artifact(
+                    version_id,
+                    "planning_inputs.json",
+                    planning_inputs_path.read_text(encoding="utf-8"),
+                )
+            if (out_dir / "period_cost.json").exists():
+                db.upsert_plan_artifact(
+                    version_id,
+                    "period_cost.json",
+                    (out_dir / "period_cost.json").read_text(encoding="utf-8"),
+                )
+            if (out_dir / "period_score.json").exists():
+                db.upsert_plan_artifact(
+                    version_id,
+                    "period_score.json",
+                    (out_dir / "period_score.json").read_text(encoding="utf-8"),
+                )
+        # Optional: record source linkage (e.g., created from run)
+        if use_files:
+            try:
+                src_run = _get_param(body, "source_run_id")
+                if src_run:
+                    db.upsert_plan_artifact(
+                        version_id,
+                        "source.json",
+                        json.dumps({"source_run_id": str(src_run)}, ensure_ascii=False),
+                    )
+            except Exception:
+                pass
+        if use_files:
+            artifacts = [
+                name
+                for name in (
+                    "aggregate.json",
+                    "sku_week.json",
+                    "mrp.json",
+                    "plan_final.json",
+                    "reconciliation_log.json",
+                    "sku_week_adjusted.json",
+                    "mrp_adjusted.json",
+                    "plan_final_adjusted.json",
+                    "reconciliation_log_adjusted.json",
+                )
+                if (out_dir / name).exists()
+            ]
+            if canonical_config is not None:
+                for name in (
+                    "canonical_snapshot.json",
+                    "planning_inputs.json",
+                    "period_cost.json",
+                    "period_score.json",
+                ):
+                    if (out_dir / name).exists():
+                        artifacts.append(name)
+        else:
+            artifacts = []
+        aggregate_obj = _load_json(out_dir / "aggregate.json")
+        detail_obj = _load_json(out_dir / "sku_week.json")
+        plan_series_rows: list[Dict[str, Any]] = []
+        plan_kpi_rows: list[Dict[str, Any]] = []
+        if aggregate_obj or detail_obj:
+            try:
+                plan_series_rows = build_plan_series(
+                    version_id,
+                    aggregate=aggregate_obj,
+                    detail=detail_obj,
+                )
+                plan_kpi_rows = build_plan_kpis_from_aggregate(
+                    version_id, aggregate_obj
+                )
+            except Exception:
+                logging.exception(
+                    "plans_api_plan_repository_build_failed",
+                    extra={"version_id": version_id},
+                )
+
+        repository_status = "skipped" if use_db else "disabled"
+        recorded_run_id: Optional[str] = None
+        if canonical_config is not None:
+            scenario_id: Optional[int] = None
+            scenario_raw = body.get("base_scenario_id")
+            try:
+                if scenario_raw not in (None, ""):
+                    scenario_id = int(scenario_raw)
+            except (TypeError, ValueError):
+                scenario_id = None
+            recorded_run_id = record_canonical_run(
+                canonical_config,
+                config_version_id=config_version_id,
+                scenario_id=scenario_id,
+                plan_version_id=version_id,
             )
 
-    repository_status = "skipped" if use_db else "disabled"
-    recorded_run_id: Optional[str] = None
-    if canonical_config is not None:
-        scenario_id: Optional[int] = None
-        scenario_raw = body.get("base_scenario_id")
+        if use_db and (plan_series_rows or plan_kpi_rows):
+            try:
+                _PLAN_REPOSITORY.write_plan(
+                    version_id,
+                    series=plan_series_rows,
+                    kpis=plan_kpi_rows,
+                    job=None,
+                    storage_mode=storage_mode,
+                )
+                repository_status = "stored"
+                PLAN_DB_WRITE_TOTAL.labels(storage_mode=storage_mode).inc()
+            except PlanRepositoryError:
+                repository_status = "failed"
+                logging.exception(
+                    "plans_api_plan_repository_write_failed",
+                    extra={"version_id": version_id},
+                )
+                PLAN_DB_WRITE_ERROR_TOTAL.labels(
+                    storage_mode=storage_mode, error_type="repository"
+                ).inc()
+            except Exception:
+                repository_status = "failed"
+                logging.exception(
+                    "plans_api_plan_repository_unexpected_error",
+                    extra={"version_id": version_id},
+                )
+                PLAN_DB_WRITE_ERROR_TOTAL.labels(
+                    storage_mode=storage_mode, error_type="unknown"
+                ).inc()
         try:
-            if scenario_raw not in (None, ""):
-                scenario_id = int(scenario_raw)
-        except (TypeError, ValueError):
-            scenario_id = None
-        recorded_run_id = record_canonical_run(
-            canonical_config,
-            config_version_id=config_version_id,
-            scenario_id=scenario_id,
-            plan_version_id=version_id,
+            out_dir_display = str(out_dir.relative_to(BASE_DIR))
+        except ValueError:
+            out_dir_display = str(out_dir)
+
+        return {
+            "version_id": version_id,
+            "config_version_id": config_version_id,
+            "out_dir": out_dir_display,
+            "artifacts": artifacts,
+            "run_id": recorded_run_id,
+            "lightweight": lightweight,
+            "storage": {
+                "plan_repository": repository_status,
+                "series_rows": len(plan_series_rows),
+                "kpi_rows": len(plan_kpi_rows),
+                "mode": storage_mode,
+            },
+        }
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            "Integrated run failed due to subprocess error",
+            extra={
+                "exception": str(e),
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
         )
-
-    if use_db and (plan_series_rows or plan_kpi_rows):
-        try:
-            _PLAN_REPOSITORY.write_plan(
-                version_id,
-                series=plan_series_rows,
-                kpis=plan_kpi_rows,
-                job=None,
-                storage_mode=storage_mode,
-            )
-            repository_status = "stored"
-            PLAN_DB_WRITE_TOTAL.labels(storage_mode=storage_mode).inc()
-        except PlanRepositoryError:
-            repository_status = "failed"
-            logging.exception(
-                "plans_api_plan_repository_write_failed",
-                extra={"version_id": version_id},
-            )
-            PLAN_DB_WRITE_ERROR_TOTAL.labels(
-                storage_mode=storage_mode, error_type="repository"
-            ).inc()
-        except Exception:
-            repository_status = "failed"
-            logging.exception(
-                "plans_api_plan_repository_unexpected_error",
-                extra={"version_id": version_id},
-            )
-            PLAN_DB_WRITE_ERROR_TOTAL.labels(
-                storage_mode=storage_mode, error_type="unknown"
-            ).inc()
-    try:
-        out_dir_display = str(out_dir.relative_to(BASE_DIR))
-    except ValueError:
-        out_dir_display = str(out_dir)
-
-    return {
-        "version_id": version_id,
-        "config_version_id": config_version_id,
-        "out_dir": out_dir_display,
-        "artifacts": artifacts,
-        "run_id": recorded_run_id,
-        "lightweight": lightweight,
-        "storage": {
-            "plan_repository": repository_status,
-            "series_rows": len(plan_series_rows),
-            "kpi_rows": len(plan_kpi_rows),
-            "mode": storage_mode,
-        },
-    }
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": "計画パイプラインの実行に失敗しました。",
+                "error": str(e),
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
+        )
+    except Exception as e:
+        logging.exception("Integrated run failed unexpectedly")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": f"計画の実行中に予期せぬエラーが発生しました: {e}",
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+            },
+        )
 
 
 @app.get("/plans/{version_id}/psi")
