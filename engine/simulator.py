@@ -30,8 +30,6 @@ def _service_level_z(p: float) -> float:
     return float(norm_ppf(p))
 
 
-
-
 class SupplyChainSimulator:
     def __init__(self, sim_input: SimulationInput):
         self.input = sim_input
@@ -388,9 +386,9 @@ class SupplyChainSimulator:
                     for item_name in items_to_manage:
                         parent_name = next(
                             (
-                            link.from_node
-                            for link in self.input.network
-                            if link.to_node == node_name
+                                link.from_node
+                                for link in self.input.network
+                                if link.to_node == node_name
                             ),
                             None,
                         )
@@ -1453,6 +1451,3 @@ class SupplyChainSimulator:
                     raise AssertionError(
                         f"day {day} {key} mismatch: pl={expected} trace={actual} (atol={atol})"
                     )
-
-
-

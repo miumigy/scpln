@@ -29,6 +29,7 @@ from scripts.plan_pipeline_io import (
     -o out/reconciliation_compare.csv
 """
 
+
 def _load(path: str) -> Dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)

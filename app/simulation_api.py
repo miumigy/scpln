@@ -23,7 +23,6 @@ if os.path.exists(_metrics_path):
         print(f"DEBUG: Content of app/metrics.py:\n{f.read()}")
 
 
-
 router = APIRouter()
 
 
