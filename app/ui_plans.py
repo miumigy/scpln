@@ -812,7 +812,9 @@ def ui_plans_create_and_execute(
         rows, pagination = _fetch_plan_rows()
         logging.info(f"DEBUG: ui_plans_run - plans for error page: {rows}")
         logging.info(f"DEBUG: ui_plans_run - pagination for error page: {pagination}")
-        logging.info(f"DEBUG: ui_plans_run - form_defaults for error page: {form_defaults}")
+        logging.info(
+            f"DEBUG: ui_plans_run - form_defaults for error page: {form_defaults}"
+        )
         return _render_plans_page(
             request,
             plans=rows,
