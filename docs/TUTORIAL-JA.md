@@ -59,20 +59,60 @@
 - Diffタブやエクスポート（compare.csv / violations_only.csv）で差分を確認
 
 ## 4. Plan & Run（自動補完）
-- Executeタブ → 「Plan & Run（自動補完）」
-  - 既存のcutover/window/policy を引き継ぎつつ、/runs API → /plans/integrated/run を起動
-  - 同期/ジョブ投入（非同期）が選択可能
+- Executeタブ → 「再整合（パラメータ指定）」
+  - `cutover_date`、`recon_window_days`、`anchor_policy` などを調整
+  - 「再整合を実行」
+- Diffタブやエクスポート（compare.csv / violations_only.csv）で差分を確認
 
-## 5. 結果確認（Results）
+## 5. Runの確認とPSIシミュレーション
+
+### 5.1 PlanとRunの概念
+
+Planning Hubにおける「Plan」と「Run」は、サプライチェーン計画シミュレーションの異なる側面を表します。
+
+-   **Plan (計画)**: シミュレーションの「入力」となる、一連の設定とデータ（需要予測、在庫ポリシー、生産能力、BOMなど）をまとめたものです。Planはバージョン管理されており、特定の`config_version_id`に関連付けられます。`/ui/plans`で作成・管理されます。
+-   **Run (実行)**: 特定のPlanに基づいてシミュレーションを実行した「結果」です。Runには、シミュレーションのサマリー、主要業績評価指標（KPI）、日次損益、コストトレースなどの詳細なデータが含まれます。一つのPlanから、異なるパラメータやシナリオで複数のRunを生成し、結果を比較検討することが可能です。
+
+簡単に言えば、Planは「何をシミュレーションするか」を定義し、Runは「シミュレーションした結果どうなったか」を示します。
+
+### 5.2 `/ui/runs`での結果確認
+
+`/ui/runs`は、実行されたすべてのシミュレーション結果（Run）を一覧で確認できるUIです。
+
+1.  **`/ui/runs`にアクセス**: ブラウザで `http://localhost:8000/ui/runs` を開きます。
+2.  **Runの一覧表示**: 過去に実行されたシミュレーションのRunがリスト表示されます。各Runには以下の情報が含まれます。
+    -   `run_id`: 各Runを一意に識別するID。
+    -   `started_at`: シミュレーションが開始された日時。
+    -   `duration_ms`: シミュレーションの実行時間（ミリ秒）。
+    -   `config_id`, `scenario_id`, `plan_version_id`: そのRunがどの設定、シナリオ、Planに基づいて実行されたかを示します。
+    -   `summary`: フィルレート、総利益などの主要なサマリー情報。
+3.  **Runの詳細確認**: 特定の`run_id`をクリックすると、`/ui/runs/{run_id}`でそのRunの詳細画面に遷移します。
+    -   詳細画面では、Runのサマリー、KPI、日次損益グラフ、コストトレース、実行時の設定（config_json）などを確認できます。
+    -   関連するPlanが存在する場合、そのPlanのKPIサマリーも表示されます。
+
+### 5.3 PSIシミュレーションの概要
+
+Planning Hubで実行されるシミュレーションは、主にPSI (Production, Sales, Inventory) シミュレーションの概念に基づいています。これは、生産、販売、在庫の3つの要素のバランスを最適化し、サプライチェーン全体のパフォーマンスを最大化するための計画を立てるものです。
+
+`app/runs_api.py`を通じてシミュレーションを実行する際に指定できるオプション（例: `weeks`, `round_mode`, `lt_unit`, `config_version_id`など）は、このPSIシミュレーションの重要なパラメータとして機能します。
+
+-   `weeks`: シミュレーションの対象期間を週単位で指定します。
+-   `round_mode`: 計画数量の丸め方を指定します（例: 整数丸め）。
+-   `lt_unit`: リードタイムの単位を指定します（例: 日、週）。
+-   `config_version_id`: シミュレーションに使用する設定のバージョンを指定します。
+
+これらのパラメータを調整することで、異なるPSI計画シナリオを評価し、ビジネス目標に最適なサプライチェーン戦略を導き出すことができます。
+
+## 6. 結果確認（Results）
 - 最新Runのリストや、比較（metrics/diffs）の一括コピーで共有
 - タブを切り替え、KPIや差分、可視化（Chart.js）を参照
 
-## 6. レガシーUIとの関係（P-14）
+## 7. レガシーUIとの関係（P-14）
 - 旧UI `/ui/planning` は廃止。Planning Hub（`/ui/plans`）を利用してください。
   - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
   - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）を表示
 
-## 7. APIでの操作例（参考）
+## 8. APIでの操作例（参考）
 
 - **統合Run（同期）**
 
@@ -117,6 +157,6 @@ curl -sS http://localhost:8000/runs -H 'content-type: application/json' -d "{
 }" | jq .
 ```
 
-## 8. 用語と参照
+## 9. 用語と参照
 - 用語表: `docs/TERMS-JA.md`
 - API概要: `docs/API-OVERVIEW-JA.md`
