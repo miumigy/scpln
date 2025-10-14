@@ -23,7 +23,7 @@ def plan_client(seed_canonical_data, monkeypatch):
     version = f"test-{uuid4().hex[:8]}"
     try:
         res = client.post(
-            "/plans/integrated/run",
+            "/plans/create_and_execute",
             json={
                 "version_id": version,
                 "config_version_id": 100,
