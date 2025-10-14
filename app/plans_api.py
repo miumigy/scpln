@@ -546,8 +546,9 @@ def _has_approve(req: Request) -> bool:
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     import traceback
+
     logging.info("DEBUG: post_plans_integrated_run called.")
-    logging.info("DEBUG: post_plans_integrated_run called.") # この行を追加
+    logging.info("DEBUG: post_plans_integrated_run called.")  # この行を追加
     try:
         ts = int(time.time())
         version_id = str(
@@ -902,9 +903,13 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
         )
         logging.info(f"DEBUG: Plan version {version_id} created in DB.")
         if db.get_plan_version(version_id) is None:
-            logging.error(f"DEBUG: Plan version {version_id} not found in DB after creation (unexpected).")
+            logging.error(
+                f"DEBUG: Plan version {version_id} not found in DB after creation (unexpected)."
+            )
         else:
-            logging.info(f"DEBUG: Plan version {version_id} successfully retrieved from DB after creation.")
+            logging.info(
+                f"DEBUG: Plan version {version_id} successfully retrieved from DB after creation."
+            )
 
         logging.info("DB persistence complete.")
 
@@ -1041,7 +1046,9 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 )
                 repository_status = "stored"
                 PLAN_DB_WRITE_TOTAL.labels(storage_mode=storage_mode).inc()
-                logging.info(f"DEBUG: Plan {version_id} successfully written to repository.")
+                logging.info(
+                    f"DEBUG: Plan {version_id} successfully written to repository."
+                )
             except PlanRepositoryError:
                 repository_status = "failed"
                 logging.exception(
@@ -1093,8 +1100,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             content={
                 "detail": "計画パイプラインの実行に失敗しました。",
                 "error": str(e),
-                "stdout": e.stdout.decode('utf-8') if e.stdout else '',
-                "stderr": e.stderr.decode('utf-8') if e.stderr else '',
+                "stdout": e.stdout.decode("utf-8") if e.stdout else "",
+                "stderr": e.stderr.decode("utf-8") if e.stderr else "",
             },
         )
     except Exception as e:
@@ -1105,8 +1112,16 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 "detail": f"計画の実行中に予期せぬエラーが発生しました: {e}",
                 "error": str(e),
                 "traceback": traceback.format_exc(),
-                "stdout": getattr(e, "stdout", "").decode('utf-8') if hasattr(e, "stdout") and e.stdout else '',
-                "stderr": getattr(e, "stderr", "").decode('utf-8') if hasattr(e, "stderr") and e.stderr else '',
+                "stdout": (
+                    getattr(e, "stdout", "").decode("utf-8")
+                    if hasattr(e, "stdout") and e.stdout
+                    else ""
+                ),
+                "stderr": (
+                    getattr(e, "stderr", "").decode("utf-8")
+                    if hasattr(e, "stderr") and e.stderr
+                    else ""
+                ),
             },
         )
 

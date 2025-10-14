@@ -929,18 +929,26 @@ def prepare_canonical_inputs(
     *,
     write_artifacts: bool = False,
 ) -> Tuple[PlanningDataBundle, Path, Dict[str, Path], CanonicalConfig]:
-    logging.info(f"DEBUG: prepare_canonical_inputs called for config_version_id: {config_version_id}")
+    logging.info(
+        f"DEBUG: prepare_canonical_inputs called for config_version_id: {config_version_id}"
+    )
     try:
-        logging.info(f"DEBUG: Loading canonical config from DB for config_version_id: {config_version_id}")
+        logging.info(
+            f"DEBUG: Loading canonical config from DB for config_version_id: {config_version_id}"
+        )
         canonical_config, validation = load_canonical_config_from_db(
             config_version_id, validate=True
         )
-        logging.info(f"DEBUG: Canonical config loaded. Validation has errors: {validation.has_errors}")
+        logging.info(
+            f"DEBUG: Canonical config loaded. Validation has errors: {validation.has_errors}"
+        )
     except CanonicalConfigNotFoundError as exc:
         logging.error(f"DEBUG: CanonicalConfigNotFoundError: {exc}")
         raise RuntimeError(str(exc)) from exc
     except Exception as exc:
-        logging.exception(f"DEBUG: Unexpected error during load_canonical_config_from_db for config_version_id: {config_version_id}")
+        logging.exception(
+            f"DEBUG: Unexpected error during load_canonical_config_from_db for config_version_id: {config_version_id}"
+        )
         raise RuntimeError(f"Failed to load canonical config: {exc}") from exc
 
     if validation and validation.has_errors:
@@ -968,7 +976,9 @@ def prepare_canonical_inputs(
         _materialize_planning_inputs(planning_bundle, temp_input_dir)
         logging.info("DEBUG: Planning inputs materialized.")
     except Exception as exc:
-        logging.exception(f"DEBUG: Unexpected error during _materialize_planning_inputs to {temp_input_dir}.")
+        logging.exception(
+            f"DEBUG: Unexpected error during _materialize_planning_inputs to {temp_input_dir}."
+        )
         raise RuntimeError(f"Failed to materialize planning inputs: {exc}") from exc
 
     artifact_paths: Dict[str, Path] = {}
