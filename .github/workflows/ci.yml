@@ -78,7 +78,7 @@ jobs:
           config_version_id = 1
 
           r = client.post(
-              "/plans/integrated/run",
+              "/plans/create_and_execute",
               json={
                   "version_id": ver,
                   "config_version_id": config_version_id,

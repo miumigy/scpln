@@ -511,7 +511,7 @@ def main() -> int:
             "carryover_split": 0.5,
             "apply_adjusted": 1,
         }
-        r = post_form(s, f"{base}/ui/plans/run", form)
+        r = post_form(s, f"{base}/ui/plans/create_and_execute", form)
         if r.status_code not in (302, 303):
             ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
             print("---- server.log (tail) ----")
@@ -603,7 +603,7 @@ def main() -> int:
     except Exception as e:
         ng("AT-03 /runs 非同期", str(e))
 
-    # AT-04: Plan & Run（自動補完）
+    # AT-04: Plan & Execute（自動補完）
     new_plan_id: Optional[str] = None
     try:
         if plan_id:
@@ -620,26 +620,26 @@ def main() -> int:
                 "carryover_split": 0.5,
                 "apply_adjusted": 1,
             }
-            r2 = post_form(s, f"{base}/ui/plans/{plan_id}/plan_run_auto", form)
+            r2 = post_form(s, f"{base}/ui/plans/{plan_id}/execute_auto", form)
             if r2.status_code not in (302, 303):
-                ng("AT-04 Plan&Run", f"unexpected status: {r2.status_code}")
+                ng("AT-04 Plan&Execute", f"unexpected status: {r2.status_code}")
                 new_plan_id = None
             else:
                 location = r2.headers.get("Location")
                 if not location or not location.startswith("/ui/plans/"):
-                    ng("AT-04 Plan&Run", f"invalid redirect location: {location}")
+                    ng("AT-04 Plan&Execute", f"invalid redirect location: {location}")
                     new_plan_id = None
                 else:
                     new_plan_id = location.split("/")[-1]
 
             if new_plan_id and new_plan_id != plan_id:
-                ok("AT-04 Plan&Run（自動補完）で新規Plan作成")
+                ok("AT-04 Plan&Execute（自動補完）で新規Plan作成")
             else:
-                ng("AT-04 Plan&Run", "新規Planが検出できませんでした")
+                ng("AT-04 Plan&Execute", "新規Planが検出できませんでした")
         else:
-            ng("AT-04 Plan&Run", "前提のPlanがありません")
+            ng("AT-04 Plan&Execute", "前提のPlanがありません")
     except Exception as e:
-        ng("AT-04 Plan&Run", str(e))
+        ng("AT-04 Plan&Execute", str(e))
 
     # AT-05: Validate相当の情報（summaryにreconciliation/weekly_summary）
     try:

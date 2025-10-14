@@ -15,7 +15,7 @@ def _make_plan_with_artifacts(version_id: str) -> None:
     # Use integrated run API to generate artifacts to keep parity with E2E
     client = TestClient(app)
     r = client.post(
-        "/plans/integrated/run",
+        "/plans/create_and_execute",
         json={
             "version_id": version_id,
             "config_version_id": 100,

@@ -20,7 +20,7 @@ def test_plans_integrated_run_and_reconcile_e2e(seed_canonical_data, monkeypatch
     ver = f"testv-{int(time.time())}"
     # integrated run
     r = client.post(
-        "/plans/integrated/run",
+        "/plans/create_and_execute",
         json={
             "version_id": ver,
             "config_version_id": 100,

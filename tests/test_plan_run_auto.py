@@ -12,7 +12,7 @@ def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):
     base = f"base-{int(time.time())}"
     # まずベースのPlanを作って詳細画面を有効化
     r = client.post(
-        "/plans/integrated/run",
+        "/plans/create_and_execute",
         json={
             "version_id": base,
             "config_version_id": 100,
@@ -26,7 +26,7 @@ def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):
     assert r.status_code == 200
     # Plan & Run（自動補完）を叩く（anchor/tol付き）
     r2 = client.post(
-        f"/ui/plans/{base}/plan_run_auto",
+        f"/ui/plans/{base}/execute_auto",
         data={
             "weeks": "4",
             "lt_unit": "day",
