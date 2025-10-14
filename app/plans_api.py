@@ -546,7 +546,7 @@ def _has_approve(req: Request) -> bool:
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     import traceback
-
+    logging.info("DEBUG: post_plans_integrated_run called.") # この行を追加
     try:
         ts = int(time.time())
         version_id = str(
