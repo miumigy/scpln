@@ -170,7 +170,7 @@ flowchart LR
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
 | **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
-| **運用・セキュリティ** | RunRegistry/DBの運用手順、バックアップ、シークレット対応 | `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
+| **運用・セキュリティ** | バックアップ、シークレット対応 | `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
 | **ロードマップ / リリース** | 拡張テーマ・リリース履歴 | `docs/EXPANSION_STRATEGY_JA.md`, `CHANGELOG.md` |
 
 各ドキュメントは上記カテゴリに収め、重複内容はリンクで参照し合う構成としています。README は概要と導線を提供し、詳細は個別ドキュメントに委譲します。
