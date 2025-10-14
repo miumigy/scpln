@@ -26,16 +26,19 @@
 
 ```mermaid
 sequenceDiagram
-  participant UI as Planning Hub UI
-  participant API as Run API
-  participant EXE as Executor
-  UI->>API: POST /runs {mode: dry, scope, versions}
-  API->>EXE: enqueue(run)
-  EXE-->>API: logs, artifacts, KPIs
-  UI->>API: GET /runs/:id (status, KPIs)
-  UI->>API: POST /runs {mode: apply, ref: dry_run_id}
-  API->>EXE: enqueue(run_apply)
-  EXE-->>API: result, write-ops
+  participant User as User/Client
+  participant API as FastAPI Backend
+  participant Jobs as Background Jobs (RQ)
+  participant DB as ScplnDB
+
+  User->>API: POST /plans/integrated/run (or via UI)
+  API->>Jobs: Enqueue planning job
+  Jobs->>Jobs: Run pipeline (aggregate, allocate, mrp, reconcile)
+  Jobs->>DB: Write results (plan_versions, plan_rows, etc.)
+  User->>API: GET /plans/{version_id}/summary
+  API->>DB: Read summary
+  DB-->>API: Return summary
+  API-->>User: Respond with summary
 ```
 
 ## 用語・前提
@@ -44,20 +47,19 @@ sequenceDiagram
 - 境界日: `cutover_date`。`< cutover` は詳細、`≥ cutover` は集約を原則とする。
 - 整合ウィンドウ: `recon_window_days`。境界前後の数日（例: ±3〜7日）で厳格整合を実施。
 
-## データモデル（DB/JSON）
-- `plan_versions`:
+## データモデル（DB）
+計画に関連する主要データは、以下のDBテーブルに正規化して格納されます。
+
+- `plan_versions`: 計画バージョン全体のメタデータを管理します。
   - `version_id` (PK), `created_at`, `base_scenario_id`, `status`(draft/active/superseded), `cutover_date`, `recon_window_days`, `objective`, `note`。
-- `plan_rows`（正規化、もしくはJSON列に格納）:
+- `plan_rows`: 計画の各行（タイムバケット、品目、拠点ごとの指標）を格納します。
   - 共通キー: `version_id`, `level`(AGG/DET), `time_bucket`(date or period), `item_key`(sku or family), `location_key`。
   - 指標: `demand`, `supply`, `prod_qty`, `ship_qty`, `inventory_open`, `inventory_close`, `backlog`, `capacity_used`, `cost_*`。
   - メタ: `source`(aggregate|allocate|mrp|recon|override), `lock_flag`, `quality_flag`。
-- `reconciliation_log`:
+- `reconciliation_log`: 整合性チェックの実行ログと差分詳細を記録します。
   - `version_id`, `window_start`, `window_end`, `delta_metric`, `delta_value`, `policy`, `run_id`, `summary`。
 
-JSONスキーマ（簡略）例: `out/plan_final.json`
-- `version`: `string`
-- `cutover_date`: `YYYY-MM-DD`
-- `levels`: `{ "AGG": [...], "DET": [...] }` の配列。各要素は上記キー/指標を保持。
+これらのデータは `POST /plans/integrated/run` APIを通じて生成・永続化され、`GET /plans/{version_id}/...` APIで取得できます。
 
 ## アーキテクチャとフロー
 - フェーズ（標準）:
@@ -201,334 +203,32 @@ JSONスキーマ（簡略）例: `out/plan_final.json`
 ---
 既存スクリプト群（aggregate/allocate/mrp/reconcile）に `version_id` と `cutover`/`window` パラメタを順次付与し、整合ログを追加する実装を前提に統合整合を進めます。
 
-## 実装対応状況と使い方
-- スクリプト（CLI）:
-  - `scripts/plan_aggregate.py`: 集約生成（サンプルCSV→`out/aggregate.json`）。
-  - `scripts/allocate.py`: 集約→詳細按分（`out/sku_week.json`）。
-  - `scripts/mrp.py`: MRPライト（LT/ロット/MOQ、`out/mrp.json`）。
-- `scripts/reconcile.py`: 能力を考慮した週次CRPライト整合（`out/plan_final.json`）。
-  - anchorポリシー（現行実装）: `--anchor-policy {DET_near|AGG_far|blend}`、`--cutover-date YYYY-MM-DD`、`--recon-window-days N`、`--blend-split-next r(0..1)`（blend時のpost比率; 未指定時は `N/at週数` に基づき動的算定、0.1〜0.9にクリップ）。
-  - `scripts/reconcile_levels.py`: AGG↔DETのロールアップ差分ログ（`out/reconciliation_log*.json`）。
-  - `scripts/anchor_adjust.py`: anchor=DET_near のDET微調整（`out/sku_week_adjusted.json`）。
-  - `scripts/export_reconcile_csv.py`: 差分ログをCSV出力（before/after/compare）。
-- API（実装済み）:
-  - `POST /plans/integrated/run`: パイプライン一括実行（aggregate→allocate→mrp→reconcile→reconcile_levels）。必要に応じ `anchor_adjust` も実行。
-  - `POST /plans/{version}/reconcile`: 既存成果物を再整合・差分再計算。
-  - `GET /plans`: 登録済みバージョン一覧。
-  - `GET /plans/{version}/summary`: 整合サマリと週次KPI。
-  - `GET /plans/{version}/compare`: 差分明細。`violations_only`, `sort`, `limit` パラメタ対応。
+## API実行と使い方
 
-### 推奨のローカル実行例（最小）
-- 集約→按分→MRP→整合→差分ログ（before）:
-  - `PYTHONPATH=. python3 scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json`
-  - `PYTHONPATH=. python3 scripts/allocate.py -i out/aggregate.json -I samples/planning -o out/sku_week.json --weeks 4 --round int`
-  - `PYTHONPATH=. python3 scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4`
-  - `PYTHONPATH=. python3 scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4 --cutover-date 2025-09-01 --recon-window-days 7`
-  - `PYTHONPATH=. python3 scripts/reconcile_levels.py -i out/aggregate.json out/sku_week.json -o out/reconciliation_log.json --version v-local --cutover-date 2025-09-01 --recon-window-days 7 --tol-abs 1e-6 --tol-rel 1e-6`
-- anchor調整（任意）と差分ログ（after）:
-  - `PYTHONPATH=. python3 scripts/anchor_adjust.py -i out/aggregate.json out/sku_week.json -o out/sku_week_adjusted.json --cutover-date 2025-09-01 --anchor-policy DET_near -I samples/planning --carryover auto --max-adjust-ratio 0.2`
-  - `PYTHONPATH=. python3 scripts/reconcile_levels.py -i out/aggregate.json out/sku_week_adjusted.json -o out/reconciliation_log_adjusted.json --version v-local-adjusted --cutover-date 2025-09-01 --recon-window-days 7 --tol-abs 1e-6 --tol-rel 1e-6`
-- 差分CSVエクスポート:
-  - `PYTHONPATH=. python3 scripts/export_reconcile_csv.py -i out/reconciliation_log.json -o out/reconciliation_before.csv --label before`
-  - `PYTHONPATH=. python3 scripts/export_reconcile_csv.py -i out/reconciliation_log.json -j out/reconciliation_log_adjusted.json -o out/reconciliation_compare.csv --label before --label2 after`
+計画の生成と整合性チェックは、主に以下のAPIエンドポイントを通じて実行します。
 
-### API実行例
-- 一括実行（cutover/anchor指定、adjusted適用込み）:
-  - `curl -X POST http://localhost:8000/plans/integrated/run -H 'Content-Type: application/json' -d '{"version_id":"v-demo","cutover_date":"2025-09-01","recon_window_days":7,"anchor_policy":"DET_near","apply_adjusted":true}'`
-- 再整合（差分ログ再生成、anchor任意）:
-  - `curl -X POST http://localhost:8000/plans/v-demo/reconcile -H 'Content-Type: application/json' -d '{"anchor_policy":"DET_near","cutover_date":"2025-09-01"}'`
-- サマリ/比較:
-  - `curl http://localhost:8000/plans/v-demo/summary`
-  - `curl 'http://localhost:8000/plans/v-demo/compare?violations_only=true&sort=abs_desc&limit=200'`
+- **一括実行:** `POST /plans/integrated/run`
+  - 計画パイプライン（集約、按分、MRP、整合）全体を実行し、結果をDBに保存します。
+  - `cutover_date`や`anchor_policy`などのパラメータを指定することで、境界整合のロジックを制御できます。
+  - **実行例:**
+    ```bash
+    curl -X POST http://localhost:8000/plans/integrated/run -H 'Content-Type: application/json' -d '{
+      "version_id": "v-demo-2",
+      "cutover_date": "2025-09-01",
+      "recon_window_days": 7,
+      "anchor_policy": "DET_near",
+      "apply_adjusted": true
+    }'
+    ```
 
-## 整合ログのスキーマ（確定）
-- `reconciliation_log.json`（scripts/reconcile_levels.py出力）:
-  - `schema_version`: `recon-aggdet-1.0`
-- `version_id`: 生成時に付与したバージョン名（例: `ver-2024`, `ui`, `job-xxxx`）
-  - `cutover`: `{ cutover_date, recon_window_days, anchor_policy }`
-  - `inputs_summary`: `{ aggregate_rows, det_rows, families, periods }`
-  - `tolerance`: `{ abs, rel }`
-  - `summary`: `{ rows, tol_violations, max_abs_delta: { demand, supply, backlog }, boundary: { period, violations, max_abs_delta, top: [...] } }`
-  - `deltas`: `[ { family, period, agg_demand, det_demand, delta_demand, rel_demand, ok_demand, ... , ok } ]`
+- **結果の確認:**
+  - `GET /plans/{version_id}/summary`: 整合結果のサマリ（KPI、差分概要）を取得します。
+  - `GET /plans/{version_id}/compare`: AGG/DET間の詳細な差分リストを取得します。
 
-備考:
-- `delta_*` は DET−AGG（DETが正の向き）。`ok` は全指標が tol 以内か。
-- `boundary_period`（オプション）は `cutover_date` に一致する月/ISO週をタグ付け。
-- `*_adjusted.json` は anchor 調整後のDETを対象に同スキーマで再出力。
+- **UIでの確認:**
+  - APIで生成された計画は、`/ui/plans/{version_id}`で視覚的に確認できます。
+  - UI上からも同様のパラメータで計画を再実行したり、結果を比較したりすることが可能です。
 
-## anchor調整（DET_near）の出力（概要）
-- `sku_week_adjusted.json`（scripts/anchor_adjust.py 出力）:
-  - `schema_version`: 元DETを継承（例: `agg-1.0`）
-- `note`: `anchor調整: ...`（自動付与）
-  - `cutover`: `{ cutover_date, anchor_policy, recon_window_days }`
-  - `rows`: 元DETと同スキーマ。cutover月の `(family, period)` 合計が AGG と一致するよう `demand/supply/backlog` を微調整。
-  - `carryover`: 隣接periodへ残差を移した場合のログ（`from_period/to_period/metrics`）。
-  - `carryover_summary`: 件数と方向（prev/next）などの要約。
 
-## Mermaid（処理フロー）
-```mermaid
-graph TD;
-  A[Aggregate CSV]-->B[plan_aggregate.py];
-  B-->C[aggregate.json];
-  C-->D[allocate.py];
-  D-->E[sku_week.json];
-  E-->F[mrp.py];
-  F-->G[mrp.json];
-  E-->H[reconcile_levels.py];
-  H-->I[reconciliation_log.json];
-  E-->J[reconcile.py];
-  G-->J;
-  J-->K[plan_final.json];
-  E-->L[anchor_adjust.py];
-  L-->M[sku_week_adjusted.json];
-  M-->N[reconcile_levels_adj.py];
-  N-->O[reconciliation_log_adjusted.json];
-```
 
-## 検証手順（具体）
-- 整合ログの閾値: `--tol-abs`, `--tol-rel` を `1e-6` 程度に設定し、`summary.tol_violations=0` を確認。
-- 境界一致: `boundary.period` の行で `ok=true` を確認。UI/CSVで `top` の偏差上位を見る。
-- 能力整合: `plan_final.json.weekly_summary[*]` の `spill_out=0` または許容内かを確認。
-- 回帰: `scripts/run_planning_pipeline.py`（`.sh` ラッパ経由も可）を用いて一連の成果物が生成されること。
-- スモーク/アサート:
-  - `python scripts/spill_smoke.py -i out/plan_final.json` で zone別の `spill_in/out` 合計を俯瞰。
-  - `python scripts/spill_assert.py -i out/plan_final.json` で zone毎の `spill_in>eps` の週数が1以下であることを検証（セグメント先頭のみ流入がある想定）。
 
-## 既知の制約/今後の改良
-- `reconcile.py` の `--cutover-date/--recon-window-days/--anchor-policy` は段階導入中（現行は基本機能を実装済み）。
-  - DET_near: cutover月内のスピルは区間外（post）へ送る（pre/at/post分割、区間内へは持ち込まない）。
-  - AGG_far: cutover月内のスピルを区間外（pre）へ戻す。preは at 由来のスピルを受けて再計算（従来比: post側の改変を抑制）。
-  - blend: cutover月内スピルを pre/post に簡易分割（既定 50/50）。preを再計算し、postは at のスラック＋次期スピルを起点に前進。
-  - いずれも最小ヒューリスティク（現行仕様）。将来は週内配分の重み関数やウィンドウ連動の比率、工程別能力の精緻化を予定。
-- `anchor_adjust.py` は DET_near の最小版。能力・入荷・コストのヘッドルーム重みは簡易指標（CSVで拡張可能）。
-- `period` キーは `YYYY-MM` ないし `YYYY-Www` を想定。混在時は `reconcile_levels.py` が簡易推定するため、運用では一貫フォーマットを推奨。
-
-## 運用ベストプラクティス（anchor_adjust × reconcile）
-- 基本順序: allocate → mrp → reconcile → reconcile_levels(before) → anchor_adjust(任意) → reconcile_levels(after) → （必要なら）mrp/reconcile再計算。
-- 目的分担:
-- `reconcile`: 能力観点の「スピルの向き」を制御（DET_near/AGG_far/blend）。cutover月の負荷をどちら側に寄せるかの方針。
-  - `anchor_adjust`: DET（SKU×週）を AGG（月×ファミリ）に合わせて微調整（総量保存、carryoverで隣接periodへ分配）。
-- 併用の推奨:
-  - 先に `reconcile` で能力整合の方向付け → `reconcile_levels` で偏差を把握 → 必要時に `anchor_adjust` でDET合計をAGGへ合わせる。
-  - `apply_adjusted` を使う場合は、`sku_week_adjusted.json` に対して `mrp` → `reconcile` を再実行し、CRP観点の妥当性を再確認。
-- blend調整のコツ:
-  - `--blend-weight-mode tri|lin|quad` と `--recon-window-days` で at週の中心・近接を強調。`--blend-split-next` を明示指定すると固定比で分配。
-- 検証:
-  - `python scripts/spill_smoke.py -i out/plan_final.json` で pre/at/post の spill 配置を俯瞰。DET_near/AGG_far は at週内の `spill_in` が先頭1行のみ非ゼロになるのが目安。
-
-## UI 起動と確認手順
-- サーバ起動（自動依存インストール・reload可）:
-  - `bash scripts/serve.sh`（環境変数: `PORT=8000 RELOAD=1` など）
-- UI画面（Planning Hub）:
-  - `http://localhost:8000/ui/plans/{version_id}` でプラン詳細を確認（Aggregate/Disaggregate/Schedule/Validate/Results/Diff など）。
-  - 実行（新規作成）は `/ui/plans` のフォームまたは `POST /ui/plans/run` を利用。
-- API 経由の一括実行:
-  - `POST /plans/integrated/run` 実行後、レスポンスの `version_id` を用いて `/ui/plans/{version_id}` を開く（成果物は /plans API からも取得可能）。
-
-## パラメタ早見（主要）
-- `reconcile_levels.py`:
-  - `--tol-abs`, `--tol-rel`: 許容誤差。
-  - `--cutover-date`, `--recon-window-days`, `--anchor-policy`: 境界タグ付け・メタ情報。
-- `anchor_adjust.py`:
-  - `--cutover-date`(必須), `--anchor-policy`(既定 `DET_near`)。
-  - `--carryover {none|prev|next|auto|both}`, `--carryover-split <0..1>`（`both/auto`時の配分）。
-  - `--max-adjust-ratio <0..1>`（行ごとの相対上限）、`--tol-abs/--tol-rel`（微小差無視）。
-  - `-I/--input-dir` と `--capacity/--open-po/--period-score/--pl-cost` でヘッドルーム重み付け。
-- `reconcile.py`:
-  - `--cutover-date`, `--recon-window-days`, `--anchor-policy`, `--blend-split-next`, `--blend-weight-mode`（tri|lin|quad）。
-  - API/Jobs/UI の対応: `plans_api.post_plans_integrated_run`/`ui_plans`（Runフォーム）/`jobs._run_planning` が同名パラメタを委譲。
-  - 推奨セット（例）:
-    - 直近保護: `DET_near` + `recon_window_days=7`
-    - 先々保護: `AGG_far` + `recon_window_days=7`
-    - ブレンド: `blend` + `recon_window_days=14` + `blend_weight_mode=tri`（必要なら `blend_split_next` 固定）
-
-### パラメタ対応表（CLI/API/UI/Jobs）
-- 共通キー（計画一括実行 /plans/integrated/run の body）
-  - `version_id`: 明示しない場合は自動採番（`v<epoch>-<id>`）。
-  - CLI 実行時は `-I/--input-dir` で既存CSVを指定できるが、統合API/UIではCanonical設定から自動生成される。
-  - `weeks`: 既定 4（1期間の週数ヒント）。
-  - `round_mode`: 既定 `int`（allocate丸め）。
-  - `lt_unit`: 既定 `day`（`mrp.py`）。
-  - `cutover_date`: 例 `YYYY-MM-DD`。未指定時は新しい整合ロジックが抑制され（境界メタのみ無し）。
-  - `recon_window_days`: 既定なし（動作は実装側のデフォルトに依存）。blendの動的分割・in_window_* に影響。
-  - `anchor_policy`: `DET_near|AGG_far|blend`。未指定なら従来（forward）。
-  - `blend_split_next`: 0..1。未指定時は動的に算出。
-  - `blend_weight_mode`: `tri|lin|quad`。未指定時は tri。
-  - `apply_adjusted`: bool。true の場合のみ anchor_adjust 後に `mrp/reconcile` を再実行。
-
-- CLI への委譲（plans_api → scripts）
-  - `plan_aggregate.py`: `-i input_dir -o out/aggregate.json`
-  - `allocate.py`: `--weeks weeks --round round_mode`
-  - `mrp.py`: `--lt-unit lt_unit --weeks weeks`
-  - `reconcile.py`（通常/adjusted）:
-    - `--cutover-date cutover_date`
-    - `--recon-window-days recon_window_days`
-    - `--anchor-policy anchor_policy`
-    - `--blend-split-next blend_split_next`
-    - `--blend-weight-mode blend_weight_mode`
-  - `reconcile_levels.py`: `--version version_id` と `cutover/window/anchor/tol` を委譲。
-  - `anchor_adjust.py`（任意）: `cutover/anchor/window/weeks/calendar/carryover/split/tol/max-adjust-ratio` を委譲。
-
-- UI/Jobs の対応
-  - `/ui/plans` の作成フォーム（および詳細Execute内）で cutover/window/anchor/blend 等を指定し、上記スクリプトに委譲。
-  - ジョブ（`jobs._run_planning`）: 同パラメタをプロセス引数化して委譲。
-  - `/ui/plans` 詳細: `POST /ui/plans/{version}/reconcile` で再整合（`plans_api.post_plan_reconcile` を再利用）。
-
-- 依存関係と優先順位
-  - `anchor_policy` は `cutover_date` が指定された場合に有効（境界月が特定できないため）。
-  - `blend_split_next` は `anchor_policy=blend` の時のみ意味を持つ。未指定時は動的分割。
-  - `recon_window_days` は最新の整合ロジック（in_window_* や重み計算）に影響するが、未指定でも動作（実装既定値を使用）。
-  - プリセット（pipelineの `--preset`）は「未指定の項目のみ」上書き。明示した値が優先。
-  - `apply_adjusted=false` の場合、`mrp_adjusted.json` を生成せず、`plan_final_adjusted.json` も生成しない（整合は before のみ）。
-
-#### 一覧（簡易表）
-
-| パラメタ | CLI(主) | APIキー | UIフォーム | Jobs | 既定 | 備考 |
-|---|---|---|---|---|---|---|
-| cutover_date | reconcile.py `--cutover-date` | cutover_date | plans: 作成/詳細 | submit_planning | なし | 指定時のみ境界整合ロジック有効 |
-| recon_window_days | reconcile.py `--recon-window-days` | recon_window_days | plans: 作成/詳細 | submit_planning | 実装既定 | in_window/重み計算に影響 |
-| anchor_policy | reconcile.py `--anchor-policy` | anchor_policy | plans: 作成/詳細 | submit_planning | なし | DET_near/AGG_far/blend |
-| blend_split_next | reconcile.py `--blend-split-next` | blend_split_next | plans: 作成/詳細 | submit_planning | 動的算定 | blend時のpost比率(0..1) |
-| blend_weight_mode | reconcile.py `--blend-weight-mode` | blend_weight_mode | plans: 作成/詳細 | submit_planning | tri | tri/lin/quad |
-| apply_adjusted | — | apply_adjusted | plans: チェック | submit_planning | false | trueで adjusted MRP/CRP 実行 |
-
-補足: /plans/integrated/run は上記を scripts に委譲し、成果物をDBに保存（/plans API で参照）。
-
-### blend 重みイメージ（簡易）
-
-```
-win_w = ceil(recon_window_days / 7)
-for at週のインデックス i (0..n_at-1):
-  d_prev = i, d_next = n_at-1-i
-  base_prev = max(0, win_w - d_prev)
-  base_next = max(0, win_w - d_next)
-  if mode==quad: w = base^2 else: w = base
-share_next = sum(spill*w_next) / (sum(spill*w_prev)+sum(spill*w_next))
-```
-
-三角（tri/lin）は線形、quad は近接を強く評価。share_next を用いて spill を pre/post に分割する。
-
-## 最小サンプル（before/after）
-
-### reconciliation_log.json（before, 抜粋）
-```json
-{
-  "schema_version": "recon-aggdet-1.0",
-  "version_id": "v-demo",
-  "cutover": {"cutover_date": "2025-09-01", "recon_window_days": 7, "anchor_policy": null},
-  "summary": {
-    "rows": 12,
-    "tol_violations": 1,
-    "max_abs_delta": {"demand": 25, "supply": 0, "backlog": 0},
-    "boundary": {"period": "2025-09", "violations": 1, "max_abs_delta": {"demand": 25, "supply": 0, "backlog": 0}}
-  },
-  "deltas": [
-    {
-      "family": "F1",
-      "period": "2025-09",
-      "agg_demand": 700.0,
-      "det_demand": 725.0,
-      "delta_demand": 25.0,
-      "rel_demand": 0.0357,
-      "ok_demand": false,
-      "agg_supply": 0.0,
-      "det_supply": 0.0,
-      "delta_supply": 0.0,
-      "rel_supply": 0.0,
-      "ok_supply": true,
-      "agg_backlog": 0.0,
-      "det_backlog": 0.0,
-      "delta_backlog": 0.0,
-      "rel_backlog": 0.0,
-      "ok_backlog": true,
-      "ok": false,
-      "boundary_period": true
-    }
-  ]
-}
-```
-
-### reconciliation_log_adjusted.json（after, DET_near 適用後, 抜粋）
-```json
-{
-  "schema_version": "recon-aggdet-1.0",
-  "version_id": "v-demo-adjusted",
-  "cutover": {"cutover_date": "2025-09-01", "recon_window_days": 7, "anchor_policy": "DET_near"},
-  "summary": {
-    "rows": 12,
-    "tol_violations": 0,
-    "max_abs_delta": {"demand": 0, "supply": 0, "backlog": 0},
-    "boundary": {"period": "2025-09", "violations": 0, "max_abs_delta": {"demand": 0, "supply": 0, "backlog": 0}}
-  },
-  "deltas": [
-    {
-      "family": "F1",
-      "period": "2025-09",
-      "agg_demand": 700.0,
-      "det_demand": 700.0,
-      "delta_demand": 0.0,
-      "rel_demand": 0.0,
-      "ok_demand": true,
-      "agg_supply": 0.0,
-      "det_supply": 0.0,
-      "delta_supply": 0.0,
-      "rel_supply": 0.0,
-      "ok_supply": true,
-      "agg_backlog": 0.0,
-      "det_backlog": 0.0,
-      "delta_backlog": 0.0,
-      "rel_backlog": 0.0,
-      "ok_backlog": true,
-      "ok": true,
-      "boundary_period": true
-    }
-  ]
-}
-```
-
-### plan_final.json.weekly_summary（after, DET_near, 抜粋）
-```json
-{
-  "weekly_summary": [
-    {"week": "2025-08-Wk04", "zone": "pre",  "capacity": 150, "original_load": 140, "adjusted_load": 140, "spill_in": 0, "spill_out": 0},
-    {"week": "2025-09-Wk01", "zone": "at",   "boundary_index": 1, "boundary_size": 4, "in_window_pre": true,  "in_window_post": false, "capacity": 150, "original_load": 180, "adjusted_load": 150, "spill_in": 0, "spill_out": 30},
-    {"week": "2025-09-Wk02", "zone": "at",   "boundary_index": 2, "boundary_size": 4, "in_window_pre": true,  "in_window_post": false, "capacity": 150, "original_load": 160, "adjusted_load": 150, "spill_in": 0, "spill_out": 10},
-    {"week": "2025-09-Wk03", "zone": "at",   "boundary_index": 3, "boundary_size": 4, "in_window_pre": false, "in_window_post": true,  "capacity": 150, "original_load": 140, "adjusted_load": 140, "spill_in": 0, "spill_out": 0},
-    {"week": "2025-09-Wk04", "zone": "at",   "boundary_index": 4, "boundary_size": 4, "in_window_pre": false, "in_window_post": true,  "capacity": 150, "original_load": 120, "adjusted_load": 120, "spill_in": 0, "spill_out": 0},
-    {"week": "2025-10-Wk01", "zone": "post", "capacity": 150, "original_load": 130, "adjusted_load": 170, "spill_in": 40, "spill_out": 0}
-  ],
-  "boundary_summary": {"period": "2025-09", "weeks": 4, "pre_weeks": 1, "post_weeks": 1, "anchor_policy": "DET_near", "window_days": 7}
-}
-```
-
-備考:
-- DET_near では、cutover月内の spill は区間外（post）先頭に集約（`spill_in`）。
-- blend は `share_next` に応じて pre/post へ分割され、pre 側の forward（pre2）で再分配される。
-
-## トラブルシュート
-- ポート競合: `scripts/serve.sh` が既存 `uvicorn` を停止試行。改善しない場合 `bash scripts/stop.sh` 実行。
-- `reconciliation_log.json` が見つからない: 差分ログは任意。`reconcile_levels.py` を実行し直してください。
-- 依存不足: `serve.sh` が `requirements.txt` から自動インストール。失敗時は仮想環境の破棄→再実行を検討。
-- 期間キー不一致: `YYYY-MM` と `YYYY-Www` が混在すると推定が働く。運用では一方に統一してください。
-
-## FAQ（抜粋）
-- Q: window は何日が適切？
-  - A: DET_near/AGG_far は 7〜14 日で開始し、違反件数・スピル分布・KPI（稼働率/フィルレート）を見ながら調整。
-- Q: blend の重みはどう選ぶ？
-  - A: tri（線形）を既定。近接を強調したいときは quad。業務要請で固定比があるなら `--blend-split-next`。
-- Q: cutover をまたぐ入荷/PO は？
-  - A: `open_po.csv` の due を period 化し、anchor_adjust の carryover と併せて検討（ヘッドルーム係数を活用）。
-- Q: AGG/DET の period 粒度が異なるケースは？
-  - A: `reconcile_levels.py` が簡易推定するが、境界の精度を上げるには period フォーマットの統一を推奨。
-- Q: capacity.csv が不完全（0/欠損）のときは？
-  - A: 欠損は0扱い。`weekly_summary` で spill が増えるため、capacity の整備（工程/拠点別）を推奨。必要に応じ `weeks` を見直し。
-- Q: mix_share.csv の合計が1にならない場合？
-  - A: allocate 時の丸め/残差配分に影響。`--round` と残差方針で吸収できない偏差は reconcile_levels に現れるため、mix を正規化。
-- Q: tol の推奨は？
-  - A: `tol_abs=1e-6`, `tol_rel=1e-6` を最初のしきい値として採用。小数点処理の丸め誤差で false positive が出る場合は `tol_rel` を緩める。
-- Q: ISO週とsimple月の混在は？
-  - A: UI の weekly_summary は `YYYY-MM-WkX` 前提の簡易推定。ISO週で厳密管理する場合はフォーマット統一（`YYYY-Www`）を推奨。
-- Q: apply_adjusted=false で adjusted 成果物が無いのに参照してしまうことは？
-  - A: API は `apply_adjusted` が false の場合、`mrp_adjusted.json`/`plan_final_adjusted.json` を生成/参照しないようガード済み。
-- Q: パフォーマンスの目安は？
-  - A: サンプルデータ（数百行）で E2E 実行は数秒。期間数/品目数に線形〜準線形。`reconcile_levels` は O(N) のロールアップ。

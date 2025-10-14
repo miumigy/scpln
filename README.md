@@ -31,7 +31,7 @@
 - 使い始めるには、`/ui/configs` の「サンプルをインポート」ボタンを利用するか、`python3 scripts/seed_canonical.py --save-db` を実行してサンプル設定をDBに直接ロードします。
 - サーバが異なるデータベースを参照している場合（`SCPLN_DB`環境変数）、`--db-path $SCPLN_DB` を指定してサンプルをロードしてください。
 
-Canonical設定統合の設計原則と移行履歴は `docs/config_integration_plan.md` に一次情報として維持しています。RunRegistry 側の恒久運用ルールおよびフォールバック手順は `docs/run_registry_operations.md` を参照してください。
+Canonical設定統合の設計原則や移行の経緯は、関連ドキュメントで補完されています。
 
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
@@ -88,7 +88,7 @@ flowchart LR
 - Run比較API・トレースエクスポートでKPI分析を自動化。
 - Planning Hub（B）から渡されたシナリオやcutover/anchor等のPlanパラメタをRunRegistryが保持することで、A⇔B間で同じバージョンIDを軸にトレースできます。
 
-RunRegistry の標準運用フロー、監視、フォールバック手順は `docs/run_registry_operations.md` を参照してください。
+RunRegistry の標準運用フロー、監視、フォールバック手順は、関連ドキュメントを参照してください。
 
 ---
 
@@ -158,11 +158,7 @@ flowchart LR
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
 | **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
-| **設定・DB統合** | Canonical設定とRunRegistry統合の背景・意思決定記録 | `docs/config_integration_plan.md` |
-| **API / 自動化** | REST/CSVエンドポイント、ジョブ投入の概要 | `docs/API-OVERVIEW-JA.md` |
-| **運用・セキュリティ** | シークレット対応、バックアップ、CI設定 | `docs/SECRET_ROTATION_JA.md`, `.github/workflows/*` |
-| **クラス設計** | SimulationInput系モデルとエンジン連携 | `docs/CLASS_DESIGN_JA.md` |
-| **RunRegistry運用** | Plan中心Run運用手順とレガシー停止手順 | `docs/run_registry_operations.md` |
+| **運用・セキュリティ** | RunRegistry/DBの運用手順、バックアップ、シークレット対応 | `docs/run_registry_operations.md`, `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
 | **ロードマップ / リリース** | 拡張テーマ・リリース履歴 | `docs/EXPANSION_STRATEGY_JA.md`, `CHANGELOG.md` |
 
 各ドキュメントは上記カテゴリに収め、重複内容はリンクで参照し合う構成としています。README は概要と導線を提供し、詳細は個別ドキュメントに委譲します。
