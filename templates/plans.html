@@ -223,7 +223,7 @@
         </tbody>
     </table>
   </div>
-  {% if pagination.total > pagination.limit %}
+  {% if pagination and pagination.total is defined and pagination.limit is defined and pagination.total > pagination.limit %}
   <div class="pagination-footer">
     <small>Showing {{ pagination.count }} of {{ pagination.total }} plans</small>
     <div class="pagination-nav">

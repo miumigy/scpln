@@ -546,6 +546,7 @@ def _has_approve(req: Request) -> bool:
 @app.post("/plans/integrated/run")
 def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
     import traceback
+    logging.info("DEBUG: post_plans_integrated_run called.")
     logging.info("DEBUG: post_plans_integrated_run called.") # この行を追加
     try:
         ts = int(time.time())
@@ -899,11 +900,11 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             note=body.get("note"),
             config_version_id=config_version_id,
         )
-        # デバッグログの追加
+        logging.info(f"DEBUG: Plan version {version_id} created in DB.")
         if db.get_plan_version(version_id) is None:
-            logging.error(f"DEBUG: Plan version {version_id} not found in DB immediately after creation.")
+            logging.error(f"DEBUG: Plan version {version_id} not found in DB after creation (unexpected).")
         else:
-            logging.info(f"DEBUG: Plan version {version_id} successfully found in DB after creation.")
+            logging.info(f"DEBUG: Plan version {version_id} successfully retrieved from DB after creation.")
 
         logging.info("DB persistence complete.")
 
@@ -1029,6 +1030,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             )
 
         if use_db and (plan_series_rows or plan_kpi_rows):
+            logging.info(f"DEBUG: Attempting to write plan {version_id} to repository.")
             try:
                 _PLAN_REPOSITORY.write_plan(
                     version_id,
@@ -1039,6 +1041,7 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 )
                 repository_status = "stored"
                 PLAN_DB_WRITE_TOTAL.labels(storage_mode=storage_mode).inc()
+                logging.info(f"DEBUG: Plan {version_id} successfully written to repository.")
             except PlanRepositoryError:
                 repository_status = "failed"
                 logging.exception(

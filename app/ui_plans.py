@@ -252,6 +252,9 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
         if rows:
             has_data = True
 
+    # paginationがNoneになる可能性を考慮し、空の辞書をデフォルトとする
+    pagination = pagination if pagination is not None else {}
+
     return _render_plans_page(
         request, plans=rows, pagination=pagination, has_data=has_data
     )
@@ -806,10 +809,14 @@ def ui_plans_run(
         "base_scenario_id": base_scenario_raw,
     }
     if not (config_version_id or "").strip():
-        rows = _fetch_plan_rows()
+        rows, pagination = _fetch_plan_rows()
+        logging.info(f"DEBUG: ui_plans_run - plans for error page: {rows}")
+        logging.info(f"DEBUG: ui_plans_run - pagination for error page: {pagination}")
+        logging.info(f"DEBUG: ui_plans_run - form_defaults for error page: {form_defaults}")
         return _render_plans_page(
             request,
             plans=rows,
+            pagination=pagination,
             error="Canonical設定バージョンを選択してください。",
             form_defaults=form_defaults,
         )
