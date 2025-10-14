@@ -24,33 +24,43 @@
 - GET `/plans/{version_id}/schedule.csv` 予定オーダ（mrp.jsonから）CSV出力
 - POST `/plans/{version_id}/reconcile` aggregate×DETの整合評価（before/adjusted）
 
-## Run API（統合アダプタ, P-16）
-- POST `/runs` body例:
-  ```json
-  {
-    "pipeline": "integrated",
-    "async": false,
-    "options": {
-      "config_version_id": 100,
-      "weeks": 4,
-      "lt_unit": "day",
-      "cutover_date": "2025-01-15",
-      "recon_window_days": 7,
-      "anchor_policy": "blend",
-      "tol_abs": 1e-6,
-      "tol_rel": 1e-6,
-      "calendar_mode": "simple",
-      "carryover": "auto",
-      "carryover_split": 0.5,
-      "apply_adjusted": false,
-      "lightweight": true
-    }
-  }
-  ```
-  - 同期時: `{status:"succeeded", version_id, location:"/ui/plans/{version_id}"}`
-  - 非同期時: `{status:"queued", job_id, location:"/ui/jobs/{job_id}"}`
-  - `config_version_id` は必須（Canonical設定バージョンを指定）
-  - `lightweight` を true にすると aggregate→allocate のみを同期実行し、MRP/再整合はスキップ（PlanRepository書込み・主要アーティファクト生成のみ実施）。
+## Run API（RunRegistry & 実行）
+
+シミュレーションの実行（Run）と、その結果の永続化・取得・比較（RunRegistry）を担うエンドポイント群です。
+
+- **`GET /runs`**: 実行履歴（Run）の一覧を取得します。
+  - `detail=true`: 結果詳細を含む完全なデータを返します。
+  - `limit`, `offset`: ページネーションを制御します。
+  - `sort`, `order`: `started_at` などのキーでソートします。
+  - `config_version_id`, `scenario_id`, `plan_version_id` などで結果をフィルタリングできます。
+
+- **`POST /runs`**: 新しいRunを同期または非同期で実行します。主に統合パイプライン (`pipeline: "integrated"`) のトリガーとして使用されます。
+  - `async=true`: 非同期でジョブを投入し、`job_id` を返します。
+  - `async=false` (既定): 同期実行し、完了後にPlanの `version_id` を返します。
+  - `options`: `config_version_id` (必須) や `weeks`, `cutover_date` などのパイプライン実行時パラメータを指定します。
+  - (リクエストボディの詳細は旧版の記述を参照)
+
+- **`GET /runs/{run_id}`**: 指定したIDのRun詳細情報を取得します。
+  - `detail=true` を付けると、KPIサマリだけでなく、日次の詳細な結果も含まれます。
+
+- **`DELETE /runs/{run_id}`**: 指定したIDのRunを削除します。RBACが有効な場合は特定のロール（`planner`, `admin`）が必要です。
+
+- **`POST /compare`**: 複数のRun (`run_ids`で指定) のサマリ情報を比較します。
+  - `base_id` を指定すると、それを基準に差分（絶対値・変化率）を計算します。
+
+- **`GET /runs/{run_id}/meta`**: 指定したRunのメタ情報（承認状態、ベースライン設定、ノートなど）を取得します。
+
+- **`POST /runs/{run_id}/approve`**: Runを「承認済み」としてマークします。
+
+- **`POST /runs/{run_id}/promote-baseline`**: Runをシナリオの「ベースライン」として設定します。
+
+- **`POST /runs/{run_id}/archive`**: Runをアーカイブ（論理削除）します。
+
+- **`POST /runs/{run_id}/unarchive`**: アーカイブ状態を解除します。
+
+- **`POST /runs/{run_id}/note`**: Runに自由記述のノート（メモ）を追加・更新します。
+
+- **`GET /runs/baseline?scenario_id={id}`**: 指定したシナリオの現在有効なベースラインRunのIDを返します。
 
 ## データ保存モード (`storage_mode`)
 
