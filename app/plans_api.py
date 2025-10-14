@@ -1090,8 +1090,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             content={
                 "detail": "計画パイプラインの実行に失敗しました。",
                 "error": str(e),
-                "stdout": e.stdout,
-                "stderr": e.stderr,
+                "stdout": e.stdout.decode('utf-8') if e.stdout else '',
+                "stderr": e.stderr.decode('utf-8') if e.stderr else '',
             },
         )
     except Exception as e:
@@ -1102,6 +1102,8 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
                 "detail": f"計画の実行中に予期せぬエラーが発生しました: {e}",
                 "error": str(e),
                 "traceback": traceback.format_exc(),
+                "stdout": getattr(e, "stdout", "").decode('utf-8') if hasattr(e, "stdout") and e.stdout else '',
+                "stderr": getattr(e, "stderr", "").decode('utf-8') if hasattr(e, "stderr") and e.stderr else '',
             },
         )
 
