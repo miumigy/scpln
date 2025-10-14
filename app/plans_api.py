@@ -899,6 +899,12 @@ def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
             note=body.get("note"),
             config_version_id=config_version_id,
         )
+        # デバッグログの追加
+        if db.get_plan_version(version_id) is None:
+            logging.error(f"DEBUG: Plan version {version_id} not found in DB immediately after creation.")
+        else:
+            logging.info(f"DEBUG: Plan version {version_id} successfully found in DB after creation.")
+
         logging.info("DB persistence complete.")
 
         def _load(p: Path) -> Optional[str]:
