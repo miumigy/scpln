@@ -104,12 +104,26 @@ pip install -r requirements.txt
 
 ### 2. サービス起動
 
+以下のコマンドでAPIサーバーや開発用DBクライアントを起動します。
+
 ```bash
-bash scripts/serve.sh        # uvicorn main:app を起動（RELOAD=1でホットリロード）
-bash scripts/status.sh       # ヘルスチェック / ログ確認
+# APIサーバーとDBクライアントの両方を起動
+bash scripts/serve.sh
+
+# APIサーバーのみを起動
+bash scripts/serve.sh api
+
+# 開発用DBクライアント (Datasette) のみを起動
+bash scripts/serve.sh db
+
+# 起動中のサービスをすべて停止
+bash scripts/stop.sh
 ```
 
-ブラウザで `http://localhost:8000` を開くと Planning Hub が表示されます。入口は `/ui/plans` に統一されています。
+- APIサーバー (Planning Hub): `http://localhost:8000`
+- DBクライアント (Datasette): `http://localhost:8001`
+
+APIサーバーを起動後、ブラウザで `http://localhost:8000` を開くと Planning Hub が表示されます。入口は `/ui/plans` に統一されています。
 
 ### 3. 設定の準備と計画実行
 
@@ -182,7 +196,7 @@ flowchart LR
 ## 開発・運用メモ
 
 - **テスト**: `source .venv/bin/activate && PYTHONPATH=. pytest`。CIは `tests`, `quick-planning-tests`, `ci.yml` で構成。`tests/test_psi_sync.py` と `tests/test_planning_pipeline.py` を重点監視。
-- **データベース**: 既定は SQLite (`data/scpln.db`)。`SCPLN_DB` で接続先を変更。バックアップは `backup_script.py` を使用。
+- **データベース**: 既定は SQLite (`data/scpln.db`)。`SCPLN_DB` で接続先を変更。バックアップは `backup_script.py` を使用。開発時は `scripts/serve.sh db` で起動するWeb UI (Datasette) を使って直接DBの内容を確認できます。
 - **RunRegistry 管理**: `REGISTRY_BACKEND=db|memory`, `RUNS_DB_MAX_ROWS` でポリシー設定。古いRunは自動クリーンアップ。
 - **環境変数**: 認証 `AUTH_MODE=apikey|basic|none`、ジョブ実行 `JOBS_ENABLED=1`、APIキーはUI側`localStorage.api_key` と合わせて設定。
 - **CI/CD**: GitHub Actions（`ci.yml`, `tests.yml`, `quick-planning-tests.yml`）。Renderへの自動デプロイは `deploy-render.yml` を参照。

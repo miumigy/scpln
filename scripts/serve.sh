@@ -67,29 +67,51 @@ if [[ "$NEED_INSTALL" == "1" ]]; then
   fi
 fi
 
-PORT="${PORT:-8000}"
-HOST="${HOST:-0.0.0.0}"
-RELOAD_FLAG=""
-if [[ "${RELOAD:-0}" == "1" ]]; then
-  RELOAD_FLAG="--reload --reload-dir ."
+
+SERVICE="${1:-all}"
+
+if [[ "$SERVICE" == "api" || "$SERVICE" == "all" ]]; then
+  # --- API server ---
+  PORT="${PORT:-8000}"
+  HOST="${HOST:-0.0.0.0}"
+  RELOAD_FLAG=""
+  if [[ "${RELOAD:-0}" == "1" ]]; then
+    RELOAD_FLAG="--reload --reload-dir ."
+  fi
+
+  if ss -ltnp 2>/dev/null | grep -q ":${PORT} "; then
+    echo "[warn] :$PORT is already in use. attempting to stop existing uvicorn..."
+    PORT="$PORT" bash scripts/stop.sh api || true
+    sleep 1
+  fi
+
+  echo "[run] starting uvicorn on http://$HOST:$PORT ${RELOAD_FLAG:+(reload)}"
+  nohup uvicorn main:app --host "$HOST" --port "$PORT" --loop asyncio $RELOAD_FLAG > uvicorn.out 2>&1 &
+  echo $! > uvicorn.pid
+  echo "[ok] pid $(cat uvicorn.pid)"
+  echo "[log] tail -f uvicorn.out"
+
+  if [[ "${SEED_HIERARCHY:-0}" == "1" ]]; then
+    echo "[seed] seeding product/location hierarchy from configs/*.json"
+    source "$VENV_DIR/bin/activate"
+    python scripts/seed_hierarchy.py || true
+  fi
 fi
 
-# 既存の待ち受けがある場合は停止を試みる
-if ss -ltnp 2>/dev/null | grep -q ":${PORT} "; then
-  echo "[warn] :$PORT is already in use. attempting to stop existing uvicorn..."
-  PORT="$PORT" bash scripts/stop.sh || true
-  sleep 1
-fi
+if [[ "$SERVICE" == "db" || "$SERVICE" == "datasette" || "$SERVICE" == "all" ]]; then
+  # --- Datasette server ---
+  DB_PORT="${DB_PORT:-8001}"
+  DB_PID_FILE="datasette.pid"
 
-echo "[run] starting uvicorn on http://$HOST:$PORT ${RELOAD_FLAG:+(reload)}"
-nohup uvicorn main:app --host "$HOST" --port "$PORT" --loop asyncio $RELOAD_FLAG > uvicorn.out 2>&1 &
-echo $! > uvicorn.pid
-echo "[ok] pid $(cat uvicorn.pid)"
-echo "[log] tail -f uvicorn.out"
+  if ss -ltnp 2>/dev/null | grep -q ":${DB_PORT} "; then
+    echo "[warn] :$DB_PORT is already in use. attempting to stop existing process..."
+    fuser -k "${DB_PORT}/tcp" || true
+    sleep 1
+  fi
 
-# Optional: seed hierarchy if requested
-if [[ "${SEED_HIERARCHY:-0}" == "1" ]]; then
-  echo "[seed] seeding product/location hierarchy from configs/*.json"
-  source "$VENV_DIR/bin/activate"
-  python scripts/seed_hierarchy.py || true
+  echo "[run] starting datasette on http://0.0.0.0:$DB_PORT"
+  nohup datasette scpln.db --port "$DB_PORT" > datasette.out 2>&1 &
+  echo $! > "$DB_PID_FILE"
+  echo "[ok] pid $(cat $DB_PID_FILE)"
+  echo "[log] tail -f datasette.out"
 fi

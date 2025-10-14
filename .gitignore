@@ -20,3 +20,7 @@ out/
 out_w*/
 data/*.db
 tmp/
+
+# Datasette files
+datasette.out
+datasette.pid
