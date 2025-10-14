@@ -8,15 +8,15 @@
 
 ## Planning Hub UI（HTML）
 - GET `/ui/plans` プラン一覧（作成フォーム含む）
-- POST `/ui/plans/run` 統合Runで新規Plan作成（同期）
+- POST `/ui/plans/create_and_execute` 統合実行で新規Plan作成（同期）
 - GET `/ui/plans/{version_id}` プラン詳細（タブ: Overview/Aggregate/Disaggregate/Schedule/Validate/Execute/Results）
-- POST `/ui/plans/{version_id}/plan_run_auto` Plan & Run（自動補完; /runs経由で新規Plan）
+- POST `/ui/plans/{version_id}/execute_auto` Plan & Execute（自動補完; /runs経由で新規Plan）
 - POST `/ui/plans/{version_id}/reconcile` 再整合実行（必要に応じanchor/adjusted）
 - POST `/ui/plans/{version_id}/state/advance` / `/state/invalidate` state遷移/無効化
 
 ## Planning API（JSON/CSV）
 - GET `/plans` 登録済みPlan一覧
-- POST `/plans/integrated/run` 統合パイプライン実行（aggregate→allocate→mrp→reconcile）し、新規Plan登録。`lightweight=true` を指定するとCI/E2E向けにMRP・reconcile系をスキップし、PlanRepository書込みと主要アーティファクトのみ生成。
+- POST `/plans/create_and_execute` 統合パイプライン実行（aggregate→allocate→mrp→reconcile）し、新規Plan登録。`lightweight=true` を指定するとCI/E2E向けにMRP・reconcile系をスキップし、PlanRepository書込みと主要アーティファクトのみ生成。
 - GET `/plans/{version_id}/summary` Plan要約（reconciliation summary / weekly_summary）
 - GET `/plans/{version_id}/compare` 差分一覧（violations_only, sort, limit）
 - GET `/plans/{version_id}/compare.csv` 上記のCSV出力

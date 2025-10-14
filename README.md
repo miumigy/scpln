@@ -12,7 +12,7 @@
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
 - **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
 - **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
-- **自動化とAPI**: `/plans/integrated/run` や `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
+- **自動化とAPI**: `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
 
 ---
 
@@ -71,10 +71,10 @@ flowchart LR
 - これには、Planのバージョン管理、ロールアップ/分配編集、差分プレビュー、PSIシミュレーション連携（RunRegistry）が含まれます。
 
 #### PSIシミュレーション/Run Registry（A）とPlanning Hub統合Plan（B）の連携
-- B側のPlanning HubでPlanを編集し「Plan & Run」を実行すると、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
+- B側のPlanning HubでPlanを編集し「計画実行」を行うと、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
 - 生成された `version_id` ↔ `run_id` の対応が保証されるため、Plan詳細画面（B）とRun履歴（A）のどちらからでも同一シナリオのKPI・ログ・成果物にアクセスできます。
 - Aで得たサービスレベルや在庫・コストの実績値を、Bの差分/KPIプレビューと突き合わせて「計画（集約・詳細）→実行（PSIシミュレーション）→振り返り」のループを回せます。
-- 代表的な運用: ① Bで変更セットを作成→差分/KPIを確認 → ② 「Plan & Run」でRunを実行 → ③ AのRunRegistryで結果を検証 → ④ BのPlanを確定/再調整。
+- 代表的な運用: ① Bで変更セットを作成→差分/KPIを確認 → ② 「計画実行」でRunを実行 → ③ AのRunRegistryで結果を検証 → ④ BのPlanを確定/再調整。
 
 
 ### 3. 計画パイプライン（Aggregate ↔ Detail）
@@ -181,7 +181,7 @@ flowchart LR
 
 | 用途 | エンドポイント / スクリプト | 備考 |
 | --- | --- | --- |
-| 一括計画実行 | `POST /plans/integrated/run` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可（`.sh` は互換ラッパ） |
+| 計画の作成と実行 | `POST /plans/create_and_execute` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可（`.sh` は互換ラッパ） |
 | PSI編集 | `PATCH /plans/{version}/psi` | DET/AGG 双方向。`no_auto` で自動同期停止 |
 | 差分ログ再生成 | `POST /plans/{version}/psi/reconcile` | tol, anchor, carryover, adjust を制御 |
 | Run実行（抽象） | `POST /runs` | `pipeline=integrated` を既存パイプラインに委譲 |

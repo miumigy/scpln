@@ -35,12 +35,12 @@
 ## 1. 新規Planを作成
 
 1) `/ui/plans` を開きます。
-2) 「新規Plan作成（統合Run）」ボタンをクリックしてフォームを開きます。
+2) 「新規Plan作成（統合実行）」ボタンをクリックしてフォームを開きます。
 3) 以下の項目を入力します。
    - **Canonical設定バージョン**: 先ほどロードした設定のIDを選択します（通常は一覧の最上位）。
    - **計画週数 (weeks)**: `8`
    - （任意）`カットオーバー日`、`アンカー方針` などを指定します。
-4) 「Run（作成）」ボタンをクリックします。
+4) 「作成と実行」ボタンをクリックします。
 5) 作成されたプラン詳細ページ（`/ui/plans/{version_id}`）に自動的に遷移します。このとき、生成されたPlanのデータは、従来のファイル形式ではなくデータベースに直接保存され、版管理されます。
 
 ヒント: 実行が完了すると、画面下部に実行ログやKPIサマリが表示されます。まずは「Overview」タブで計画の全体像を把握しましょう。
@@ -58,7 +58,7 @@
   - 「再整合を実行」
 - Diffタブやエクスポート（compare.csv / violations_only.csv）で差分を確認
 
-## 4. Plan & Run（自動補完）
+## 4. Plan & Execute（自動補完）
 - Executeタブ → 「再整合（パラメータ指定）」
   - `cutover_date`、`recon_window_days`、`anchor_policy` などを調整
   - 「再整合を実行」
@@ -115,7 +115,7 @@ Planning Hubで実行されるシミュレーションは、主にPSI (Productio
 # config_version_id は事前にDBにロードしたものを指定
 CONFIG_VERSION_ID=14
 
-curl -sS http://localhost:8000/plans/integrated/run \
+curl -sS http://localhost:8000/plans/create_and_execute \
   -H 'content-type: application/json' \
   -d "{
         \"config_version_id\":${CONFIG_VERSION_ID},

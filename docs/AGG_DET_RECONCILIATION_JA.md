@@ -31,7 +31,7 @@ sequenceDiagram
   participant Jobs as Background Jobs (RQ)
   participant DB as ScplnDB
 
-  User->>API: POST /plans/integrated/run (or via UI)
+  User->>API: POST /plans/create_and_execute (or via UI)
   API->>Jobs: Enqueue planning job
   Jobs->>Jobs: Run pipeline (aggregate, allocate, mrp, reconcile)
   Jobs->>DB: Write results (plan_versions, plan_rows, etc.)
@@ -59,7 +59,7 @@ sequenceDiagram
 - `reconciliation_log`: 整合性チェックの実行ログと差分詳細を記録します。
   - `version_id`, `window_start`, `window_end`, `delta_metric`, `delta_value`, `policy`, `run_id`, `summary`。
 
-これらのデータは `POST /plans/integrated/run` APIを通じて生成・永続化され、`GET /plans/{version_id}/...` APIで取得できます。
+これらのデータは `POST /plans/create_and_execute` APIを通じて生成・永続化され、`GET /plans/{version_id}/...` APIで取得できます。
 
 ## アーキテクチャとフロー
 - フェーズ（標準）:
@@ -162,7 +162,7 @@ sequenceDiagram
 - `anchor_policy`: `DET_near|AGG_far|blend`
 
 ## API/ジョブ（案）
-- `POST /plans/integrated/run`:
+- `POST /plans/create_and_execute`:
   - body: `{ version_id?, base_scenario_id, cutover_date, recon_window_days, params... }`
   - 実行: aggregate→allocate→mrp→reconcile。`version_id` を返却。
 - `POST /plans/{version}/reconcile`（再整合のみ）
@@ -207,12 +207,12 @@ sequenceDiagram
 
 計画の生成と整合性チェックは、主に以下のAPIエンドポイントを通じて実行します。
 
-- **一括実行:** `POST /plans/integrated/run`
+- **一括実行:** `POST /plans/create_and_execute`
   - 計画パイプライン（集約、按分、MRP、整合）全体を実行し、結果をDBに保存します。
   - `cutover_date`や`anchor_policy`などのパラメータを指定することで、境界整合のロジックを制御できます。
   - **実行例:**
     ```bash
-    curl -X POST http://localhost:8000/plans/integrated/run -H 'Content-Type: application/json' -d '{
+    curl -X POST http://localhost:8000/plans/create_and_execute -H 'Content-Type: application/json' -d '{
       "version_id": "v-demo-2",
       "cutover_date": "2025-09-01",
       "recon_window_days": 7,

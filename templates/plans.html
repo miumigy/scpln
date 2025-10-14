@@ -6,12 +6,12 @@
 {% block content %}
 <section class="page-section">
   <div class="section-header">
-    <h3>Integrated Planning Run</h3>
-    <p>Launch an end-to-end planning cycle using the configured pipeline defaults.</p>
+    <h3>Integrated Planning Execution</h3>
+    <p>Execute an end-to-end planning cycle using the configured pipeline defaults.</p>
   </div>
   <details open>
-    <summary>Create Plan Version (Integrated Run)</summary>
-    <form method="post" action="/ui/plans/run">
+    <summary>Create and Execute Plan (Integrated Pipeline)</summary>
+    <form method="post" action="/ui/plans/create_and_execute">
       {% if error %}
       <p class="mono warn-text">{{ error }}</p>
       {% endif %}
@@ -114,7 +114,7 @@
         </label>
       </div>
       <div class="toolbar justify-end gap-top-sm">
-        <button type="submit" class="btn-primary" aria-label="Run integrated pipeline">Run Integrated Pipeline</button>
+        <button type="submit" class="btn-primary" aria-label="Create and Execute Plan">Create and Execute Plan</button>
       </div>
     </form>
   </details>

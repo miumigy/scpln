@@ -636,8 +636,8 @@ def ui_plan_reconcile(
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@router.post("/ui/plans/{version_id}/plan_run_auto")
-def ui_plan_run_auto(
+@router.post("/ui/plans/{version_id}/execute_auto")
+def ui_plan_execute_auto(
     version_id: str,
     request: Request,
     weeks: int = Form(4),
@@ -654,7 +654,7 @@ def ui_plan_run_auto(
     queue_job: str | None = Form(default=None),
     lightweight: str | None = Form(default=None),
 ):
-    """Plan & Run（自動補完）: 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
+    """Plan & Execute (auto completion): 既存Planの情報を可能な範囲で引き継ぎ、/runs を呼び出して新規Planを生成。
     - queue_job チェック時は非同期（ジョブ投入）。
     - それ以外は同期で新規Plan作成し詳細にリダイレクト。
     """
@@ -770,8 +770,8 @@ def ui_plan_state_invalidate(
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@router.post("/ui/plans/run")
-def ui_plans_run(
+@router.post("/ui/plans/create_and_execute")
+def ui_plans_create_and_execute(
     request: Request,
     weeks: int = Form(4),
     lt_unit: str = Form("day"),

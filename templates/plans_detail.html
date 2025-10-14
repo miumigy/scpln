@@ -70,7 +70,7 @@
       <a role="button" class="secondary" data-tab="schedule" title="Schedule" aria-label="Schedule tab">Schedule</a>
       <a role="button" class="secondary" data-tab="validate" title="Validate" aria-label="Validate tab">Validate</a>
       <a role="button" class="secondary" data-tab="psi" title="PSI" aria-label="PSI tab">PSI</a>
-      <a role="button" class="secondary" data-tab="execute" title="Execute" aria-label="Execute tab">Execute</a>
+      <a role="button" class="secondary" data-tab="execute" title="Reconciliation & Execution" aria-label="Reconciliation & Execution tab">Reconciliation & Execution</a>
       <a role="button" class="secondary" data-tab="results" title="Results" aria-label="Results tab">Results</a>
       <a role="button" class="secondary" data-tab="diff" title="Diff" aria-label="Diff tab">Diff</a>
     </nav>
@@ -760,8 +760,8 @@
     </details>
 
     <details>
-      <summary>Integrated run (new plan version)</summary>
-      <form method="post" action="/ui/plans/run">
+      <summary>Create and Execute (new plan version)</summary>
+      <form method="post" action="/ui/plans/create_and_execute">
         <div class="grid" style="align-items:end;">
           <input type="hidden" name="config_version_id" value="{{ config_version_id or '' }}">
           <input type="hidden" name="base_scenario_id" value="{{ version.base_scenario_id or '' }}">
@@ -803,7 +803,7 @@
           <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
           <label>apply_adjusted<input type="checkbox" name="apply_adjusted" value="1"></label>
         </div>
-        <button type="submit" aria-label="Run immediately">Run now</button>
+        <button type="submit" aria-label="Create and Execute now">Create and Execute</button>
       </form>
       <form id="queue-run-form" class="grid-form gap-top-sm" onsubmit="return queueRunViaRunsApi(event)">
         <div class="grid" style="align-items:end;">
@@ -876,8 +876,8 @@
     </details>
 
     <details>
-      <summary>Plan &amp; Run (auto completion)</summary>
-      <form method="post" action="/ui/plans/{{ version_id }}/plan_run_auto" class="toolbar gap-top-sm">
+      <summary>Execute from Current Plan (auto-completion)</summary>
+      <form method="post" action="/ui/plans/{{ version_id }}/execute_auto" class="toolbar gap-top-sm">
         <label>weeks<input type="number" name="weeks" min="1" value="4"></label>
         <label>lt_unit
           <select name="lt_unit">
@@ -916,7 +916,7 @@
         <label>carryover_split<input type="number" min="0" max="1" step="0.05" name="carryover_split"></label>
         <label><input type="checkbox" name="apply_adjusted" value="1"> Include adjusted detail</label>
         <label><input type="checkbox" name="queue_job" value="1"> Execute as job (async)</label>
-        <button type="submit" class="contrast" aria-label="Run Plan & Run">Run Plan &amp; Run</button>
+        <button type="submit" class="contrast" aria-label="Execute from Current Plan">Execute from Current</button>
         <small class="mono">Note: inherits cutover/window/policy from the current plan when possible.</small>
       </form>
     </details>
