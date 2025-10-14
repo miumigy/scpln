@@ -5,15 +5,40 @@
 - Plan（プラン）: 計画の中核オブジェクト。編集・実行・成果物を集約。
 - Plan Version（プラン版）: プランのスナップショット。`version_id` で識別。
 - Scenario（シナリオ）: 入力データ群の論理まとまり（需要/在庫/政策/制約など）。
-- Pipeline（パイプライン）: 版管理された処理DAG（integrated/aggregate/allocate/mrp/reconcile）。
+- Pipeline（パイプライン）: 版管理された処理DAG（Directed Acyclic Graph）。`integrated/aggregate/allocate/mrp/reconcile` などのステージで構成される。
 - Run（ラン）: シミュレーション実行の記録。`run_id` で識別され、特定の `config_version_id` と `scenario_id` を用いて実行された結果を指す。生成された `plan_version_id` と紐づく場合がある。
-- Job（ジョブ）: 非同期実行のまとまり（キュー投入・監視対象）。
+- Job（ジョブ）: 非同期実行のまとまり。キュー投入され、監視対象となる。計画パイプラインの実行やシミュレーションなどがこれに該当する。
 - 手動調整（Override）: プランに対する手動での変更。`PlanOverrideRow` に現在の状態が、`PlanOverrideEventRow` に履歴が記録される。
 - Workspace（ワークスペース）: プラン詳細画面（`/ui/plans/{id}`）の作業空間。
 - Aggregate/Disaggregate/Schedule/Validate/Execute/Results: プラン詳細のタブ名称。
-- Reconciliation（整合）: AGG/DETの差分解消（anchor/carryover）。
-- Anchor policy（アンカーポリシー）: DET_near/AGG_far/blend の調整方針。
-- Carryover（持ち越し）: 境界近傍の差分の前後期への配分方法。
-- Window days（ウィンドウ日数）: 境界の前後に設ける調整範囲（日数）。
-- Cutover date（カットオーバ日）: 期間境界となる日付。
-- KPI（主要指標）: fill rate, profit, capacity utilization, spill など。
+- Reconciliation（整合）: 集約（Aggregate）と詳細（Detail）の計画間の差分解消プロセス（anchor/carryover）。
+- Anchor policy（アンカーポリシー）: 詳細計画（DET）と集約計画（AGG）の調整方針。`DET_near/AGG_far/blend` などがある。
+- Carryover（持ち越し）: 計画期間の境界近傍で発生する差分を、前後期にどのように配分するかを決定する方法。
+- Window days（ウィンドウ日数）: 計画期間の境界の前後に設ける調整範囲（日数）。
+- Cutover date（カットオーバ日）: 計画期間の境界となる日付。
+- KPI（主要指標）: 主要業績評価指標。`fill rate`, `profit`, `capacity utilization`, `spill` など。
+- PSIシミュレーション: Production, Sales, Inventoryの略。生産、販売、在庫のバランスを日次でシミュレーションする。
+- ノード/リンク: サプライチェーンネットワークを構成する要素。ノードは店舗、倉庫、工場、資材などを表し、リンクはそれらをつなぐ輸送経路などを表す。
+- RunRegistry: 実行履歴をDBに永続化し、比較・再利用を可能にするシステム。
+- 多粒度整合: 集約レベル（月次/ファミリ）と詳細レベル（週次/SKU）の計画を、同一バージョン上で整合させる仕組み。
+- 集約→詳細への按分: 集約レベルの計画値を、詳細レベルに比例配分するプロセス。
+- 詳細→集約へのロールアップ: 詳細レベルの計画値を、集約レベルに合計するプロセス。
+- Diff: 計画バージョン間や設定バージョン間の差分を表示する機能。
+- Canonical設定管理: 検証済みの設定をDBで一元管理し、バージョン管理や差分比較、インポート機能を提供するシステム。
+- Canonical設定: シミュレーションや計画パイプラインの入力となる、標準化された設定データ。
+- BOM (Bill Of Materials): 部品表。製品を構成する部品とその数量を定義したもの。
+- 能力: 生産設備や輸送手段などが持つ処理能力の上限。
+- サービスレベル: 顧客要求を満たす割合。欠品率の裏返し。
+- メトリクス: システムの稼働状況やパフォーマンスを示す指標。Prometheusなどで収集される。
+- DAG (Directed Acyclic Graph): 有向非巡回グラフ。計画パイプラインの処理順序などを表現する際に用いられる。
+- ドライラン: 計画やシミュレーションを実行するが、結果を永続化したり、システムに影響を与えたりしない試行実行。
+- 本適用: ドライランと対比され、計画やシミュレーションの結果をシステムに反映させる実行。
+- 差分プレビュー: 計画変更がもたらす影響を、実際の適用前に視覚的に確認できる機能。
+- SupplyChainSimulator: サプライチェーンのPSIシミュレーションを実行するエンジン。
+- SimulationInput: SupplyChainSimulatorへの入力データモデル。
+- Datasette: SQLiteデータベースの内容をWeb UIで閲覧・探索できるツール。
+- Prometheus: 時系列データベースと監視システム。メトリクスを収集・保存・可視化する。
+- OpenTelemetry: テレメトリーデータ（メトリクス、ログ、トレース）の収集とエクスポートのためのオープンソースフレームワーク。
+- Application Database: 本アプリケーションが利用するデータベースの総称。ConfigDB, PlanDB, RunDBなどを含む。
+- FastAPI レイヤ: PythonのFastAPIフレームワークで構築されたAPI層。
+- Docs (CSV / Metrics / Logs): CSVエクスポート、メトリクス、ログなど、システムから出力されるドキュメントやデータ。
