@@ -1,4 +1,4 @@
-# ハンズオン: Planning Hub チュートリアル（P-24）
+# ハンズオン: Planning Hub チュートリアル
 
 本ガイドの目的と範囲:
 
@@ -107,12 +107,7 @@ Planning Hubで実行されるシミュレーションは、主にPSI (Productio
 - 最新Runのリストや、比較（metrics/diffs）の一括コピーで共有
 - タブを切り替え、KPIや差分、可視化（Chart.js）を参照
 
-## 7. レガシーUIとの関係（P-14）
-- 旧UI `/ui/planning` は廃止。Planning Hub（`/ui/plans`）を利用してください。
-  - Phase 2: `/ui/plans` へ302（`?allow_legacy=1` で一時回避）
-  - Phase 3: `HUB_LEGACY_CLOSE=1` で 404 ガイド（legacy_closed.html）を表示
-
-## 8. APIでの操作例（参考）
+## 7. APIでの操作例（参考）
 
 - **統合Run（同期）**
 
@@ -157,6 +152,6 @@ curl -sS http://localhost:8000/runs -H 'content-type: application/json' -d "{
 }" | jq .
 ```
 
-## 9. 用語と参照
+## 8. 用語と参照
 - 用語表: `docs/TERMS-JA.md`
 - API概要: `docs/API-OVERVIEW-JA.md`
