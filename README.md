@@ -77,12 +77,12 @@ flowchart LR
 - 代表的な運用: ① Bで変更セットを作成→差分/KPIを確認 → ② 「Plan & Run」でRunを実行 → ③ AのRunRegistryで結果を検証 → ④ BのPlanを確定/再調整。
 
 
-### 2. 計画パイプライン（Aggregate ↔ Detail）
+### 3. 計画パイプライン（Aggregate ↔ Detail）
 - `aggregate` → `allocate` → `mrp` → `reconcile_levels` → `plan_final` をDAGとして実行。
 - `docs/AGG_DET_RECONCILIATION_JA.md` にアルゴリズム、パラメタ、検証手順を整理。
 - `tests/test_psi_sync.py` でDET⇄AGG同期を回帰テスト化（CI `quick-planning-tests`）。
 
-### 3. PSIシミュレーション & RunRegistry（Aコンポーネント）
+### 4. PSIシミュレーション & RunRegistry（Aコンポーネント）
 - `SimulationInput`（domain/models）をもとに `SupplyChainSimulator` が日次PSIとコストを算定。
 - Run結果は `data/scpln.db` の RunRegistry に保存し、`/runs` や `/ui/runs` から再参照可能。
 - Run比較API・トレースエクスポートでKPI分析を自動化。
