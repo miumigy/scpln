@@ -192,7 +192,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     try:
         from app import plans_api as _plans_api
 
-        res = _plans_api.post_plans_integrated_run(options)
+        res = _plans_api.post_plans_create_and_execute(options)
         try:
             logging.info(
                 "plan_created",

@@ -6,7 +6,7 @@ from app.plans_api import (
     get_plan_psi,
     get_plan_psi_events,
     get_plan_psi_state,
-    post_plans_integrated_run,
+    post_plans_create_and_execute,
 )
 from core.config import load_canonical_config
 from core.config.storage import save_canonical_config
@@ -34,7 +34,7 @@ def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):
         "lt_unit": "day",
     }
 
-    res = post_plans_integrated_run(body)
+    res = post_plans_create_and_execute(body)
 
     try:
         assert res["version_id"] == version_id
@@ -124,7 +124,7 @@ def test_post_plans_integrated_run_db_only_storage(db_setup, tmp_path):
         "storage_mode": "db",
     }
 
-    res = post_plans_integrated_run(body)
+    res = post_plans_create_and_execute(body)
 
     try:
         assert res["version_id"] == version_id
