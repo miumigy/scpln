@@ -56,7 +56,7 @@
         <th>locked</th>
         <th>updated_at</th>
         <th class="col-wide">description</th>
-        <th>Plan &amp; Run</th>
+
         <th>Edit/Delete</th>
       </tr>
     </thead>
@@ -70,9 +70,7 @@
         <td>{{ r.locked }}</td>
         <td class="format-datetime">{{ r.updated_at }}</td>
         <td title="{{ r.description or '' }}" class="truncate-text">{{ r.description or '' }}</td>
-        <td>
-          <a class="secondary" href="/ui/plans?base_scenario_id={{ r.id }}" title="Open Plan &amp; Run with this scenario">Open in Plan &amp; Run</a>
-        </td>
+
         <td>
           <details>
             <summary>Edit</summary>
