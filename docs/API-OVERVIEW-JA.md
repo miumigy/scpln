@@ -84,8 +84,6 @@
 - GET `/ui/compare/metrics.csv?run_ids={id1},{id2}` 指標比較CSV
 - GET `/ui/compare/diffs.csv?run_ids={id1},{id2}&threshold=5` 差分比較CSV
 
-## レガシーUI
-- 旧UI `/ui/planning` は廃止しました。入口は `/ui/plans` を利用してください。
 
 備考:
 - すべてのJSON/CSVはUTF-8。CSVはtext/csv; charset=utf-8で返却。

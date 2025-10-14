@@ -185,6 +185,8 @@ flowchart LR
 | PSI編集 | `PATCH /plans/{version}/psi` | DET/AGG 双方向。`no_auto` で自動同期停止 |
 | 差分ログ再生成 | `POST /plans/{version}/psi/reconcile` | tol, anchor, carryover, adjust を制御 |
 | Run実行（抽象） | `POST /runs` | `pipeline=integrated` を既存パイプラインに委譲 |
+| Run一覧取得 | `GET /runs` | 実行履歴（RunRegistry）の一覧。`limit`, `offset` などでフィルタ可 |
+| Run詳細取得 | `GET /runs/{run_id}` | 指定したRunの詳細な結果を取得 |
 | KPIレポート | `/plans/{version}/summary`, `/compare`, `/schedule.csv` など | UIタブからのDLに対応 |
 
 メトリクス（Prometheus）やヘルスチェックは `/metrics`, `/healthz` から取得できます。
