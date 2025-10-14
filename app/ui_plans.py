@@ -838,7 +838,7 @@ def ui_plans_create_and_execute(
         "config_version_id": config_version_id,
         "base_scenario_id": base_scenario_int,
     }
-    res = _get_plans_api().post_plans_integrated_run(body)
+    res = _get_plans_api().post_plans_create_and_execute(body)
     if hasattr(res, "status_code") and res.status_code >= 400:
         error_message = "Plan作成に失敗しました。"
         try:

@@ -543,8 +543,8 @@ def _has_approve(req: Request) -> bool:
     return _has_edit(req)
 
 
-@app.post("/plans/integrated/run")
-def post_plans_integrated_run(body: Dict[str, Any] = Body(...)):
+@app.post("/plans/create_and_execute")
+def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
     import traceback
 
     logging.info("DEBUG: post_plans_integrated_run called.")
