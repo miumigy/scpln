@@ -16,6 +16,6 @@ def test_ui_scenarios_run_returns_403(monkeypatch):
             f"/ui/scenarios/{sid}/run", data={"config_id": 1}, follow_redirects=False
         )
         assert r.status_code == 403
-        assert "Plan & Run" in (r.text or "")
+        assert "Plan & Execute" in (r.text or "")
     finally:
         db.delete_scenario(sid)

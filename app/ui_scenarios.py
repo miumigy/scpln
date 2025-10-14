@@ -48,7 +48,7 @@ def ui_scenarios_post(
 @app.post("/ui/scenarios/{sid}/run")
 def ui_scenarios_run(request: Request, sid: int, config_id: int = Form(...)):
     return PlainTextResponse(
-        "Scenario-based simulation has been retired. Use Plan & Run via /ui/plans.",
+        "Scenario-based simulation has been retired. Use Plan & Execute via /ui/plans.",
         status_code=403,
     )
 
