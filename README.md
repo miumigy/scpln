@@ -11,7 +11,7 @@
 - **多粒度整合**: 集約→詳細への按分と、詳細→集約へのロールアップを同一バージョン上で管理。編集やロックを尊重した双方向同期を自動化。
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
 - **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
-- **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。運用ルールとフォールバックは `docs/run_registry_operations.md` に整理。
+- **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
 - **自動化とAPI**: `/plans/integrated/run` や `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
 
 ---
@@ -87,8 +87,6 @@ flowchart LR
 - Run結果は `data/scpln.db` の RunRegistry に保存し、`/runs` や `/ui/runs` から再参照可能。
 - Run比較API・トレースエクスポートでKPI分析を自動化。
 - Planning Hub（B）から渡されたシナリオやcutover/anchor等のPlanパラメタをRunRegistryが保持することで、A⇔B間で同じバージョンIDを軸にトレースできます。
-
-RunRegistry の標準運用フロー、監視、フォールバック手順は、関連ドキュメントを参照してください。
 
 ---
 
@@ -172,7 +170,7 @@ flowchart LR
 | --- | --- | --- |
 | **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
 | **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
-| **運用・セキュリティ** | RunRegistry/DBの運用手順、バックアップ、シークレット対応 | `docs/run_registry_operations.md`, `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
+| **運用・セキュリティ** | RunRegistry/DBの運用手順、バックアップ、シークレット対応 | `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
 | **ロードマップ / リリース** | 拡張テーマ・リリース履歴 | `docs/EXPANSION_STRATEGY_JA.md`, `CHANGELOG.md` |
 
 各ドキュメントは上記カテゴリに収め、重複内容はリンクで参照し合う構成としています。README は概要と導線を提供し、詳細は個別ドキュメントに委譲します。
