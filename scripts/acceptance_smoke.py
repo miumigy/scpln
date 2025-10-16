@@ -494,7 +494,7 @@ def main() -> int:
     except Exception as e:
         ng("AT-02 Home リダイレクト", str(e))
 
-    # AT-01: Plan 作成（UI経由: metrics計測も狙う）
+    # AT-01: Plan 作成 (UI経由・非同期)
     plan_id: Optional[str] = None
     try:
         form = {
@@ -512,30 +512,52 @@ def main() -> int:
             "apply_adjusted": 1,
         }
         r = post_form(s, f"{base}/ui/plans/create_and_execute", form)
+
+        # 1. ジョブ投入とリダイレクト先の検証
         if r.status_code not in (302, 303):
-            ng("AT-01 Plan作成", f"unexpected status: {r.status_code}")
-            print("---- server.log (tail) ----")
-            subprocess.run(["tail", "-n", "200", "server.log"])
-            print("---------------------------")
-            vid = None
-        else:
-            location = r.headers.get("Location")
-            if not location or not location.startswith("/ui/plans/"):
-                ng("AT-01 Plan作成", f"invalid redirect location: {location}")
-                vid = None
-            else:
-                vid = location.split("/")[-1]
+            raise RuntimeError(f"Plan creation failed with status: {r.status_code}")
+
+        location = r.headers.get("Location")
+        if not location or not location.startswith("/ui/jobs/"):
+            raise RuntimeError(f"Invalid redirect to non-job page: {location}")
+
+        job_url = f"{base}{location}"
+        ok("AT-01 Plan作成→ジョブ投入・リダイレクト")
+
+        # 2. ジョブの完了をポーリング
+        import time
+        import re
+        vid = None
+        for i in range(60):  # タイムアウト: 60 * 2s = 120s
+            time.sleep(2)
+            job_page = s.get(job_url, timeout=30)
+            job_page.raise_for_status()
+
+            if "status</th><td>succeeded</td>" in job_page.text:
+                # 3. 完了ページから version_id を抽出
+                match = re.search(r'href="/ui/plans/([^"]+)"', job_page.text)
+                if match:
+                    vid = match.group(1)
+                    ok("AT-01 ジョブ完了・version_id取得")
+                    break
+                else:
+                    # 成功したのにリンクが見つからない場合
+                    raise RuntimeError("Job succeeded but version_id link not found in page")
+            elif "status</th><td>failed</td>" in job_page.text:
+                raise RuntimeError("Job execution failed")
 
         if not vid:
-            ng("AT-01 Plan作成", "version_id が取得できませんでした")
+            ng("AT-01 Plan作成", "Job did not complete in time or version_id not found")
         else:
+            # 4. 後続のテストを実行
+            plan_id = vid
             # summary（必須キー）
             summ = get_json(s, f"{base}/plans/{vid}/summary")
             if "weekly_summary" in summ:
                 ok("AT-01 Plan作成→summary取得")
             else:
                 ng("AT-01 Plan作成→summary取得", "weekly_summary 欠落")
-            plan_id = vid
+
             # HTML: /ui/plans 一覧
             try:
                 rlist = s.get(f"{base}/ui/plans", timeout=30)
@@ -576,7 +598,7 @@ def main() -> int:
                 ng("HTML: /ui/plans/{id}", str(e))
     except Exception as e:
         ng("AT-01 Plan作成", str(e))
-        plan_id = None  # type: ignore
+        plan_id = None
 
     # AT-03: /runs 非同期（ジョブ投入→location）
     try:
