@@ -810,11 +810,6 @@ def ui_plans_create_and_execute(
     }
     if not (config_version_id or "").strip():
         rows, pagination = _fetch_plan_rows()
-        logging.info(f"DEBUG: ui_plans_run - plans for error page: {rows}")
-        logging.info(f"DEBUG: ui_plans_run - pagination for error page: {pagination}")
-        logging.info(
-            f"DEBUG: ui_plans_run - form_defaults for error page: {form_defaults}"
-        )
         return _render_plans_page(
             request,
             plans=rows,
@@ -823,63 +818,60 @@ def ui_plans_create_and_execute(
             form_defaults=form_defaults,
         )
 
+    # version_idを事前に採番
+    import time
+    import uuid
+    ts = int(time.time())
+    version_id = f"v{ts}-{uuid.uuid4().hex[:8]}"
+
+    # runs_api を呼び出すように変更
     body = {
-        "weeks": weeks,
-        "lt_unit": lt_unit,
-        "cutover_date": cutover_date,
-        "recon_window_days": recon_window_days,
-        "anchor_policy": anchor_policy,
-        "tol_abs": tol_abs,
-        "tol_rel": tol_rel,
-        "calendar_mode": calendar_mode,
-        "carryover": carryover,
-        "carryover_split": carryover_split,
-        "apply_adjusted": _form_bool(apply_adjusted),
-        "config_version_id": config_version_id,
-        "base_scenario_id": base_scenario_int,
+        "pipeline": "integrated",
+        "async": True,  # 非同期実行を指定
+        "options": {
+            "version_id": version_id, # 生成したversion_idを渡す
+            "weeks": weeks,
+            "lt_unit": lt_unit,
+            "cutover_date": cutover_date,
+            "recon_window_days": recon_window_days,
+            "anchor_policy": anchor_policy,
+            "tol_abs": tol_abs,
+            "tol_rel": tol_rel,
+            "calendar_mode": calendar_mode,
+            "carryover": carryover,
+            "carryover_split": carryover_split,
+            "apply_adjusted": _form_bool(apply_adjusted),
+            "config_version_id": config_version_id,
+            "base_scenario_id": base_scenario_int,
+        },
     }
-    res = _get_plans_api().post_plans_create_and_execute(body)
-    if hasattr(res, "status_code") and res.status_code >= 400:
-        error_message = "Plan作成に失敗しました。"
+    
+    res = _get_runs_api().post_runs(body)
+    from fastapi.responses import RedirectResponse
+
+    # 正常系でlocationへ誘導 (非同期の場合は /ui/jobs/{job_id})
+    if isinstance(res, dict) and res.get("location"):
+        return RedirectResponse(url=str(res.get("location")), status_code=303)
+
+    # 失敗時はエラーメッセージを表示
+    error_message = "ジョブの投入に失敗しました。"
+    if hasattr(res, "body"):
         try:
             payload = json.loads(res.body)
             detail = payload.get("detail") if isinstance(payload, dict) else None
             if isinstance(detail, str) and detail:
                 error_message = detail
-            elif isinstance(detail, dict):
-                error_message = detail.get("message") or json.dumps(
-                    detail, ensure_ascii=False
-                )
-            elif isinstance(detail, list):
-                error_message = "; ".join(str(item) for item in detail if item)
         except Exception:
             pass
-        rows = _fetch_plan_rows()
-        return _render_plans_page(
-            request,
-            plans=rows,
-            error=error_message,
-            form_defaults=form_defaults,
-        )
-    version_id = res.get("version_id")
-    # 計測イベント: plan_created（新規作成）
-    try:
-        logging.info(
-            "plan_created",
-            extra={
-                "event": "plan_created",
-                "version_id": version_id,
-                "weeks": weeks,
-                "lt_unit": lt_unit,
-                "anchor_policy": anchor_policy,
-            },
-        )
-        try:
-            PLANS_CREATED.inc()
-        except Exception:
-            pass
-    except Exception:
-        pass
-    from fastapi.responses import RedirectResponse
+    elif isinstance(res, dict) and res.get("detail"):
+        error_message = res.get("detail")
 
-    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+    rows, pagination = _fetch_plan_rows()
+    return _render_plans_page(
+        request,
+        plans=rows,
+        pagination=pagination,
+        error=error_message,
+        form_defaults=form_defaults,
+    )

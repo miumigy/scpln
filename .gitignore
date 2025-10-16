@@ -24,3 +24,4 @@ tmp/
 # Datasette files
 datasette.out
 datasette.pid
+scpln.db
