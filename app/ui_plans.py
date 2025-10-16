@@ -422,7 +422,7 @@ def ui_plan_detail(version_id: str, request: Request):
 
     run_rows_all: list[dict] = []
     try:
-        from app.run_registry import REGISTRY  # type: ignore
+        from app.run_registry import REGISTRY
 
         if hasattr(REGISTRY, "list_page"):
             try:
