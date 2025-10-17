@@ -5,6 +5,9 @@
 {% endblock %}
 {% block content %}
 <section class="page-section">
+  {% if error %}
+  <p class="mono warn-text">{{ error }}</p>
+  {% endif %}
   <div class="section-header">
     <div>
       <h3>Canonical Configuration Versions</h3>

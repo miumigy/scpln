@@ -118,7 +118,7 @@ def _render_import_template(
 
 
 @app.get("/ui/configs", response_class=HTMLResponse)
-def ui_configs_list(request: Request):
+def ui_configs_list(request: Request, error: str | None = Query(None)):
     logging.info("ui_configs_list function called.")
     sample_files_dir = _BASE_DIR / "samples" / "canonical"
     sample_files = [
@@ -171,6 +171,7 @@ def ui_configs_list(request: Request):
                 "diff_options": diff_options,
 
                 "sample_files": sample_files,
+                "error": error,
 
             },
 
@@ -256,25 +257,22 @@ def ui_canonical_config_diff(
 
 @app.post("/ui/configs/canonical/sample")
 def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
+    from fastapi.responses import RedirectResponse
+    error_url = "/ui/configs?error="
+
     sample_path = _BASE_DIR / "samples" / "canonical" / sample_file
     if not sample_path.exists():
-        raise HTTPException(status_code=404, detail=f"Canonical sample '{sample_file}' not found")
+        return RedirectResponse(url=error_url + f"Canonical sample '{sample_file}' not found", status_code=303)
 
     try:
         payload = json.loads(sample_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to parse canonical sample JSON: {exc}",
-        )
+        return RedirectResponse(url=error_url + f"Failed to parse canonical sample JSON: {exc}", status_code=303)
 
     try:
         config = CanonicalConfig.model_validate(payload)
     except ValidationError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to validate canonical sample JSON: {exc}",
-        )
+        return RedirectResponse(url=error_url + f"Failed to validate canonical sample JSON: {exc}", status_code=303)
 
     config.meta.attributes.setdefault("ui_import", {})
     config.meta.attributes["ui_import"].update(
@@ -289,10 +287,7 @@ def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
         messages = ", ".join(
             f"{issue.code}: {issue.message}" for issue in validation.issues
         )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Consistency check for canonical sample failed: {messages}",
-        )
+        return RedirectResponse(url=error_url + f"Consistency check for canonical sample failed: {messages}", status_code=303)
 
     version_id = save_canonical_config(config)
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
