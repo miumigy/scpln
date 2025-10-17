@@ -6,12 +6,11 @@ from typing import Any, Dict, List
 import logging
 logging.info("ui_configs module loaded.")
 
-from fastapi import File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from app.api import app
 from app.db import (
     get_plan_artifact,
     list_plan_versions,
@@ -28,6 +27,8 @@ from core.config import (
     validate_canonical_config,
     delete_canonical_config,
 )
+
+router = APIRouter()
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -117,7 +118,7 @@ def _render_import_template(
     )
 
 
-@app.get("/ui/configs", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse)
 def ui_configs_list(request: Request, error: str | None = Query(None)):
     logging.info("ui_configs_list function called.")
     sample_files_dir = _BASE_DIR / "samples" / "canonical"
@@ -178,12 +179,12 @@ def ui_configs_list(request: Request, error: str | None = Query(None)):
         )
 
 
-@app.get("/ui/configs/canonical")
+@router.get("/canonical")
 def ui_canonical_configs_redirect():
     return RedirectResponse(url="/ui/configs", status_code=307)
 
 
-@app.get("/ui/configs/canonical/import", response_class=HTMLResponse)
+@router.get("/canonical/import", response_class=HTMLResponse)
 def ui_canonical_config_import(request: Request, parent_version_id: int | None = Query()):
     json_text = ""
     if parent_version_id:
@@ -195,7 +196,7 @@ def ui_canonical_config_import(request: Request, parent_version_id: int | None =
     return _render_import_template(request, json_text=json_text)
 
 
-@app.get("/ui/configs/canonical/diff", response_class=HTMLResponse)
+@router.get("/canonical/diff", response_class=HTMLResponse)
 def ui_canonical_config_diff(
     request: Request, base_id: int = Query(...), compare_id: int = Query(...)
 ):
@@ -255,7 +256,7 @@ def ui_canonical_config_diff(
     )
 
 
-@app.post("/ui/configs/canonical/sample")
+@router.post("/canonical/sample")
 def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
     from fastapi.responses import RedirectResponse
     error_url = "/ui/configs?error="
@@ -293,7 +294,7 @@ def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
-@app.get("/ui/configs/canonical/{version_id}", response_class=HTMLResponse)
+@router.get("/canonical/{version_id}", response_class=HTMLResponse)
 def ui_canonical_config_detail(request: Request, version_id: int):
     try:
         config, validation = load_canonical_config_from_db(version_id, validate=True)
@@ -355,7 +356,7 @@ def ui_canonical_config_detail(request: Request, version_id: int):
     )
 
 
-@app.post("/ui/configs/canonical/{version_id}/delete")
+@router.post("/canonical/{version_id}/delete")
 def ui_canonical_config_delete(version_id: int):
     try:
         delete_canonical_config(version_id)
@@ -364,7 +365,7 @@ def ui_canonical_config_delete(version_id: int):
     return RedirectResponse(url="/ui/configs", status_code=303)
 
 
-@app.get("/ui/configs/canonical/{version_id}/json")
+@router.get("/canonical/{version_id}/json")
 def ui_canonical_config_download(version_id: int):
     try:
         config, _ = load_canonical_config_from_db(version_id, validate=False)
@@ -379,7 +380,7 @@ def ui_canonical_config_download(version_id: int):
     )
 
 
-@app.post("/ui/configs/canonical/import/json")
+@router.post("/canonical/import/json")
 async def ui_canonical_config_import_json(
     request: Request,
     name: str = Form(...),
@@ -451,7 +452,7 @@ async def ui_canonical_config_import_json(
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
-@app.post("/ui/configs/canonical/import/plan")
+@router.post("/canonical/import/plan")
 def ui_canonical_config_import_plan(
     request: Request,
     plan_version_id: str = Form(...),
