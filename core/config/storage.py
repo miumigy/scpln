@@ -45,6 +45,164 @@ def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
         updated_at=row["updated_at"],
     )
 
+def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
+    return ConfigMeta(
+        version_id=row["id"],
+        name=row["name"],
+        schema_version=row["schema_version"],
+        version_tag=row["version_tag"],
+        status=row["status"],
+        description=row["description"],
+        source_config_id=row["source_config_id"],
+        parent_version_id=row["parent_version_id"],
+        is_deleted=bool(row["is_deleted"]),
+        attributes=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+def _row_to_item(row: sqlite3.Row) -> CanonicalItem:
+    return CanonicalItem(
+        code=row["item_code"],
+        name=row["item_name"],
+        item_type=row["item_type"],
+        uom=row["uom"],
+        lead_time_days=row["lead_time_days"],
+        lot_size=row["lot_size"],
+        min_order_qty=row["min_order_qty"],
+        safety_stock=row["safety_stock"],
+        unit_cost=row["unit_cost"],
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_node(
+    row: sqlite3.Row,
+    inventory_map: Dict[str, List[NodeInventoryPolicy]],
+    production_map: Dict[str, List[NodeProductionPolicy]],
+) -> CanonicalNode:
+    node_code = row["node_code"]
+    return CanonicalNode(
+        code=node_code,
+        name=row["node_name"],
+        node_type=row["node_type"],
+        timezone=row["timezone"],
+        region=row["region"],
+        service_level=row["service_level"],
+        lead_time_days=row["lead_time_days"],
+        storage_capacity=row["storage_capacity"],
+        allow_storage_over_capacity=bool(row["allow_storage_over_capacity"]),
+        storage_cost_fixed=row["storage_cost_fixed"],
+        storage_over_capacity_fixed_cost=row["storage_over_capacity_fixed_cost"],
+        storage_over_capacity_variable_cost=row["storage_over_capacity_variable_cost"],
+        review_period_days=row["review_period_days"],
+        inventory_policies=inventory_map.get(node_code, []),
+        production_policies=production_map.get(node_code, []),
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_arc(row: sqlite3.Row) -> CanonicalArc:
+    return CanonicalArc(
+        from_node=row["from_node"],
+        to_node=row["to_node"],
+        arc_type=row["arc_type"],
+        lead_time_days=row["lead_time_days"],
+        capacity_per_day=row["capacity_per_day"],
+        allow_over_capacity=bool(row["allow_over_capacity"]),
+        transportation_cost_fixed=row["transportation_cost_fixed"],
+        transportation_cost_variable=row["transportation_cost_variable"],
+        min_order_qty=json.loads(row["min_order_json"]) if row["min_order_json"] else {},
+        order_multiple=json.loads(row["order_multiple_json"]) if row["order_multiple_json"] else {},
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_bom(row: sqlite3.Row) -> CanonicalBom:
+    return CanonicalBom(
+        parent_item=row["parent_item"],
+        child_item=row["child_item"],
+        quantity=row["quantity"],
+        scrap_rate=row["scrap_rate"],
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_demand(row: sqlite3.Row) -> DemandProfile:
+    return DemandProfile(
+        node_code=row["node_code"],
+        item_code=row["item_code"],
+        bucket=row["bucket"],
+        demand_model=row["demand_model"],
+        mean=row["mean"],
+        std_dev=row["std_dev"],
+        min_qty=row["min_qty"],
+        max_qty=row["max_qty"],
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_capacity(row: sqlite3.Row) -> CapacityProfile:
+    return CapacityProfile(
+        resource_code=row["resource_code"],
+        resource_type=row["resource_type"],
+        bucket=row["bucket"],
+        capacity=row["capacity"],
+        calendar_code=row["calendar_code"],
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_hierarchy(row: sqlite3.Row) -> HierarchyEntry:
+    return HierarchyEntry(
+        hierarchy_type=row["hierarchy_type"],
+        node_key=row["node_key"],
+        parent_key=row["parent_key"],
+        level=row["level"],
+        sort_order=row["sort_order"],
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _row_to_calendar(row: sqlite3.Row) -> CalendarDefinition:
+    return CalendarDefinition(
+        calendar_code=row["calendar_code"],
+        timezone=row["timezone"],
+        definition=json.loads(row["definition_json"]) if row["definition_json"] else {},
+        attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+    )
+
+def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPolicy]]:
+    grouped = defaultdict(list)
+    for row in rows:
+        grouped[row["node_code"]].append(
+            NodeInventoryPolicy(
+                item_code=row["item_code"],
+                initial_inventory=row["initial_inventory"],
+                reorder_point=row["reorder_point"],
+                order_up_to=row["order_up_to"],
+                min_order_qty=row["min_order_qty"],
+                order_multiple=row["order_multiple"],
+                safety_stock=row["safety_stock"],
+                storage_cost=row["storage_cost"],
+                stockout_cost=row["stockout_cost"],
+                backorder_cost=row["backorder_cost"],
+                lead_time_days=row["lead_time_days"],
+                attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+            )
+        )
+    return grouped
+
+def _group_production(rows: List[sqlite3.Row]) -> Dict[str, List[NodeProductionPolicy]]:
+    grouped = defaultdict(list)
+    for row in rows:
+        grouped[row["node_code"]].append(
+            NodeProductionPolicy(
+                item_code=row["item_code"],
+                production_capacity=row["production_capacity"],
+                allow_over_capacity=bool(row["allow_over_capacity"]),
+                over_capacity_fixed_cost=row["over_capacity_fixed_cost"],
+                over_capacity_variable_cost=row["over_capacity_variable_cost"],
+                production_cost_fixed=row["production_cost_fixed"],
+                production_cost_variable=row["production_cost_variable"],
+                attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+            )
+        )
+    return grouped
+
 @dataclass
 class CanonicalVersionSummary:
     """Canonical設定のメタ情報と件数サマリ。"""
