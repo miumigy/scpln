@@ -102,6 +102,12 @@ except Exception:
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+def read_root():
+    return RedirectResponse(url="/ui/plans")
+
 try:
     from app.metrics import start_metrics_server
 
