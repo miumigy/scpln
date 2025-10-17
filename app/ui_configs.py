@@ -139,19 +139,49 @@ def ui_configs_list(request: Request):
         meta_dict["updated_at_str"] = _format_time(meta_dict.get("updated_at"))
         canonical_rows.append({"meta": meta_dict, "counts": summary.counts})
 
-    logging.info(f"Canonical rows: {canonical_rows}")
+        logging.info(f"Canonical rows: {canonical_rows}")
 
+    
 
-    return templates.TemplateResponse(
-        request,
-        "configs_list.html",
-        {
-            "subtitle": "Configuration Management",
-            "canonical_rows": canonical_rows,
-            "diff_options": diff_options,
-            "sample_files": sample_files,
-        },
-    )
+        diff_options = [
+
+            {
+
+                "id": s.meta.version_id,
+
+                "name": s.meta.name,
+
+                "status": s.meta.status,
+
+            }
+
+            for s in canonical_summaries
+
+            if s.meta.version_id is not None
+
+        ]
+
+    
+
+        return templates.TemplateResponse(
+
+            request,
+
+            "configs_list.html",
+
+            {
+
+                "subtitle": "Configuration Management",
+
+                "canonical_rows": canonical_rows,
+
+                "diff_options": diff_options,
+
+                "sample_files": sample_files,
+
+            },
+
+        )
 
 
 @app.get("/ui/configs/canonical")
