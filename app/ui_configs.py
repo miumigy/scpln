@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, List
+import logging
 
 from fastapi import File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -121,9 +122,16 @@ def ui_configs_list(request: Request):
         f.name for f in sample_files_dir.glob("*.json") if f.is_file()
     ]
 
-    canonical_summaries: List[CanonicalVersionSummary] = (
-        list_canonical_version_summaries(limit=30, include_deleted=False)
-    )
+    try:
+        canonical_summaries: List[CanonicalVersionSummary] = (
+            list_canonical_version_version_summaries(limit=30, include_deleted=False)
+        )
+    except Exception as e:
+        logging.exception(f"Error fetching canonical summaries: {e}")
+        canonical_summaries = []
+
+    logging.info(f"Canonical summaries: {canonical_summaries}")
+
     canonical_rows: List[Dict[str, Any]] = []
     for summary in canonical_summaries:
         meta_dict = summary.meta.model_dump()
@@ -131,7 +139,8 @@ def ui_configs_list(request: Request):
         meta_dict["updated_at_str"] = _format_time(meta_dict.get("updated_at"))
         canonical_rows.append({"meta": meta_dict, "counts": summary.counts})
 
-    diff_options = [
+    logging.info(f"Canonical rows: {canonical_rows}")
+    return [
         {
             "id": row["meta"].get("version_id"),
             "name": row["meta"].get("name"),
