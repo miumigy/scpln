@@ -140,15 +140,7 @@ def ui_configs_list(request: Request):
         canonical_rows.append({"meta": meta_dict, "counts": summary.counts})
 
     logging.info(f"Canonical rows: {canonical_rows}")
-    return [
-        {
-            "id": row["meta"].get("version_id"),
-            "name": row["meta"].get("name"),
-            "status": row["meta"].get("status"),
-        }
-        for row in canonical_rows
-        if row["meta"].get("version_id") is not None
-    ]
+
 
     return templates.TemplateResponse(
         request,
