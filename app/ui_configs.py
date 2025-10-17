@@ -24,6 +24,7 @@ from core.config import (
     load_canonical_config_from_db,
     save_canonical_config,
     validate_canonical_config,
+    delete_canonical_config,
 )
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
@@ -121,7 +122,7 @@ def ui_configs_list(request: Request):
     ]
 
     canonical_summaries: List[CanonicalVersionSummary] = (
-        list_canonical_version_summaries(limit=30)
+        list_canonical_version_summaries(limit=30, include_deleted=False)
     )
     canonical_rows: List[Dict[str, Any]] = []
     for summary in canonical_summaries:
@@ -326,6 +327,15 @@ def ui_canonical_config_detail(request: Request, version_id: int):
             "preview_truncated": truncated,
         },
     )
+
+
+@app.post("/ui/configs/canonical/{version_id}/delete")
+def ui_canonical_config_delete(version_id: int):
+    try:
+        delete_canonical_config(version_id)
+    except CanonicalConfigNotFoundError:
+        raise HTTPException(status_code=404, detail="canonical config not found")
+    return RedirectResponse(url="/ui/configs", status_code=303)
 
 
 @app.get("/ui/configs/canonical/{version_id}/json")

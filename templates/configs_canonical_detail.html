@@ -13,6 +13,8 @@
     <div class="toolbar">
       <a role="button" href="/ui/configs">Back to list</a>
       <a role="button" class="secondary" href="/ui/configs/canonical/{{ version_id }}/json">Download JSON</a>
+      <a role="button" class="secondary" href="/ui/configs/canonical/import?parent_version_id={{ version_id }}">Edit</a>
+      <button type="button" class="secondary" onclick="confirmDelete({{ version_id }})">Delete</button>
     </div>
   </div>
   <div class="grid-form grid-2">

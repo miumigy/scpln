@@ -481,6 +481,28 @@
     });
   })();
   </script>
-  {% block scripts %}{% endblock %}
+  {% block scripts %}
+  <script>
+    function confirmDelete(versionId) {
+      if (confirm(`Configバージョン ${versionId} を削除してもよろしいですか？この操作は元に戻せません。`)) {
+        fetch(`/ui/configs/canonical/${versionId}/delete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }).then(response => {
+          if (response.ok) {
+            window.location.href = '/ui/configs';
+          } else {
+            alert('Configの削除に失敗しました。');
+          }
+        }).catch(error => {
+          console.error('Error:', error);
+          alert('Configの削除中にエラーが発生しました。');
+        });
+      }
+    }
+  </script>
+  {% endblock %}
 </body>
 </html>

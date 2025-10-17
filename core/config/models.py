@@ -24,9 +24,14 @@ class ConfigMeta(BaseModel):
     )
     status: Literal["draft", "active", "archived"] = Field(default="draft")
     description: Optional[str] = Field(default=None)
+    attributes: Dict[str, Any] = Field(default_factory=dict, description="追加のメタデータ")
     source_config_id: Optional[int] = Field(
         default=None, description="旧`configs`テーブル由来のID"
     )
+    parent_version_id: Optional[int] = Field(
+        default=None, description="このConfigが派生した元のConfigのバージョンID"
+    )
+    is_deleted: bool = Field(default=False, description="論理削除フラグ")
     created_at: Optional[int] = Field(default=None, description="ミリ秒UNIX時間")
     updated_at: Optional[int] = Field(default=None, description="ミリ秒UNIX時間")
     attributes: Dict[str, Any] = Field(
