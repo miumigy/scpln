@@ -11,9 +11,16 @@
       <p>Snapshots shared by PSI and Planning pipelines.</p>
     </div>
     <div class="toolbar">
-      <form method="post" action="/ui/configs/canonical/sample" class="inline">
-        <button type="submit">Load Sample</button>
-      </form>
+<form action="/ui/configs/canonical/sample" method="post" class="d-inline">
+      <div class="input-group">
+        <select name="sample_file" class="form-select">
+          {% for sample in sample_files %}
+          <option value="{{ sample }}">{{ sample }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-primary">Load Sample</button>
+      </div>
+    </form>
       <a role="button" href="/ui/configs/canonical/import">Import Canonical Configuration</a>
       <a role="button" class="secondary" href="/ui/configs">Refresh</a>
     </div>

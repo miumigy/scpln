@@ -106,7 +106,7 @@
     {
       "node_code": "DC-001",
       "item_code": "SKU-FG",
-      "bucket": "W1",
+      "bucket": "M1",
       "demand_model": "normal",
       "mean": 60,
       "std_dev": 10
@@ -114,7 +114,7 @@
     {
       "node_code": "DC-001",
       "item_code": "SKU-FG",
-      "bucket": "W2",
+      "bucket": "M2",
       "demand_model": "normal",
       "mean": 70,
       "std_dev": 12
@@ -124,13 +124,13 @@
     {
       "resource_code": "FACT-001",
       "resource_type": "node",
-      "bucket": "W1",
+      "bucket": "M1",
       "capacity": 400
     },
     {
       "resource_code": "FACT-001",
       "resource_type": "node",
-      "bucket": "W2",
+      "bucket": "M2",
       "capacity": 400
     }
   ],

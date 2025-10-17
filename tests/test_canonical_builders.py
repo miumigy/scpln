@@ -85,7 +85,7 @@ def test_build_planning_inputs_without_payload_fallback():
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
 
-    assert len(aggregate.demand_family) == len(config.demands)
+    assert len(aggregate.demand_family) == 2
     assert all(
         record.family in {d.item_code for d in config.demands}
         for record in aggregate.demand_family

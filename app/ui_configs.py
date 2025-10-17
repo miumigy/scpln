@@ -27,7 +27,7 @@ from core.config import (
 )
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
-_SAMPLE_CANONICAL_PATH = _BASE_DIR / "samples" / "canonical" / "canonical_sample.json"
+
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 
@@ -115,6 +115,11 @@ def _render_import_template(
 
 @app.get("/ui/configs", response_class=HTMLResponse)
 def ui_configs_list(request: Request):
+    sample_files_dir = _BASE_DIR / "samples" / "canonical"
+    sample_files = [
+        f.name for f in sample_files_dir.glob("*.json") if f.is_file()
+    ]
+
     canonical_summaries: List[CanonicalVersionSummary] = (
         list_canonical_version_summaries(limit=30)
     )
@@ -142,6 +147,7 @@ def ui_configs_list(request: Request):
             "subtitle": "Configuration Management",
             "canonical_rows": canonical_rows,
             "diff_options": diff_options,
+            "sample_files": sample_files,
         },
     )
 
@@ -217,12 +223,13 @@ def ui_canonical_config_diff(
 
 
 @app.post("/ui/configs/canonical/sample")
-def ui_canonical_config_seed_sample():
-    if not _SAMPLE_CANONICAL_PATH.exists():
-        raise HTTPException(status_code=404, detail="canonical sample not found")
+def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
+    sample_path = _BASE_DIR / "samples" / "canonical" / sample_file
+    if not sample_path.exists():
+        raise HTTPException(status_code=404, detail=f"Canonical sample '{sample_file}' not found")
 
     try:
-        payload = json.loads(_SAMPLE_CANONICAL_PATH.read_text(encoding="utf-8"))
+        payload = json.loads(sample_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=500,
@@ -241,7 +248,7 @@ def ui_canonical_config_seed_sample():
     config.meta.attributes["ui_import"].update(
         {
             "source": "sample",
-            "path": str(_SAMPLE_CANONICAL_PATH.relative_to(_BASE_DIR)),
+            "path": str(sample_path.relative_to(_BASE_DIR)),
         }
     )
 

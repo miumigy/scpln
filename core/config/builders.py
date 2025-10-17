@@ -445,13 +445,25 @@ def _normalize_period_entries(
 def _build_planning_bundle_from_canonical(
     config: CanonicalConfig,
 ) -> PlanningDataBundle:
+    product_hierarchy = {
+        h.node_key: h.parent_key
+        for h in config.hierarchies
+        if h.hierarchy_type == "product" and h.parent_key
+    }
+
+    demand_by_family_period = defaultdict(float)
+    for profile in config.demands:
+        family = product_hierarchy.get(profile.item_code, profile.item_code)
+        period = str(profile.bucket)
+        demand_by_family_period[(family, period)] += profile.mean
+
     demand_family = [
         FamilyDemandRecord(
-            family=profile.item_code,
-            period=str(profile.bucket),
-            demand=profile.mean,
+            family=family,
+            period=period,
+            demand=demand,
         )
-        for profile in config.demands
+        for (family, period), demand in demand_by_family_period.items()
     ]
 
     capacity = [
@@ -484,9 +496,20 @@ def _build_planning_bundle_from_canonical(
             )
 
     mix_share = []
-    families = {record.family for record in demand_family}
-    for family in families:
-        mix_share.append(MixShareRecord(family=family, sku=family, share=1.0))
+    sku_by_family = defaultdict(list)
+    for h in config.hierarchies:
+        if h.hierarchy_type == "product" and h.parent_key and h.level == "sku":
+            sku_by_family[h.parent_key].append(h.node_key)
+
+    if sku_by_family:
+        for family, skus in sku_by_family.items():
+            share = 1.0 / len(skus) if skus else 1.0
+            for sku in skus:
+                mix_share.append(MixShareRecord(family=family, sku=sku, share=share))
+    else:
+        families = {record.family for record in demand_family}
+        for family in families:
+            mix_share.append(MixShareRecord(family=family, sku=family, share=1.0))
 
     open_po: List[OpenPORecord] = []
 
