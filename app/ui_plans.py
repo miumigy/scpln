@@ -18,7 +18,6 @@ from app.metrics import (
     PLAN_DB_LAST_TRIM_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
     PLAN_SERIES_ROWS_TOTAL,
-    PLANS_CREATED,
     PLANS_RECONCILED,
     PLANS_VIEWED,
 )
@@ -821,6 +820,7 @@ def ui_plans_create_and_execute(
     # version_idを事前に採番
     import time
     import uuid
+
     ts = int(time.time())
     version_id = f"v{ts}-{uuid.uuid4().hex[:8]}"
 
@@ -829,7 +829,7 @@ def ui_plans_create_and_execute(
         "pipeline": "integrated",
         "async": True,  # 非同期実行を指定
         "options": {
-            "version_id": version_id, # 生成したversion_idを渡す
+            "version_id": version_id,  # 生成したversion_idを渡す
             "weeks": weeks,
             "lt_unit": lt_unit,
             "cutover_date": cutover_date,
@@ -845,7 +845,7 @@ def ui_plans_create_and_execute(
             "base_scenario_id": base_scenario_int,
         },
     }
-    
+
     res = _get_runs_api().post_runs(body)
     from fastapi.responses import RedirectResponse
 
@@ -865,7 +865,6 @@ def ui_plans_create_and_execute(
             pass
     elif isinstance(res, dict) and res.get("detail"):
         error_message = res.get("detail")
-
 
     rows, pagination = _fetch_plan_rows()
     return _render_plans_page(
