@@ -183,7 +183,7 @@ def ui_canonical_configs_redirect():
 
 
 @app.get("/ui/configs/canonical/import", response_class=HTMLResponse)
-def ui_canonical_config_import(request: Request, parent_version_id: Optional[int] = Query(None)):
+def ui_canonical_config_import(request: Request, parent_version_id: typing.Optional[int] = Query(None)):
     json_text = ""
     if parent_version_id:
         try:
