@@ -527,6 +527,7 @@ def main() -> int:
         # 2. ジョブの完了をポーリング
         import time
         import re
+
         vid = None
         for i in range(60):  # タイムアウト: 60 * 2s = 120s
             time.sleep(2)
@@ -542,7 +543,9 @@ def main() -> int:
                     break
                 else:
                     # 成功したのにリンクが見つからない場合
-                    raise RuntimeError("Job succeeded but version_id link not found in page")
+                    raise RuntimeError(
+                        "Job succeeded but version_id link not found in page"
+                    )
             elif "status</th><td>failed</td>" in job_page.text:
                 raise RuntimeError("Job execution failed")
 
