@@ -24,6 +24,7 @@ from .storage import (
     load_canonical_config_from_db,
     get_canonical_config,
     CanonicalConfigNotFoundError,
+    delete_canonical_config,
 )
 from .diff import EntityDiff, diff_canonical_configs
 
@@ -54,6 +55,7 @@ __all__ = [
     "load_canonical_config_from_db",
     "get_canonical_config",
     "CanonicalConfigNotFoundError",
+    "delete_canonical_config",
     "EntityDiff",
     "diff_canonical_configs",
 ]
