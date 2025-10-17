@@ -1,3 +1,5 @@
+# ... 既存のインポート ...
+
 from app.api import app
 import os
 from domain.models import SimulationInput
@@ -20,89 +22,118 @@ try:
 except Exception:
     pass
 
+# 各ルーターを明示的にインポートし、appに登録
 try:
-    from app import simulation_api as _simulation_api  # noqa: F401
-
+    from app import simulation_api as _simulation_api
     app.include_router(_simulation_api.router)
     _SIM_LOADED = True
 except Exception:
     _SIM_LOADED = False
 
 try:
-    from app import run_compare_api as _run_compare_api  # noqa: F401
+    from app import run_compare_api as _run_compare_api
+    app.include_router(_run_compare_api.router)
 except Exception:
     pass
 
 try:
-    from app import run_list_api as _run_list_api  # noqa: F401
+    from app import run_list_api as _run_list_api
+    app.include_router(_run_list_api.router)
 except Exception:
     pass
 
 try:
-    from app import trace_export_api as _trace_export_api  # noqa: F401
+    from app import trace_export_api as _trace_export_api
+    app.include_router(_trace_export_api.router)
 except Exception:
     pass
 
 try:
-    from app import ui_runs as _ui_runs  # noqa: F401
+    from app import ui_runs as _ui_runs
+    app.include_router(_ui_runs.router)
 except Exception:
     pass
 
 try:
-    from app import ui_compare as _ui_compare  # noqa: F401
+    from app import ui_compare as _ui_compare
+    app.include_router(_ui_compare.router)
 except Exception:
     pass
 
 # jobs API/UI の登録
 try:
-    from app import jobs_api as _jobs_api  # noqa: F401
-    from app import ui_jobs as _ui_jobs  # noqa: F401
+    from app import jobs_api as _jobs_api
+    from app import ui_jobs as _ui_jobs
+    app.include_router(_jobs_api.router)
+    app.include_router(_ui_jobs.router)
 except Exception:
     pass
 
+# config API/UI の登録
 try:
-    from app import config_api as _config_api  # noqa: F401
-    from app import ui_configs as _ui_configs  # noqa: F401
+    from app import config_api as _config_api
+    from app import ui_configs as _ui_configs
+    app.include_router(_config_api.router)
+    app.include_router(_ui_configs.router)
 except Exception:
     pass
-
 
 # phase2: scenarios API/UI
 try:
-    from app import scenario_api as _scenario_api  # noqa: F401
-    from app import ui_scenarios as _ui_scenarios  # noqa: F401
+    from app import scenario_api as _scenario_api
+    from app import ui_scenarios as _ui_scenarios
+    app.include_router(_scenario_api.router)
+    app.include_router(_ui_scenarios.router)
 except Exception:
     pass
 
 # planning UI（粗密計画）
 try:
-    from app import ui_planning as _ui_planning  # noqa: F401
+    from app import ui_planning as _ui_planning
+    app.include_router(_ui_planning.router)
 except Exception:
     pass
 
 # plans API (v3)
 try:
-    from app import plans_api as _plans_api  # noqa: F401
+    from app import plans_api as _plans_api
+    app.include_router(_plans_api.router)
 except Exception:
     pass
 
 # plans UI
 try:
     from app import ui_plans
-
     app.include_router(ui_plans.router)
 except Exception:
     pass
 
 # runs API (adapter)
 try:
-    from app import runs_api as _runs_api  # noqa: F401
+    from app import runs_api as _runs_api
+    app.include_router(_runs_api.router)
 except Exception:
     pass
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 from fastapi.responses import RedirectResponse
+
+from fastapi import Query, Request
+from fastapi.responses import RedirectResponse
+from fastapi.exceptions import HTTPException
+from starlette.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def unicorn_exception_handler(request: Request, exc: Exception):
+    logging.exception(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "message": f"Internal Server Error: {exc}",
+            "detail": "An unexpected error occurred. Please check server logs.",
+        },
+    )
 
 @app.get("/")
 def read_root():
@@ -220,14 +251,6 @@ if __name__ == "__main__":
                 item, qty, _src, dest, _is_bo = rec
             in_transit_at_end[(dest, item)] += qty
 
-    logging.info("CUMULATIVE ORDERED:")
-    logging.info(simulator.cumulative_ordered)
-    logging.info("CUMULATIVE RECEIVED:")
-    logging.info(simulator.cumulative_received)
-    logging.info("IN TRANSIT AT END:")
-    logging.info(in_transit_at_end)
-
-    validation_passed = True
     all_keys = set(simulator.cumulative_ordered.keys()) | set(
         simulator.cumulative_received.keys()
     )

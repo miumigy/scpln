@@ -500,15 +500,20 @@ def save_canonical_config(
     path = _resolve_db_path(db_path)
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         version_id = _insert_canonical_snapshot(cur, config)
-        conn.commit()
-    # モデル側へ反映
-    config.meta.version_id = version_id
-    now_ms = int(time.time() * 1000)
-    if config.meta.created_at is None:
-        config.meta.created_at = now_ms
-    if config.meta.updated_at is None:
-        config.meta.updated_at = now_ms
-    _update_canonical_meta(cur, config.meta)
+        # モデル側へ反映
+        config.meta.version_id = version_id
+        now_ms = int(time.time() * 1000)
+        if config.meta.created_at is None:
+            config.meta.created_at = now_ms
+        config.meta.updated_at = now_ms # updated_at を常に更新
+
+        # metadata_json を更新
+        attributes = dict(config.meta.attributes or {})
+        cur.execute(
+            "UPDATE canonical_config_versions SET updated_at = ?, metadata_json = ? WHERE id = ?",
+            (now_ms, json.dumps(attributes, ensure_ascii=False), version_id),
+        )
+        conn.commit() # ここでコミット
     return version_id
 
 
@@ -889,10 +894,9 @@ __all__ = [
 
 
 def _resolve_db_path(db_path: Optional[str]) -> str:
-    from app.db import (
-        _DEFAULT_DB,
-        _current_db_path,
-    )  # lazy import to avoid circular dependency
+    import os
+    from pathlib import Path
+    from app.db import _DEFAULT_DB, _current_db_path # ここで遅延インポート
 
     if _current_db_path:
         return _current_db_path
