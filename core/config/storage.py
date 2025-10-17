@@ -11,6 +11,8 @@ from contextlib import closing
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
+from app.db import _conn
+
 from .models import (
     CalendarDefinition,
     CanonicalArc,
@@ -27,6 +29,21 @@ from .models import (
 )
 from .validators import ValidationResult, validate_canonical_config
 
+def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
+    return ConfigMeta(
+        version_id=row["id"],
+        name=row["name"],
+        schema_version=row["schema_version"],
+        version_tag=row["version_tag"],
+        status=row["status"],
+        description=row["description"],
+        source_config_id=row["source_config_id"],
+        parent_version_id=row["parent_version_id"],
+        is_deleted=bool(row["is_deleted"]),
+        attributes=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 @dataclass
 class CanonicalVersionSummary:
@@ -41,24 +58,11 @@ class CanonicalConfigNotFoundError(RuntimeError):
 
 
 def list_canonical_versions(
-
-
     *, limit: int = 50, db_path: Optional[str] = None, include_deleted: bool = False
-
-
 ) -> List[ConfigMeta]:
-
-
     """保存済みCanonical設定のメタ情報を取得する。"""
-
-
-
-
-
     path = _resolve_db_path(db_path)
-
-
-    with closing(_connect(path)) as conn, closing(conn.cursor()) as cur:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
 
 
         query = """
@@ -158,7 +162,7 @@ def get_canonical_config(
     """指定IDのCanonical設定を復元する。"""
 
     path = _resolve_db_path(db_path)
-    with closing(_connect(path)) as conn, closing(conn.cursor()) as cur:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         meta_row = cur.execute(
             """
             SELECT id, name, schema_version, version_tag, status, description,
@@ -336,8 +340,7 @@ def save_canonical_config(
     """Canonical設定をDBへ保存し、新しいversion_idを返す。"""
 
     path = _resolve_db_path(db_path)
-    with closing(_connect(path)) as conn, closing(conn.cursor()) as cur:
-        conn.execute("PRAGMA foreign_keys=ON")
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         version_id = _insert_canonical_snapshot(cur, config)
         conn.commit()
     # モデル側へ反映
@@ -707,7 +710,7 @@ def _insert_calendars(
 def delete_canonical_config(version_id: int, *, db_path: Optional[str] = None) -> None:
     """指定されたversion_idのCanonical設定を論理削除する。"""
     path = _resolve_db_path(db_path)
-    with closing(_connect(path)) as conn, closing(conn.cursor()) as cur:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         cur.execute(
             "UPDATE canonical_config_versions SET is_deleted = 1, updated_at = ? WHERE id = ?",
             (int(time.time() * 1000), version_id),
@@ -763,7 +766,7 @@ def _collect_counts(
     counts: Dict[int, Dict[str, int]] = {
         vid: {key: 0 for key in tables.keys()} for vid in ids
     }
-    with closing(_connect(db_path)) as conn, closing(conn.cursor()) as cur:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         for key, table in tables.items():
             rows = cur.execute(
                 f"SELECT config_version_id, COUNT(*) AS cnt FROM {table} "
@@ -815,7 +818,7 @@ def _update_counts_metadata(
 ) -> None:
     if not counts_map:
         return
-    with closing(_connect(db_path)) as conn, closing(conn.cursor()) as cur:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         for meta in metas:
             vid = meta.version_id
             if vid is None or vid not in counts_map:
