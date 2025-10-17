@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 import logging
+logging.info("ui_configs module loaded.")
 
 from fastapi import File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -31,6 +32,7 @@ from core.config import (
 _BASE_DIR = Path(__file__).resolve().parents[1]
 
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+logging.info(f"Jinja2Templates initialized with directory: {str(_BASE_DIR / 'templates')}")
 
 
 def _format_time(value: Any) -> str:
@@ -117,6 +119,7 @@ def _render_import_template(
 
 @app.get("/ui/configs", response_class=HTMLResponse)
 def ui_configs_list(request: Request):
+    logging.info("ui_configs_list function called.")
     sample_files_dir = _BASE_DIR / "samples" / "canonical"
     sample_files = [
         f.name for f in sample_files_dir.glob("*.json") if f.is_file()
@@ -124,7 +127,7 @@ def ui_configs_list(request: Request):
 
     try:
         canonical_summaries: List[CanonicalVersionSummary] = (
-            list_canonical_version_version_summaries(limit=30, include_deleted=False)
+            list_canonical_version_summaries(limit=30, include_deleted=False)
         )
     except Exception as e:
         logging.exception(f"Error fetching canonical summaries: {e}")
@@ -139,33 +142,23 @@ def ui_configs_list(request: Request):
         meta_dict["updated_at_str"] = _format_time(meta_dict.get("updated_at"))
         canonical_rows.append({"meta": meta_dict, "counts": summary.counts})
 
-        logging.info(f"Canonical rows: {canonical_rows}")
+    logging.info(f"Canonical rows: {canonical_rows}")
+    logging.info(f"Canonical rows count: {len(canonical_rows)}")
+
+    diff_options = [
+        {
+            "id": s.meta.version_id,
+            "name": s.meta.name,
+            "status": s.meta.status,
+        }
+        for s in canonical_summaries
+        if s.meta.version_id is not None
+    ]
 
     
 
-        diff_options = [
-
-            {
-
-                "id": s.meta.version_id,
-
-                "name": s.meta.name,
-
-                "status": s.meta.status,
-
-            }
-
-            for s in canonical_summaries
-
-            if s.meta.version_id is not None
-
-        ]
-
-    
-
-        return templates.TemplateResponse(
-
-            request,
+    return templates.TemplateResponse(
+        request,
 
             "configs_list.html",
 
@@ -190,8 +183,15 @@ def ui_canonical_configs_redirect():
 
 
 @app.get("/ui/configs/canonical/import", response_class=HTMLResponse)
-def ui_canonical_config_import(request: Request):
-    return _render_import_template(request)
+def ui_canonical_config_import(request: Request, parent_version_id: Optional[int] = Query(None)):
+    json_text = ""
+    if parent_version_id:
+        try:
+            config, _ = load_canonical_config_from_db(parent_version_id, validate=False)
+            json_text = json.dumps(config.model_dump(mode="json"), ensure_ascii=False, indent=2)
+        except CanonicalConfigNotFoundError:
+            raise HTTPException(status_code=404, detail="canonical config not found")
+    return _render_import_template(request, json_text=json_text)
 
 
 @app.get("/ui/configs/canonical/diff", response_class=HTMLResponse)
