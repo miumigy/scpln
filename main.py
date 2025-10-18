@@ -27,9 +27,8 @@ __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 from fastapi.responses import RedirectResponse
 
 from fastapi import Query, Request
-from fastapi.responses import RedirectResponse
-from fastapi.exceptions import HTTPException
 from starlette.responses import JSONResponse
+
 
 @app.exception_handler(Exception)
 async def unicorn_exception_handler(request: Request, exc: Exception):
@@ -42,9 +41,11 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
         },
     )
 
+
 @app.get("/")
 def read_root():
     return RedirectResponse(url="/ui/plans")
+
 
 try:
     from app.metrics import start_metrics_server
@@ -124,6 +125,7 @@ async def debug_routes():
         if hasattr(route, "path") and hasattr(route, "methods"):
             routes_info.append({"path": route.path, "methods": list(route.methods)})
     return {"registered_routes": routes_info}
+
 
 if __name__ == "__main__":
     import json

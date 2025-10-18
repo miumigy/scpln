@@ -1100,8 +1100,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
             content={
                 "detail": "計画パイプラインの実行に失敗しました。",
                 "error": str(e),
-                                    "stdout": e.stdout if e.stdout else "",
-                                    "stderr": e.stderr if e.stderr else "",            },
+                "stdout": e.stdout if e.stdout else "",
+                "stderr": e.stderr if e.stderr else "",
+            },
         )
     except Exception as e:
         logging.exception("Integrated run failed unexpectedly")
@@ -1111,16 +1112,17 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 "detail": f"計画の実行中に予期せぬエラーが発生しました: {e}",
                 "error": str(e),
                 "traceback": traceback.format_exc(),
-                                    "stdout": (
-                                        getattr(e, "stdout", "")
-                                        if hasattr(e, "stdout") and e.stdout
-                                        else ""
-                                    ),
-                                    "stderr": (
-                                        getattr(e, "stderr", "")
-                                        if hasattr(e, "stderr") and e.stderr
-                                        else ""
-                                    ),            },
+                "stdout": (
+                    getattr(e, "stdout", "")
+                    if hasattr(e, "stdout") and e.stdout
+                    else ""
+                ),
+                "stderr": (
+                    getattr(e, "stderr", "")
+                    if hasattr(e, "stderr") and e.stderr
+                    else ""
+                ),
+            },
         )
 
 

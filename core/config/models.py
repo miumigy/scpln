@@ -24,7 +24,9 @@ class ConfigMeta(BaseModel):
     )
     status: Literal["draft", "active", "archived"] = Field(default="draft")
     description: Optional[str] = Field(default=None)
-    attributes: Dict[str, Any] = Field(default_factory=dict, description="追加のメタデータ")
+    attributes: Dict[str, Any] = Field(
+        default_factory=dict, description="追加のメタデータ"
+    )
     source_config_id: Optional[int] = Field(
         default=None, description="旧`configs`テーブル由来のID"
     )
