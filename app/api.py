@@ -16,10 +16,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 from app.ui_plans import router as ui_plans_router  # noqa: E402
-from app.ui_configs import router as ui_configs_router # Import ui_configs router
+from app import ui_configs # Import ui_configs module directly
 
 app.include_router(ui_plans_router, prefix="/ui")
-app.include_router(ui_configs_router, prefix="/ui") # Include ui_configs router
 
 app.add_middleware(
     CORSMiddleware,
