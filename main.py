@@ -265,10 +265,10 @@ if __name__ == "__main__":
     else:
         logging.info("*** VALIDATION FAILURE ***")
 
-# --- Add debug code to print all registered routes ---
-print("--- Registered Routes ---")
-for route in app.routes:
-    # APIRoute などの基本的なルート情報のみ表示
-    if hasattr(route, "path") and hasattr(route, "methods"):
-        print(f"Path: {route.path}, Methods: {route.methods}")
-print("-------------------------")
+@app.get("/debug-routes")
+async def debug_routes():
+    routes_info = []
+    for route in app.routes:
+        if hasattr(route, "path") and hasattr(route, "methods"):
+            routes_info.append({"path": route.path, "methods": list(route.methods)})
+    return {"registered_routes": routes_info}
