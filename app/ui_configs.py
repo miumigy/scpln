@@ -29,7 +29,7 @@ from core.config import (
     delete_canonical_config,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/configs")
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -121,6 +121,7 @@ def _render_import_template(
     )
 
 
+@router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 def ui_configs_list(request: Request, error: str | None = Query(None)):
     logging.info("ui_configs_list function called.")
