@@ -30,26 +30,41 @@ from app import scenario_api as _scenario_api
 from app import ui_scenarios as _ui_scenarios
 from app import ui_planning as _ui_planning
 from app import plans_api as _plans_api
-from app import ui_plans
 from app import runs_api as _runs_api
 
-app.include_router(ui_plans_router, prefix="/ui")
+
+def _include_module_router(target, *, prefix: str | None = None) -> None:
+    """
+    モジュールがrouter属性を提供している場合のみinclude_routerを呼び出す。
+    Legacy UIのように直接appへ登録するモジュールもあるため、存在しない場合は黙殺。
+    """
+    router = getattr(target, "router", None)
+    if router is None and hasattr(target, "routes"):
+        router = target
+    if router is None:
+        return
+    if prefix:
+        app.include_router(router, prefix=prefix)
+    else:
+        app.include_router(router)
+
+
+_include_module_router(ui_plans_router, prefix="/ui")
 app.include_router(ui_configs_router, prefix="/ui") # Include ui_configs router
-app.include_router(_simulation_api.router)
-app.include_router(_run_compare_api.router)
-app.include_router(_run_list_api.router)
-app.include_router(_trace_export_api.router)
-app.include_router(_ui_runs.router)
-app.include_router(_ui_compare.router)
-app.include_router(_jobs_api.router)
-app.include_router(_ui_jobs.router)
-app.include_router(_config_api.router)
-app.include_router(_scenario_api.router)
-app.include_router(_ui_scenarios.router)
-app.include_router(_ui_planning.router)
-app.include_router(_plans_api.router)
-app.include_router(ui_plans.router)
-app.include_router(_runs_api.router)
+_include_module_router(_simulation_api)
+_include_module_router(_run_compare_api)
+_include_module_router(_run_list_api)
+_include_module_router(_trace_export_api)
+_include_module_router(_ui_runs)
+_include_module_router(_ui_compare)
+_include_module_router(_jobs_api)
+_include_module_router(_ui_jobs)
+_include_module_router(_config_api)
+_include_module_router(_scenario_api)
+_include_module_router(_ui_scenarios)
+_include_module_router(_ui_planning)
+_include_module_router(_plans_api)
+_include_module_router(_runs_api)
 
 app.add_middleware(
     CORSMiddleware,
