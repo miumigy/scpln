@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 import logging
+
 logging.info("ui_configs module loaded.")
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
@@ -33,7 +34,9 @@ router = APIRouter()
 _BASE_DIR = Path(__file__).resolve().parents[1]
 
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
-logging.info(f"Jinja2Templates initialized with directory: {str(_BASE_DIR / 'templates')}")
+logging.info(
+    f"Jinja2Templates initialized with directory: {str(_BASE_DIR / 'templates')}"
+)
 
 
 def _format_time(value: Any) -> str:
@@ -122,9 +125,7 @@ def _render_import_template(
 def ui_configs_list(request: Request, error: str | None = Query(None)):
     logging.info("ui_configs_list function called.")
     sample_files_dir = _BASE_DIR / "samples" / "canonical"
-    sample_files = [
-        f.name for f in sample_files_dir.glob("*.json") if f.is_file()
-    ]
+    sample_files = [f.name for f in sample_files_dir.glob("*.json") if f.is_file()]
 
     try:
         canonical_summaries: List[CanonicalVersionSummary] = (
@@ -156,27 +157,17 @@ def ui_configs_list(request: Request, error: str | None = Query(None)):
         if s.meta.version_id is not None
     ]
 
-    
-
     return templates.TemplateResponse(
         request,
-
-            "configs_list.html",
-
-            {
-
-                "subtitle": "Configuration Management",
-
-                "canonical_rows": canonical_rows,
-
-                "diff_options": diff_options,
-
-                "sample_files": sample_files,
-                "error": error,
-
-            },
-
-        )
+        "configs_list.html",
+        {
+            "subtitle": "Configuration Management",
+            "canonical_rows": canonical_rows,
+            "diff_options": diff_options,
+            "sample_files": sample_files,
+            "error": error,
+        },
+    )
 
 
 @router.get("/canonical")
@@ -185,12 +176,16 @@ def ui_canonical_configs_redirect():
 
 
 @router.get("/canonical/import", response_class=HTMLResponse)
-def ui_canonical_config_import(request: Request, parent_version_id: int | None = Query()):
+def ui_canonical_config_import(
+    request: Request, parent_version_id: int | None = Query()
+):
     json_text = ""
     if parent_version_id:
         try:
             config, _ = load_canonical_config_from_db(parent_version_id, validate=False)
-            json_text = json.dumps(config.model_dump(mode="json"), ensure_ascii=False, indent=2)
+            json_text = json.dumps(
+                config.model_dump(mode="json"), ensure_ascii=False, indent=2
+            )
         except CanonicalConfigNotFoundError:
             raise HTTPException(status_code=404, detail="canonical config not found")
     return _render_import_template(request, json_text=json_text)
@@ -259,21 +254,31 @@ def ui_canonical_config_diff(
 @router.post("/canonical/sample")
 def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
     from fastapi.responses import RedirectResponse
+
     error_url = "/ui/configs?error="
 
     sample_path = _BASE_DIR / "samples" / "canonical" / sample_file
     if not sample_path.exists():
-        return RedirectResponse(url=error_url + f"Canonical sample '{sample_file}' not found", status_code=303)
+        return RedirectResponse(
+            url=error_url + f"Canonical sample '{sample_file}' not found",
+            status_code=303,
+        )
 
     try:
         payload = json.loads(sample_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return RedirectResponse(url=error_url + f"Failed to parse canonical sample JSON: {exc}", status_code=303)
+        return RedirectResponse(
+            url=error_url + f"Failed to parse canonical sample JSON: {exc}",
+            status_code=303,
+        )
 
     try:
         config = CanonicalConfig.model_validate(payload)
     except ValidationError as exc:
-        return RedirectResponse(url=error_url + f"Failed to validate canonical sample JSON: {exc}", status_code=303)
+        return RedirectResponse(
+            url=error_url + f"Failed to validate canonical sample JSON: {exc}",
+            status_code=303,
+        )
 
     config.meta.attributes.setdefault("ui_import", {})
     config.meta.attributes["ui_import"].update(
@@ -288,7 +293,11 @@ def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
         messages = ", ".join(
             f"{issue.code}: {issue.message}" for issue in validation.issues
         )
-        return RedirectResponse(url=error_url + f"Consistency check for canonical sample failed: {messages}", status_code=303)
+        return RedirectResponse(
+            url=error_url
+            + f"Consistency check for canonical sample failed: {messages}",
+            status_code=303,
+        )
 
     version_id = save_canonical_config(config)
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)

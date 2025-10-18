@@ -29,21 +29,6 @@ from .models import (
 )
 from .validators import ValidationResult, validate_canonical_config
 
-def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
-    return ConfigMeta(
-        version_id=row["id"],
-        name=row["name"],
-        schema_version=row["schema_version"],
-        version_tag=row["version_tag"],
-        status=row["status"],
-        description=row["description"],
-        source_config_id=row["source_config_id"],
-        parent_version_id=row["parent_version_id"],
-        is_deleted=bool(row["is_deleted"]),
-        attributes=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
 
 def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
     return ConfigMeta(
@@ -60,6 +45,24 @@ def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
+
+
+def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
+    return ConfigMeta(
+        version_id=row["id"],
+        name=row["name"],
+        schema_version=row["schema_version"],
+        version_tag=row["version_tag"],
+        status=row["status"],
+        description=row["description"],
+        source_config_id=row["source_config_id"],
+        parent_version_id=row["parent_version_id"],
+        is_deleted=bool(row["is_deleted"]),
+        attributes=json.loads(row["metadata_json"]) if row["metadata_json"] else {},
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
 
 def _row_to_item(row: sqlite3.Row) -> CanonicalItem:
     return CanonicalItem(
@@ -74,6 +77,7 @@ def _row_to_item(row: sqlite3.Row) -> CanonicalItem:
         unit_cost=row["unit_cost"],
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
 
 def _row_to_node(
     row: sqlite3.Row,
@@ -100,6 +104,7 @@ def _row_to_node(
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
 
+
 def _row_to_arc(row: sqlite3.Row) -> CanonicalArc:
     return CanonicalArc(
         from_node=row["from_node"],
@@ -110,10 +115,15 @@ def _row_to_arc(row: sqlite3.Row) -> CanonicalArc:
         allow_over_capacity=bool(row["allow_over_capacity"]),
         transportation_cost_fixed=row["transportation_cost_fixed"],
         transportation_cost_variable=row["transportation_cost_variable"],
-        min_order_qty=json.loads(row["min_order_json"]) if row["min_order_json"] else {},
-        order_multiple=json.loads(row["order_multiple_json"]) if row["order_multiple_json"] else {},
+        min_order_qty=(
+            json.loads(row["min_order_json"]) if row["min_order_json"] else {}
+        ),
+        order_multiple=(
+            json.loads(row["order_multiple_json"]) if row["order_multiple_json"] else {}
+        ),
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
 
 def _row_to_bom(row: sqlite3.Row) -> CanonicalBom:
     return CanonicalBom(
@@ -123,6 +133,7 @@ def _row_to_bom(row: sqlite3.Row) -> CanonicalBom:
         scrap_rate=row["scrap_rate"],
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
 
 def _row_to_demand(row: sqlite3.Row) -> DemandProfile:
     return DemandProfile(
@@ -137,6 +148,7 @@ def _row_to_demand(row: sqlite3.Row) -> DemandProfile:
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
 
+
 def _row_to_capacity(row: sqlite3.Row) -> CapacityProfile:
     return CapacityProfile(
         resource_code=row["resource_code"],
@@ -146,6 +158,7 @@ def _row_to_capacity(row: sqlite3.Row) -> CapacityProfile:
         calendar_code=row["calendar_code"],
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
 
 def _row_to_hierarchy(row: sqlite3.Row) -> HierarchyEntry:
     return HierarchyEntry(
@@ -157,6 +170,7 @@ def _row_to_hierarchy(row: sqlite3.Row) -> HierarchyEntry:
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
 
+
 def _row_to_calendar(row: sqlite3.Row) -> CalendarDefinition:
     return CalendarDefinition(
         calendar_code=row["calendar_code"],
@@ -164,6 +178,7 @@ def _row_to_calendar(row: sqlite3.Row) -> CalendarDefinition:
         definition=json.loads(row["definition_json"]) if row["definition_json"] else {},
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
 
 def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPolicy]]:
     grouped = defaultdict(list)
@@ -181,10 +196,13 @@ def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPol
                 stockout_cost=row["stockout_cost"],
                 backorder_cost=row["backorder_cost"],
                 lead_time_days=row["lead_time_days"],
-                attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+                attributes=(
+                    json.loads(row["attributes_json"]) if row["attributes_json"] else {}
+                ),
             )
         )
     return grouped
+
 
 def _group_production(rows: List[sqlite3.Row]) -> Dict[str, List[NodeProductionPolicy]]:
     grouped = defaultdict(list)
@@ -198,10 +216,13 @@ def _group_production(rows: List[sqlite3.Row]) -> Dict[str, List[NodeProductionP
                 over_capacity_variable_cost=row["over_capacity_variable_cost"],
                 production_cost_fixed=row["production_cost_fixed"],
                 production_cost_variable=row["production_cost_variable"],
-                attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
+                attributes=(
+                    json.loads(row["attributes_json"]) if row["attributes_json"] else {}
+                ),
             )
         )
     return grouped
+
 
 @dataclass
 class CanonicalVersionSummary:
@@ -222,7 +243,6 @@ def list_canonical_versions(
     path = _resolve_db_path(db_path)
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
 
-
         query = """
 
 
@@ -237,33 +257,23 @@ def list_canonical_versions(
 
         """
 
-
         params: List[Any] = []
-
 
         if not include_deleted:
 
-
             query += " WHERE is_deleted = 0"
-
 
         query += " ORDER BY id DESC LIMIT ?"
 
-
         params.append(limit)
-
 
         rows = cur.execute(query, params).fetchall()
 
-
     metas: List[ConfigMeta] = []
-
 
     for row in rows:
 
-
         metas.append(_row_to_meta(row))
-
 
     return metas
 
@@ -273,7 +283,9 @@ def list_canonical_version_summaries(
 ) -> List[CanonicalVersionSummary]:
     """メタ情報に加えて主要テーブル件数を含むサマリを取得する。"""
 
-    metas = list_canonical_versions(limit=limit, db_path=db_path, include_deleted=include_deleted)
+    metas = list_canonical_versions(
+        limit=limit, db_path=db_path, include_deleted=include_deleted
+    )
     if not metas:
         return []
 
@@ -505,7 +517,7 @@ def save_canonical_config(
         now_ms = int(time.time() * 1000)
         if config.meta.created_at is None:
             config.meta.created_at = now_ms
-        config.meta.updated_at = now_ms # updated_at を常に更新
+        config.meta.updated_at = now_ms  # updated_at を常に更新
 
         # metadata_json を更新
         attributes = dict(config.meta.attributes or {})
@@ -513,7 +525,7 @@ def save_canonical_config(
             "UPDATE canonical_config_versions SET updated_at = ?, metadata_json = ? WHERE id = ?",
             (now_ms, json.dumps(attributes, ensure_ascii=False), version_id),
         )
-        conn.commit() # ここでコミット
+        conn.commit()  # ここでコミット
     return version_id
 
 
@@ -895,8 +907,7 @@ __all__ = [
 
 def _resolve_db_path(db_path: Optional[str]) -> str:
     import os
-    from pathlib import Path
-    from app.db import _DEFAULT_DB, _current_db_path # ここで遅延インポート
+    from app.db import _DEFAULT_DB, _current_db_path  # ここで遅延インポート
 
     if _current_db_path:
         return _current_db_path
