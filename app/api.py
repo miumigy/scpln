@@ -49,7 +49,7 @@ def _include_module_router(target, *, prefix: str | None = None) -> None:
         app.include_router(router)
 
 
-_include_module_router(ui_plans_router, prefix="/ui")
+app.include_router(ui_plans_router)  # /ui/plans 等をそのまま提供
 app.include_router(ui_configs_router, prefix="/ui") # Include ui_configs router
 _include_module_router(_simulation_api)
 _include_module_router(_run_compare_api)
