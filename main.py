@@ -22,60 +22,6 @@ try:
 except Exception:
     pass
 
-# 各ルーターを明示的にインポートし、appに登録
-from app import simulation_api as _simulation_api
-app.include_router(_simulation_api.router)
-_SIM_LOADED = True
-
-from app import run_compare_api as _run_compare_api
-app.include_router(_run_compare_api.router)
-
-from app import run_list_api as _run_list_api
-app.include_router(_run_list_api.router)
-
-from app import trace_export_api as _trace_export_api
-app.include_router(_trace_export_api.router)
-
-from app import ui_runs as _ui_runs
-app.include_router(_ui_runs.router)
-
-from app import ui_compare as _ui_compare
-app.include_router(_ui_compare.router)
-
-# jobs API/UI の登録
-from app import jobs_api as _jobs_api
-from app import ui_jobs as _ui_jobs
-app.include_router(_jobs_api.router)
-app.include_router(_ui_jobs.router)
-
-# config API/UI の登録
-from app import config_api as _config_api
-from app.ui_configs import router as _ui_configs_router # Corrected import
-app.include_router(_config_api.router)
-app.include_router(_ui_configs_router) # Use the imported router
-
-# phase2: scenarios API/UI
-from app import scenario_api as _scenario_api
-from app import ui_scenarios as _ui_scenarios
-app.include_router(_scenario_api.router)
-app.include_router(_ui_scenarios.router)
-
-# planning UI（粗密計画）
-from app import ui_planning as _ui_planning
-app.include_router(_ui_planning.router)
-
-# plans API (v3)
-from app import plans_api as _plans_api
-app.include_router(_plans_api.router)
-
-# plans UI
-from app import ui_plans
-app.include_router(ui_plans.router)
-
-# runs API (adapter)
-from app import runs_api as _runs_api
-app.include_router(_runs_api.router)
-
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
 from fastapi.responses import RedirectResponse
@@ -171,6 +117,14 @@ if not globals().get("_SIM_LOADED", False):
         }
 
 
+@app.get("/debug-routes")
+async def debug_routes():
+    routes_info = []
+    for route in app.routes:
+        if hasattr(route, "path") and hasattr(route, "methods"):
+            routes_info.append({"path": route.path, "methods": list(route.methods)})
+    return {"registered_routes": routes_info}
+
 if __name__ == "__main__":
     import json
 
@@ -225,11 +179,3 @@ if __name__ == "__main__":
         )
     else:
         logging.info("*** VALIDATION FAILURE ***")
-
-@app.get("/debug-routes")
-async def debug_routes():
-    routes_info = []
-    for route in app.routes:
-        if hasattr(route, "path") and hasattr(route, "methods"):
-            routes_info.append({"path": route.path, "methods": list(route.methods)})
-    return {"registered_routes": routes_info}

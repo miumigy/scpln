@@ -17,9 +17,39 @@ app = FastAPI()
 
 from app.ui_plans import router as ui_plans_router  # noqa: E402
 from app.ui_configs import router as ui_configs_router # Import ui_configs router
+from app import simulation_api as _simulation_api
+from app import run_compare_api as _run_compare_api
+from app import run_list_api as _run_list_api
+from app import trace_export_api as _trace_export_api
+from app import ui_runs as _ui_runs
+from app import ui_compare as _ui_compare
+from app import jobs_api as _jobs_api
+from app import ui_jobs as _ui_jobs
+from app import config_api as _config_api
+from app import scenario_api as _scenario_api
+from app import ui_scenarios as _ui_scenarios
+from app import ui_planning as _ui_planning
+from app import plans_api as _plans_api
+from app import ui_plans
+from app import runs_api as _runs_api
 
 app.include_router(ui_plans_router, prefix="/ui")
 app.include_router(ui_configs_router, prefix="/ui") # Include ui_configs router
+app.include_router(_simulation_api.router)
+app.include_router(_run_compare_api.router)
+app.include_router(_run_list_api.router)
+app.include_router(_trace_export_api.router)
+app.include_router(_ui_runs.router)
+app.include_router(_ui_compare.router)
+app.include_router(_jobs_api.router)
+app.include_router(_ui_jobs.router)
+app.include_router(_config_api.router)
+app.include_router(_scenario_api.router)
+app.include_router(_ui_scenarios.router)
+app.include_router(_ui_planning.router)
+app.include_router(_plans_api.router)
+app.include_router(ui_plans.router)
+app.include_router(_runs_api.router)
 
 app.add_middleware(
     CORSMiddleware,
