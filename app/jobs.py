@@ -12,6 +12,7 @@ from pathlib import Path
 
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
+from engine.simulation_stub import run_stub as run_stub_simulation
 from app.run_registry import REGISTRY, record_canonical_run
 from app import db
 from prometheus_client import Counter as _Counter, Histogram as _Histogram
@@ -93,6 +94,26 @@ class JobManager:
         self._threads: list[threading.Thread] = []
         self._stop = threading.Event()
         self.db_path = db_path
+        self._last_initialized_db: str | None = None
+
+    def _ensure_db_ready(self) -> None:
+        """Ensure workers use the latest DB path and migrations are applied."""
+        try:
+            current_path = db._db_path()  # type: ignore[attr-defined]
+        except Exception:
+            current_path = None
+
+        if current_path:
+            if self.db_path != current_path:
+                self.db_path = current_path
+            if self._last_initialized_db != current_path:
+                try:
+                    db.init_db(force=True)
+                    self._last_initialized_db = current_path
+                except Exception:
+                    logging.exception(
+                        "job_manager_db_init_failed", extra={"db_path": current_path}
+                    )
 
     def start(self):
         if self._threads:
@@ -120,6 +141,7 @@ class JobManager:
         self._threads.clear()
 
     def submit_simulation(self, payload: Dict[str, Any]) -> str:
+        self._ensure_db_ready()
         if not self._threads:
             self.start()
         job_id = uuid4().hex
@@ -185,12 +207,29 @@ class JobManager:
                 cfg_json = None
             # parse model
             sim_input = SimulationInput(**payload)
-            sim = SupplyChainSimulator(sim_input)
-            results, daily_pl = sim.run()
-            try:
-                summary = sim.compute_summary()
-            except Exception:
-                summary = {}
+            skip_simulation = os.getenv("SCPLN_SKIP_SIMULATION_API", "0") == "1"
+            sim: SupplyChainSimulator | None = None
+            summary: Dict[str, Any] = {}
+            results: list[Dict[str, Any]] = []
+            daily_pl: list[Dict[str, Any]] = []
+            cost_trace: list[Dict[str, Any]] = []
+            if skip_simulation:
+                (
+                    summary,
+                    results,
+                    daily_pl,
+                    cost_trace,
+                ) = run_stub_simulation(sim_input, include_trace=True)
+                duration_ms = int((time.monotonic() - t0) * 1000)
+            else:
+                sim = SupplyChainSimulator(sim_input)
+                results, daily_pl = sim.run()
+                try:
+                    summary = sim.compute_summary()
+                except Exception:
+                    summary = {}
+                cost_trace = getattr(sim, "cost_trace", [])
+                duration_ms = int((time.monotonic() - t0) * 1000)
             run_id = uuid4().hex
             # store to registry (same as /simulation)
             REGISTRY.put(
@@ -198,12 +237,12 @@ class JobManager:
                 {
                     "run_id": run_id,
                     "started_at": started,
-                    "duration_ms": int((time.monotonic() - t0) * 1000),
+                    "duration_ms": duration_ms,
                     "schema_version": getattr(sim_input, "schema_version", "1.0"),
                     "summary": summary,
                     "results": results,
                     "daily_profit_loss": daily_pl,
-                    "cost_trace": getattr(sim, "cost_trace", []),
+                    "cost_trace": cost_trace,
                     "config_id": config_id,
                     "scenario_id": scenario_id,
                     "config_json": cfg_json,
@@ -248,6 +287,7 @@ class JobManager:
         self.q.put({"job_id": job_id, "type": row.get("type") or "simulation"})
 
     def submit_aggregate(self, payload: Dict[str, Any]) -> str:
+        self._ensure_db_ready()
         if not self._threads:
             self.start()
         job_id = uuid4().hex
@@ -359,6 +399,7 @@ class JobManager:
                 pass
 
     def submit_planning(self, params: Dict[str, Any]) -> str:
+        self._ensure_db_ready()
         if not self._threads:
             self.start()
         job_id = uuid4().hex
