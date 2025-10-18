@@ -72,9 +72,9 @@ except Exception:
 # config API/UI の登録
 try:
     from app import config_api as _config_api
-    from app import ui_configs as _ui_configs # Import ui_configs module directly
+    from app.ui_configs import router as _ui_configs_router # Corrected import
     app.include_router(_config_api.router)
-    app.include_router(_ui_configs.router) # Use the router object from the module
+    app.include_router(_ui_configs_router) # Use the imported router
 except Exception:
     pass
 

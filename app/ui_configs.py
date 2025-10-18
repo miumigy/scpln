@@ -118,7 +118,7 @@ def _render_import_template(
     )
 
 
-@router.get("/ui", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse)
 def ui_configs_list(request: Request, error: str | None = Query(None)):
     logging.info("ui_configs_list function called.")
     sample_files_dir = _BASE_DIR / "samples" / "canonical"
@@ -179,12 +179,12 @@ def ui_configs_list(request: Request, error: str | None = Query(None)):
         )
 
 
-@router.get("/ui/canonical")
+@router.get("/canonical")
 def ui_canonical_configs_redirect():
     return RedirectResponse(url="/ui/configs", status_code=307)
 
 
-@router.get("/ui/canonical/import", response_class=HTMLResponse)
+@router.get("/canonical/import", response_class=HTMLResponse)
 def ui_canonical_config_import(request: Request, parent_version_id: int | None = Query()):
     json_text = ""
     if parent_version_id:
@@ -196,7 +196,7 @@ def ui_canonical_config_import(request: Request, parent_version_id: int | None =
     return _render_import_template(request, json_text=json_text)
 
 
-@router.get("/ui/canonical/diff", response_class=HTMLResponse)
+@router.get("/canonical/diff", response_class=HTMLResponse)
 def ui_canonical_config_diff(
     request: Request, base_id: int = Query(...), compare_id: int = Query(...)
 ):
@@ -256,7 +256,7 @@ def ui_canonical_config_diff(
     )
 
 
-@router.post("/ui/canonical/sample")
+@router.post("/canonical/sample")
 def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
     from fastapi.responses import RedirectResponse
     error_url = "/ui/configs?error="
@@ -294,7 +294,7 @@ def ui_canonical_config_seed_sample(sample_file: str = Form(...)):
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
-@router.get("/ui/canonical/{version_id}", response_class=HTMLResponse)
+@router.get("/canonical/{version_id}", response_class=HTMLResponse)
 def ui_canonical_config_detail(request: Request, version_id: int):
     try:
         config, validation = load_canonical_config_from_db(version_id, validate=True)
@@ -356,7 +356,7 @@ def ui_canonical_config_detail(request: Request, version_id: int):
     )
 
 
-@router.post("/ui/canonical/{version_id}/delete")
+@router.post("/canonical/{version_id}/delete")
 def ui_canonical_config_delete(version_id: int):
     try:
         delete_canonical_config(version_id)
@@ -365,7 +365,7 @@ def ui_canonical_config_delete(version_id: int):
     return RedirectResponse(url="/ui/configs", status_code=303)
 
 
-@router.get("/ui/canonical/{version_id}/json")
+@router.get("/canonical/{version_id}/json")
 def ui_canonical_config_download(version_id: int):
     try:
         config, _ = load_canonical_config_from_db(version_id, validate=False)
@@ -380,7 +380,7 @@ def ui_canonical_config_download(version_id: int):
     )
 
 
-@router.post("/ui/canonical/import/json")
+@router.post("/canonical/import/json")
 async def ui_canonical_config_import_json(
     request: Request,
     name: str = Form(...),
@@ -452,7 +452,7 @@ async def ui_canonical_config_import_json(
     return RedirectResponse(url=f"/ui/configs/canonical/{version_id}", status_code=303)
 
 
-@router.post("/ui/canonical/import/plan")
+@router.post("/canonical/import/plan")
 def ui_canonical_config_import_plan(
     request: Request,
     plan_version_id: str = Form(...),
