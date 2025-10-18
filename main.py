@@ -23,97 +23,58 @@ except Exception:
     pass
 
 # 各ルーターを明示的にインポートし、appに登録
-try:
-    from app import simulation_api as _simulation_api
-    app.include_router(_simulation_api.router)
-    _SIM_LOADED = True
-except Exception:
-    _SIM_LOADED = False
+from app import simulation_api as _simulation_api
+app.include_router(_simulation_api.router)
+_SIM_LOADED = True
 
-try:
-    from app import run_compare_api as _run_compare_api
-    app.include_router(_run_compare_api.router)
-except Exception:
-    pass
+from app import run_compare_api as _run_compare_api
+app.include_router(_run_compare_api.router)
 
-try:
-    from app import run_list_api as _run_list_api
-    app.include_router(_run_list_api.router)
-except Exception:
-    pass
+from app import run_list_api as _run_list_api
+app.include_router(_run_list_api.router)
 
-try:
-    from app import trace_export_api as _trace_export_api
-    app.include_router(_trace_export_api.router)
-except Exception:
-    pass
+from app import trace_export_api as _trace_export_api
+app.include_router(_trace_export_api.router)
 
-try:
-    from app import ui_runs as _ui_runs
-    app.include_router(_ui_runs.router)
-except Exception:
-    pass
+from app import ui_runs as _ui_runs
+app.include_router(_ui_runs.router)
 
-try:
-    from app import ui_compare as _ui_compare
-    app.include_router(_ui_compare.router)
-except Exception:
-    pass
+from app import ui_compare as _ui_compare
+app.include_router(_ui_compare.router)
 
 # jobs API/UI の登録
-try:
-    from app import jobs_api as _jobs_api
-    from app import ui_jobs as _ui_jobs
-    app.include_router(_jobs_api.router)
-    app.include_router(_ui_jobs.router)
-except Exception:
-    pass
+from app import jobs_api as _jobs_api
+from app import ui_jobs as _ui_jobs
+app.include_router(_jobs_api.router)
+app.include_router(_ui_jobs.router)
 
 # config API/UI の登録
-try:
-    from app import config_api as _config_api
-    from app.ui_configs import router as _ui_configs_router # Corrected import
-    app.include_router(_config_api.router)
-    app.include_router(_ui_configs_router) # Use the imported router
-except Exception:
-    pass
+from app import config_api as _config_api
+from app.ui_configs import router as _ui_configs_router # Corrected import
+app.include_router(_config_api.router)
+app.include_router(_ui_configs_router) # Use the imported router
 
 # phase2: scenarios API/UI
-try:
-    from app import scenario_api as _scenario_api
-    from app import ui_scenarios as _ui_scenarios
-    app.include_router(_scenario_api.router)
-    app.include_router(_ui_scenarios.router)
-except Exception:
-    pass
+from app import scenario_api as _scenario_api
+from app import ui_scenarios as _ui_scenarios
+app.include_router(_scenario_api.router)
+app.include_router(_ui_scenarios.router)
 
 # planning UI（粗密計画）
-try:
-    from app import ui_planning as _ui_planning
-    app.include_router(_ui_planning.router)
-except Exception:
-    pass
+from app import ui_planning as _ui_planning
+app.include_router(_ui_planning.router)
 
 # plans API (v3)
-try:
-    from app import plans_api as _plans_api
-    app.include_router(_plans_api.router)
-except Exception:
-    pass
+from app import plans_api as _plans_api
+app.include_router(_plans_api.router)
 
 # plans UI
-try:
-    from app import ui_plans
-    app.include_router(ui_plans.router)
-except Exception:
-    pass
+from app import ui_plans
+app.include_router(ui_plans.router)
 
 # runs API (adapter)
-try:
-    from app import runs_api as _runs_api
-    app.include_router(_runs_api.router)
-except Exception:
-    pass
+from app import runs_api as _runs_api
+app.include_router(_runs_api.router)
 
 __all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
 
