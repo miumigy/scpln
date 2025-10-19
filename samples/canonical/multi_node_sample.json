@@ -5,7 +5,9 @@
     "name": "multi-node-sample",
     "schema_version": "canonical-1.0",
     "status": "draft",
-    "attributes": {}
+    "attributes": {
+      "planning_horizon": 90
+    }
   },
   "items": [
     {"code": "SKU-A", "name": "Product A", "item_type": "product", "uom": "unit", "lead_time_days": 7, "unit_cost": 1500},

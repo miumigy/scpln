@@ -5,6 +5,7 @@
     "schema_version": "canonical-1.0",
     "status": "draft",
     "attributes": {
+      "planning_horizon": 60,
       "sources": {
         "psi_input": "static/default_input.json",
         "planning_dir": "samples/planning",
