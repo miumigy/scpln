@@ -5,6 +5,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture()
 def plan_client(seed_canonical_data, monkeypatch):

@@ -1,4 +1,6 @@
 import time
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app import db
@@ -9,6 +11,8 @@ from app.metrics import (
     PLAN_DB_LAST_SUCCESS_TIMESTAMP,
 )
 from core.plan_repository import PlanRepository
+
+pytestmark = pytest.mark.slow
 
 
 def _make_plan_with_artifacts(version_id: str) -> None:

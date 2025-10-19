@@ -6,6 +6,8 @@ from pathlib import Path
 from alembic.config import Config
 from alembic import command
 
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture(name="db_setup_jobs")
 def db_setup_jobs_fixture(tmp_path: Path):

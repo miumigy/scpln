@@ -1,5 +1,9 @@
-from app import db
+import pytest
 from fastapi.testclient import TestClient
+
+from app import db
+
+pytestmark = pytest.mark.slow
 
 
 def test_ui_scenarios_run_returns_403(monkeypatch):

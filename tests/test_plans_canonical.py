@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app import db
 from app import plans_api as _plans_api
 from app.plans_api import (
@@ -11,6 +13,8 @@ from app.plans_api import (
 from core.config import load_canonical_config
 from core.config.storage import save_canonical_config
 from core.plan_repository import PlanRepository
+
+pytestmark = pytest.mark.slow
 
 
 def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):

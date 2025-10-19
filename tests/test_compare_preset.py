@@ -1,5 +1,8 @@
 import importlib
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.api import app
 from domain.models import (
     SimulationInput,
@@ -15,6 +18,8 @@ from domain.models import (
 importlib.import_module("app.ui_compare")
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.run_list_api")
+
+pytestmark = pytest.mark.slow
 
 
 def _payload(dm: float):

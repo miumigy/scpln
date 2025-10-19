@@ -6,6 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 
 def _run_recon(tmp: Path, agg_rows, det_rows, cutover: str | None = None):
     base = Path.cwd()

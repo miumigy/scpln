@@ -6,6 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 
 def wj(p: Path, o: dict):
     p.write_text(json.dumps(o, ensure_ascii=False, indent=2), encoding="utf-8")

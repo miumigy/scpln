@@ -1,10 +1,15 @@
 import importlib
 import time
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.api import app
 from domain.models import SimulationInput, Product, StoreNode, CustomerDemand
 
 importlib.import_module("app.jobs_api")
+
+pytestmark = pytest.mark.slow
 
 
 def _payload():

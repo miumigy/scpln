@@ -195,7 +195,7 @@ flowchart LR
 
 ## 開発・運用メモ
 
-- **テスト**: `source .venv/bin/activate && PYTHONPATH=. pytest`。CIは `tests`, `quick-planning-tests`, `ci.yml` で構成。`tests/test_psi_sync.py` と `tests/test_planning_pipeline.py` を重点監視。
+- **テスト**: `source .venv/bin/activate && PYTHONPATH=. pytest`。高速検証は `scripts/run_tests.sh fast`（`-m "not slow"`）、統合一式は `scripts/run_tests.sh slow` を利用する。CIは `tests`, `quick-planning-tests`, `ci.yml` で構成。`tests/test_psi_sync.py` と `tests/test_planning_pipeline.py` を重点監視。
 - **データベース**: 既定は SQLite (`data/scpln.db`)。`SCPLN_DB` で接続先を変更。バックアップは `backup_script.py` を使用。開発時は `scripts/serve.sh db` で起動するWeb UI (Datasette) を使って直接DBの内容を確認できます。
 - **RunRegistry 管理**: `REGISTRY_BACKEND=db|memory`, `RUNS_DB_MAX_ROWS` でポリシー設定。古いRunは自動クリーンアップ。
 - **環境変数**: 認証 `AUTH_MODE=apikey|basic|none`、ジョブ実行 `JOBS_ENABLED=1`、APIキーはUI側`localStorage.api_key` と合わせて設定。

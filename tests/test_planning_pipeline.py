@@ -4,10 +4,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 SAMPLES = ROOT / "samples" / "planning"
+
+pytestmark = pytest.mark.slow
 
 
 def run(cmd, cwd=None, env=None):

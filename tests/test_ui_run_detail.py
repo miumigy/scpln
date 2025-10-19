@@ -1,9 +1,14 @@
 import importlib
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.api import app
 
 importlib.import_module("app.simulation_api")
 importlib.import_module("app.ui_runs")
+
+pytestmark = pytest.mark.slow
 
 
 def test_ui_run_detail_page(db_setup):

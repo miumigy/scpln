@@ -4,6 +4,7 @@ import time
 import importlib
 from pathlib import Path
 
+import pytest
 import sqlite3
 
 from alembic.config import Config
@@ -11,6 +12,8 @@ from alembic import command
 
 from app import db as appdb
 from app.run_registry_db import RunRegistryDB
+
+pytestmark = pytest.mark.slow
 
 
 def _prepare_db(tmp_path: Path) -> str:

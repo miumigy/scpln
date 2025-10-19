@@ -5,8 +5,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from app import db
 from core.plan_repository import PlanRepository
+
+pytestmark = pytest.mark.slow
 
 
 def _insert_plan_fixture(

@@ -1,12 +1,121 @@
+import csv
 import os
-import subprocess
+import runpy
 import sys
+from contextlib import contextmanager
+from pathlib import Path
+
+import pytest
 
 from app import db
 from core.plan_repository import PlanRepository
 
+pytestmark = pytest.mark.slow
 
-def test_plan_aggregate_storage_db_only(db_setup, tmp_path):
+
+def _write_csv(path: Path, headers: list[str], rows: list[list[object]]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow(row)
+
+
+@contextmanager
+def _override_environ(env: dict[str, str]):
+    original = os.environ.copy()
+    try:
+        os.environ.clear()
+        os.environ.update(env)
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(original)
+
+
+def _run_cli(module: str, args: list[str], env: dict[str, str]) -> None:
+    with _override_environ(env):
+        argv_backup = sys.argv[:]
+        sys.argv = [module, *args]
+        try:
+            runpy.run_module(module, run_name="__main__")
+        except SystemExit as exc:  # pragma: no cover - CLIがexitする場合
+            if exc.code not in (0, None):
+                raise
+        finally:
+            sys.argv = argv_backup
+
+
+@pytest.fixture
+def tiny_planning_dir(tmp_path) -> Path:
+    base = tmp_path / "tiny_planning"
+    base.mkdir()
+
+    _write_csv(
+        base / "demand_family.csv",
+        ["family", "period", "demand"],
+        [
+            ["F1", "2025-01", 40],
+            ["F1", "2025-02", 45],
+            ["F2", "2025-01", 20],
+        ],
+    )
+    _write_csv(
+        base / "capacity.csv",
+        ["workcenter", "period", "capacity"],
+        [
+            ["WC1", "2025-01", 80],
+            ["WC1", "2025-02", 60],
+        ],
+    )
+    _write_csv(
+        base / "mix_share.csv",
+        ["family", "sku", "share"],
+        [
+            ["F1", "SKU1", 0.6],
+            ["F1", "SKU2", 0.4],
+            ["F2", "SKU3", 1.0],
+        ],
+    )
+    _write_csv(
+        base / "item.csv",
+        ["item", "lt", "lot", "moq"],
+        [
+            ["SKU1", 1, 1, 0],
+            ["SKU2", 1, 1, 0],
+            ["SKU3", 2, 1, 0],
+        ],
+    )
+    _write_csv(
+        base / "inventory.csv",
+        ["item", "qty"],
+        [
+            ["SKU1", 10],
+            ["SKU2", 5],
+            ["SKU3", 2],
+        ],
+    )
+    _write_csv(
+        base / "open_po.csv",
+        ["item", "due", "qty"],
+        [
+            ["SKU1", "2025-01-15", 5],
+            ["SKU3", "2025-01", 3],
+        ],
+    )
+    _write_csv(
+        base / "bom.csv",
+        ["parent", "child", "qty"],
+        [
+            ["SKU1", "COMP1", 1],
+            ["SKU2", "COMP2", 1],
+        ],
+    )
+
+    return base
+
+
+def test_plan_aggregate_storage_db_only(db_setup, tmp_path, tiny_planning_dir):
     output = tmp_path / "aggregate.json"
     version_id = "agg-cli-db"
     env = os.environ.copy()
@@ -14,19 +123,20 @@ def test_plan_aggregate_storage_db_only(db_setup, tmp_path):
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"  # ensure env doesn't force db
 
-    cmd = [
-        sys.executable,
-        "scripts/plan_aggregate.py",
-        "-i",
-        "samples/planning",
-        "-o",
-        str(output),
-        "--storage",
-        "db",
-        "--version-id",
-        version_id,
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    _run_cli(
+        "scripts.plan_aggregate",
+        [
+            "-i",
+            str(tiny_planning_dir),
+            "-o",
+            str(output),
+            "--storage",
+            "db",
+            "--version-id",
+            version_id,
+        ],
+        env,
+    )
 
     # fileは生成されない
     assert not output.exists()
@@ -48,22 +158,23 @@ def test_plan_aggregate_storage_db_only(db_setup, tmp_path):
         conn.commit()
 
 
-def test_plan_aggregate_storage_files_only(db_setup, tmp_path):
+def test_plan_aggregate_storage_files_only(db_setup, tmp_path, tiny_planning_dir):
     output = tmp_path / "aggregate.json"
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
-    cmd = [
-        sys.executable,
-        "scripts/plan_aggregate.py",
-        "-i",
-        "samples/planning",
-        "-o",
-        str(output),
-    ]
-    subprocess.run(cmd, check=True, env=env)
+    _run_cli(
+        "scripts.plan_aggregate",
+        [
+            "-i",
+            str(tiny_planning_dir),
+            "-o",
+            str(output),
+        ],
+        env,
+    )
 
     assert output.exists()
 
@@ -71,49 +182,47 @@ def test_plan_aggregate_storage_files_only(db_setup, tmp_path):
     output.unlink()
 
 
-def test_allocate_storage_db_with_aggregate_merge(db_setup, tmp_path):
+def test_allocate_storage_db_with_aggregate_merge(
+    db_setup, tmp_path, tiny_planning_dir
+):
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
     agg_output = tmp_path / "aggregate.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.plan_aggregate",
         [
-            sys.executable,
-            "scripts/plan_aggregate.py",
             "-i",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(agg_output),
             "--storage",
             "files",
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert agg_output.exists()
 
     version_id = "alloc-cli-db"
     detail_output = tmp_path / "sku_week.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.allocate",
         [
-            sys.executable,
-            "scripts/allocate.py",
             "-i",
             str(agg_output),
             "-o",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "--storage",
             "db",
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     # storage=db のためファイルは生成されない
@@ -142,60 +251,55 @@ def test_allocate_storage_db_with_aggregate_merge(db_setup, tmp_path):
     agg_output.unlink()
 
 
-def test_mrp_storage_db_append(db_setup, tmp_path):
+def test_mrp_storage_db_append(db_setup, tmp_path, tiny_planning_dir):
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
     agg_output = tmp_path / "aggregate.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.plan_aggregate",
         [
-            sys.executable,
-            "scripts/plan_aggregate.py",
             "-i",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(agg_output),
             "--storage",
             "files",
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     version_id = "mrp-cli-db"
     detail_output = tmp_path / "sku_week.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.allocate",
         [
-            sys.executable,
-            "scripts/allocate.py",
             "-i",
             str(agg_output),
             "-o",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "--storage",
             "both",
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert detail_output.exists()
 
     mrp_output = tmp_path / "mrp.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.mrp",
         [
-            sys.executable,
-            "scripts/mrp.py",
             "-i",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(mrp_output),
             "--storage",
@@ -203,8 +307,7 @@ def test_mrp_storage_db_append(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert not mrp_output.exists()
@@ -232,54 +335,49 @@ def test_mrp_storage_db_append(db_setup, tmp_path):
     detail_output.unlink()
 
 
-def test_anchor_adjust_storage_db(db_setup, tmp_path):
+def test_anchor_adjust_storage_db(db_setup, tmp_path, tiny_planning_dir):
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
     agg_output = tmp_path / "aggregate.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.plan_aggregate",
         [
-            sys.executable,
-            "scripts/plan_aggregate.py",
             "-i",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(agg_output),
             "--storage",
             "files",
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     version_id = "anchor-cli-db"
     detail_output = tmp_path / "sku_week.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.allocate",
         [
-            sys.executable,
-            "scripts/allocate.py",
             "-i",
             str(agg_output),
             "-o",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "--storage",
             "both",
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     adjust_output = tmp_path / "sku_week_adjusted.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.anchor_adjust",
         [
-            sys.executable,
-            "scripts/anchor_adjust.py",
             "-i",
             str(agg_output),
             str(detail_output),
@@ -296,8 +394,7 @@ def test_anchor_adjust_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert not adjust_output.exists()
@@ -321,60 +418,55 @@ def test_anchor_adjust_storage_db(db_setup, tmp_path):
     detail_output.unlink()
 
 
-def test_reconcile_storage_db(db_setup, tmp_path):
+def test_reconcile_storage_db(db_setup, tmp_path, tiny_planning_dir):
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
     agg_output = tmp_path / "aggregate.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.plan_aggregate",
         [
-            sys.executable,
-            "scripts/plan_aggregate.py",
             "-i",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(agg_output),
             "--storage",
             "files",
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert agg_output.exists()
 
     version_id = "reconcile-cli-db"
     detail_output = tmp_path / "sku_week.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.allocate",
         [
-            sys.executable,
-            "scripts/allocate.py",
             "-i",
             str(agg_output),
             "-o",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "--storage",
             "both",
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     mrp_output = tmp_path / "mrp.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.mrp",
         [
-            sys.executable,
-            "scripts/mrp.py",
             "-i",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(mrp_output),
             "--storage",
@@ -382,20 +474,18 @@ def test_reconcile_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     plan_output = tmp_path / "plan_final.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.reconcile",
         [
-            sys.executable,
-            "scripts/reconcile.py",
             "-i",
             str(detail_output),
             str(mrp_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(plan_output),
             "--weeks",
@@ -405,8 +495,7 @@ def test_reconcile_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert not plan_output.exists()
@@ -418,10 +507,9 @@ def test_reconcile_storage_db(db_setup, tmp_path):
     assert weekly_rows
 
     log_output = tmp_path / "reconciliation_log.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.reconcile_levels",
         [
-            sys.executable,
-            "scripts/reconcile_levels.py",
             "-i",
             str(agg_output),
             str(detail_output),
@@ -434,8 +522,7 @@ def test_reconcile_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     log_artifact = db.get_plan_artifact(version_id, log_output.name)
@@ -443,10 +530,9 @@ def test_reconcile_storage_db(db_setup, tmp_path):
     assert log_artifact.get("schema_version") == "recon-aggdet-1.0"
 
     csv_output = tmp_path / "reconciliation_before.csv"
-    subprocess.run(
+    _run_cli(
+        "scripts.export_reconcile_csv",
         [
-            sys.executable,
-            "scripts/export_reconcile_csv.py",
             "-i",
             str(log_output),
             "-o",
@@ -458,8 +544,7 @@ def test_reconcile_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     csv_artifact = db.get_plan_artifact(version_id, csv_output.name)
@@ -485,58 +570,53 @@ def test_reconcile_storage_db(db_setup, tmp_path):
         log_output.unlink()
 
 
-def test_report_storage_db(db_setup, tmp_path):
+def test_report_storage_db(db_setup, tmp_path, tiny_planning_dir):
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", ".")
     env["SCPLN_DB"] = db_setup
     env["PLAN_STORAGE_MODE"] = "files"
 
     agg_output = tmp_path / "aggregate.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.plan_aggregate",
         [
-            sys.executable,
-            "scripts/plan_aggregate.py",
             "-i",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(agg_output),
             "--storage",
             "files",
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     version_id = "report-cli-db"
     detail_output = tmp_path / "sku_week.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.allocate",
         [
-            sys.executable,
-            "scripts/allocate.py",
             "-i",
             str(agg_output),
             "-o",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "--storage",
             "both",
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     mrp_output = tmp_path / "mrp.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.mrp",
         [
-            sys.executable,
-            "scripts/mrp.py",
             "-i",
             str(detail_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(mrp_output),
             "--storage",
@@ -544,20 +624,18 @@ def test_report_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     plan_output = tmp_path / "plan_final.json"
-    subprocess.run(
+    _run_cli(
+        "scripts.reconcile",
         [
-            sys.executable,
-            "scripts/reconcile.py",
             "-i",
             str(detail_output),
             str(mrp_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(plan_output),
             "--weeks",
@@ -567,19 +645,17 @@ def test_report_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     report_output = tmp_path / "report.csv"
-    subprocess.run(
+    _run_cli(
+        "scripts.report",
         [
-            sys.executable,
-            "scripts/report.py",
             "-i",
             str(plan_output),
             "-I",
-            "samples/planning",
+            str(tiny_planning_dir),
             "-o",
             str(report_output),
             "--storage",
@@ -587,8 +663,7 @@ def test_report_storage_db(db_setup, tmp_path):
             "--version-id",
             version_id,
         ],
-        check=True,
-        env=env,
+        env,
     )
 
     assert not report_output.exists()

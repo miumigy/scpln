@@ -8,6 +8,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "Dockerfile"
 
+pytestmark = pytest.mark.slow
+
 
 def test_dockerfile_exists_and_has_expected_content():
     assert (

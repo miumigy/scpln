@@ -1,5 +1,8 @@
 import importlib
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.api import app
 
 # 必要APIを有効化
@@ -7,6 +10,8 @@ importlib.import_module("app.simulation_api")
 importlib.import_module("app.run_list_api")  # 既存
 importlib.import_module("app.trace_export_api")  # 既存なら
 importlib.import_module("app.ui_runs")
+
+pytestmark = pytest.mark.slow
 
 
 def test_ui_runs_list_basic(db_setup):

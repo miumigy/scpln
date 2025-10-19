@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 from pathlib import Path
 from alembic.config import main as alembic_main
@@ -11,15 +12,46 @@ import sys  # これを追加
 os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
 
 
+@pytest.fixture(scope="session")
+def migrated_db_template(tmp_path_factory):
+    """
+    Alembicでマイグレーション済みのDBテンプレートを1回だけ構築し、以降のテストで複製する。
+    ローカル環境でも毎テストのマイグレーション実行を避け、所要時間を短縮する。
+    """
+    db_dir = tmp_path_factory.mktemp("alembic_db")
+    template_path = db_dir / "template.db"
+
+    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
+
+    previous_env_db = os.environ.get("SCPLN_DB")
+    previous_db_path = getattr(appdb, "_current_db_path", None)
+
+    try:
+        os.environ["SCPLN_DB"] = str(template_path)
+        appdb._current_db_path = str(template_path)
+        alembic_main(["-c", str(alembic_ini_path), "upgrade", "head"])
+    finally:
+        appdb._current_db_path = previous_db_path
+        if previous_env_db is not None:
+            os.environ["SCPLN_DB"] = previous_env_db
+        else:
+            os.environ.pop("SCPLN_DB", None)
+
+    return template_path
+
+
 @pytest.fixture
-def db_setup(tmp_path, monkeypatch):
+def db_setup(tmp_path, monkeypatch, migrated_db_template):
     """
     テスト関数ごとにDBをセットアップするfixture。
     1. 一時的なDBファイルを作成する。
-    2. 環境変数 SCPLN_DB を設定し、アプリがテストDBを参照するようにする。
-    3. Alembicを使ってDBマイグレーションを実行する。
+    2. セッションで1度だけ作成したマイグレーション済みテンプレートを複製する。
+    3. 環境変数 SCPLN_DB を設定し、アプリがテストDBを参照するようにする。
     """
     db_path = tmp_path / "test.db"
+
+    # セッションで生成したテンプレートをコピーし、毎テストのマイグレーションを回避
+    shutil.copy2(migrated_db_template, db_path)
 
     # 環境変数を設定して、すべてのモジュールが同じDBパスを参照するようにする
     monkeypatch.setenv("SCPLN_DB", str(db_path))
@@ -33,11 +65,6 @@ def db_setup(tmp_path, monkeypatch):
     # 既存の接続ヘルパが参照するパスを直接上書きし、リロードによるクラス再定義を避ける
     previous_db_path = getattr(appdb, "_current_db_path", None)
     appdb._current_db_path = str(db_path)
-
-    # Alembicでマイグレーションを実行
-    # alembic.iniのパスを-cで指定する
-    alembic_ini_path = Path(__file__).parent.parent / "alembic.ini"
-    alembic_main(["-c", str(alembic_ini_path), "upgrade", "head"])
 
     try:
         yield str(db_path)

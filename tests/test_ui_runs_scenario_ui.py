@@ -1,5 +1,9 @@
-from app.api import app
+import pytest
 from fastapi.testclient import TestClient
+
+from app.api import app
+
+pytestmark = pytest.mark.slow
 
 
 def test_ui_runs_shows_scenario_column_and_value(db_setup):

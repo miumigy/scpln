@@ -6,6 +6,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 
 def test_iso_boundary_marking(tmp_path: Path):
     base = Path.cwd()
