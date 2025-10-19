@@ -21,7 +21,10 @@
       "item_type": "product",
       "uom": "unit",
       "lead_time_days": 5,
-      "unit_cost": 1200
+      "unit_cost": 1200,
+      "attributes": {
+        "sales_price": 2200
+      }
     },
     {
       "code": "SKU-COMP",
@@ -76,6 +79,25 @@
           "safety_stock": 20
         }
       ]
+    },
+    {
+      "code": "STORE-001",
+      "name": "Shibuya Store",
+      "node_type": "store",
+      "timezone": "Asia/Tokyo",
+      "region": "JP-East",
+      "service_level": 0.92,
+      "lead_time_days": 0,
+      "storage_capacity": 200,
+      "inventory_policies": [
+        {
+          "item_code": "SKU-FG",
+          "initial_inventory": 30,
+          "reorder_point": 20,
+          "order_up_to": 80,
+          "safety_stock": 10
+        }
+      ]
     }
   ],
   "arcs": [
@@ -94,6 +116,22 @@
       "order_multiple": {
         "SKU-FG": 10
       }
+    },
+    {
+      "from_node": "DC-001",
+      "to_node": "STORE-001",
+      "arc_type": "transport",
+      "lead_time_days": 1,
+      "capacity_per_day": 120,
+      "allow_over_capacity": false,
+      "transportation_cost_fixed": 50,
+      "transportation_cost_variable": 2.5,
+      "min_order_qty": {
+        "SKU-FG": 10
+      },
+      "order_multiple": {
+        "SKU-FG": 5
+      }
     }
   ],
   "bom": [
@@ -105,7 +143,7 @@
   ],
   "demands": [
     {
-      "node_code": "DC-001",
+      "node_code": "STORE-001",
       "item_code": "SKU-FG",
       "bucket": "M1",
       "demand_model": "normal",
@@ -113,7 +151,7 @@
       "std_dev": 10
     },
     {
-      "node_code": "DC-001",
+      "node_code": "STORE-001",
       "item_code": "SKU-FG",
       "bucket": "M2",
       "demand_model": "normal",
@@ -157,6 +195,12 @@
       "node_key": "FG",
       "parent_key": null,
       "level": "family"
+    },
+    {
+      "hierarchy_type": "location",
+      "node_key": "STORE-001",
+      "parent_key": "DC-001",
+      "level": "store"
     },
     {
       "hierarchy_type": "location",

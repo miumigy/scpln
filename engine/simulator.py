@@ -902,8 +902,15 @@ class SupplyChainSimulator:
             if sales_qty > 0 and item_name:
                 node = self.nodes_map.get(node_name)
                 if isinstance(node, StoreNode):
-                    # Revenue handling can be extended via Product.sales_price if needed
-                    pass
+                    product = self.products.get(item_name)
+                    price = 0.0
+                    if product is not None:
+                        try:
+                            price = float(getattr(product, "sales_price", 0) or 0.0)
+                        except (TypeError, ValueError):
+                            price = 0.0
+                    if price > 0:
+                        pl["revenue"] += sales_qty * price
 
         transport_costs_by_type = {
             "material_transport": {"fixed": 0.0, "variable": 0.0},
