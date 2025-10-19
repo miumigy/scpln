@@ -1,5 +1,9 @@
 import time
+
+import pytest
 from fastapi.testclient import TestClient
+
+pytestmark = pytest.mark.slow
 
 
 def test_plan_run_auto_redirects_to_new_plan(seed_canonical_data, monkeypatch):

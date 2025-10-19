@@ -1,4 +1,6 @@
 import time
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app import db
@@ -8,6 +10,8 @@ from app.metrics import (
     PLAN_DB_LAST_SUCCESS_TIMESTAMP,
 )
 from core.plan_repository import PlanRepository
+
+pytestmark = pytest.mark.slow
 
 
 def test_plans_integrated_run_and_reconcile_e2e(seed_canonical_data, monkeypatch):

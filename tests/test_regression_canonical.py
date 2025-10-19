@@ -12,6 +12,8 @@ import pytest
 from app import db, jobs
 from app.jobs import JobManager
 
+pytestmark = pytest.mark.slow
+
 # 十分な長さを確保
 JOB_WAIT_TIMEOUT = 120
 

@@ -1,6 +1,9 @@
 import re
 import importlib
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.api import app
 from app.run_registry import REGISTRY
 from domain.models import (
@@ -16,6 +19,8 @@ from domain.models import (
 
 # /simulation を有効化
 importlib.import_module("app.simulation_api")
+
+pytestmark = pytest.mark.slow
 
 UUID4_RE = re.compile(
     r"^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",

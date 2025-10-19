@@ -25,6 +25,8 @@ from core.config.validators import ValidationIssue, ValidationResult
 # 先に副作用 import で /simulation を登録
 importlib.import_module("app.simulation_api")
 
+pytestmark = pytest.mark.slow
+
 
 UUID4_RE = re.compile(
     r"^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",
