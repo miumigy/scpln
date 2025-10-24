@@ -186,9 +186,9 @@ def ui_canonical_configs_redirect():
 
 
 @router.get("/canonical/import", response_class=HTMLResponse)
-def ui_canonical_config_import(request: Request, parent_version_id: int | None = Query()):
+def ui_canonical_config_import(request: Request, parent_version_id: int | None = Query(default=None)):
     json_text = ""
-    if parent_version_id:
+    if parent_version_id is not None:
         try:
             config, _ = load_canonical_config_from_db(parent_version_id, validate=False)
             json_text = json.dumps(config.model_dump(mode="json"), ensure_ascii=False, indent=2)

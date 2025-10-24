@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -114,6 +115,10 @@ async def seed_defaults_if_empty() -> None:
     """Render 無料版などでDBが空のとき、最小のシナリオを投入する。
     既に1件以上ある場合は何もしない（冪等）。
     """
+    if os.environ.get("SCPLN_SKIP_STARTUP_SEED") in {"1", "true", "True"}:
+        logger.info("seed: startup seed skipped by SCPLN_SKIP_STARTUP_SEED")
+        return
+
     try:
         from app import db  # 遅延import（起動順の安定化）
 
