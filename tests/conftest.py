@@ -12,12 +12,24 @@ import sys  # これを追加
 os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
 
 
+_DEFAULT_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "tmp" / "alembic_template" / "template.db"
+
+
 @pytest.fixture(scope="session")
 def migrated_db_template(tmp_path_factory):
     """
     Alembicでマイグレーション済みのDBテンプレートを1回だけ構築し、以降のテストで複製する。
     ローカル環境でも毎テストのマイグレーション実行を避け、所要時間を短縮する。
     """
+    env_template = os.environ.get("SCPLN_TEST_DB_TEMPLATE")
+    if env_template:
+        env_path = Path(env_template)
+        if env_path.exists():
+            return env_path
+
+    if _DEFAULT_TEMPLATE_PATH.exists():
+        return _DEFAULT_TEMPLATE_PATH
+
     db_dir = tmp_path_factory.mktemp("alembic_db")
     template_path = db_dir / "template.db"
 
@@ -36,6 +48,13 @@ def migrated_db_template(tmp_path_factory):
             os.environ["SCPLN_DB"] = previous_env_db
         else:
             os.environ.pop("SCPLN_DB", None)
+
+    try:
+        _DEFAULT_TEMPLATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(template_path, _DEFAULT_TEMPLATE_PATH)
+    except Exception:
+        # コピーに失敗してもテスト実行は継続
+        pass
 
     return template_path
 

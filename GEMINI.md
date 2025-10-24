@@ -33,6 +33,11 @@
 - フォーマット: 既存のフォーマッタ/規約があればそれに合わせる（対象ファイル限定で実行）。
 - 変更説明: 完了時は簡潔な差分要約・影響範囲・次アクションを提示。
 
+### Gemini CLI テスト手順
+- pytest等を実行する前に `PYTHONPATH=. .venv/bin/python scripts/prepare_test_db_template.py` を実行し、`tmp/alembic_template/template.db` を生成・更新する。
+- テンプレートDBが存在すれば `tests/conftest.py` が自動転用するため、120秒タイムアウト制限下でもAlembicマイグレーションによる待機を避けられる。
+- コマンド失敗時はログを残して1度だけリトライし、不可なら代替プラン（対象テスト縮小など）を提示する。
+
 ## Git 運用規約
 - 直接 `main` へコミット/プッシュ可。大規模変更や衝突リスクがある場合はトピックブランチを切る。
   - ブランチ例: `feat/xxxx-ja`, `fix/xxxx-ja`, `docs/xxxx-ja`
