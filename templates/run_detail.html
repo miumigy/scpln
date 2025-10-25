@@ -13,7 +13,6 @@
     <h3>Config</h3>
     <table>
       <tbody>
-        <tr><th class="mono">config_id</th><td class="mono">{{ config_id or '' }}</td></tr>
         <tr><th class="mono">config_version_id</th>
           <td class="mono">
             {% if config_version_id %}
@@ -28,13 +27,6 @@
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">plan_job_id</th>
-          <td class="mono">
-            {% if plan_job_id %}
-              <a href="/ui/jobs/{{ plan_job_id }}">{{ plan_job_id }}</a>
-            {% else %}-{% endif %}
-          </td>
-        </tr>
         <tr><th class="mono">scenario_id</th>
           <td class="mono">
             {% if scenario_id %}
@@ -42,8 +34,7 @@
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">config_json</th><td><pre class="mono" style="max-height:240px; overflow:auto;">{{ config_json_str }}</pre></td></tr>
-        <tr><th class="mono">raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
+        <tr><th class="mono">config_json_raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
       </tbody>
     </table>
   </section>
@@ -107,11 +98,6 @@
 
   <section>
     <h3>Planning</h3>
-    <p>Create a new plan version using this run’s <code>scenario_id</code> and <code>config_json</code> when available.</p>
-    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-      <button id="create-plan" type="button">Create plan from this run</button>
-      <a class="secondary" href="/ui/plans" target="_blank" rel="noopener">Open Planning Hub</a>
-    </div>
     {% if matching_plans and matching_plans|length > 0 %}
     <details class="gap-top-sm" open>
       <summary>Plans generated from this configuration</summary>
@@ -158,8 +144,22 @@
   const promoteBtn = document.getElementById('promote-baseline');
   const archBtn = document.getElementById('archive-run');
   const unarchBtn = document.getElementById('unarchive-run');
-  const createPlanBtn = document.getElementById('create-plan');
-  const configVersionId = {{ config_version_id|tojson|safe }};
+  const actionButtons = [approveBtn, promoteBtn, archBtn, unarchBtn];
+
+  function setActionButtonsDisabled(reason){
+    actionButtons.forEach(function(btn){
+      if (!btn) return;
+      if (reason){
+        btn.disabled = true;
+        btn.setAttribute('title', reason);
+        btn.setAttribute('aria-disabled', 'true');
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute('title');
+        btn.removeAttribute('aria-disabled');
+      }
+    });
+  }
 
   async function refresh() {
     try {
@@ -245,64 +245,6 @@
     else if (a === 'unarchive') act(`/runs/${runId}/unarchive`, 'archive');
   });
 
-  function tsId(){
-    const t = new Date();
-    const pad=n=>String(n).padStart(2,'0');
-    return t.getFullYear()+pad(t.getMonth()+1)+pad(t.getDate())+pad(t.getHours())+pad(t.getMinutes())+pad(t.getSeconds());
-  }
-  function getRunsPrefs(){ try { return JSON.parse(localStorage.getItem('runs_prefs')||'{}') } catch { return {} } }
-  function versionFromRun(runId){
-    const s = getRunsPrefs();
-    const prefix = (s.plan_version_prefix ?? 'run-');
-    const withTs = (typeof s.plan_version_ts === 'boolean') ? s.plan_version_ts : true;
-    let base = '';
-    try { const p = String(runId||'').replace(/[^a-zA-Z0-9]/g,''); base = prefix + p.slice(0,8); } catch { base = prefix + 'run'; }
-    return withTs ? (base + '-' + tsId()) : base;
-  }
-
-  async function createPlanFromRun(){
-    try {
-      var sidCell = document.querySelector('table tbody tr:nth-child(2) td');
-      const sidTxt = sidCell ? (sidCell.textContent||'') : '';
-      const scenarioId = parseInt(sidTxt, 10);
-      // Read config_json from the table if present
-      let cfg = null;
-      try {
-        var pre = document.querySelector('table pre.mono');
-        if (pre && pre.textContent) cfg = JSON.parse(pre.textContent);
-      } catch(e) { cfg = null; }
-      const payload = {
-        base_scenario_id: Number.isFinite(scenarioId) ? scenarioId : undefined,
-        version_id: versionFromRun(runId),
-        // Copy matching keys when possible; API fills remaining defaults
-        weeks: (cfg && typeof cfg.weeks !== 'undefined') ? cfg.weeks : undefined,
-        lt_unit: (cfg && cfg.lt_unit) || undefined,
-        cutover_date: (cfg && cfg.cutover_date) || undefined,
-        recon_window_days: (cfg && typeof cfg.recon_window_days !== 'undefined') ? cfg.recon_window_days : undefined,
-        anchor_policy: (cfg && cfg.anchor_policy) || undefined,
-        tol_abs: (cfg && typeof cfg.tol_abs !== 'undefined') ? cfg.tol_abs : undefined,
-        tol_rel: (cfg && typeof cfg.tol_rel !== 'undefined') ? cfg.tol_rel : undefined,
-        calendar_mode: (cfg && cfg.calendar_mode) || undefined,
-        carryover: (cfg && cfg.carryover) || undefined,
-        carryover_split: (cfg && typeof cfg.carryover_split !== 'undefined') ? cfg.carryover_split : undefined,
-        apply_adjusted: (cfg && !!cfg.apply_adjusted) || false,
-        source_run_id: runId,
-        note: `created from run ${runId}`
-      };
-      if (configVersionId) payload.config_version_id = configVersionId;
-      const headers = { ...getHeaders(), 'Content-Type':'application/json' };
-      const res = await fetch('/plans/integrated/run', { method:'POST', headers, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
-      if (data && data.version_id){ window.location.href = '/ui/plans/' + data.version_id; }
-      else { alert('Plan creation failed (missing version_id).'); }
-    } catch(e) {
-      console.error('createPlanFromRun failed', e);
-      alert('Plan creation failed.');
-    }
-  }
-  if (createPlanBtn) createPlanBtn.addEventListener('click', createPlanFromRun);
-
   async function loadMeta(){
     try {
       var m = null;
@@ -328,18 +270,24 @@
         if (m.approved_at) badges.innerHTML += '<span class="secondary">APPROVED</span>';
         if (m.archived) badges.innerHTML += '<span class="secondary">ARCHIVED</span>';
       }
-    } catch (e) { console.warn('meta load failed', e); }
+      setActionButtonsDisabled(null);
+    } catch (e) {
+      console.warn('meta load failed', e);
+      setActionButtonsDisabled('Runメタ情報を取得できませんでした。マイグレーション適用後に再試行してください。');
+      banner('Runメタ情報を取得できませんでした。承認・ベースライン操作は無効化されています。', 'error');
+    }
   }
-  function banner(msg){
+  function banner(msg, tone){
     const d = document.createElement('div');
     d.textContent = msg;
-    d.style.background = '#e7f5ff';
+    d.style.background = tone === 'error' ? '#ffe3e3' : '#e7f5ff';
     d.style.padding = '6px 8px';
     d.style.margin = '6px 0';
     d.setAttribute('role','status');
     (document.querySelector('article')||document.body).prepend(d);
     setTimeout(()=> d.remove(), 2000);
   }
+  setActionButtonsDisabled('Runメタ情報を取得中です…');
   loadMeta();
 
   function getHeaders(){
