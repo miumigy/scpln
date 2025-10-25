@@ -25,7 +25,7 @@ def main() -> None:
     os.environ["SCPLN_DB"] = str(template_path)
     print(f"[prepare_test_db_template] apply alembic migrations to {template_path}")
     alembic_main(["-c", str(alembic_ini), "upgrade", "head"])
-    print(f"[prepare_test_db_template] completed")
+    print("[prepare_test_db_template] completed")
 
 
 if __name__ == "__main__":
