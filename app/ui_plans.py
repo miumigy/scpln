@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 import logging
 import json
 import sys
+import math
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -80,6 +81,270 @@ def get_plan_repository() -> PlanRepository:
 
 print("DEBUG: Initializing Jinja2Templates")
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+
+_KPI_CARD_DEFS = [
+    {
+        "key": "capacity_util",
+        "label": "Capacity utilization",
+        "fmt": "percent",
+        "precision": 1,
+    },
+    {"key": "service_level", "label": "Service level", "fmt": "percent", "precision": 1},
+    {"key": "backlog_days", "label": "Backlog days", "fmt": "number", "precision": 1},
+    {"key": "inventory_turns", "label": "Inventory turns", "fmt": "number", "precision": 1},
+    {"key": "cost_variance", "label": "Cost variance", "fmt": "number", "precision": 2},
+    {"key": "on_time_rate", "label": "On time rate", "fmt": "percent", "precision": 1},
+]
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        f_val = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(f_val):
+        return None
+    return f_val
+
+
+def _safe_sum(values) -> float | None:
+    total = 0.0
+    has_value = False
+    for val in values:
+        if val is None:
+            continue
+        total += val
+        has_value = True
+    return total if has_value else None
+
+
+def _make_metric(
+    base_row: dict[str, Any] | None,
+    metric: str,
+    value: Any,
+    *,
+    unit: str,
+    source: str,
+) -> dict[str, Any]:
+    row = dict(base_row or {})
+    row["metric"] = metric
+    row["value"] = value
+    row["unit"] = row.get("unit") or unit
+    row["bucket_type"] = row.get("bucket_type") or "total"
+    row["bucket_key"] = row.get("bucket_key") or "total"
+    row["source"] = row.get("source") or source
+    return row
+
+
+def _augment_kpi_preview(
+    metrics: dict[str, dict[str, Any]],
+    *,
+    aggregate_rows: list[dict[str, Any]],
+    detail_rows: list[dict[str, Any]],
+    aggregate_fallback: list[dict[str, Any]],
+    detail_fallback: list[dict[str, Any]],
+    period_cost_rows: list[dict[str, Any]],
+    plan_final: dict[str, Any],
+    plan_version: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    result = {k: dict(v) for k, v in (metrics or {}).items()}
+
+    agg_rows = aggregate_rows or aggregate_fallback or []
+    det_rows = detail_rows or detail_fallback or []
+
+    total_demand = _to_float((result.get("demand_total") or {}).get("value"))
+    if total_demand is None:
+        total_demand = _safe_sum(_to_float(r.get("demand")) for r in agg_rows)
+    if total_demand is None:
+        total_demand = _safe_sum(_to_float(r.get("demand")) for r in det_rows)
+
+    total_supply = _to_float((result.get("supply_total") or {}).get("value"))
+    if total_supply is None:
+        total_supply = _safe_sum(_to_float(r.get("supply")) for r in agg_rows)
+    if total_supply is None:
+        total_supply = _safe_sum(_to_float(r.get("supply_plan")) for r in det_rows)
+    if total_supply is None:
+        total_supply = _safe_sum(_to_float(r.get("supply")) for r in det_rows)
+
+    total_backlog = _to_float((result.get("backlog_total") or {}).get("value"))
+    if total_backlog is None:
+        total_backlog = _safe_sum(_to_float(r.get("backlog")) for r in agg_rows)
+    if total_backlog is None:
+        total_backlog = _safe_sum(_to_float(r.get("backlog")) for r in det_rows)
+    if total_backlog is None and plan_final.get("weekly_summary"):
+        total_backlog = _safe_sum(
+            _to_float(r.get("spill_out"))
+            for r in plan_final.get("weekly_summary") or []
+        )
+
+    capacity_vals = [_to_float(r.get("capacity_total")) for r in agg_rows]
+    total_capacity = _safe_sum(capacity_vals)
+    if (total_capacity is None or total_capacity == 0) and plan_final.get("weekly_summary"):
+        total_capacity = _safe_sum(
+            _to_float(r.get("capacity"))
+            for r in plan_final.get("weekly_summary") or []
+        )
+        if total_supply is None:
+            total_supply = _safe_sum(
+                _to_float(r.get("adjusted_load"))
+                for r in plan_final.get("weekly_summary") or []
+            )
+        if total_supply is None:
+            total_supply = _safe_sum(
+                _to_float(r.get("original_load"))
+                for r in plan_final.get("weekly_summary") or []
+            )
+    if total_capacity and total_supply is not None and total_capacity > 0:
+        capacity_ratio = max(0.0, min(total_supply / total_capacity, 1.0))
+        result["capacity_util"] = _make_metric(
+            result.get("capacity_util"),
+            "capacity_util",
+            capacity_ratio,
+            unit="ratio",
+            source="ui_derived",
+        )
+
+    fill_rate_row = result.get("fill_rate")
+    service_level_val = (
+        _to_float(fill_rate_row.get("value")) if fill_rate_row else None
+    )
+    if service_level_val is None and total_demand and total_demand > 0:
+        service_level_val = max(
+            0.0, min((total_supply or 0.0) / total_demand, 1.0)
+        )
+    if service_level_val is not None:
+        result["service_level"] = _make_metric(
+            result.get("service_level") or fill_rate_row,
+            "service_level",
+            service_level_val,
+            unit="ratio",
+            source="ui_alias",
+        )
+        result["on_time_rate"] = _make_metric(
+            result.get("on_time_rate") or fill_rate_row,
+            "on_time_rate",
+            service_level_val,
+            unit="ratio",
+            source="ui_alias",
+        )
+
+    total_cost = _safe_sum(_to_float(r.get("cost_total")) for r in agg_rows)
+    if total_cost is None and period_cost_rows:
+        total_cost = _safe_sum(_to_float(r.get("cost")) for r in period_cost_rows)
+    if total_cost is not None:
+        result["cost_variance"] = _make_metric(
+            result.get("cost_variance"),
+            "cost_variance",
+            total_cost,
+            unit="currency",
+            source="ui_derived",
+        )
+
+    weekly_demand: dict[str, float] = {}
+    for row in det_rows:
+        week = row.get("week")
+        demand = _to_float(row.get("demand"))
+        if not week or demand is None:
+            continue
+        weekly_demand[week] = weekly_demand.get(week, 0.0) + demand
+    if not weekly_demand and detail_fallback:
+        for row in detail_fallback:
+            week = row.get("week")
+            demand = _to_float(row.get("demand"))
+            if not week or demand is None:
+                continue
+            weekly_demand[week] = weekly_demand.get(week, 0.0) + demand
+
+    avg_daily_demand = None
+    if weekly_demand:
+        total_weekly = sum(weekly_demand.values())
+        weeks = len(weekly_demand)
+        if weeks > 0 and total_weekly > 0:
+            avg_daily_demand = (total_weekly / weeks) / 7.0
+
+    if total_backlog is not None and avg_daily_demand:
+        backlog_days = total_backlog / avg_daily_demand if avg_daily_demand > 0 else None
+        if backlog_days is not None:
+            result["backlog_days"] = _make_metric(
+                result.get("backlog_days"),
+                "backlog_days",
+                backlog_days,
+                unit="days",
+                source="ui_derived",
+            )
+
+    inventory_points: list[float] = []
+    for row in det_rows:
+        start = _to_float(row.get("on_hand_start"))
+        end = _to_float(row.get("on_hand_end"))
+        if start is None and end is None:
+            continue
+        if start is None:
+            start = end
+        if end is None:
+            end = start
+        if start is None or end is None:
+            continue
+        inventory_points.append((start + end) / 2.0)
+    if not inventory_points and detail_fallback:
+        for row in detail_fallback:
+            start = _to_float(row.get("on_hand_start"))
+            end = _to_float(row.get("on_hand_end"))
+            if start is None and end is None:
+                continue
+            if start is None:
+                start = end
+            if end is None:
+                end = start
+            if start is None or end is None:
+                continue
+            inventory_points.append((start + end) / 2.0)
+
+    if inventory_points and total_supply is not None:
+        avg_inventory = sum(inventory_points) / len(inventory_points)
+        if avg_inventory > 0:
+            inventory_turns = total_supply / avg_inventory
+            result["inventory_turns"] = _make_metric(
+                result.get("inventory_turns"),
+                "inventory_turns",
+                inventory_turns,
+                unit="ratio",
+                source="ui_derived",
+            )
+
+    window_days = plan_version.get("recon_window_days")
+    if window_days is None:
+        window_days = (plan_final.get("reconcile_params") or {}).get(
+            "recon_window_days"
+        )
+    try:
+        window_value = int(window_days) if window_days is not None else None
+    except (TypeError, ValueError):
+        window_value = None
+    if window_value is not None:
+        result["window_days"] = _make_metric(
+            result.get("window_days"),
+            "window_days",
+            window_value,
+            unit="days",
+            source="ui_meta",
+        )
+
+    anchor_policy = plan_version.get("anchor_policy")
+    if anchor_policy is None:
+        anchor_policy = (plan_final.get("reconcile_params") or {}).get("anchor_policy")
+    if anchor_policy:
+        result["anchor_policy"] = _make_metric(
+            result.get("anchor_policy"),
+            "anchor_policy",
+            anchor_policy,
+            unit="policy",
+            source="ui_meta",
+        )
+
+    return result
 
 
 def _form_bool(value) -> bool:
@@ -276,6 +541,33 @@ def ui_plan_detail(version_id: str, request: Request):
         db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
     )
     plan_final = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    aggregate_artifact = db.get_plan_artifact(version_id, "aggregate.json") or {}
+    period_cost_raw = db.get_plan_artifact(version_id, "period_cost.json") or []
+    if isinstance(period_cost_raw, list):
+        period_cost_rows = list(period_cost_raw)
+    elif isinstance(period_cost_raw, dict):
+        if "rows" in period_cost_raw:
+            period_cost_rows = list(period_cost_raw.get("rows") or [])
+        elif "period_cost" in period_cost_raw:
+            period_cost_rows = list(period_cost_raw.get("period_cost") or [])
+        else:
+            period_cost_rows = [period_cost_raw]
+    else:
+        period_cost_rows = []
+    aggregate_fallback_rows = list(aggregate_artifact.get("rows") or [])
+    plan_final_rows = list(plan_final.get("rows") or [])
+    detail_fallback_rows = [
+        {
+            "week": row.get("week"),
+            "demand": row.get("gross_req"),
+            "supply": row.get("planned_order_receipt_adj")
+            or row.get("planned_order_receipt"),
+            "backlog": row.get("net_req"),
+            "on_hand_start": row.get("on_hand_start"),
+            "on_hand_end": row.get("on_hand_end"),
+        }
+        for row in plan_final_rows
+    ]
     plan_jobs = get_plan_repository().fetch_plan_jobs(version_id=version_id)
     created_from_run_id: str | None = None
     if plan_jobs:
@@ -308,7 +600,7 @@ def ui_plan_detail(version_id: str, request: Request):
         )
     aggregate_rows = repo_fetch_aggregate_rows(get_plan_repository(), version_id)
     detail_rows = repo_fetch_detail_rows(get_plan_repository(), version_id)
-    aggregate = {"rows": aggregate_rows}
+    aggregate = {"rows": aggregate_rows or aggregate_fallback_rows}
 
     disagg_rows_sample = []
     try:
@@ -494,11 +786,21 @@ def ui_plan_detail(version_id: str, request: Request):
             related_plans = []
     # KPI preview (MVP): capacity/utilization and spill totals
     kpi_rows = get_plan_repository().fetch_plan_kpis(version_id)
-    kpi_preview: dict[str, Any] = {
+    kpi_preview_raw: dict[str, Any] = {
         row["metric"]: row
         for row in kpi_rows
         if (row.get("bucket_type") or "total") == "total"
     }
+    kpi_preview = _augment_kpi_preview(
+        kpi_preview_raw,
+        aggregate_rows=aggregate_rows,
+        detail_rows=detail_rows,
+        aggregate_fallback=aggregate_fallback_rows,
+        detail_fallback=detail_fallback_rows,
+        period_cost_rows=period_cost_rows,
+        plan_final=plan_final,
+        plan_version=ver or {},
+    )
     # 計測イベント: plan_results_viewed（詳細表示）
     try:
         logging.info(
@@ -530,6 +832,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "deltas": deltas,
             "deltas_adj": deltas_adj,
             "kpi_preview": kpi_preview,
+            "kpi_cards": _KPI_CARD_DEFS,
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
             "related_plans": related_plans,
