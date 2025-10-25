@@ -2,9 +2,10 @@ from __future__ import annotations
 from pydantic import BaseModel, field_validator
 from uuid import uuid4
 import logging
-from fastapi import Query, Request, HTTPException, APIRouter
+from fastapi import APIRouter, HTTPException, Query, Request
 from domain.models import SimulationInput
 from engine.simulator import SupplyChainSimulator
+from engine.simulation_stub import run_stub as run_stub_simulation
 import time
 import os
 from typing import Optional
@@ -116,8 +117,6 @@ def post_simulation(
         raise HTTPException(status_code=400, detail="simulation payload is required")
 
     # RBAC（ライト）: 変更系のためロール/テナント必須（有効化時）
-    import os
-
     if os.getenv("RBAC_ENABLED", "0") == "1":
         role = request.headers.get("X-Role") if request else None
         org = request.headers.get("X-Org-ID") if request else None
@@ -132,21 +131,38 @@ def post_simulation(
         if not org or not tenant:
             raise HTTPException(status_code=400, detail="missing org/tenant headers")
 
+    skip_simulation = os.getenv("SCPLN_SKIP_SIMULATION_API", "0") == "1"
+
     run_id = str(uuid4())
     start = time.time()
     logging.info("run_started", extra={"event": "run_started", "run_id": run_id})
-    sim = SupplyChainSimulator(payload)
-    results, daily_pl = sim.run()
-    duration_ms = int((time.time() - start) * 1000)
+    results: list[dict[str, object]] | list = []
+    daily_pl: list[dict[str, object]] | list = []
+    summary: dict[str, object] = {}
+    cost_trace: list[dict[str, object]] = []
+    sim: SupplyChainSimulator | None = None
+
+    if skip_simulation:
+        summary, results, daily_pl, cost_trace = run_stub_simulation(
+            payload, include_trace=True
+        )
+        duration_ms = int((time.time() - start) * 1000)
+    else:
+        sim = SupplyChainSimulator(payload)
+        results, daily_pl = sim.run()
+        duration_ms = int((time.time() - start) * 1000)
+        try:
+            summary = sim.compute_summary()
+        except Exception:
+            summary = {}
+        cost_trace = getattr(sim, "cost_trace", [])
+
     try:
         SIM_DURATION.observe(duration_ms)
         RUNS_TOTAL.inc()
     except Exception:
         pass
-    try:
-        summary = sim.compute_summary()
-    except Exception:
-        summary = {}
+
     # optional: attach config context (id and json) when provided
     # fallback: header X-Config-Id
     try:
@@ -182,7 +198,7 @@ def post_simulation(
             # 後から参照できるよう主要出力も保存
             "results": results,
             "daily_profit_loss": daily_pl,
-            "cost_trace": getattr(sim, "cost_trace", []),
+            "cost_trace": cost_trace,
             "config_id": config_id,
             "config_version_id": canonical_version_id,
             "scenario_id": scenario_id,
@@ -224,7 +240,7 @@ def post_simulation(
             "duration": duration_ms,
             "results": len(results or []),
             "pl_days": len(daily_pl or []),
-            "trace_events": len(getattr(sim, "cost_trace", []) or []),
+            "trace_events": len(cost_trace or []),
             "schema": getattr(payload, "schema_version", "1.0"),
         },
     )
@@ -236,7 +252,7 @@ def post_simulation(
         "daily_profit_loss": daily_pl,
         "profit_loss": daily_pl,
         "summary": summary,
-        "cost_trace": getattr(sim, "cost_trace", []),
+        "cost_trace": cost_trace if include_trace else [],
     }
     if canonical_version_id is not None:
         resp["config_version_id"] = canonical_version_id
