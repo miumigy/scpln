@@ -33,6 +33,7 @@ def fetch_aggregate_rows(repo: PlanRepository, version_id: str) -> List[Dict[str
                 "demand": row.get("demand"),
                 "supply": row.get("supply"),
                 "backlog": row.get("backlog"),
+                "cost_total": row.get("cost_total"),
                 "capacity_total": extra.get("capacity_total")
                 or row.get("capacity_used"),
             }

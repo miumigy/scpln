@@ -657,8 +657,7 @@
         <input id="schedSku" type="search" placeholder="SKU filter" aria-label="SKU filter">
         <input id="schedWeek" type="search" placeholder="Week filter (e.g. 2025-W01)" aria-label="Week filter">
         <small id="schedMeta"></small>
-        <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank">schedule.csv</a>
-        <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/schedule.csv" title="Copy URL" aria-label="Copy schedule.csv URL">copy</button>
+        <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank" rel="noopener">schedule.csv</a>
         <small>Showing first 200 rows ({{ schedule_total or 0 }} total)</small>
       </div>
       {% if schedule_rows %}
@@ -931,9 +930,6 @@
           <tr><td>status</td><td>{{ version.status or '' }}</td></tr>
           <tr><td>config_version_id</td><td class="mono">{% if config_version_id %}<a href="/ui/configs/canonical/{{ config_version_id }}">{{ config_version_id }}</a>{% else %}-{% endif %}</td></tr>
           <tr><td>base_scenario_id</td><td class="mono">{% if version.base_scenario_id %}<a href="/ui/scenarios?highlight={{ version.base_scenario_id }}">{{ version.base_scenario_id }}</a>{% else %}-{% endif %}</td></tr>
-          {% if created_from_run_id %}
-            <tr><td>created_from_run</td><td class="mono"><a href="/ui/runs/{{ created_from_run_id }}">{{ created_from_run_id }}</a></td></tr>
-          {% endif %}
           <tr><td>cutover_date</td><td class="mono">{{ version.cutover_date or '' }}</td></tr>
           <tr><td>recon_window_days</td><td class="mono">{{ version.recon_window_days or '' }}</td></tr>
           {% if recon and recon.summary %}
@@ -965,7 +961,7 @@
       {% endif %}
       {% if plan_runs and plan_runs|length > 0 %}
       <div class="gap-top-sm">
-        <strong>Runs created from this plan</strong>
+        <strong>Run created from this plan</strong>
         <table>
           <thead><tr><th>run_id</th><th>started_at</th><th>fill_rate</th><th>profit_total</th></tr></thead>
           <tbody>
@@ -983,12 +979,11 @@
         <form method="post" action="/ui/compare" class="tab-toolbar">
           <input type="hidden" name="run_ids" value="{{ plan_run_ids[0] }},{{ plan_run_ids[1] }}">
           <button type="submit" aria-label="Compare latest plan runs">Compare latest plan runs</button>
-          <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}"> metrics.csv</label>
-          <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}" title="Copy URL" aria-label="Copy URL">copy</button>
-          <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
-          <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}&threshold=5" title="Copy URL" aria-label="Copy URL">copy</button>
-          <button type="button" class="secondary copy-runs-all" data-run-ids="{{ plan_run_ids[0] }},{{ plan_run_ids[1] }}" title="Copy both links" aria-label="Copy both links">copy all</button>
-          <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
+          <span class="mono" style="margin-left:8px;">
+            <a href="/ui/compare/metrics.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}" target="_blank" rel="noopener">metrics.csv</a>
+            |
+            <a href="/ui/compare/diffs.csv?run_ids={{ plan_run_ids[0] }},{{ plan_run_ids[1] }}&threshold=5" target="_blank" rel="noopener">diffs.csv (±5%)</a>
+          </span>
         </form>
         {% endif %}
       </div>
@@ -1025,16 +1020,6 @@
             <tr><td>open_po</td><td class="mono">{{ planning_summary.get('open_po', 0) }}</td></tr>
           </tbody>
         </table>
-      </div>
-      {% endif %}
-      {% if config_runs and config_runs|length > 0 %}
-      <div class="gap-top-sm">
-        <strong>Recent runs using this config version</strong>
-        <ul>
-          {% for r in config_runs %}
-          <li class="mono"><a href="/ui/runs/{{ r.run_id }}">{{ r.run_id }}</a> <small>({{ r.started_at_str or r.started_at or '' }})</small></li>
-          {% endfor %}
-        </ul>
       </div>
       {% endif %}
       <div class="tab-toolbar">
@@ -1095,51 +1080,43 @@
     <section class="gap-top-sm">
       <h4>MVP: KPI preview</h4>
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
+        {% for card in kpi_cards %}
+        {% set metric = kpi_preview.get(card.key) %}
         <article>
-          <header>Capacity utilization</header>
-          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['capacity_util']['value'] * 100)) if 'capacity_util' in kpi_preview else '-' }}</strong>
+          <header>{{ card.label }}</header>
+          {% if metric and metric.value is not none %}
+            {% if card.fmt == 'percent' %}
+              <strong class="mono">{{ (('%0.' ~ card.precision ~ 'f%%')|format((metric.value | float) * 100)) }}</strong>
+            {% elif card.fmt == 'number' %}
+              <strong class="mono">{{ (('%0.' ~ card.precision ~ 'f')|format(metric.value | float)) }}</strong>
+            {% else %}
+              <strong class="mono">{{ metric.value }}</strong>
+            {% endif %}
+          {% else %}
+            <strong class="mono">-</strong>
+          {% endif %}
         </article>
-        <article>
-          <header>Service level</header>
-          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['service_level']['value'] * 100)) if 'service_level' in kpi_preview else '-' }}</strong>
-        </article>
-        <article>
-          <header>Backlog days</header>
-          <strong class="mono">{{ '%.1f'|format(kpi_preview['backlog_days']['value']) if 'backlog_days' in kpi_preview else '-' }}</strong>
-        </article>
-        <article>
-          <header>Inventory turns</header>
-          <strong class="mono">{{ '%.1f'|format(kpi_preview['inventory_turns']['value']) if 'inventory_turns' in kpi_preview else '-' }}</strong>
-        </article>
-        <article>
-          <header>Cost variance</header>
-          <strong class="mono">{{ '%.2f'|format(kpi_preview['cost_variance']['value']) if 'cost_variance' in kpi_preview else '-' }}</strong>
-        </article>
-        <article>
-          <header>On time rate</header>
-          <strong class="mono">{{ ('%.1f%%'|format(kpi_preview['on_time_rate']['value'] * 100)) if 'on_time_rate' in kpi_preview else '-' }}</strong>
+        {% endfor %}
       </div>
-      {% if kpi_preview['window_days'] %}
-        <p class="mono">window_days={{ kpi_preview['window_days'].value }} | policy={{ kpi_preview['anchor_policy'].value or '(none)' }}</p>
+      {% set window_meta = kpi_preview.get('window_days') %}
+      {% set policy_meta = kpi_preview.get('anchor_policy') %}
+      {% if window_meta or policy_meta %}
+        <p class="mono">
+          window_days={{ window_meta.value if window_meta and window_meta.value is not none else '(n/a)' }}
+          | policy={{ policy_meta.value if policy_meta and policy_meta.value else '(none)' }}
+        </p>
       {% endif %}
     </section>
     {% endif %}
     <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
       <span>Exports:</span>
-      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/summary"> summary.json</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/summary" title="Copy URL" aria-label="Copy URL">copy</button>
+      <a href="/plans/{{ version_id }}/summary" target="_blank" rel="noopener">summary.json</a>
       |
-      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000"> compare.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" title="Copy URL" aria-label="Copy URL">copy</button>
+      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=rel_desc&limit=1000" target="_blank" rel="noopener">compare.csv</a>
       |
-      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000"> violations.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" title="Copy URL" aria-label="Copy URL">copy</button>
+      <a href="/plans/{{ version_id }}/compare.csv?violations_only=true&sort=abs_desc&limit=1000" target="_blank" rel="noopener">violations.csv</a>
       |
-      <label><input type="checkbox" class="sel-copy" data-href="/plans/{{ version_id }}/carryover.csv"> carryover.csv</label>
-      <button type="button" class="secondary copy" data-href="/plans/{{ version_id }}/carryover.csv" title="Copy URL" aria-label="Copy URL">copy</button>
-      |
-      <button type="button" class="secondary copy-all" data-version="{{ version_id }}" title="Copy all primary links" aria-label="Copy all primary links">copy all</button>
-      <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
+      <a href="/plans/{{ version_id }}/carryover.csv" target="_blank" rel="noopener">carryover.csv</a>
     </div>
     </div>
 
@@ -1166,12 +1143,11 @@
           <form method="post" action="/ui/compare" class="tab-toolbar">
             <input type="hidden" name="run_ids" value="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}">
             <button type="submit" aria-label="Compare latest two runs">Compare latest two runs</button>
-            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}"> metrics.csv</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="Copy URL" aria-label="Copy URL">copy</button>
-            <label><input type="checkbox" class="sel-copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5"> diffs.csv (±5%)</label>
-            <button type="button" class="secondary copy" data-href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" title="Copy URL" aria-label="Copy URL">copy</button>
-            <button type="button" class="secondary copy-runs-all" data-run-ids="{{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" title="Copy both links" aria-label="Copy both links">copy all</button>
-            <button type="button" class="secondary copy-selected" title="Copy selected links" aria-label="Copy selected links">copy selected</button>
+            <span class="mono" style="margin-left:8px;">
+              <a href="/ui/compare/metrics.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}" target="_blank" rel="noopener">metrics.csv</a>
+              |
+              <a href="/ui/compare/diffs.csv?run_ids={{ latest_run_ids[0] }},{{ latest_run_ids[1] }}&threshold=5" target="_blank" rel="noopener">diffs.csv (±5%)</a>
+            </span>
           </form>
           {% endif %}
         {% else %}
@@ -1495,73 +1471,5 @@
     });
   })();
 </script>
-<script>
-  // Link copy helpers (same behavior as list view)
-  (function(){
-    function copyUrl(href){
-      var abs = (location && location.origin ? location.origin : '') + href;
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(abs).catch(function(){});
-      } else {
-        var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-      }
-    }
-    function copyAllLinks(ver){
-      var origin = (location && location.origin) ? location.origin : '';
-      var urls = [
-        origin + '/plans/' + ver + '/summary',
-        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=rel_desc&limit=1000',
-        origin + '/plans/' + ver + '/compare.csv?violations_only=true&sort=abs_desc&limit=1000',
-        origin + '/plans/' + ver + '/carryover.csv'
-      ];
-      var txt = urls.join('\n');
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(txt).catch(function(){});
-      } else {
-        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-      }
-    }
-    function copyRunCompareAll(runIdsCsv){
-      if (!runIdsCsv) return;
-      var origin = (location && location.origin) ? location.origin : '';
-      var m = origin + '/ui/compare/metrics.csv?run_ids=' + runIdsCsv;
-      var d = origin + '/ui/compare/diffs.csv?run_ids=' + runIdsCsv + '&threshold=5';
-      var txt = m + '\n' + d;
-      if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(txt).catch(function(){});
-      } else {
-        var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-      }
-    }
-    document.addEventListener('click', function(ev){
-      var t = ev.target;
-      if (t && t.classList && t.classList.contains('copy')){
-        var href = t.getAttribute('data-href');
-        if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
-      }
-      if (t && t.classList && t.classList.contains('copy-all')){
-        var ver = t.getAttribute('data-version');
-        if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
-      }
-      if (t && t.classList && t.classList.contains('copy-runs-all')){
-        var ids = t.getAttribute('data-run-ids');
-        if (ids){ copyRunCompareAll(ids); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
-      }
-      if (t && t.classList && t.classList.contains('copy-selected')){
-        var checks = Array.from(document.querySelectorAll('.sel-copy:checked'));
-        var origin = (location && location.origin) ? location.origin : '';
-        var urls = checks.map(function(c){ return origin + (c.getAttribute('data-href')||''); }).filter(Boolean);
-        if (urls.length){
-          var txt = urls.join('\n');
-          if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-            navigator.clipboard.writeText(txt).catch(function(){});
-          } else {
-            var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-          }
-          t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy selected'; }, 1200);
-        }
-      }
-    });
-  })();
-\n</script>
+<!-- copy helpers removed -->
 {% endblock %}
