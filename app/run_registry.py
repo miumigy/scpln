@@ -104,6 +104,7 @@ def record_canonical_run(
             summary = simulator.compute_summary()
         except Exception:
             summary = {}
+        cost_trace = getattr(simulator, "cost_trace", [])
         summary = dict(summary or {})
         if plan_version_id:
             summary.setdefault("_plan_version_id", plan_version_id)
@@ -118,6 +119,7 @@ def record_canonical_run(
                 "summary": summary,
                 "results": results,
                 "daily_profit_loss": daily_pl,
+                "cost_trace": cost_trace,
                 "config_version_id": config_version_id,
                 "scenario_id": scenario_id,
                 "plan_version_id": plan_version_id,
