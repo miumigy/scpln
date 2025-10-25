@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -63,7 +65,7 @@ def build_simulation_input(
     products = _build_products(config.items, config.bom)
     nodes = [_build_node(node, items_by_code) for node in config.nodes]
     network = [_build_network_link(arc) for arc in config.arcs]
-    demands = [_build_customer_demand(row) for row in config.demands]
+    demands = _build_customer_demands(config.demands, horizon)
 
     return SimulationInput(
         schema_version=config.meta.schema_version or "1.0",
@@ -133,10 +135,12 @@ def _build_products(
         if item.item_type != "product":
             continue
         sales_price = _to_float(item.attributes.get("sales_price"))
+        unit_cost = _to_float(item.unit_cost)
         products.append(
             Product(
                 name=item.code,
                 sales_price=sales_price,
+                unit_cost=unit_cost,
                 assembly_bom=bom_map.get(item.code, []),
             )
         )
@@ -332,14 +336,132 @@ def _build_network_link(arc: CanonicalArc) -> NetworkLink:
     )
 
 
-def _build_customer_demand(row: DemandProfile) -> CustomerDemand:
-    std_dev = row.std_dev if row.std_dev is not None else 0.0
-    return CustomerDemand(
-        store_name=row.node_code,
-        product_name=row.item_code,
-        demand_mean=row.mean,
-        demand_std_dev=std_dev,
-    )
+def _build_customer_demands(
+    profiles: Iterable[DemandProfile], horizon: int
+) -> List[CustomerDemand]:
+    grouped: Dict[tuple[str, str], List[DemandProfile]] = defaultdict(list)
+    for row in profiles:
+        grouped[(row.node_code, row.item_code)].append(row)
+
+    demands: List[CustomerDemand] = []
+    for (node_code, item_code), rows in grouped.items():
+        if _should_distribute_demands(rows):
+            demands.extend(_expand_demand_group(rows, horizon))
+        else:
+            for row in rows:
+                std_dev = row.std_dev if row.std_dev is not None else 0.0
+                demands.append(
+                    CustomerDemand(
+                        store_name=node_code,
+                        product_name=item_code,
+                        demand_mean=row.mean,
+                        demand_std_dev=std_dev,
+                        bucket=row.bucket,
+                    )
+                )
+    return demands
+
+
+_BUCKET_SKIP = {"default", "baseline"}
+
+
+def _should_distribute_demands(rows: List[DemandProfile]) -> bool:
+    if not rows:
+        return False
+    return all(_is_period_bucket(row.bucket) for row in rows)
+
+
+_ALPHA_NUM_SUFFIX = re.compile(r"^([A-Za-z]+)(\d+)$")
+_ISO_MONTH = re.compile(r"^(\d{4})-(\d{2})$")
+_ISO_WEEK = re.compile(r"^(\d{4})-W(\d{2})$", re.IGNORECASE)
+_ISO_DAY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _is_period_bucket(bucket: Optional[str]) -> bool:
+    if not bucket:
+        return False
+    lowered = bucket.lower()
+    if lowered in _BUCKET_SKIP:
+        return False
+    if _ALPHA_NUM_SUFFIX.match(bucket):
+        return True
+    if _ISO_MONTH.match(bucket):
+        return True
+    if _ISO_WEEK.match(bucket):
+        return True
+    if _ISO_DAY.match(bucket):
+        return True
+    return False
+
+
+def _bucket_sort_key(row: DemandProfile):
+    bucket = row.bucket or ""
+    if match := _ALPHA_NUM_SUFFIX.match(bucket):
+        prefix, num = match.groups()
+        return (0, prefix, int(num))
+    if match := _ISO_DAY.match(bucket):
+        y, m, d = match.groups()
+        return (1, int(y), int(m), int(d))
+    if match := _ISO_WEEK.match(bucket):
+        y, w = match.groups()
+        return (2, int(y), int(w))
+    if match := _ISO_MONTH.match(bucket):
+        y, m = match.groups()
+        return (3, int(y), int(m))
+    return (4, bucket)
+
+
+def _expand_demand_group(
+    rows: List[DemandProfile], horizon: int
+) -> List[CustomerDemand]:
+    sorted_rows = sorted(rows, key=_bucket_sort_key)
+    total_periods = len(sorted_rows)
+    if total_periods == 0:
+        return []
+
+    if horizon <= 0:
+        horizon = DEFAULT_PLANNING_HORIZON
+
+    base_len = horizon // total_periods
+    remainder = horizon - (base_len * total_periods)
+    day_cursor = 1
+    distributed: List[CustomerDemand] = []
+
+    for idx, row in enumerate(sorted_rows):
+        if day_cursor > horizon:
+            break
+        extra_day = 1 if idx < remainder else 0
+        period_len = base_len + extra_day
+        if period_len <= 0:
+            period_len = 1
+        start = day_cursor
+        end = min(horizon, start + period_len - 1)
+        actual_len = max(1, end - start + 1)
+
+        mean_total = row.mean
+        std_total = row.std_dev if row.std_dev is not None else 0.0
+        mean_per_day = mean_total / actual_len if actual_len else mean_total
+        std_per_day = (
+            std_total / math.sqrt(actual_len) if actual_len > 0 else std_total
+        )
+
+        distributed.append(
+            CustomerDemand(
+                store_name=row.node_code,
+                product_name=row.item_code,
+                demand_mean=mean_per_day,
+                demand_std_dev=std_per_day,
+                bucket=row.bucket,
+                start_day=start,
+                end_day=end,
+            )
+        )
+        day_cursor = end + 1
+
+    if day_cursor <= horizon and distributed:
+        distributed[-1].end_day = horizon
+
+    return distributed
 
 
 def _convert_demand_family(

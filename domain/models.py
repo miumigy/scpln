@@ -12,7 +12,8 @@ class BomItem(BaseModel):
 class Product(BaseModel):
     name: str
     sales_price: float = Field(default=0, ge=0)
-    assembly_bom: List[BomItem] = Field(default=[])
+    unit_cost: float = Field(default=0, ge=0)
+    assembly_bom: List[BomItem] = Field(default_factory=list)
 
 
 class NetworkLink(BaseModel):
@@ -96,6 +97,19 @@ class CustomerDemand(BaseModel):
     product_name: str
     demand_mean: float = Field(ge=0)
     demand_std_dev: float = Field(ge=0)
+    bucket: Optional[str] = Field(
+        default=None, description="元の需要バケットキー（例:M1や2025-01）"
+    )
+    start_day: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="需要が適用される開始日(1-indexed)。未指定で全期間。",
+    )
+    end_day: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="需要が適用される終了日(1-indexed)。未指定で全期間。",
+    )
 
 
 class SimulationInput(BaseModel):

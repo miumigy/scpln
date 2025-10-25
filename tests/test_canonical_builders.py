@@ -1,6 +1,13 @@
 from pathlib import Path
 
+import pytest
+
 from core.config import (
+    CanonicalConfig,
+    CanonicalItem,
+    CanonicalNode,
+    ConfigMeta,
+    DemandProfile,
     build_planning_inputs,
     build_simulation_input,
     load_canonical_config,
@@ -54,6 +61,52 @@ def test_build_simulation_input_from_canonical():
 
     demand = next(d for d in sim_input.customer_demand if d.product_name == "完成品A")
     assert demand.demand_mean == 15
+
+
+def test_build_simulation_input_distributes_period_demands():
+    config = CanonicalConfig(
+        meta=ConfigMeta(name="period", attributes={"planning_horizon": 90}),
+        items=[
+            CanonicalItem(
+                code="SKU-A",
+                name="SKU-A",
+                item_type="product",
+                unit_cost=1500.0,
+                attributes={"sales_price": 2400},
+            )
+        ],
+        nodes=[
+            CanonicalNode(
+                code="STORE1",
+                name="Store 1",
+                node_type="store",
+                inventory_policies=[],
+            )
+        ],
+        arcs=[],
+        bom=[],
+        demands=[
+            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M1", mean=90.0),
+            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M2", mean=60.0),
+            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M3", mean=30.0),
+        ],
+        capacities=[],
+        calendars=[],
+        hierarchies=[],
+    )
+
+    sim_input = build_simulation_input(config)
+
+    product = next(p for p in sim_input.products if p.name == "SKU-A")
+    assert product.unit_cost == pytest.approx(1500.0)
+
+    demands = [d for d in sim_input.customer_demand if d.product_name == "SKU-A"]
+    assert [(d.start_day, d.end_day) for d in demands] == [(1, 30), (31, 60), (61, 90)]
+
+    totals = [
+        pytest.approx(d.demand_mean * (d.end_day - d.start_day + 1)) for d in demands
+    ]
+    assert totals == [pytest.approx(90.0), pytest.approx(60.0), pytest.approx(30.0)]
 
 
 def test_build_planning_inputs_from_payload():

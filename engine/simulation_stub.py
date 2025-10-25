@@ -19,10 +19,21 @@ def run_stub(
     customer_demand = list(getattr(payload, "customer_demand", []) or [])
     products = list(getattr(payload, "products", []) or [])
 
-    demand_per_day = sum(
-        float(getattr(d, "demand_mean", 0.0) or 0.0) for d in customer_demand
-    )
-    demand_total = demand_per_day * horizon
+    daily_demand = [0.0 for _ in range(horizon)]
+    demand_total = 0.0
+    for demand in customer_demand:
+        per_day = float(getattr(demand, "demand_mean", 0.0) or 0.0)
+        start = getattr(demand, "start_day", None) or 1
+        end = getattr(demand, "end_day", None) or horizon
+        start = max(1, start)
+        end = min(horizon, end)
+        if end < start:
+            continue
+        for idx in range(start - 1, end):
+            daily_demand[idx] += per_day
+            demand_total += per_day
+
+    demand_per_day = demand_total / horizon if horizon else 0.0
 
     # デフォルト単価（最初の製品の sales_price を優先）
     price = next(
@@ -33,6 +44,16 @@ def run_stub(
         ),
         100.0,
     )
+    cost_unit = next(
+        (
+            float(getattr(p, "unit_cost", 0.0) or 0.0)
+            for p in products
+            if getattr(p, "unit_cost", None) is not None
+        ),
+        0.0,
+    )
+    if cost_unit <= 0:
+        cost_unit = price * 0.25
 
     if demand_total <= 0:
         fill_rate = 1.0
@@ -45,9 +66,10 @@ def run_stub(
     shortage_total = max(0.0, demand_total - sales_total)
     revenue_total = sales_total * price
 
+    material_total = sales_total * cost_unit
     service_cost = revenue_total * 0.25
     penalty_total = shortage_total * price * 0.1
-    cost_total = service_cost + penalty_total
+    cost_total = material_total + service_cost + penalty_total
     profit_total = revenue_total - cost_total
     profit_per_day_avg = profit_total / horizon if horizon else profit_total
 
@@ -63,47 +85,50 @@ def run_stub(
         "customer_shortage_total": shortage_total,
     }
 
-    day_sales = sales_total / horizon if horizon else sales_total
-    day_shortage = shortage_total / horizon if horizon else shortage_total
-    day_revenue = day_sales * price
-    day_cost = day_revenue * 0.25 + day_shortage * price * 0.1
-    day_profit = day_revenue - day_cost
-
+    item_name = getattr(products[0], "name", "item") if products else "item"
     results: List[Dict[str, Any]] = []
     daily_profit_loss: List[Dict[str, Any]] = []
+    cost_trace: List[Dict[str, Any]] = []
     for day in range(horizon):
+        demand_today = daily_demand[day]
+        sales_today = demand_today * fill_rate
+        shortage_today = max(0.0, demand_today - sales_today)
+        revenue_today = sales_today * price
+        material_today = sales_today * cost_unit
+        service_today = revenue_today * 0.25
+        penalty_today = shortage_today * price * 0.1
+        cost_today = material_today + service_today + penalty_today
+        profit_today = revenue_today - cost_today
+
         results.append(
             {
                 "day": day,
-                "demand": demand_per_day,
-                "sales": day_sales,
-                "shortage": day_shortage,
+                "demand": demand_today,
+                "sales": sales_today,
+                "shortage": shortage_today,
                 "fill_rate": fill_rate,
             }
         )
         daily_profit_loss.append(
             {
                 "day": day,
-                "revenue": day_revenue,
-                "cost": day_cost,
-                "profit": day_profit,
+                "revenue": revenue_today,
+                "cost": cost_today,
+                "profit": profit_today,
             }
         )
 
-    cost_trace: List[Dict[str, Any]] = []
-    if include_trace:
-        item_name = getattr(products[0], "name", "item") if products else "item"
-        for day in range(horizon):
+        if include_trace:
             cost_trace.append(
                 {
                     "day": day,
                     "node": "stub",
                     "item": item_name,
                     "event": "sale",
-                    "qty": day_sales,
-                    "unit_cost": round(price * 0.25, 6),
-                    "amount": round(day_cost, 6),
-                    "account": "COGS",
+                    "qty": sales_today,
+                    "unit_cost": round(cost_unit, 6),
+                    "amount": round(material_today, 6),
+                    "account": "material",
                 }
             )
 

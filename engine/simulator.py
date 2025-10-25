@@ -311,6 +311,12 @@ class SupplyChainSimulator:
                 lambda: defaultdict(lambda: defaultdict(float))
             )
             for cd in self.input.customer_demand:
+                start_day = getattr(cd, "start_day", None)
+                end_day = getattr(cd, "end_day", None)
+                if start_day is not None and day < start_day:
+                    continue
+                if end_day is not None and day > end_day:
+                    continue
                 demand_qty = max(
                     0, round(random.gauss(cd.demand_mean, cd.demand_std_dev))
                 )
@@ -904,13 +910,30 @@ class SupplyChainSimulator:
                 if isinstance(node, StoreNode):
                     product = self.products.get(item_name)
                     price = 0.0
+                    unit_cost = 0.0
                     if product is not None:
                         try:
                             price = float(getattr(product, "sales_price", 0) or 0.0)
                         except (TypeError, ValueError):
                             price = 0.0
+                        try:
+                            unit_cost = float(getattr(product, "unit_cost", 0) or 0.0)
+                        except (TypeError, ValueError):
+                            unit_cost = 0.0
                     if price > 0:
                         pl["revenue"] += sales_qty * price
+                    if unit_cost > 0:
+                        cost_amount = sales_qty * unit_cost
+                        pl["material_cost"] += cost_amount
+                        self._push_cost(
+                            day=day,
+                            node=node_name,
+                            item=item_name,
+                            event="sale_cogs",
+                            qty=sales_qty,
+                            unit_cost=unit_cost,
+                            account="material",
+                        )
 
         transport_costs_by_type = {
             "material_transport": {"fixed": 0.0, "variable": 0.0},
