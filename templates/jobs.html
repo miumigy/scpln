@@ -6,11 +6,11 @@
 {% block content %}
 <section class="page-section">
   <div class="section-header">
-    <h3>Aggregate Job Builder</h3>
-    <p>Configure aggregation parameters and enqueue processing jobs.</p>
+    <h3>Run Aggregate Job Builder</h3>
+    <p>Configure run aggregation parameters and enqueue processing jobs.</p>
   </div>
   <details open>
-    <summary>Create Aggregate Job</summary>
+    <summary>Create Run Aggregate Job</summary>
     <form id="agg-form" class="grid-form gap-bottom-sm" onsubmit="return submitAggregateJob(event)">
       <label>run_id
         <input type="text" id="agg-run-id" required placeholder="<run_id>" />
@@ -112,43 +112,21 @@
         <th>submitted_at</th>
         <th>started_at</th>
         <th>finished_at</th>
-        <th>run_id / output</th>
-        <th></th>
-        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td class="mono truncate" title="{{ r.job_id }}">{{ r.job_id }}</td>
+        <td class="mono truncate" title="{{ r.job_id }}">
+          {% if r.job_id %}
+          <a href="/ui/jobs/{{ r.job_id }}">{{ r.job_id }}</a>
+          {% else %}-{% endif %}
+        </td>
         <td>{{ r.type }}</td>
         <td>{{ r.status }}</td>
         <td class="ts-ms" data-ms="{{ r.submitted_at }}">{{ r.submitted_at }}</td>
         <td class="ts-ms" data-ms="{{ r.started_at or '' }}">{{ r.started_at or '' }}</td>
         <td class="ts-ms" data-ms="{{ r.finished_at or '' }}">{{ r.finished_at or '' }}</td>
-        <td class="mono truncate" title="{{ r.run_id or r.out_dir or '' }}">
-          {% if r.run_id %}
-            {{ r.run_id }}
-          {% elif r.type == 'planning' and r.plan_version_id %}
-            <a href="/ui/plans/{{ r.plan_version_id }}">{{ r.plan_version_id }}</a>
-          {% elif r.type == 'planning' and r.out_dir %}
-            {{ r.out_dir }}
-          {% else %}
-            
-          {% endif %}
-        </td>
-        <td>
-          {% if r.job_id %}
-          <a role="button" href="/ui/jobs/{{ r.job_id }}">Detail</a>
-          {% else %}-{% endif %}
-        </td>
-        <td>
-          {% if r.status == 'failed' %}
-          <button class="secondary" onclick="retryJob('{{ r.job_id }}')">Retry</button>
-          {% elif r.status == 'queued' %}
-          <button class="secondary" onclick="cancelJob('{{ r.job_id }}')">Cancel</button>
-          {% endif %}
-        </td>
       </tr>
       {% endfor %}
     </tbody>
