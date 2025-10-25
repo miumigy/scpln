@@ -11,7 +11,9 @@ import sys  # これを追加
 # テスト中はPlan経由のRunRegistry記録で重いPSIシミュレーションを省略する
 os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
 
-_DEFAULT_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "tmp" / "alembic_template" / "template.db"
+_DEFAULT_TEMPLATE_PATH = (
+    Path(__file__).resolve().parents[1] / "tmp" / "alembic_template" / "template.db"
+)
 
 
 @pytest.fixture(scope="session")
