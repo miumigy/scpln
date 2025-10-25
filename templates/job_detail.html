@@ -14,6 +14,14 @@
         <tr><th>submitted_at</th><td class="ts-ms" data-ms="{{ job.submitted_at }}">{{ job.submitted_at }}</td></tr>
         <tr><th>started_at</th><td class="ts-ms" data-ms="{{ job.started_at or '' }}">{{ job.started_at or '' }}</td></tr>
         <tr><th>finished_at</th><td class="ts-ms" data-ms="{{ job.finished_at or '' }}">{{ job.finished_at or '' }}</td></tr>
+        {% set plan_vid = job.plan_version_id or (result.version_id if result else None) %}
+        <tr><th>plan_version_id</th>
+          <td class="mono">
+            {% if plan_vid %}
+              <a href="/ui/plans/{{ plan_vid }}">{{ plan_vid }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
         <tr><th>run_id</th><td class="mono">{% if job.run_id %}<a href="/ui/runs/{{ job.run_id }}?from=jobs&back=/ui/jobs/{{ job.job_id }}">{{ job.run_id }}</a>{% endif %}</td></tr>
         <tr><th>error</th><td><pre>{{ job.error or '' }}</pre></td></tr>
       </tbody>
@@ -25,16 +33,6 @@
     </p>
     {% endif %}
   </section>
-  {% if job.type == 'planning' and job.status == 'succeeded' and result %}
-  <section>
-    {% if result.version_id %}
-      <a role="button" href="/ui/plans/{{ result.version_id }}">Open Plan</a>
-    {% endif %}
-    {% if result.out_dir %}
-      <span class="mono">({{ result.out_dir }})</span>
-    {% endif %}
-  </section>
-  {% endif %}
   <footer>
     <a role="button" href="/ui/jobs">← Back to jobs</a>
   </footer>
