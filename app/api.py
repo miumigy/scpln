@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 from app.ui_plans import router as ui_plans_router  # noqa: E402
-from app.ui_configs import router as ui_configs_router # Import ui_configs router
+from app.ui_configs import router as ui_configs_router  # Import ui_configs router
 from app import simulation_api as _simulation_api
 from app import run_compare_api as _run_compare_api
 from app import run_list_api as _run_list_api
@@ -51,7 +51,7 @@ def _include_module_router(target, *, prefix: str | None = None) -> None:
 
 
 app.include_router(ui_plans_router)  # /ui/plans 等をそのまま提供
-app.include_router(ui_configs_router, prefix="/ui") # Include ui_configs router
+app.include_router(ui_configs_router, prefix="/ui")  # Include ui_configs router
 _include_module_router(_simulation_api)
 _include_module_router(_run_compare_api)
 _include_module_router(_run_list_api)

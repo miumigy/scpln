@@ -7,7 +7,9 @@ from domain.models import SimulationInput
 
 def run_stub(
     payload: SimulationInput, *, include_trace: bool = False
-) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+) -> Tuple[
+    Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]
+]:
     """軽量サマリを生成するスタブ版シミュレーション。
 
     SCPLN_SKIP_SIMULATION_API=1 のときにテスト用で使用する。
@@ -17,7 +19,9 @@ def run_stub(
     customer_demand = list(getattr(payload, "customer_demand", []) or [])
     products = list(getattr(payload, "products", []) or [])
 
-    demand_per_day = sum(float(getattr(d, "demand_mean", 0.0) or 0.0) for d in customer_demand)
+    demand_per_day = sum(
+        float(getattr(d, "demand_mean", 0.0) or 0.0) for d in customer_demand
+    )
     demand_total = demand_per_day * horizon
 
     # デフォルト単価（最初の製品の sales_price を優先）
@@ -88,11 +92,7 @@ def run_stub(
 
     cost_trace: List[Dict[str, Any]] = []
     if include_trace:
-        item_name = (
-            getattr(products[0], "name", "item")
-            if products
-            else "item"
-        )
+        item_name = getattr(products[0], "name", "item") if products else "item"
         for day in range(horizon):
             cost_trace.append(
                 {

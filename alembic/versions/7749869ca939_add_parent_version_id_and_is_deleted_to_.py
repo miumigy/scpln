@@ -7,8 +7,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '7749869ca939'
-down_revision = '4eab49599376'
+revision = "7749869ca939"
+down_revision = "4eab49599376"
 branch_labels = None
 depends_on = None
 
@@ -20,7 +20,9 @@ def upgrade() -> None:
     )
     op.add_column(
         "canonical_config_versions",
-        sa.Column("is_deleted", sa.Boolean, nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "is_deleted", sa.Boolean, nullable=False, server_default=sa.text("0")
+        ),
     )
 
 
