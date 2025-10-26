@@ -1,6 +1,7 @@
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
     build_plan_series,
+    build_plan_series_from_plan_final,
 )
 
 
@@ -87,3 +88,32 @@ def test_build_plan_kpis_from_aggregate():
         if r["metric"] == "backlog_total" and r["bucket_type"] == "total"
     )
     assert total_backlog["value"] == 30.0
+
+
+def test_build_plan_series_from_plan_final_inventory():
+    plan_final = {
+        "rows": [
+            {
+                "item": "SKU1",
+                "week": "2025-01-W1",
+                "gross_req": 30,
+                "scheduled_receipts": 3,
+                "on_hand_start": 12,
+                "net_req": 6,
+                "planned_order_receipt": 22,
+                "planned_order_release": 22,
+                "planned_order_receipt_adj": 21,
+                "planned_order_release_adj": 21,
+                "on_hand_end": 7,
+                "lt_weeks": 2,
+                "lot": 1,
+                "moq": 0,
+            }
+        ]
+    }
+
+    rows = build_plan_series_from_plan_final("v-test", plan_final)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["inventory_open"] == 12.0
+    assert row["inventory_close"] == 7.0

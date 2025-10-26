@@ -43,9 +43,38 @@ def fetch_aggregate_rows(repo: PlanRepository, version_id: str) -> List[Dict[str
 
 def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, Any]]:
     rows = repo.fetch_plan_series(version_id, "det")
+    try:
+        inv_rows = repo.fetch_plan_series(version_id, "mrp_final")
+    except Exception:
+        inv_rows = []
+    inventory_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for inv in inv_rows:
+        week = inv.get("time_bucket_key")
+        sku = inv.get("item_key")
+        if not week or not sku:
+            continue
+        extra_inv = _load_extra(inv)
+        start = inv.get("inventory_open")
+        end = inv.get("inventory_close")
+        if start is None:
+            start = extra_inv.get("on_hand_start")
+        if end is None:
+            end = extra_inv.get("on_hand_end")
+        inventory_map[(str(week), str(sku))] = {
+            "on_hand_start": start,
+            "on_hand_end": end,
+        }
     result: list[Dict[str, Any]] = []
     for row in rows:
         extra = _load_extra(row)
+        key = (str(row.get("time_bucket_key")), str(row.get("item_key")))
+        inv = inventory_map.get(key, {})
+        start = extra.get("on_hand_start")
+        end = extra.get("on_hand_end")
+        if inv.get("on_hand_start") is not None:
+            start = inv["on_hand_start"]
+        if inv.get("on_hand_end") is not None:
+            end = inv["on_hand_end"]
         result.append(
             {
                 "family": extra.get("family"),
@@ -55,8 +84,8 @@ def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, A
                 "demand": row.get("demand"),
                 "supply_plan": row.get("supply"),
                 "backlog": row.get("backlog"),
-                "on_hand_start": extra.get("on_hand_start"),
-                "on_hand_end": extra.get("on_hand_end"),
+                "on_hand_start": start,
+                "on_hand_end": end,
             }
         )
     return result
@@ -311,8 +340,54 @@ def build_plan_summaries(
         summary: dict[str, Any] = {"series": series_summary}
         if last_updated:
             summary["last_updated_at"] = last_updated
-        if include_kpi and vid in kpi_map:
-            summary["kpi"] = kpi_map[vid]
+        if include_kpi:
+            def _first_not_none(*values):
+                for v in values:
+                    if v is not None:
+                        return v
+                return None
+
+            kpi_data: dict[str, Any] = dict(kpi_map.get(vid, {}))
+            agg_stats = series_summary.get("aggregate", {})
+            det_stats = series_summary.get("det", {})
+            weekly_stats = series_summary.get("weekly_summary", {})
+
+            if "fill_rate" not in kpi_data:
+                demand_total = _first_not_none(
+                    agg_stats.get("demand_total"),
+                    det_stats.get("demand_total"),
+                    weekly_stats.get("demand_total"),
+                )
+                supply_total = _first_not_none(
+                    agg_stats.get("supply_total"),
+                    det_stats.get("supply_total"),
+                    weekly_stats.get("supply_total"),
+                )
+                if demand_total is not None and supply_total is not None:
+                    demand_val = float(demand_total or 0.0)
+                    supply_val = float(supply_total or 0.0)
+                    kpi_data["fill_rate"] = (
+                        (supply_val / demand_val) if demand_val > 0 else 1.0
+                    )
+
+            if "backlog_days" not in kpi_data and weekly_stats:
+                weeks = float(weekly_stats.get("rows") or 0.0)
+                backlog_total = weekly_stats.get("backlog_total")
+                demand_total = weekly_stats.get("demand_total")
+                if (
+                    weeks > 0
+                    and backlog_total is not None
+                    and demand_total is not None
+                    and float(demand_total or 0.0) > 0
+                ):
+                    avg_daily_demand = float(demand_total or 0.0) / (weeks * 7.0)
+                    if avg_daily_demand > 0:
+                        kpi_data["backlog_days"] = float(backlog_total or 0.0) / (
+                            avg_daily_demand
+                        )
+
+            if kpi_data:
+                summary["kpi"] = kpi_data
 
         summary["series_rows"] = int(
             sum(entry.get("rows", 0) for entry in series_summary.values())

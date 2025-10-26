@@ -308,6 +308,8 @@ def build_plan_series_from_plan_final(
                     or entry.get("planned_order_receipt")
                 ),
                 backlog=_as_float(entry.get("net_req")),
+                inventory_open=_as_float(entry.get("on_hand_start")),
+                inventory_close=_as_float(entry.get("on_hand_end")),
                 extra_json=json.dumps(extra, ensure_ascii=False),
                 created_at=now,
                 updated_at=now,

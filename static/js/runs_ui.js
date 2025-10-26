@@ -169,23 +169,20 @@
     const planVersion = r.plan_version_id ?? (r.summary?.['_plan_version_id'] ?? '');
     const planLink = planVersion ? `<a href="/ui/plans/${planVersion}">${planVersion}</a>` : '-';
     const scenarioLink = r.scenario_id ? `<a href="/ui/scenarios?highlight=${r.scenario_id}">${r.scenario_id}</a>` : '-';
+    const runLink = `<a href="/ui/runs/${r.run_id}">${r.run_id}</a>`;
+    const configVerLink = r.config_version_id ? `<a href="/ui/configs/canonical/${r.config_version_id}">${r.config_version_id}</a>` : '-';
     return `
       <tr>
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
-        <td class="mono truncate" title="${r.run_id}">${r.run_id}</td>
+        <td class="mono truncate" title="${r.run_id}">${runLink}</td>
         <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
         <td>${r.duration_ms ?? ''}</td>
         <td>${r.schema_version ?? ''}</td>
-        <td>${r.config_id ?? ''}</td>
-        <td>${r.config_version_id ?? ''}</td>
+        <td class="mono">${configVerLink}</td>
         <td class="mono">${planLink}</td>
         <td class="mono">${scenarioLink}</td>
         <td>${fmt(r.summary?.fill_rate, 3)}</td>
         <td>${fmt(r.summary?.profit_total, 2)}</td>
-        <td class="table-actions">
-          <a role="button" href="/ui/runs/${r.run_id}">Detail</a>
-          <button type="button" class="secondary create-plan" data-run-id="${r.run_id}" data-scenario-id="${r.scenario_id ?? ''}" title="Create plan version from this run" aria-label="Create plan version from this run">Plan</button>
-        </td>
       </tr>
     `;
   }
