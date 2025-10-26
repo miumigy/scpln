@@ -86,9 +86,15 @@ def test_build_simulation_input_distributes_period_demands():
         arcs=[],
         bom=[],
         demands=[
-            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M1", mean=90.0),
-            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M2", mean=60.0),
-            DemandProfile(node_code="STORE1", item_code="SKU-A", bucket="M3", mean=30.0),
+            DemandProfile(
+                node_code="STORE1", item_code="SKU-A", bucket="M1", mean=90.0
+            ),
+            DemandProfile(
+                node_code="STORE1", item_code="SKU-A", bucket="M2", mean=60.0
+            ),
+            DemandProfile(
+                node_code="STORE1", item_code="SKU-A", bucket="M3", mean=30.0
+            ),
         ],
         capacities=[],
         calendars=[],

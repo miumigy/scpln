@@ -89,9 +89,19 @@ _KPI_CARD_DEFS = [
         "fmt": "percent",
         "precision": 1,
     },
-    {"key": "service_level", "label": "Service level", "fmt": "percent", "precision": 1},
+    {
+        "key": "service_level",
+        "label": "Service level",
+        "fmt": "percent",
+        "precision": 1,
+    },
     {"key": "backlog_days", "label": "Backlog days", "fmt": "number", "precision": 1},
-    {"key": "inventory_turns", "label": "Inventory turns", "fmt": "number", "precision": 1},
+    {
+        "key": "inventory_turns",
+        "label": "Inventory turns",
+        "fmt": "number",
+        "precision": 1,
+    },
     {"key": "cost_variance", "label": "Cost variance", "fmt": "number", "precision": 2},
     {"key": "on_time_rate", "label": "On time rate", "fmt": "percent", "precision": 1},
 ]
@@ -181,10 +191,11 @@ def _augment_kpi_preview(
 
     capacity_vals = [_to_float(r.get("capacity_total")) for r in agg_rows]
     total_capacity = _safe_sum(capacity_vals)
-    if (total_capacity is None or total_capacity == 0) and plan_final.get("weekly_summary"):
+    if (total_capacity is None or total_capacity == 0) and plan_final.get(
+        "weekly_summary"
+    ):
         total_capacity = _safe_sum(
-            _to_float(r.get("capacity"))
-            for r in plan_final.get("weekly_summary") or []
+            _to_float(r.get("capacity")) for r in plan_final.get("weekly_summary") or []
         )
         if total_supply is None:
             total_supply = _safe_sum(
@@ -207,13 +218,9 @@ def _augment_kpi_preview(
         )
 
     fill_rate_row = result.get("fill_rate")
-    service_level_val = (
-        _to_float(fill_rate_row.get("value")) if fill_rate_row else None
-    )
+    service_level_val = _to_float(fill_rate_row.get("value")) if fill_rate_row else None
     if service_level_val is None and total_demand and total_demand > 0:
-        service_level_val = max(
-            0.0, min((total_supply or 0.0) / total_demand, 1.0)
-        )
+        service_level_val = max(0.0, min((total_supply or 0.0) / total_demand, 1.0))
     if service_level_val is not None:
         result["service_level"] = _make_metric(
             result.get("service_level") or fill_rate_row,
@@ -265,7 +272,9 @@ def _augment_kpi_preview(
             avg_daily_demand = (total_weekly / weeks) / 7.0
 
     if total_backlog is not None and avg_daily_demand:
-        backlog_days = total_backlog / avg_daily_demand if avg_daily_demand > 0 else None
+        backlog_days = (
+            total_backlog / avg_daily_demand if avg_daily_demand > 0 else None
+        )
         if backlog_days is not None:
             result["backlog_days"] = _make_metric(
                 result.get("backlog_days"),

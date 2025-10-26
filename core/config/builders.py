@@ -441,9 +441,7 @@ def _expand_demand_group(
         mean_total = row.mean
         std_total = row.std_dev if row.std_dev is not None else 0.0
         mean_per_day = mean_total / actual_len if actual_len else mean_total
-        std_per_day = (
-            std_total / math.sqrt(actual_len) if actual_len > 0 else std_total
-        )
+        std_per_day = std_total / math.sqrt(actual_len) if actual_len > 0 else std_total
 
         distributed.append(
             CustomerDemand(
