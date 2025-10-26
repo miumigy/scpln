@@ -10,31 +10,30 @@
   </header>
 
   <section>
-    <h3>Config</h3>
-    <table>
+    <h3>Plan Creation</h3>
+    <table id="plan-creation-table">
       <tbody>
-        <tr><th class="mono">config_version_id</th>
+        <tr data-key="config_version_id"><th class="mono">config_version_id</th>
           <td class="mono">
             {% if config_version_id %}
               <a href="/ui/configs/canonical/{{ config_version_id }}">{{ config_version_id }}</a>
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">plan_version_id</th>
+        <tr data-key="plan_version_id"><th class="mono">plan_version_id</th>
           <td class="mono">
             {% if plan_version_id %}
               <a href="/ui/plans/{{ plan_version_id }}">{{ plan_version_id }}</a>
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">scenario_id</th>
+        <tr data-key="scenario_id"><th class="mono">scenario_id</th>
           <td class="mono">
             {% if scenario_id %}
               <a href="/ui/scenarios?highlight={{ scenario_id }}">{{ scenario_id }}</a>
             {% else %}-{% endif %}
           </td>
         </tr>
-        <tr><th class="mono">config_json_raw</th><td><a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/config.json">/runs/{{ run_id }}/config.json</a></td></tr>
       </tbody>
     </table>
   </section>
@@ -55,12 +54,14 @@
   </section>
 
   <section>
-    <h3>Summary</h3>
+    <h3>Run Result Summary</h3>
     {% if summary %}
     <table id="summary-table">
       <tbody>
         {% for k, v in summary.items() %}
+        {% if k != '_plan_version_id' %}
         <tr><th class="mono">{{ k }}</th><td>{{ v }}</td></tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>
@@ -76,7 +77,6 @@
     <div style="margin-top:6px; display:flex; gap:8px;">
       <button id="copy-approval" type="button" class="secondary">Copy template</button>
       <button id="save-note" type="button">Save note</button>
-      <button id="compare-baseline" type="button" class="secondary">Compare with baseline</button>
     </div>
   </section>
 
@@ -94,27 +94,6 @@
         <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/trace.csv">trace.csv</a>
       </li>
     </ul>
-  </section>
-
-  <section>
-    <h3>Planning</h3>
-    {% if matching_plans and matching_plans|length > 0 %}
-    <details class="gap-top-sm" open>
-      <summary>Plans generated from this configuration</summary>
-      <table>
-        <thead><tr><th>version_id</th><th>status</th><th>created_at</th></tr></thead>
-        <tbody>
-          {% for p in matching_plans %}
-          <tr>
-            <td class="mono"><a href="/ui/plans/{{ p.version_id }}">{{ p.version_id }}</a></td>
-            <td>{{ p.status or '' }}</td>
-            <td class="mono">{{ p.created_at_str or p.created_at or '' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </details>
-    {% endif %}
   </section>
 
   <footer>
@@ -179,7 +158,7 @@
   const noteEl = document.getElementById('approval-note');
   const copyBtn = document.getElementById('copy-approval');
   const saveNoteBtn = document.getElementById('save-note');
-  const cmpBaseBtn = document.getElementById('compare-baseline');
+  const planCreationTable = document.getElementById('plan-creation-table');
   async function del() {
     if (!confirm('Delete this run? This action cannot be undone.')) return;
     try {
@@ -197,6 +176,7 @@
     if (!role){
       if (action === 'approve' || action === 'promote') h['X-Role'] = 'approver';
       else if (action === 'archive') h['X-Role'] = 'planner';
+      else if (action === 'note') h['X-Role'] = 'planner';
     }
     if (!h['X-User'] || !String(h['X-User']).trim()) h['X-User'] = 'ui@local';
     return h;
@@ -336,6 +316,18 @@
     }
   });
 
+  function getPlanCreationValue(key){
+    if (!planCreationTable) return '';
+    try {
+      const row = planCreationTable.querySelector(`tr[data-key="${key}"]`);
+      if (!row) return '';
+      const cell = row.querySelector('td');
+      return cell ? cell.textContent.trim() : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
   function fillTemplate(){
     try {
       const sTbl = document.getElementById('summary-table');
@@ -347,43 +339,30 @@
         if (k) sum[k] = v;
       });
       const url = location.origin + '/ui/runs/' + runId;
-      const scenario = document.querySelector('table tbody tr:nth-child(2) td')?.textContent || '';
+      const planVersionId = getPlanCreationValue('plan_version_id');
       const lines = [
         `Approval request: Run ${runId}`,
         `- URL: ${url}`,
-        `- scenario_id: ${scenario}`,
+        `- plan_version_id: ${planVersionId}`,
         `- fill_rate: ${sum.fill_rate || ''}`,
         `- profit_total: ${sum.profit_total || ''}`,
         `- Notes: (add details as needed)`
       ];
-      noteEl.value = lines.join('\n');
+      if (noteEl) noteEl.value = lines.join('\n');
     } catch {}
   }
   fillTemplate();
   if (copyBtn) copyBtn.addEventListener('click', function(){ try { navigator.clipboard.writeText(noteEl.value||''); alert('Copied.'); } catch (e) { alert('Copy failed.'); } });
   if (saveNoteBtn) saveNoteBtn.addEventListener('click', async function(){
     try {
-      const res = await fetch(`/runs/${runId}/note`, { method:'POST', headers: { ...getHeaders(), 'Content-Type':'application/json' }, body: JSON.stringify({ note: noteEl.value||'' }) });
+      const headers = withActionHeaders('note');
+      headers['Content-Type'] = 'application/json';
+      const payload = { note: noteEl ? (noteEl.value || '') : '' };
+      const res = await fetch(`/runs/${runId}/note`, { method:'POST', headers, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error('HTTP '+res.status);
       banner('Note saved.');
     } catch(e){ console.error(e); alert('Failed to save note.'); }
   });
-
-  async function openCompareWithBaseline(){
-    try {
-      const sidTxt = document.querySelector('table tbody tr:nth-child(2) td')?.textContent||'';
-      const sid = parseInt(sidTxt, 10);
-      if (!sid){ alert('scenario_id is missing.'); return; }
-      const r = await fetch(`/runs/baseline?scenario_id=${sid}`, { headers: getHeaders() });
-      if (!r.ok) throw new Error('HTTP '+r.status);
-      const js = await r.json();
-      const base = js.run_id;
-      if (!base){ alert('Baseline not found.'); return; }
-      const q = new URLSearchParams({ run_ids: `${base},${runId}`, base_id: base });
-      location.href = '/ui/compare/show?' + q.toString();
-    } catch(e){ console.error(e); alert('Failed to generate comparison link.'); }
-  }
-  if (cmpBaseBtn) cmpBaseBtn.addEventListener('click', openCompareWithBaseline);
 
 })();
 </script>

@@ -32,6 +32,7 @@ from app import ui_scenarios as _ui_scenarios
 from app import ui_planning as _ui_planning
 from app import plans_api as _plans_api
 from app import runs_api as _runs_api
+from app import run_meta_api as _run_meta_api
 
 
 def _include_module_router(target, *, prefix: str | None = None) -> None:
@@ -66,6 +67,7 @@ _include_module_router(_ui_scenarios)
 _include_module_router(_ui_planning)
 _include_module_router(_plans_api)
 _include_module_router(_runs_api)
+_include_module_router(_run_meta_api)
 
 app.add_middleware(
     CORSMiddleware,
