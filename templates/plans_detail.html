@@ -722,11 +722,7 @@
 
     <div id="tab-validate" class="tab-pane" style="display:none;">
     <details open>
-                  <div class="card-body">
-                    <details class="card-text">
-                      <summary>Validation</summary>
-                      <table class="table table-sm table-hover">
-                        <tbody>
+      <summary>Validation</summary>
       {% if validate %}
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         <article>
@@ -1092,38 +1088,16 @@
         <button id="diff-apply" type="button" class="secondary">Update links</button>
       </div>
     </details>
-                  <div class="card-body">
-                    <details class="card-text">
-                      <summary>State management</summary>
-                      <div class="mt-2">
-                        <p>Current state: <strong>{{ plan_state.display_status }}</strong> (source: {{ plan_state.source }})</p>
-        <label>Advance to
-          <select name="to">
-            <option value="draft">draft</option>
-            <option value="aggregated">aggregated</option>
-            <option value="disaggregated">disaggregated</option>
-            <option value="scheduled">scheduled</option>
-            <option value="executed">executed</option>
-          </select>
-        </label>
-        <button type="submit">Advance</button>
-      </form>
-      <form method="post" action="/ui/plans/{{ version_id }}/state/invalidate" class="tab-toolbar">
-        <label>Invalidate from
-          <select name="from_step">
-            <option value="draft">draft</option>
-            <option value="aggregated">aggregated</option>
-            <option value="disaggregated">disaggregated</option>
-            <option value="scheduled">scheduled</option>
-            <option value="executed">executed</option>
-          </select>
-        </label>
-        <button type="submit" class="secondary">Invalidate</button>
+    <details>
+      <summary>State management</summary>
+      <div class="mt-2">
+        <p>Current state: <strong>{{ plan_state.display_status }}</strong> (source: {{ plan_state.source }})</p>
+        <form method="post" action="/ui/plans/{{ version_id }}/state/advance" class="tab-toolbar">
       </form>
     </details>
     {% if kpi_preview %}
-    <section class="gap-top-sm">
-      <h4>KPI preview</h4>
+    <details class="gap-top-sm" open>
+      <summary>KPI preview</summary>
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         {% for card in kpi_cards %}
         {% set metric = kpi_preview.get(card.key) %}
@@ -1151,7 +1125,7 @@
           | policy={{ policy_meta.value if policy_meta and policy_meta.value else '(none)' }}
         </p>
       {% endif %}
-    </section>
+    </details>
     {% endif %}
     <div class="mono" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
       <span>Exports:</span>
