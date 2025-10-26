@@ -50,6 +50,33 @@
     .warn-text {
       color: #b45309;
     }
+    @media (max-width: 1024px) {
+      .tab-nav {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 0.35rem;
+      }
+      .tab-nav a {
+        flex: 0 0 auto;
+      }
+    }
+    @media (max-width: 768px) {
+      .tab-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .tab-toolbar label,
+      .tab-toolbar button,
+      .tab-toolbar a[role="button"],
+      .tab-toolbar select,
+      .tab-toolbar input {
+        width: 100%;
+      }
+      .tab-scroll {
+        margin: 0 -0.75rem;
+        padding: 0 0.75rem 0.75rem;
+      }
+    }
   </style>
 {% endblock %}
 {% block page_header %}
@@ -84,21 +111,23 @@
     <details open>
       <summary>Aggregate (family × period)</summary>
       {% if aggregate and aggregate.rows %}
-      <table>
-        <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
-        <tbody>
-          {% for r in aggregate.rows %}
-          <tr>
-            <td>{{ r.period }}</td>
-            <td>{{ r.family }}</td>
-            <td class="mono">{{ r.demand }}</td>
-            <td class="mono">{{ r.supply }}</td>
-            <td class="mono">{{ r.backlog }}</td>
-            <td class="mono">{{ r.capacity_total }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>period</th><th>family</th><th>demand</th><th>supply</th><th>backlog</th><th>capacity_total</th></tr></thead>
+          <tbody>
+            {% for r in aggregate.rows %}
+            <tr>
+              <td>{{ r.period }}</td>
+              <td>{{ r.family }}</td>
+              <td class="mono">{{ r.demand }}</td>
+              <td class="mono">{{ r.supply }}</td>
+              <td class="mono">{{ r.backlog }}</td>
+              <td class="mono">{{ r.capacity_total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
       <p>No aggregate records yet. Run reconciliation or execution to populate this section.</p>
       {% endif %}
@@ -634,22 +663,24 @@
         <small class="mono">Showing first 200 rows ({{ disagg_total or 0 }} total)</small>
       </div>
       {% if disagg_rows %}
-      <table id="tblDisagg">
-        <thead><tr><th>week</th><th>sku</th><th>demand</th><th>supply_plan</th><th>backlog</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
-        <tbody>
-          {% for r in disagg_rows %}
-          <tr>
-            <td class="mono">{{ r.week }}</td>
-            <td class="mono">{{ r.sku }}</td>
-            <td class="mono">{{ r.demand }}</td>
-            <td class="mono">{{ r.supply_plan }}</td>
-            <td class="mono">{{ r.backlog }}</td>
-            <td class="mono">{{ r.on_hand_start }}</td>
-            <td class="mono">{{ r.on_hand_end }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table id="tblDisagg">
+          <thead><tr><th>week</th><th>sku</th><th>demand</th><th>supply_plan</th><th>backlog</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
+          <tbody>
+            {% for r in disagg_rows %}
+            <tr>
+              <td class="mono">{{ r.week }}</td>
+              <td class="mono">{{ r.sku }}</td>
+              <td class="mono">{{ r.demand }}</td>
+              <td class="mono">{{ r.supply_plan }}</td>
+              <td class="mono">{{ r.backlog }}</td>
+              <td class="mono">{{ r.on_hand_start }}</td>
+              <td class="mono">{{ r.on_hand_end }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
       <p>No detail rows yet. Execute the plan to populate this table.</p>
       {% endif %}
@@ -667,20 +698,22 @@
         <small>Showing first 200 rows ({{ schedule_total or 0 }} total)</small>
       </div>
       {% if schedule_rows %}
-      <table id="tblSchedule">
-        <thead><tr><th>week</th><th>sku</th><th>scheduled_receipts</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
-        <tbody>
-          {% for r in schedule_rows %}
-          <tr>
-            <td class="mono">{{ r.week }}</td>
-            <td class="mono">{{ r.sku }}</td>
-            <td class="mono">{{ r.scheduled_receipts }}</td>
-            <td class="mono">{{ r.on_hand_start }}</td>
-            <td class="mono">{{ r.on_hand_end }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table id="tblSchedule">
+          <thead><tr><th>week</th><th>sku</th><th>scheduled_receipts</th><th>on_hand_start</th><th>on_hand_end</th></tr></thead>
+          <tbody>
+            {% for r in schedule_rows %}
+            <tr>
+              <td class="mono">{{ r.week }}</td>
+              <td class="mono">{{ r.sku }}</td>
+              <td class="mono">{{ r.scheduled_receipts }}</td>
+              <td class="mono">{{ r.on_hand_start }}</td>
+              <td class="mono">{{ r.on_hand_end }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
       <p>No schedule rows yet. Execute the plan to populate this table.</p>
       {% endif %}
