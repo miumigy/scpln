@@ -168,6 +168,8 @@
         <thead>
           <tr>
             <th scope="col">Version</th>
+            <th scope="col">Run</th>
+            <th scope="col">Scenario</th>
             <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="status" data-label="Status" title="Sort by status" aria-label="Sort by status">Status</button>
             </th>
@@ -184,13 +186,23 @@
               <button type="button" class="link sort-trigger" data-sort="created_at" data-label="Created" title="Sort by created at" aria-label="Sort by created at">Created</button>
             </th>
             <th scope="col"><button type="button" class="link sort-trigger" data-sort="last_job" data-label="Last Job">Last Job</button></th>
-            <th scope="col">Shortcuts</th>
           </tr>
         </thead>
         <tbody>
           {% for p in plans %}
+          {% set last_job = p.jobs['last'] if p.jobs and 'last' in p.jobs else None %}
           <tr>
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
+            <td class="mono">
+              {% if last_job and last_job.run_id %}
+                <a href="/ui/runs/{{ last_job.run_id }}">{{ last_job.run_id }}</a>
+              {% else %}-{% endif %}
+            </td>
+            <td class="mono">
+              {% if p.base_scenario_id %}
+                <a href="/ui/scenarios?highlight={{ p.base_scenario_id }}">{{ p.base_scenario_id }}</a>
+              {% else %}-{% endif %}
+            </td>
             <td>{{ p.status or '' }}</td>
             <td class="mono">
               {% if p.config_version_id %}
@@ -202,22 +214,7 @@
             <td class="mono">{{ "%.2f"|format(p.summary.kpi.fill_rate * 100) if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else '' }}%</td>
             <td class="mono">{{ "%.2f"|format(p.summary.kpi.backlog_days) if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else '' }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
-            <td class="mono">{{ p.jobs.last.status if p.jobs and p.jobs.last else '' }}</td>
-            <td class="table-actions">
-              <div class="shortcut-group">
-                <a class="btn-link" href="/plans/{{ p.version_id }}/summary" target="_blank">Summary</a>
-                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/summary" aria-label="Copy summary URL">Copy</button>
-              </div>
-              <div class="shortcut-group">
-                <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" target="_blank">Compare</a>
-                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=rel_desc&limit=100" aria-label="Copy compare URL">Copy</button>
-              </div>
-              <div class="shortcut-group">
-                <a class="btn-link" href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" target="_blank">Violations</a>
-                <button type="button" class="secondary copy" data-href="/plans/{{ p.version_id }}/compare?violations_only=true&sort=abs_desc&limit=200" aria-label="Copy violations URL">Copy</button>
-              </div>
-              <button type="button" class="secondary copy-all" data-version="{{ p.version_id }}" aria-label="Copy all URLs">Copy All</button>
-            </td>
+            <td class="mono">{{ last_job.status if last_job else '' }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -292,23 +289,6 @@ document.addEventListener('DOMContentLoaded', function(){
     q.addEventListener('input', apply);
     apply();
   }
-  // Copy plan links to the clipboard using location.origin + data-href
-  function copyUrl(href){
-    var abs = (location && location.origin ? location.origin : '') + href;
-    if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(abs).catch(function(){});
-    } else {
-      var ta = document.createElement('textarea'); ta.value = abs; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-    }
-  }
-  document.addEventListener('click', function(ev){
-    var t = ev.target;
-    if (t && t.classList && t.classList.contains('copy')){
-      var href = t.getAttribute('data-href');
-      if (href) { copyUrl(href); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy'; }, 1200); }
-    }
-  });
-
   // Quick sort for common columns (status/created_at/violations)
   var KEY_SORT = 'ui_plans_sort';
   var KEY_SORT2 = 'ui_plans_sort2';
@@ -333,14 +313,14 @@ document.addEventListener('DOMContentLoaded', function(){
   function toNum(s){ var n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)? n : null; }
   function cmp(a,b){ return a<b ? -1 : a>b ? 1 : 0; }
   var COL_INDEX = {
-    status:1,
-    config_version:2,
-    cutover:3,
-    db_rows: 4,
-    fill_rate: 5,
-    backlog_days: 6,
-    created_at:7,
-    last_job: 8,
+    status:3,
+    config_version:4,
+    cutover:5,
+    db_rows: 6,
+    fill_rate: 7,
+    backlog_days: 8,
+    created_at:9,
+    last_job: 10,
   };
   function normalizeMs(n){
     if (!Number.isFinite(n)) return null;
@@ -481,28 +461,6 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   ['sortPKey','sortPDir','sortSKey','sortSDir'].forEach(function(id){ var el = document.getElementById(id); if (el) el.addEventListener('change', onSort2Change); });
 
-  // Support bulk copy actions for summary/compare/violations links
-  function copyAllLinks(ver){
-    var origin = (location && location.origin) ? location.origin : '';
-    var urls = [
-      origin + '/plans/' + ver + '/summary',
-      origin + '/plans/' + ver + '/compare?violations_only=true&sort=rel_desc&limit=100',
-      origin + '/plans/' + ver + '/compare?violations_only=true&sort=abs_desc&limit=200'
-    ];
-    var txt = urls.join('\n');
-    if (navigator && navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).catch(function(){});
-    } else {
-      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
-    }
-  }
-  document.addEventListener('click', function(ev){
-    var t = ev.target;
-    if (t && t.classList && t.classList.contains('copy-all')){
-      var ver = t.getAttribute('data-version');
-      if (ver){ copyAllLinks(ver); t.textContent = 'copied'; setTimeout(function(){ t.textContent = 'copy all'; }, 1200); }
-    }
-  });
 });
 </script>
 {% endblock %}
