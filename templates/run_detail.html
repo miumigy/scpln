@@ -96,6 +96,59 @@
     </ul>
   </section>
 
+  <section>
+    <h3>Artifact Tables</h3>
+    <p style="margin-bottom:12px;">Preview artifact data inline (first 200 rows per table). Use CSV download for complete export.</p>
+
+    <div class="artifact-preview" data-artifact="results">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+        <strong class="mono">results</strong>
+        <span>Rows: <span class="mono" id="artifact-count-results">{{ counts.results_len }}</span></span>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="results">Load table</button>
+          <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="results" hidden>Show more</button>
+          <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="results" hidden>Collapse</button>
+        </div>
+        <span class="mono artifact-status" data-artifact="results" aria-live="polite"></span>
+      </div>
+      <div class="artifact-table-container" id="artifact-table-results" data-placeholder="Load the table to inspect results inline.">
+        <p class="placeholder">Load the table to inspect results inline.</p>
+      </div>
+    </div>
+
+    <div class="artifact-preview" data-artifact="daily_profit_loss" style="margin-top:18px;">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+        <strong class="mono">daily_profit_loss</strong>
+        <span>Rows: <span class="mono" id="artifact-count-daily_profit_loss">{{ counts.pl_len }}</span></span>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="daily_profit_loss">Load table</button>
+          <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="daily_profit_loss" hidden>Show more</button>
+          <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="daily_profit_loss" hidden>Collapse</button>
+        </div>
+        <span class="mono artifact-status" data-artifact="daily_profit_loss" aria-live="polite"></span>
+      </div>
+      <div class="artifact-table-container" id="artifact-table-daily_profit_loss" data-placeholder="Load the table to inspect daily profit/loss rows inline.">
+        <p class="placeholder">Load the table to inspect daily profit/loss rows inline.</p>
+      </div>
+    </div>
+
+    <div class="artifact-preview" data-artifact="cost_trace" style="margin-top:18px;">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+        <strong class="mono">cost_trace</strong>
+        <span>Rows: <span class="mono" id="artifact-count-cost_trace">{{ counts.trace_len }}</span></span>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="cost_trace">Load table</button>
+          <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="cost_trace" hidden>Show more</button>
+          <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="cost_trace" hidden>Collapse</button>
+        </div>
+        <span class="mono artifact-status" data-artifact="cost_trace" aria-live="polite"></span>
+      </div>
+      <div class="artifact-table-container" id="artifact-table-cost_trace" data-placeholder="Load the table to inspect cost trace entries inline.">
+        <p class="placeholder">Load the table to inspect cost trace entries inline.</p>
+      </div>
+    </div>
+  </section>
+
   <footer>
     <a role="button" id="back-link" href="{{ back_href }}">{{ back_label }}</a>
     <div style="float:right; display:flex; gap:6px; flex-wrap:wrap;">
@@ -124,6 +177,10 @@
   const archBtn = document.getElementById('archive-run');
   const unarchBtn = document.getElementById('unarchive-run');
   const actionButtons = [approveBtn, promoteBtn, archBtn, unarchBtn];
+  const ARTIFACT_LIMIT = 200;
+  const ARTIFACT_PAGE_SIZE = 50;
+  const artifactStates = {};
+  let runDetailCache = null;
 
   function setActionButtonsDisabled(reason){
     actionButtons.forEach(function(btn){
@@ -280,7 +337,10 @@
 
   function downloadCsv(ev) {
     ev.preventDefault();
-    const el = ev.target;
+    const el = ev.target && typeof ev.target.closest === 'function'
+      ? ev.target.closest('.download-csv')
+      : null;
+    if (!el) return;
     const url = el.getAttribute('data-url');
     if (!url) return;
     const headers = getHeaders();
@@ -311,10 +371,315 @@
   }
 
   document.body.addEventListener('click', ev => {
-    if (ev.target.classList.contains('download-csv')) {
+    const target = ev.target;
+    const downloadLink =
+      target && typeof target.closest === 'function'
+        ? target.closest('.download-csv')
+        : null;
+    if (downloadLink) {
       downloadCsv(ev);
+      return;
+    }
+    const btn =
+      target && typeof target.closest === 'function'
+        ? target.closest('button[data-action]')
+        : null;
+    if (!btn) return;
+    const action = btn.getAttribute('data-action');
+    const key = btn.getAttribute('data-artifact');
+    if (!action || !key) return;
+    if (action === 'artifact-load') {
+      loadArtifact(key);
+    } else if (action === 'artifact-more') {
+      showMoreArtifact(key);
+    } else if (action === 'artifact-reset') {
+      resetArtifact(key);
     }
   });
+
+  function ensureRunDetail() {
+    if (runDetailCache) return Promise.resolve(runDetailCache);
+    return fetch(`/runs/${runId}?detail=true`, { headers: getHeaders() }).then(
+      res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json().then(data => {
+          runDetailCache = data || {};
+          return runDetailCache;
+        });
+      },
+    );
+  }
+
+  function getArtifactElements(key) {
+    return {
+      container: document.getElementById(`artifact-table-${key}`),
+      loadBtn: document.querySelector(
+        `button[data-action="artifact-load"][data-artifact="${key}"]`,
+      ),
+      moreBtn: document.querySelector(
+        `button[data-action="artifact-more"][data-artifact="${key}"]`,
+      ),
+      resetBtn: document.querySelector(
+        `button[data-action="artifact-reset"][data-artifact="${key}"]`,
+      ),
+      statusEl: document.querySelector(
+        `.artifact-status[data-artifact="${key}"]`,
+      ),
+    };
+  }
+
+  function updateArtifactStatus(key, text) {
+    const { statusEl } = getArtifactElements(key);
+    if (statusEl) statusEl.textContent = text || '';
+  }
+
+  function setArtifactLoading(key, loading) {
+    const { loadBtn, moreBtn } = getArtifactElements(key);
+    if (loadBtn) loadBtn.disabled = !!loading;
+    if (moreBtn && loading) {
+      moreBtn.disabled = true;
+    } else if (moreBtn) {
+      moreBtn.disabled = false;
+    }
+  }
+
+  function flattenRow(row) {
+    if (row && typeof row === 'object' && !Array.isArray(row)) {
+      const out = {};
+      (function walk(obj, prefix) {
+        Object.keys(obj || {}).forEach(k => {
+          const value = obj[k];
+          const key = prefix ? `${prefix}.${k}` : k;
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            walk(value, key);
+          } else if (Array.isArray(value)) {
+            try {
+              out[key] = JSON.stringify(value);
+            } catch (e) {
+              out[key] = String(value);
+            }
+          } else {
+            out[key] = value;
+          }
+        });
+      })(row, '');
+      return out;
+    }
+    return { value: row };
+  }
+
+  function deriveColumns(rows) {
+    const cols = new Set();
+    rows.forEach(r => {
+      Object.keys(r || {}).forEach(key => cols.add(key));
+    });
+    if (!cols.size) return ['value'];
+    return Array.from(cols).sort();
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatCell(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return escapeHtml(value);
+      return escapeHtml(value.toString());
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+    return escapeHtml(value);
+  }
+
+  function renderArtifactTable(key) {
+    const state = artifactStates[key];
+    const { container, moreBtn, resetBtn, loadBtn } = getArtifactElements(key);
+    if (!container) return;
+    if (!state || !state.flatRows.length || !state.columns.length) {
+      if (state) state.currentVisible = 0;
+      const placeholder =
+        container.getAttribute('data-placeholder') || 'No rows.';
+      container.innerHTML = `<p class="placeholder">${escapeHtml(
+        placeholder,
+      )}</p>`;
+      if (moreBtn) moreBtn.hidden = true;
+      if (resetBtn) resetBtn.hidden = true;
+      updateArtifactStatusFromState(key);
+      return;
+    }
+    const maxRows = state.flatRows.length;
+    const renderCount = Math.min(state.page * state.pageSize, maxRows);
+    const columns = state.columns;
+    const headerHtml = columns
+      .map(c => `<th class="mono">${escapeHtml(c)}</th>`)
+      .join('');
+    const rowsSlice = state.flatRows.slice(0, renderCount);
+    state.currentVisible = renderCount;
+    const rowsHtml = rowsSlice
+      .map(r => {
+        const cells = columns
+          .map(col => `<td>${formatCell(r[col])}</td>`)
+          .join('');
+        return `<tr>${cells}</tr>`;
+      })
+      .join('');
+    const emptyRow = `<tr><td colspan="${
+      columns.length || 1
+    }" class="mono">No rows</td></tr>`;
+    container.innerHTML = `<div class="artifact-table-scroll" style="max-height:420px; overflow:auto;"><table><thead><tr>${headerHtml}</tr></thead><tbody>${
+      rowsHtml || emptyRow
+    }</tbody></table></div>`;
+    if (moreBtn) {
+      const hasMore = renderCount < maxRows;
+      moreBtn.hidden = !hasMore;
+      moreBtn.disabled = !hasMore;
+    }
+    if (resetBtn) resetBtn.hidden = false;
+    updateArtifactStatusFromState(key);
+  }
+
+  function updateArtifactStatusFromState(key) {
+    const state = artifactStates[key];
+    if (!state) {
+      updateArtifactStatus(key, '');
+      return;
+    }
+    const total =
+      typeof state.total === 'number' ? state.total : state.flatRows.length;
+    if (!state.flatRows.length) {
+      if (total > 0) {
+        updateArtifactStatus(
+          key,
+          `No preview rows available (source rows: ${total}).`,
+        );
+      } else {
+        updateArtifactStatus(key, 'No rows available.');
+      }
+      return;
+    }
+    const visible = Math.min(
+      state.currentVisible || 0,
+      state.flatRows.length,
+    );
+    const previewMax = state.flatRows.length;
+    if (!visible) {
+      if (state.total > ARTIFACT_LIMIT) {
+        updateArtifactStatus(
+          key,
+          `Preview limited to first ${previewMax} of ${total} rows.`,
+        );
+      } else {
+        updateArtifactStatus(key, `Preview ready with ${previewMax} rows.`);
+      }
+      return;
+    }
+    if (state.total > ARTIFACT_LIMIT) {
+      if (visible >= previewMax) {
+        updateArtifactStatus(
+          key,
+          `Showing first ${previewMax} of ${total} rows (preview limit ${ARTIFACT_LIMIT}).`,
+        );
+      } else {
+        updateArtifactStatus(
+          key,
+          `Showing ${visible} of ${previewMax} preview rows (total ${total}).`,
+        );
+      }
+      return;
+    }
+    const effectiveTotal = total || previewMax;
+    if (visible < effectiveTotal) {
+      updateArtifactStatus(
+        key,
+        `Showing ${visible} of ${effectiveTotal} rows.`,
+      );
+    } else {
+      updateArtifactStatus(key, `Showing ${visible} rows.`);
+    }
+  }
+
+  async function loadArtifact(key) {
+    const { container, moreBtn, resetBtn, loadBtn } = getArtifactElements(key);
+    if (!container) return;
+    setArtifactLoading(key, true);
+    updateArtifactStatus(key, 'Loading…');
+    try {
+      const detail = await ensureRunDetail();
+      const dataset = Array.isArray(detail[key]) ? detail[key] : [];
+      if (!dataset.length) {
+        artifactStates[key] = {
+          flatRows: [],
+          columns: [],
+          page: 1,
+          pageSize: ARTIFACT_PAGE_SIZE,
+          total: 0,
+        };
+        renderArtifactTable(key);
+        if (moreBtn) {
+          moreBtn.hidden = true;
+          moreBtn.disabled = false;
+        }
+        if (resetBtn) resetBtn.hidden = false;
+        return;
+      }
+      const trimmed = dataset.slice(0, ARTIFACT_LIMIT);
+      const flatRows = trimmed.map(flattenRow);
+      const columns = deriveColumns(flatRows);
+      artifactStates[key] = {
+        flatRows,
+        columns,
+        page: 1,
+        pageSize: ARTIFACT_PAGE_SIZE,
+        total: dataset.length,
+      };
+      renderArtifactTable(key);
+    } catch (err) {
+      console.error('Artifact load failed', err);
+      container.innerHTML =
+        '<p class="placeholder">Failed to load artifact. Check API response.</p>';
+      updateArtifactStatus(key, 'Failed to load artifact.');
+    } finally {
+      setArtifactLoading(key, false);
+    }
+  }
+
+  function showMoreArtifact(key) {
+    const state = artifactStates[key];
+    if (!state) return;
+    if (state.page * state.pageSize >= state.flatRows.length) return;
+    state.page += 1;
+    renderArtifactTable(key);
+    updateArtifactStatusFromState(key);
+  }
+
+  function resetArtifact(key) {
+    const { container, moreBtn, resetBtn, loadBtn } = getArtifactElements(key);
+    if (container) {
+      const placeholder =
+        container.getAttribute('data-placeholder') || 'Table not loaded.';
+      container.innerHTML = `<p class="placeholder">${escapeHtml(
+        placeholder,
+      )}</p>`;
+    }
+    if (moreBtn) {
+      moreBtn.hidden = true;
+      moreBtn.disabled = false;
+    }
+    if (resetBtn) resetBtn.hidden = true;
+    if (loadBtn) {
+      loadBtn.disabled = false;
+      loadBtn.textContent = 'Load table';
+    }
+    updateArtifactStatus(key, '');
+    delete artifactStates[key];
+  }
 
   function getPlanCreationValue(key){
     if (!planCreationTable) return '';
