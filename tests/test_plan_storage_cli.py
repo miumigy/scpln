@@ -506,6 +506,10 @@ def test_reconcile_storage_db(db_setup, tmp_path, tiny_planning_dir):
     assert final_rows
     assert weekly_rows
 
+    plan_artifact = db.get_plan_artifact(version_id, "plan_final.json")
+    assert plan_artifact
+    assert plan_artifact.get("weekly_summary")
+
     log_output = tmp_path / "reconciliation_log.json"
     _run_cli(
         "scripts.reconcile_levels",

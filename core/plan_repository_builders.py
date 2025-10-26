@@ -333,12 +333,16 @@ def build_plan_series_from_weekly_summary(
         week = entry.get("week")
         if not week:
             continue
+        zone = entry.get("zone")
+        if not zone:
+            zone = entry.get("boundary_zone")
         extra = {
             "capacity": entry.get("capacity"),
             "spill_in": entry.get("spill_in"),
             "spill_out": entry.get("spill_out"),
             "slack_carry_out": entry.get("slack_carry_out"),
             "carried_slack_in": entry.get("carried_slack_in"),
+            "zone": zone,
         }
         rows.append(
             PlanSeriesRow(
@@ -350,6 +354,7 @@ def build_plan_series_from_weekly_summary(
                 item_name=None,
                 location_key=default_location_key,
                 location_type=default_location_type,
+                boundary_zone=str(zone) if zone is not None else None,
                 demand=_as_float(entry.get("original_load")),
                 supply=_as_float(entry.get("adjusted_load")),
                 backlog=_as_float(entry.get("spill_out")),
