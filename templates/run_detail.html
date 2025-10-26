@@ -1,12 +1,133 @@
 {% extends "base.html" %}
+{% block head %}
+  <style>
+    .run-detail__header {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .run-detail__header > * {
+      flex: 0 0 auto;
+    }
+    .run-detail__badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      flex: 1 1 auto;
+    }
+    .run-detail__csv-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .run-detail__note {
+      width: 100%;
+      max-width: 100%;
+    }
+    .run-detail__note-actions {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .run-detail__artifact {
+      margin-top: 1.25rem;
+    }
+    .run-detail__artifact-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .run-detail__artifact-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .run-detail__artifact-table {
+      overflow: auto;
+      border: 1px solid var(--surface-border);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 0.75rem;
+    }
+    .run-detail__artifact-table .placeholder {
+      margin: 0;
+      color: #61748f;
+    }
+    .run-detail__footer {
+      margin-top: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .run-detail__footer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    @media (max-width: 768px) {
+      .run-detail__header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .run-detail__header > * {
+        width: 100%;
+      }
+      .run-detail__header button {
+        width: 100%;
+      }
+      .run-detail__note-actions button {
+        width: 100%;
+      }
+      .run-detail__artifact-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .run-detail__artifact-toolbar button,
+      .run-detail__artifact-toolbar a[role="button"],
+      .run-detail__artifact-toolbar select {
+        width: 100%;
+      }
+      .run-detail__artifact-actions {
+        width: 100%;
+      }
+      .run-detail__artifact-actions button,
+      .run-detail__artifact-actions a[role="button"] {
+        width: 100%;
+      }
+      .run-detail__footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .run-detail__footer-actions {
+        width: 100%;
+      }
+      .run-detail__footer-actions button {
+        width: 100%;
+      }
+    }
+  </style>
+{% endblock %}
 {% block page_header %}
   <h2>Run Detail</h2>
   <p class="mono">{{ run_id }}</p>
 {% endblock %}
 {% block content %}
-<article class="page-section">
-  <header style="margin-bottom:1rem;">
-    <div id="meta-badges" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+<article class="page-section run-detail">
+  <header class="run-detail__header">
+    <div id="meta-badges" class="run-detail__badges"></div>
   </header>
 
   <section>
@@ -73,8 +194,8 @@
   <section>
     <h3>Approval Request</h3>
     <p>Edit and copy the approval template, or store notes for later reference.</p>
-    <textarea id="approval-note" rows="5" style="width:100%;"></textarea>
-    <div style="margin-top:6px; display:flex; gap:8px;">
+    <textarea id="approval-note" class="run-detail__note" rows="5"></textarea>
+    <div class="run-detail__note-actions">
       <button id="copy-approval" type="button" class="secondary">Copy template</button>
       <button id="save-note" type="button">Save note</button>
     </div>
@@ -86,7 +207,7 @@
       <li>results: {{ counts.results_len }}</li>
       <li>daily_profit_loss: {{ counts.pl_len }}</li>
       <li>cost_trace: {{ counts.trace_len }}</li>
-      <li style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <li class="run-detail__csv-links">
         <span class="mono">CSV:</span>
         <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/results.csv">results.csv</a>
         <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/pl.csv">pl.csv</a>
@@ -100,58 +221,58 @@
     <h3>Artifact Tables</h3>
     <p style="margin-bottom:12px;">Preview artifact data inline (first 200 rows per table). Use CSV download for complete export.</p>
 
-    <div class="artifact-preview" data-artifact="results">
-      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+    <div class="artifact-preview run-detail__artifact" data-artifact="results">
+      <div class="run-detail__artifact-toolbar">
         <strong class="mono">results</strong>
         <span>Rows: <span class="mono" id="artifact-count-results">{{ counts.results_len }}</span></span>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="results">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="results" hidden>Show more</button>
           <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="results" hidden>Collapse</button>
         </div>
         <span class="mono artifact-status" data-artifact="results" aria-live="polite"></span>
       </div>
-      <div class="artifact-table-container" id="artifact-table-results" data-placeholder="Load the table to inspect results inline.">
+      <div class="artifact-table-container run-detail__artifact-table" id="artifact-table-results" data-placeholder="Load the table to inspect results inline.">
         <p class="placeholder">Load the table to inspect results inline.</p>
       </div>
     </div>
 
-    <div class="artifact-preview" data-artifact="daily_profit_loss" style="margin-top:18px;">
-      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+    <div class="artifact-preview run-detail__artifact" data-artifact="daily_profit_loss">
+      <div class="run-detail__artifact-toolbar">
         <strong class="mono">daily_profit_loss</strong>
         <span>Rows: <span class="mono" id="artifact-count-daily_profit_loss">{{ counts.pl_len }}</span></span>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="daily_profit_loss">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="daily_profit_loss" hidden>Show more</button>
           <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="daily_profit_loss" hidden>Collapse</button>
         </div>
         <span class="mono artifact-status" data-artifact="daily_profit_loss" aria-live="polite"></span>
       </div>
-      <div class="artifact-table-container" id="artifact-table-daily_profit_loss" data-placeholder="Load the table to inspect daily profit/loss rows inline.">
+      <div class="artifact-table-container run-detail__artifact-table" id="artifact-table-daily_profit_loss" data-placeholder="Load the table to inspect daily profit/loss rows inline.">
         <p class="placeholder">Load the table to inspect daily profit/loss rows inline.</p>
       </div>
     </div>
 
-    <div class="artifact-preview" data-artifact="cost_trace" style="margin-top:18px;">
-      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:6px;">
+    <div class="artifact-preview run-detail__artifact" data-artifact="cost_trace">
+      <div class="run-detail__artifact-toolbar">
         <strong class="mono">cost_trace</strong>
         <span>Rows: <span class="mono" id="artifact-count-cost_trace">{{ counts.trace_len }}</span></span>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="cost_trace">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="cost_trace" hidden>Show more</button>
           <button type="button" class="secondary artifact-reset" data-action="artifact-reset" data-artifact="cost_trace" hidden>Collapse</button>
         </div>
         <span class="mono artifact-status" data-artifact="cost_trace" aria-live="polite"></span>
       </div>
-      <div class="artifact-table-container" id="artifact-table-cost_trace" data-placeholder="Load the table to inspect cost trace entries inline.">
+      <div class="artifact-table-container run-detail__artifact-table" id="artifact-table-cost_trace" data-placeholder="Load the table to inspect cost trace entries inline.">
         <p class="placeholder">Load the table to inspect cost trace entries inline.</p>
       </div>
     </div>
   </section>
 
-  <footer>
+  <footer class="run-detail__footer">
     <a role="button" id="back-link" href="{{ back_href }}">{{ back_label }}</a>
-    <div style="float:right; display:flex; gap:6px; flex-wrap:wrap;">
+    <div class="run-detail__footer-actions">
       <button id="approve-run" type="button" data-action="approve">Approve</button>
       <button id="promote-baseline" type="button" data-action="promote">Promote baseline</button>
       <button id="archive-run" type="button" class="secondary" data-action="archive">Archive</button>

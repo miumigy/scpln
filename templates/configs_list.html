@@ -13,17 +13,16 @@
       <h3>Canonical Configuration Versions</h3>
       <p>Snapshots shared by PSI and Planning pipelines.</p>
     </div>
-    <div class="toolbar">
-<form action="/ui/configs/canonical/sample" method="post" class="d-inline">
-      <div class="input-group">
-        <select name="sample_file" class="form-select">
+    <div class="toolbar align-start">
+      <form action="/ui/configs/canonical/sample" method="post" class="input-cluster" aria-label="Load sample configuration">
+        <label class="sr-only" for="sample-file">Sample file</label>
+        <select id="sample-file" name="sample_file">
           {% for sample in sample_files %}
           <option value="{{ sample }}">{{ sample }}</option>
           {% endfor %}
         </select>
-        <button type="submit" class="btn btn-outline-primary">Load Sample</button>
-      </div>
-    </form>
+        <button type="submit" class="secondary">Load Sample</button>
+      </form>
       <a role="button" href="/ui/configs/canonical/import">Import Canonical Configuration</a>
       <a role="button" class="secondary" href="/ui/configs">Refresh</a>
     </div>
@@ -45,7 +44,7 @@
         {% endfor %}
       </select>
     </label>
-    <div class="toolbar">
+    <div class="toolbar align-start">
       <button type="submit">Show Diff</button>
     </div>
   </form>
