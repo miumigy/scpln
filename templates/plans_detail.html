@@ -722,7 +722,11 @@
 
     <div id="tab-validate" class="tab-pane" style="display:none;">
     <details open>
-      <summary>Validation (MVP)</summary>
+                  <div class="card-body">
+                    <details class="card-text">
+                      <summary>Validation</summary>
+                      <table class="table table-sm table-hover">
+                        <tbody>
       {% if validate %}
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         <article>
@@ -1088,9 +1092,11 @@
         <button id="diff-apply" type="button" class="secondary">Update links</button>
       </div>
     </details>
-    <details>
-      <summary>State management (MVP)</summary>
-      <form method="post" action="/ui/plans/{{ version_id }}/state/advance" class="tab-toolbar">
+                  <div class="card-body">
+                    <details class="card-text">
+                      <summary>State management</summary>
+                      <div class="mt-2">
+                        <p>Current state: <strong>{{ plan_state.display_status }}</strong> (source: {{ plan_state.source }})</p>
         <label>Advance to
           <select name="to">
             <option value="draft">draft</option>
@@ -1117,7 +1123,7 @@
     </details>
     {% if kpi_preview %}
     <section class="gap-top-sm">
-      <h4>MVP: KPI preview</h4>
+      <h4>KPI preview</h4>
       <div class="grid" style="grid-template-columns: repeat(3, minmax(180px, 1fr)); gap:8px;">
         {% for card in kpi_cards %}
         {% set metric = kpi_preview.get(card.key) %}
