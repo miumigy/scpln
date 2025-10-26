@@ -53,17 +53,17 @@ Planning Hub全体設計ドキュメントから、PlanとRunの関係を理解�
 
 ```mermaid
 flowchart LR
-  A["編集: 変更セット (Draft)"] --> B["バリデーション"]
-  B -->|OK| C["差分/KPIプレビュー"]
+  A["Edit: Change Set (Draft)"] --> B["Validation"]
+  B -->|OK| C["Diff/KPI Preview"]
   B -->|NG| A
-  C --> D{"実行モード"}
-  D -->|ドライラン| E["Run作成 (副作用なし)"]
-  D -->|本適用| F["Run作成 (Write適用)"]
-  E --> G["結果/KPI比較"]
+  C --> D{"Execution Mode"}
+  D -->|Dry Run| E["Create Run (No Side Effects)"]
+  D -->|Apply| F["Create Run (Apply Write)"]
+  E --> G["Result/KPI Comparison"]
   F --> G
-  G --> H{"適用判断"}
-  H -->|承認| I["バージョン確定"]
-  H -->|破棄| A
+  G --> H{"Decision"}
+  H -->|Approve| I["Finalize Version"]
+  H -->|Discard| A
 ```
 
 #### 現状の対応状況
@@ -215,11 +215,11 @@ flowchart TD
     RunDB[(RunRegistry DB)]
   end
 
-  UI[Planning Hub / UI] -->|REST| API[FastAPI レイヤ]
+  UI[Planning Hub / UI] -->|REST| API[FastAPI Layer]
   
-  API --> Jobs[計画ジョブ / Workers]
+  API --> Jobs[Planning Jobs / Workers]
   
-  Jobs --> Pipelines[計画パイプライン]
+  Jobs --> Pipelines[Planning Pipelines]
   Jobs --> Sim[SupplyChainSimulator]
 
   Pipelines --> PlanDB
