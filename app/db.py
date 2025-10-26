@@ -431,6 +431,41 @@ def update_plan_version(version_id: str, **fields: Any) -> None:
         )
 
 
+def delete_plan_artifacts(version_id: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM plan_artifacts WHERE version_id=?", (version_id,))
+
+
+def delete_plan_version(version_id: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM plan_versions WHERE version_id=?", (version_id,))
+
+
+def clear_plan_version_from_runs(version_id: str) -> None:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT run_id, summary FROM runs WHERE plan_version_id=?", (version_id,)
+        ).fetchall()
+        for row in rows:
+            run_id = row["run_id"]
+            summary_text = row["summary"]
+            updated_summary = summary_text
+            if summary_text:
+                try:
+                    summary_obj = json.loads(summary_text)
+                except Exception:
+                    summary_obj = None
+                if isinstance(summary_obj, dict) and summary_obj.get(
+                    "_plan_version_id"
+                ) == version_id:
+                    summary_obj.pop("_plan_version_id", None)
+                    updated_summary = json.dumps(summary_obj, ensure_ascii=False)
+            c.execute(
+                "UPDATE runs SET summary=?, plan_version_id=NULL WHERE run_id=?",
+                (updated_summary, run_id),
+            )
+
+
 # --- Run meta (approve/baseline/archive) ---
 def get_run_meta(run_id: str) -> Dict[str, Any]:
     with _conn() as c:

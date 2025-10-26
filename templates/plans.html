@@ -186,6 +186,7 @@
               <button type="button" class="link sort-trigger" data-sort="created_at" data-label="Created" title="Sort by created at" aria-label="Sort by created at">Created</button>
             </th>
             <th scope="col"><button type="button" class="link sort-trigger" data-sort="last_job" data-label="Last Job">Last Job</button></th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -215,6 +216,11 @@
             <td class="mono">{{ "%.2f"|format(p.summary.kpi.backlog_days) if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else '' }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
             <td class="mono">{{ last_job.status if last_job else '' }}</td>
+            <td>
+              <form method="post" action="/ui/plans/{{ p.version_id }}/delete" onsubmit="return confirm('Delete plan {{ p.version_id }}?');">
+                <button type="submit" class="contrast" aria-label="Delete plan {{ p.version_id }}">Delete</button>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
