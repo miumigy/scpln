@@ -1310,56 +1310,212 @@
 </section>
 <section id="chart-section" style="display:none;">
   <h3>Visualization</h3>
-  <canvas id="chartSpillZonePlan" height="100"></canvas>
-  <canvas id="chartCapacityPlan" height="100" style="margin-top:16px"></canvas>
+  <div class="chart-block">
+    <h4>Spill Volume by Zone</h4>
+    <canvas id="chartSpillZonePlan" height="100"></canvas>
+    <p id="chartSpillZoneNote" class="chart-note"></p>
+  </div>
+  <div class="chart-block" style="margin-top:16px">
+    <h4>Capacity vs Adjusted Load</h4>
+    <canvas id="chartCapacityPlan" height="100"></canvas>
+    <p id="chartCapacityNote" class="chart-note"></p>
+  </div>
 </section>
 {% endblock %}
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   (function(){
-    const weekly = {{ weekly_summary | tojson | safe if weekly_summary else 'null' }};
-    if(!weekly) return;
+    const weekly = {{ (weekly_summary or []) | tojson | safe }};
+    function ensureCanvas(ctx){
+      if (!ctx) return null;
+      const canvas = ctx.canvas;
+      if (!canvas) return null;
+      const width = canvas.clientWidth || canvas.width || 560;
+      const height = canvas.clientHeight || canvas.height || 180;
+      canvas.width = width;
+      canvas.height = height;
+      return {ctx, width, height};
+    }
+    function setNote(id, text){
+      const note = document.getElementById(id);
+      if (note) note.textContent = text || '';
+    }
+    function drawEmptyState(ctx, noteId, message){
+      if (!ctx) return;
+      const info = ensureCanvas(ctx);
+      if (!info) return;
+      const {ctx: c, width, height} = info;
+      c.clearRect(0,0,width,height);
+      c.fillStyle = '#666';
+      c.font = '12px sans-serif';
+      const baseY = Math.max(32, height / 2);
+      const text = message || "No data to display (all values are zero).";
+      c.fillText(text, 24, baseY);
+      setNote(noteId, text);
+    }
+    function drawFallbackBars(ctx, labels, datasets){
+      const canvas = ctx.canvas;
+      const width = canvas.clientWidth || 560;
+      const height = canvas.clientHeight || 180;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.clearRect(0,0,width,height);
+      const padding = {left:48,right:16,top:16,bottom:32};
+      const availW = Math.max(1, width - padding.left - padding.right);
+      const availH = Math.max(1, height - padding.top - padding.bottom);
+      const values = [];
+      datasets.forEach(ds => (ds.data || []).forEach(v => values.push(Number(v)||0)));
+      const maxVal = values.length ? Math.max(...values.map(v=>Math.abs(v))) : 0;
+      if (maxVal <= 0){
+        return false;
+      }
+      const yTicks = 4;
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 1;
+      for (let i=0;i<=yTicks;i++){
+        const ratio = i / yTicks;
+        const y = padding.top + availH - ratio * availH;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        ctx.fillStyle = '#666';
+        ctx.font = '10px sans-serif';
+        const val = (maxVal * ratio).toFixed(0);
+        ctx.fillText(val, 2, y + 3);
+      }
+      const groupCount = labels.length || 1;
+      const dsCount = datasets.length || 1;
+      const groupWidth = availW / groupCount;
+      const barWidth = Math.max(6, (groupWidth * 0.7) / dsCount);
+      labels.forEach((label, idx)=>{
+        const baseX = padding.left + groupWidth * idx + (groupWidth - barWidth * dsCount) / 2;
+        ctx.fillStyle = '#333';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label || '', padding.left + groupWidth * idx + groupWidth / 2, height - 8);
+        datasets.forEach((ds, dsIdx)=>{
+          const val = Number((ds.data || [])[idx]) || 0;
+          const h = availH * (Math.abs(val) / maxVal);
+          const x = baseX + dsIdx * barWidth;
+          const y = padding.top + availH - h;
+          ctx.fillStyle = ds.color || 'rgba(99,102,241,0.6)';
+          ctx.fillRect(x, y, barWidth - 2, h);
+        });
+      });
+      // legend
+      let legendX = padding.left;
+      datasets.forEach(ds=>{
+        const lbl = ds.label || '';
+        const boxSize = 10;
+        ctx.fillStyle = ds.color || '#666';
+        ctx.fillRect(legendX, padding.top - 12, boxSize, boxSize);
+        ctx.fillStyle = '#444';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(lbl, legendX + boxSize + 4, padding.top - 3);
+        legendX += ctx.measureText(lbl).width + boxSize + 28;
+      });
+      ctx.textAlign = 'left';
+      return true;
+    }
     function sumByZone(rows){
-      const zones = ['pre','at','post'];
-      const sums = {pre:{in:0,out:0}, at:{in:0,out:0}, post:{in:0,out:0}};
+      const zones = ['pre','at','post','unknown'];
+      const sums = {
+        pre:{in:0,out:0},
+        at:{in:0,out:0},
+        post:{in:0,out:0},
+        unknown:{in:0,out:0}
+      };
       rows.forEach(r=>{
-        const z = (r.zone||'').toLowerCase();
-        if(!sums[z]) return;
+        const zoneRaw = r.zone || r.boundary_zone;
+        const z = zoneRaw ? String(zoneRaw).toLowerCase() : 'unknown';
+        if(!sums[z]) {
+          sums[z] = {in:0,out:0};
+        }
         sums[z].in += Number(r.spill_in||0);
         sums[z].out += Number(r.spill_out||0);
       });
-      return {labels: zones, inData: zones.map(z=>sums[z].in), outData: zones.map(z=>sums[z].out)};
+      const labels = zones.filter(z=>Math.abs(sums[z].in)+Math.abs(sums[z].out) > 1e-6);
+      if (!labels.length) labels.push('unknown');
+      return {labels, inData: labels.map(z=>sums[z].in), outData: labels.map(z=>sums[z].out)};
     }
     function makeSpill(){
-      const ctx = document.getElementById('chartSpillZonePlan');
+      const canvas = document.getElementById('chartSpillZonePlan');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
       const agg = sumByZone(weekly);
-      if (typeof Chart !== 'undefined'){
+      const hasData = agg.inData.concat(agg.outData).some(v => Math.abs(v) > 1e-6);
+      if (!hasData){
+        drawEmptyState(ctx, 'chartSpillZoneNote', 'No spill volume to display (all values are zero).');
+        return;
+      }
+      if (typeof Chart !== 'undefined' && Chart){
         new Chart(ctx, {type:'bar', data:{labels:agg.labels, datasets:[
           {label:'spill_in', data:agg.inData, backgroundColor:'rgba(99,102,241,0.6)'},
           {label:'spill_out', data:agg.outData, backgroundColor:'rgba(239,68,68,0.6)'}
         ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
       } else {
-        // fallback: simple bars
-        const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
+        const ok = drawFallbackBars(ctx, agg.labels, [
+          {label:'spill_in', data:agg.inData, color:'rgba(99,102,241,0.6)'},
+          {label:'spill_out', data:agg.outData, color:'rgba(239,68,68,0.6)'}
+        ]);
+        if (!ok){
+          drawEmptyState(ctx, 'chartSpillZoneNote', 'No spill volume to display (all values are zero).');
+          return;
+        }
       }
+      setNote('chartSpillZoneNote', '');
     }
     function makeCapacity(){
-      const ctx = document.getElementById('chartCapacityPlan');
+      const canvas = document.getElementById('chartCapacityPlan');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
       const weeks = weekly.map(r=>r.week);
       const cap = weekly.map(r=>r.capacity);
       const adj = weekly.map(r=>r.adjusted_load);
-      if (typeof Chart !== 'undefined'){
+      const hasData = cap.concat(adj).some(v => Math.abs(v) > 1e-6);
+      if (!hasData){
+        drawEmptyState(ctx, 'chartCapacityNote', 'No capacity or adjusted load to display (all values are zero).');
+        return;
+      }
+      if (typeof Chart !== 'undefined' && Chart){
         new Chart(ctx, {type:'bar', data:{labels:weeks, datasets:[
           {label:'capacity', data:cap, backgroundColor:'rgba(54,162,235,0.5)'},
           {label:'adjusted_load', data:adj, backgroundColor:'rgba(255,159,64,0.5)'}
         ]}, options:{responsive:true, scales:{y:{beginAtZero:true}}}});
       } else {
-        const c = ctx.getContext('2d'); c.fillText('Chart.js not loaded',10,20);
+        const ok = drawFallbackBars(ctx, weeks, [
+          {label:'capacity', data:cap, color:'rgba(54,162,235,0.5)'},
+          {label:'adjusted_load', data:adj, color:'rgba(255,159,64,0.5)'}
+        ]);
+        if (!ok){
+          drawEmptyState(ctx, 'chartCapacityNote', 'No capacity or adjusted load to display (all values are zero).');
+          return;
+        }
       }
+      setNote('chartCapacityNote', '');
     }
     // Lazy rendering: draw charts when the Results tab is active
-    window.__renderCharts = function(){ try{ makeSpill(); makeCapacity(); }catch(e){} };
+    window.__renderCharts = function(){
+      if (!Array.isArray(weekly) || weekly.length === 0){
+        const ctx1 = document.getElementById('chartSpillZonePlan')?.getContext('2d');
+        const ctx2 = document.getElementById('chartCapacityPlan')?.getContext('2d');
+        drawEmptyState(ctx1, 'chartSpillZoneNote', 'Visualization data is not available.');
+        drawEmptyState(ctx2, 'chartCapacityNote', 'Visualization data is not available.');
+        return;
+      }
+      try { makeSpill(); } catch(e){ /* ignore */ }
+      try { makeCapacity(); } catch(e){ /* ignore */ }
+    };
+    if (!Array.isArray(weekly) || weekly.length === 0){
+      // 初期描画で空データの案内を出す
+      const ctx1 = document.getElementById('chartSpillZonePlan')?.getContext('2d');
+      const ctx2 = document.getElementById('chartCapacityPlan')?.getContext('2d');
+      drawEmptyState(ctx1, 'chartSpillZoneNote', 'Visualization data is not available.');
+      drawEmptyState(ctx2, 'chartCapacityNote', 'Visualization data is not available.');
+    }
   })();
   // Format millisecond timestamps as JST
   (function(){

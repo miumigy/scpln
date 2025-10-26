@@ -83,8 +83,13 @@ def _weekly_capacity(
     # 週へ展開（等分）
     out: Dict[str, float] = {}
     for w in weeks:
-        # 期待形式 'YYYY-MM-Wk' → 'YYYY-MM'
-        per = w[:7] if len(w) >= 7 and w[4] == "-" else w
+        per = str(w)
+        if per is None:
+            continue
+        if "-W" in per:
+            per = per.split("-W", 1)[0]
+        elif len(per) >= 7 and per[4] == "-":
+            per = per[:7]
         monthly = cap_by_period.get(per, 0.0)
         out[w] = monthly / max(1, weeks_per_period)
     return out

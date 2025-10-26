@@ -11,6 +11,7 @@ import pytest
 
 from app import db, jobs
 from app.jobs import JobManager
+from core.plan_repository import PlanRepository
 
 pytestmark = pytest.mark.slow
 
@@ -202,5 +203,13 @@ def test_planning_regression(job_manager: JobManager, seeded_config_id: int):
             row.get("supply_plan"), float
         ), "supply_plan が数値に変換されていません"
         assert 0.0 <= row.get("fill_rate", 0.0) <= 1.0, "fill_rate の範囲が不正です"
+
+    plan_version = db.get_plan_version(version_canonical)
+    assert plan_version, "plan_versions に登録されていません"
+    plan_final = db.get_plan_artifact(version_canonical, "plan_final.json")
+    assert plan_final and plan_final.get("weekly_summary"), "plan_final.json がDBに保存されていません"
+    repo = PlanRepository(db._conn)
+    weekly_rows = repo.fetch_plan_series(version_canonical, "weekly_summary")
+    assert weekly_rows, "PlanRepository に weekly_summary が保存されていません"
 
     print("リグレッションテスト成功: Canonical設定の計画実行が正常に完了しました。")

@@ -35,6 +35,8 @@ from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
     build_plan_series,
+    build_plan_series_from_plan_final,
+    build_plan_series_from_weekly_summary,
 )
 
 
@@ -491,45 +493,59 @@ class JobManager:
                     [sys.executable, *args], cwd=str(base), env=env, check=True
                 )
 
+            def with_storage(args: list[str], *, allow_version: bool = True) -> list[str]:
+                extra: list[str] = []
+                if storage_mode:
+                    extra.extend(["--storage", storage_mode])
+                if allow_version and use_db and version_id:
+                    extra.extend(["--version-id", str(version_id)])
+                return args + extra
+
             runpy(
-                [
-                    "scripts/plan_aggregate.py",
-                    "-i",
-                    input_dir,
-                    "-o",
-                    str(out_dir / "aggregate.json"),
-                ]
-            )
-            runpy(
-                [
-                    "scripts/allocate.py",
-                    "-i",
-                    str(out_dir / "aggregate.json"),
-                    "-I",
-                    input_dir,
-                    "-o",
-                    str(out_dir / "sku_week.json"),
-                    "--weeks",
-                    weeks,
-                    "--round",
-                    round_mode,
-                ]
-            )
-            if not lightweight:
-                runpy(
+                with_storage(
                     [
-                        "scripts/mrp.py",
+                        "scripts/plan_aggregate.py",
                         "-i",
-                        str(out_dir / "sku_week.json"),
+                        input_dir,
+                        "-o",
+                        str(out_dir / "aggregate.json"),
+                    ]
+                )
+            )
+            runpy(
+                with_storage(
+                    [
+                        "scripts/allocate.py",
+                        "-i",
+                        str(out_dir / "aggregate.json"),
                         "-I",
                         input_dir,
                         "-o",
-                        str(out_dir / "mrp.json"),
-                        "--lt-unit",
-                        lt_unit,
+                        str(out_dir / "sku_week.json"),
                         "--weeks",
                         weeks,
+                        "--round",
+                        round_mode,
                     ]
+                )
+            )
+            if not lightweight:
+                runpy(
+                    with_storage(
+                        [
+                            "scripts/mrp.py",
+                            "-i",
+                            str(out_dir / "sku_week.json"),
+                            "-I",
+                            input_dir,
+                            "-o",
+                            str(out_dir / "mrp.json"),
+                            "--lt-unit",
+                            lt_unit,
+                            "--weeks",
+                            weeks,
+                        ]
+                    )
                 )
                 args_recon = [
                     "scripts/reconcile.py",
@@ -553,7 +569,7 @@ class JobManager:
                     args_recon += ["--blend-split-next", str(blend_split_next)]
                 if blend_weight_mode:
                     args_recon += ["--blend-weight-mode", str(blend_weight_mode)]
-                runpy(args_recon)
+                runpy(with_storage(args_recon))
                 # reconcile-levels (AGG↔DET 差分ログ)
                 args_rl = [
                     "scripts/reconcile_levels.py",
@@ -575,17 +591,19 @@ class JobManager:
                     args_rl += ["--recon-window-days", str(recon_window_days)]
                 if anchor_policy:
                     args_rl += ["--anchor-policy", str(anchor_policy)]
-                runpy(args_rl)
+                runpy(with_storage(args_rl))
                 runpy(
-                    [
-                        "scripts/report.py",
-                        "-i",
-                        str(out_dir / "plan_final.json"),
-                        "-I",
-                        input_dir,
-                        "-o",
-                        str(out_dir / "report.csv"),
-                    ]
+                    with_storage(
+                        [
+                            "scripts/report.py",
+                            "-i",
+                            str(out_dir / "plan_final.json"),
+                            "-I",
+                            input_dir,
+                            "-o",
+                            str(out_dir / "report.csv"),
+                        ]
+                    )
                 )
             if canonical_config is not None and use_files:
                 artifacts = {
@@ -608,11 +626,21 @@ class JobManager:
             try:
                 aggregate_obj = _load_json(out_dir / "aggregate.json")
                 detail_obj = _load_json(out_dir / "sku_week.json")
+                plan_final_obj = _load_json(out_dir / "plan_final.json")
                 plan_series_rows = build_plan_series(
                     version_id,
                     aggregate=aggregate_obj,
                     detail=detail_obj,
                 )
+                if plan_final_obj:
+                    plan_series_rows.extend(
+                        build_plan_series_from_plan_final(version_id, plan_final_obj)
+                    )
+                    plan_series_rows.extend(
+                        build_plan_series_from_weekly_summary(
+                            version_id, plan_final_obj
+                        )
+                    )
                 plan_kpi_rows = build_plan_kpis_from_aggregate(
                     version_id, aggregate_obj
                 )
@@ -650,7 +678,7 @@ class JobManager:
                     args_anchor += ["--tol-rel", str(tol_rel)]
                 if carryover_split is not None:
                     args_anchor += ["--carryover-split", str(carryover_split)]
-                runpy(args_anchor)
+                runpy(with_storage(args_anchor))
 
                 args_rl_adj = [
                     "scripts/reconcile_levels.py",
@@ -672,23 +700,25 @@ class JobManager:
                     args_rl_adj += ["--recon-window-days", str(recon_window_days)]
                 if anchor_policy:
                     args_rl_adj += ["--anchor-policy", str(anchor_policy)]
-                runpy(args_rl_adj)
+                runpy(with_storage(args_rl_adj))
 
                 if apply_adjusted_flag:
                     runpy(
-                        [
-                            "scripts/mrp.py",
-                            "-i",
-                            str(out_dir / "sku_week_adjusted.json"),
-                            "-I",
-                            input_dir,
-                            "-o",
-                            str(out_dir / "mrp_adjusted.json"),
-                            "--lt-unit",
-                            lt_unit,
-                            "--weeks",
-                            weeks,
-                        ]
+                        with_storage(
+                            [
+                                "scripts/mrp.py",
+                                "-i",
+                                str(out_dir / "sku_week_adjusted.json"),
+                                "-I",
+                                input_dir,
+                                "-o",
+                                str(out_dir / "mrp_adjusted.json"),
+                                "--lt-unit",
+                                lt_unit,
+                                "--weeks",
+                                weeks,
+                            ]
+                        )
                     )
                     args_recon_adj = [
                         "scripts/reconcile.py",
@@ -718,17 +748,19 @@ class JobManager:
                             "--blend-weight-mode",
                             str(blend_weight_mode),
                         ]
-                    runpy(args_recon_adj)
+                    runpy(with_storage(args_recon_adj))
                     runpy(
-                        [
-                            "scripts/report.py",
-                            "-i",
-                            str(out_dir / "plan_final_adjusted.json"),
-                            "-I",
-                            input_dir,
-                            "-o",
-                            str(out_dir / "report_adjusted.csv"),
-                        ]
+                        with_storage(
+                            [
+                                "scripts/report.py",
+                                "-i",
+                                str(out_dir / "plan_final_adjusted.json"),
+                                "-I",
+                                input_dir,
+                                "-o",
+                                str(out_dir / "report_adjusted.csv"),
+                            ]
+                        )
                     )
 
             # persist to plan DB (version + artifacts)

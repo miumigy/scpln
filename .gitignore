@@ -25,3 +25,4 @@ tmp/
 datasette.out
 datasette.pid
 scpln.db
+worktrees/

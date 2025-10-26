@@ -262,6 +262,12 @@ def write_plan_final_result(
         _PLAN_REPOSITORY.replace_plan_series_level(
             version_id, "weekly_summary", weekly_series
         )
+        write_json_artifact(
+            version_id,
+            "plan_final.json",
+            plan_final_data,
+            storage_mode=storage_mode,
+        )
     except PlanRepositoryError:
         raise
     return bool(detail_series or weekly_series)
