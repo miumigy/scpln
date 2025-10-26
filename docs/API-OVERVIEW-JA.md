@@ -18,6 +18,7 @@
 - GET `/plans` 登録済みPlan一覧
 - POST `/plans/create_and_execute` 統合パイプライン実行（aggregate→allocate→mrp→reconcile）し、新規Plan登録。`lightweight=true` を指定するとCI/E2E向けにMRP・reconcile系をスキップし、PlanRepository書込みと主要アーティファクトのみ生成。
 - GET `/plans/{version_id}/summary` Plan要約（reconciliation summary / weekly_summary）
+- DELETE `/plans/{version_id}` Plan削除（PlanRepository・アーティファクト・Run参照を含めクリーンアップ）
 - GET `/plans/{version_id}/compare` 差分一覧（violations_only, sort, limit）
 - GET `/plans/{version_id}/compare.csv` 上記のCSV出力
 - GET `/plans/{version_id}/carryover.csv` anchor/carryoverの遷移CSV出力

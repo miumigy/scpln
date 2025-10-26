@@ -10,7 +10,7 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-from fastapi import Body, Query, Request
+from fastapi import Body, Query, Request, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from app.metrics import (
     PLAN_EXPORT_COMPARE,
@@ -2041,6 +2041,45 @@ def post_plan_psi_approve(
         },
     )
     return {"ok": True, "status": state.get("status")}
+
+
+@app.delete("/plans/{version_id}")
+def delete_plan(version_id: str, request: Request):
+    db.init_db()
+    ver = db.get_plan_version(version_id)
+    if not ver:
+        raise HTTPException(status_code=404, detail="plan version not found")
+
+    if (
+        os.getenv("RBAC_ENABLED", "0") == "1"
+        or os.getenv("RBAC_DELETE_ENABLED", "0") == "1"
+    ):
+        role = request.headers.get("X-Role", "")
+        allowed = {
+            x.strip()
+            for x in (os.getenv("RBAC_DELETE_ROLES", "planner,admin").split(","))
+            if x.strip()
+        }
+        if role not in allowed:
+            raise HTTPException(status_code=403, detail="forbidden: role not allowed")
+
+    try:
+        _PLAN_REPOSITORY.delete_plan(version_id)
+    except PlanRepositoryError as exc:
+        logging.exception(
+            "plans_api_delete_plan_failed",
+            extra={"version_id": version_id, "error": str(exc)},
+        )
+        raise HTTPException(status_code=500, detail="failed to delete plan data") from exc
+
+    db.delete_plan_artifacts(version_id)
+    db.clear_plan_version_from_runs(version_id)
+    db.delete_plan_version(version_id)
+    logging.info(
+        "plan_version_deleted",
+        extra={"version_id": version_id, "actor": _request_actor(request)},
+    )
+    return {"status": "deleted", "version_id": version_id}
 
 
 @app.get("/plans")

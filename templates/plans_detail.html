@@ -63,6 +63,12 @@
     <article><mark>Error</mark><pre class="mono">{{ error }}</pre></article>
   {% else %}
     <p class="mono">version_id={{ version_id }}</p>
+    {% if ui_error %}
+    <p class="mono warn-text">{{ ui_error }}</p>
+    {% endif %}
+    <form method="post" action="/ui/plans/{{ version_id }}/delete" class="gap-top-sm" onsubmit="return confirm('Delete plan {{ version_id }}?');">
+      <button type="submit" class="contrast" aria-label="Delete plan {{ version_id }}">Delete Plan</button>
+    </form>
     <nav class="tab-nav">
       <a role="button" class="secondary" data-tab="overview" title="Overview" aria-label="Overview tab">Overview</a>
       <a role="button" class="secondary" data-tab="aggregate" title="Aggregate" aria-label="Aggregate tab">Aggregate</a>

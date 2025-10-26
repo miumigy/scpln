@@ -99,3 +99,21 @@ def test_metrics_include_planning_hub_counters():
         "plan_carryover_export_total",
     ):
         assert ("# HELP " + metric) in text
+
+
+def test_ui_plan_delete_flow(seed_canonical_data, monkeypatch):
+    monkeypatch.setenv("REGISTRY_BACKEND", "db")
+    monkeypatch.setenv("AUTH_MODE", "none")
+    client = TestClient(app)
+    version_id = f"ui-del-{int(time.time())}"
+    _make_plan_with_artifacts(version_id)
+
+    resp = client.post(
+        f"/ui/plans/{version_id}/delete",
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert resp.headers.get("location") == "/ui/plans"
+
+    assert db.get_plan_version(version_id) is None
+    assert db.get_plan_artifact(version_id, "plan_final.json") is None

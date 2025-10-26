@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import logging
@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from app import db
 from app.metrics import (
@@ -519,6 +520,7 @@ def _render_plans_page(
 def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     print("DEBUG: Calling _fetch_plan_rows")
     has_data = False
+    error_message = request.query_params.get("error")
     rows, pagination = [], {}
     if table_exists(db._conn(), "plan_versions"):
         rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
@@ -529,12 +531,17 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     pagination = pagination if pagination is not None else {}
 
     return _render_plans_page(
-        request, plans=rows, pagination=pagination, has_data=has_data
+        request,
+        plans=rows,
+        pagination=pagination,
+        error=error_message,
+        has_data=has_data,
     )
 
 
 @router.get("/ui/plans/{version_id}", response_class=HTMLResponse)
 def ui_plan_detail(version_id: str, request: Request):
+    error_message = request.query_params.get("error")
     ver = db.get_plan_version(version_id)
     if not ver:
         return templates.TemplateResponse(
@@ -842,6 +849,7 @@ def ui_plan_detail(version_id: str, request: Request):
             "deltas_adj": deltas_adj,
             "kpi_preview": kpi_preview,
             "kpi_cards": _KPI_CARD_DEFS,
+            "ui_error": error_message,
             "latest_runs": latest_runs,
             "latest_run_ids": latest_ids,
             "related_plans": related_plans,
@@ -862,6 +870,40 @@ def ui_plan_detail(version_id: str, request: Request):
             "audit_events": audit_events,
         },
     )
+
+
+@router.post("/ui/plans/{version_id}/delete")
+def ui_plan_delete(version_id: str, request: Request):
+    from fastapi.responses import RedirectResponse
+
+    try:
+        _get_plans_api().delete_plan(version_id, request)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return RedirectResponse(
+                url=f"/ui/plans?error={quote('指定したPlanが見つかりません')}",
+                status_code=303,
+            )
+        if exc.status_code == 403:
+            return RedirectResponse(
+                url=f"/ui/plans/{version_id}?error={quote('Plan削除が許可されていません')}",
+                status_code=303,
+            )
+        logging.exception(
+            "ui_plans_delete_http_failed",
+            extra={"version_id": version_id, "status_code": exc.status_code},
+        )
+        return RedirectResponse(
+            url=f"/ui/plans/{version_id}?error={quote('Plan削除に失敗しました')}",
+            status_code=303,
+        )
+    except Exception:
+        logging.exception("ui_plans_delete_failed", extra={"version_id": version_id})
+        return RedirectResponse(
+            url=f"/ui/plans/{version_id}?error={quote('Plan削除に失敗しました')}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/ui/plans", status_code=303)
 
 
 @router.post("/ui/plans/{version_id}/reconcile")
