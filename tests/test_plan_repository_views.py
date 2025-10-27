@@ -64,9 +64,7 @@ def test_plan_repository_view_helpers(db_setup):
     }
 
     series_rows = build_plan_series(version_id, aggregate=aggregate, detail=detail)
-    series_rows.extend(
-        build_plan_series_from_plan_final(version_id, plan_final)
-    )
+    series_rows.extend(build_plan_series_from_plan_final(version_id, plan_final))
     repo.write_plan(version_id, series=series_rows, kpis=[])
 
     agg_rows = fetch_aggregate_rows(repo, version_id)
@@ -129,12 +127,8 @@ def test_build_plan_summaries_fallback_kpi(db_setup):
     }
 
     series_rows = build_plan_series(version_id, aggregate=aggregate, detail=None)
-    series_rows.extend(
-        build_plan_series_from_plan_final(version_id, plan_final)
-    )
-    series_rows.extend(
-        build_plan_series_from_weekly_summary(version_id, plan_final)
-    )
+    series_rows.extend(build_plan_series_from_plan_final(version_id, plan_final))
+    series_rows.extend(build_plan_series_from_weekly_summary(version_id, plan_final))
     repo.write_plan(version_id, series=series_rows, kpis=[])
 
     summaries = build_plan_summaries(repo, [version_id], include_kpi=True)

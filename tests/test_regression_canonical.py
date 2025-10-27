@@ -207,7 +207,9 @@ def test_planning_regression(job_manager: JobManager, seeded_config_id: int):
     plan_version = db.get_plan_version(version_canonical)
     assert plan_version, "plan_versions に登録されていません"
     plan_final = db.get_plan_artifact(version_canonical, "plan_final.json")
-    assert plan_final and plan_final.get("weekly_summary"), "plan_final.json がDBに保存されていません"
+    assert plan_final and plan_final.get(
+        "weekly_summary"
+    ), "plan_final.json がDBに保存されていません"
     repo = PlanRepository(db._conn)
     weekly_rows = repo.fetch_plan_series(version_canonical, "weekly_summary")
     assert weekly_rows, "PlanRepository に weekly_summary が保存されていません"

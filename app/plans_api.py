@@ -2070,7 +2070,9 @@ def delete_plan(version_id: str, request: Request):
             "plans_api_delete_plan_failed",
             extra={"version_id": version_id, "error": str(exc)},
         )
-        raise HTTPException(status_code=500, detail="failed to delete plan data") from exc
+        raise HTTPException(
+            status_code=500, detail="failed to delete plan data"
+        ) from exc
 
     db.delete_plan_artifacts(version_id)
     db.clear_plan_version_from_runs(version_id)
