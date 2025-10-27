@@ -341,6 +341,7 @@ def build_plan_summaries(
         if last_updated:
             summary["last_updated_at"] = last_updated
         if include_kpi:
+
             def _first_not_none(*values):
                 for v in values:
                     if v is not None:

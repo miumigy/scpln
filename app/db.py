@@ -455,9 +455,10 @@ def clear_plan_version_from_runs(version_id: str) -> None:
                     summary_obj = json.loads(summary_text)
                 except Exception:
                     summary_obj = None
-                if isinstance(summary_obj, dict) and summary_obj.get(
-                    "_plan_version_id"
-                ) == version_id:
+                if (
+                    isinstance(summary_obj, dict)
+                    and summary_obj.get("_plan_version_id") == version_id
+                ):
                     summary_obj.pop("_plan_version_id", None)
                     updated_summary = json.dumps(summary_obj, ensure_ascii=False)
             c.execute(

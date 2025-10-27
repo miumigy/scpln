@@ -493,7 +493,9 @@ class JobManager:
                     [sys.executable, *args], cwd=str(base), env=env, check=True
                 )
 
-            def with_storage(args: list[str], *, allow_version: bool = True) -> list[str]:
+            def with_storage(
+                args: list[str], *, allow_version: bool = True
+            ) -> list[str]:
                 extra: list[str] = []
                 if storage_mode:
                     extra.extend(["--storage", storage_mode])
