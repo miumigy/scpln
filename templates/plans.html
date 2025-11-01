@@ -43,10 +43,6 @@
           {% endif %}
         </label>
         <label>
-          <span class="label-title">Weeks</span>
-          <input type="number" name="weeks" min="1" value="{{ form_defaults.weeks or 4 }}" />
-        </label>
-        <label>
           <span class="label-title">Lead Time Unit</span>
           <select name="lt_unit">
             {% set lt_unit = form_defaults.lt_unit or 'day' %}
@@ -79,15 +75,6 @@
         <label>
           <span class="label-title">Tol Rel</span>
           <input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6" value="{{ form_defaults.tol_rel or '' }}" />
-        </label>
-        <label>
-          <span class="label-title">Calendar Mode</span>
-          <select name="calendar_mode">
-            {% set calendar_mode = form_defaults.calendar_mode or '' %}
-            <option value="" {% if calendar_mode == '' %}selected{% endif %}>Unspecified</option>
-            <option value="simple" {% if calendar_mode == 'simple' %}selected{% endif %}>Simple</option>
-            <option value="iso" {% if calendar_mode == 'iso' %}selected{% endif %}>ISO Week</option>
-          </select>
         </label>
         <label>
           <span class="label-title">Carryover Mode</span>

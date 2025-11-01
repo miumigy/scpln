@@ -7,8 +7,42 @@ PSIシミュレーションとPlanning Hubが共通で参照する設定スキ�
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
+from datetime import date
 
 from pydantic import BaseModel, Field
+
+
+class PlanningCalendarWeek(BaseModel):
+    week_code: str
+    sequence: int
+    start_date: date
+    end_date: date
+    weight: float = 1.0
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningCalendarPeriod(BaseModel):
+    period: str
+    start_date: date
+    end_date: date
+    weeks: List[PlanningCalendarWeek] = Field(default_factory=list)
+
+
+class PlanningParams(BaseModel):
+    default_anchor_policy: Optional[str] = None
+    tolerance_abs: float = 1e-6
+    tolerance_rel: float = 1e-6
+    carryover_mode: str = "auto"
+    carryover_split: float = 0.8
+    lt_unit: str = "day"
+    recon_window_days: int = 14
+
+
+class PlanningCalendarSpec(BaseModel):
+    calendar_type: str = "custom"
+    week_unit: str = "day"
+    periods: List[PlanningCalendarPeriod] = Field(default_factory=list)
+    planning_params: Optional[PlanningParams] = None
 
 
 class ConfigMeta(BaseModel):
@@ -213,4 +247,8 @@ __all__ = [
     "CalendarDefinition",
     "HierarchyEntry",
     "CanonicalConfig",
+    "PlanningCalendarWeek",
+    "PlanningCalendarPeriod",
+    "PlanningParams",
+    "PlanningCalendarSpec",
 ]

@@ -916,11 +916,9 @@ def ui_plan_reconcile(
     anchor_policy: str | None = Form(""),
     tol_abs: str | None = Form(""),
     tol_rel: str | None = Form(""),
-    calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
     apply_adjusted: str | None = Form(default=None),
-    weeks: int = Form(4),
     lt_unit: str = Form("day"),
 ):
     # 空文字はNoneへ正規化
@@ -933,11 +931,9 @@ def ui_plan_reconcile(
         "anchor_policy": _nz(anchor_policy),
         "tol_abs": _nz(tol_abs),
         "tol_rel": _nz(tol_rel),
-        "calendar_mode": _nz(calendar_mode),
         "carryover": _nz(carryover),
         "carryover_split": _nz(carryover_split),
         "apply_adjusted": _form_bool(apply_adjusted),
-        "weeks": weeks,
         "lt_unit": lt_unit,
     }
     try:
@@ -971,10 +967,8 @@ def ui_plan_reconcile(
                 extra={
                     "event": "plan_executed",
                     "version_id": version_id,
-                    "apply_adjusted": _form_bool(apply_adjusted),
-                    "weeks": weeks,
-                    "lt_unit": lt_unit,
-                },
+                                    "apply_adjusted": _form_bool(apply_adjusted),
+                                    "lt_unit": lt_unit,                },
             )
             try:
                 PLANS_RECONCILED.inc()
@@ -993,14 +987,12 @@ def ui_plan_reconcile(
 def ui_plan_execute_auto(
     version_id: str,
     request: Request,
-    weeks: int = Form(4),
     lt_unit: str = Form("day"),
     cutover_date: str | None = Form(""),
     recon_window_days: str | None = Form(""),
     anchor_policy: str | None = Form(""),
     tol_abs: str | None = Form(""),
     tol_rel: str | None = Form(""),
-    calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
     apply_adjusted: str | None = Form(default=None),
@@ -1036,14 +1028,12 @@ def ui_plan_execute_auto(
         "pipeline": "integrated",
         "async": _form_bool(queue_job),
         "options": {
-            "weeks": weeks,
             "lt_unit": lt_unit,
             "cutover_date": cutover_date,
             "recon_window_days": recon_window_days,
             "anchor_policy": anchor_policy,
             "tol_abs": tol_abs,
             "tol_rel": tol_rel,
-            "calendar_mode": calendar_mode,
             "carryover": carryover,
             "carryover_split": carryover_split,
             "apply_adjusted": _form_bool(apply_adjusted),
@@ -1126,14 +1116,12 @@ def ui_plan_state_invalidate(
 @router.post("/ui/plans/create_and_execute")
 def ui_plans_create_and_execute(
     request: Request,
-    weeks: int = Form(4),
     lt_unit: str = Form("day"),
     cutover_date: str | None = Form(""),
     recon_window_days: str | None = Form(""),
     anchor_policy: str | None = Form(""),
     tol_abs: str | None = Form(""),
     tol_rel: str | None = Form(""),
-    calendar_mode: str | None = Form(""),
     carryover: str | None = Form(""),
     carryover_split: str | None = Form(""),
     apply_adjusted: str | None = Form(default=None),
@@ -1148,14 +1136,12 @@ def ui_plans_create_and_execute(
 
     form_defaults = {
         "config_version_id": config_version_id or "",
-        "weeks": weeks,
         "lt_unit": lt_unit,
         "cutover_date": cutover_date or "",
         "recon_window_days": recon_window_days or "",
         "anchor_policy": anchor_policy or "",
         "tol_abs": tol_abs or "",
         "tol_rel": tol_rel or "",
-        "calendar_mode": calendar_mode or "",
         "carryover": carryover or "",
         "carryover_split": carryover_split or "",
         "apply_adjusted": "1" if _form_bool(apply_adjusted) else "",
@@ -1184,14 +1170,12 @@ def ui_plans_create_and_execute(
         "async": True,  # 非同期実行を指定
         "options": {
             "version_id": version_id,  # 生成したversion_idを渡す
-            "weeks": weeks,
             "lt_unit": lt_unit,
             "cutover_date": cutover_date,
             "recon_window_days": recon_window_days,
             "anchor_policy": anchor_policy,
             "tol_abs": tol_abs,
             "tol_rel": tol_rel,
-            "calendar_mode": calendar_mode,
             "carryover": carryover,
             "carryover_split": carryover_split,
             "apply_adjusted": _form_bool(apply_adjusted),

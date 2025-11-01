@@ -1,0 +1,87 @@
+{
+  "calendar_type": "custom",
+  "week_unit": "day",
+  "periods": [
+    {
+      "period": "2025-01",
+      "start_date": "2025-01-01",
+      "end_date": "2025-01-31",
+      "weeks": [
+        {
+          "week_code": "2025-W01",
+          "sequence": 1,
+          "start_date": "2025-01-01",
+          "end_date": "2025-01-07",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W02",
+          "sequence": 2,
+          "start_date": "2025-01-08",
+          "end_date": "2025-01-14",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W03",
+          "sequence": 3,
+          "start_date": "2025-01-15",
+          "end_date": "2025-01-21",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W04",
+          "sequence": 4,
+          "start_date": "2025-01-22",
+          "end_date": "2025-01-31",
+          "weight": 10
+        }
+      ]
+    },
+    {
+      "period": "2025-02",
+      "start_date": "2025-02-01",
+      "end_date": "2025-02-28",
+      "weeks": [
+        {
+          "week_code": "2025-W05",
+          "sequence": 5,
+          "start_date": "2025-02-01",
+          "end_date": "2025-02-07",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W06",
+          "sequence": 6,
+          "start_date": "2025-02-08",
+          "end_date": "2025-02-14",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W07",
+          "sequence": 7,
+          "start_date": "2025-02-15",
+          "end_date": "2025-02-21",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W08",
+          "sequence": 8,
+          "start_date": "2025-02-22",
+          "end_date": "2025-02-28",
+          "weight": 7
+        }
+      ]
+    }
+  ],
+  "planning_params": {
+    "default_anchor_policy": "DET_near",
+    "tolerance_abs": 1e-6,
+    "tolerance_rel": 1e-6,
+    "carryover_mode": "auto",
+    "carryover_split": 0.8,
+    "lt_unit": "day",
+    "recon_window_days": 14
+  },
+  "period_cost": [],
+  "period_score": []
+}
