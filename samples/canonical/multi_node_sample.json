@@ -116,6 +116,32 @@
     {"resource_code": "FACTORY-2", "resource_type": "node", "bucket": "M2", "capacity": 800},
     {"resource_code": "FACTORY-2", "resource_type": "node", "bucket": "M3", "capacity": 800}
   ],
+  "calendars": [
+    {
+      "calendar_code": "CAL-JP",
+      "timezone": "Asia/Tokyo",
+      "definition": {
+        "workdays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        "exceptions": []
+      }
+    },
+    {
+      "calendar_code": "CAL-CN",
+      "timezone": "Asia/Shanghai",
+      "definition": {
+        "workdays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        "exceptions": []
+      }
+    },
+    {
+      "calendar_code": "CAL-US",
+      "timezone": "America/Los_Angeles",
+      "definition": {
+        "workdays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        "exceptions": []
+      }
+    }
+  ],
   "demands": [
     {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M1", "mean": 80},
     {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M2", "mean": 85},
