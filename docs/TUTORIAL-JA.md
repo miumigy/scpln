@@ -38,7 +38,7 @@
 2) 「新規Plan作成（統合実行）」ボタンをクリックしてフォームを開きます。
 3) 以下の項目を入力します。
    - **Canonical設定バージョン**: 先ほどロードした設定のIDを選択します（通常は一覧の最上位）。
-   - **計画週数 (weeks)**: `8`
+   - **計画カレンダー**: Canonical設定に `planning_calendar.json` が含まれている場合は自動で週境界・期間が適用されます。カレンダーが未整備の環境のみ、暫定的にフォールバック週数（`weeks`）を入力します。
    - （任意）`カットオーバー日`、`アンカー方針` などを指定します。
 4) 「作成と実行」ボタンをクリックします。
 5) 作成されたプラン詳細ページ（`/ui/plans/{version_id}`）に自動的に遷移します。このとき、生成されたPlanのデータは、従来のファイル形式ではなくデータベースに直接保存され、版管理されます。
@@ -96,7 +96,8 @@ Planning Hubで実行されるシミュレーションは、主にPSI (Productio
 
 `app/runs_api.py`を通じてシミュレーションを実行する際に指定できるオプション（例: `weeks`, `round_mode`, `lt_unit`, `config_version_id`など）は、このPSIシミュレーションの重要なパラメータとして機能します。
 
--   `weeks`: シミュレーションの対象期間を週単位で指定します。
+-   `calendar_path`: Canonical設定外のカレンダーを手動で与える場合に使用します。通常は不要です。
+-   `weeks`: カレンダー定義が存在しない場合のフォールバックとして、期間を等分する週数を指定します。
 -   `round_mode`: 計画数量の丸め方を指定します（例: 整数丸め）。
 -   `lt_unit`: リードタイムの単位を指定します（例: 日、週）。
 -   `config_version_id`: シミュレーションに使用する設定のバージョンを指定します。
@@ -119,7 +120,6 @@ curl -sS http://localhost:8000/plans/create_and_execute \
   -H 'content-type: application/json' \
   -d "{
         \"config_version_id\":${CONFIG_VERSION_ID},
-        \"weeks\":8,
         \"round_mode\":\"int\",
         \"lt_unit\":\"day\",
         \"cutover_date\":\"2025-09-01\",
@@ -146,7 +146,6 @@ curl -sS http://localhost:8000/runs -H 'content-type: application/json' -d "{
   \"async\":false,
   \"options\":{
     \"config_version_id\":${CONFIG_VERSION_ID},
-    \"weeks\":8,
     \"lt_unit\":\"day\"
   }
 }" | jq .

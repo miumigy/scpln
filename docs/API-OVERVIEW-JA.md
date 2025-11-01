@@ -38,7 +38,7 @@
 - **`POST /runs`**: 新しいRunを同期または非同期で実行します。主に統合パイプライン (`pipeline: "integrated"`) のトリガーとして使用されます。
   - `async=true`: 非同期でジョブを投入し、`job_id` を返します。
   - `async=false` (既定): 同期実行し、完了後にPlanの `version_id` を返します。
-  - `options`: `config_version_id` (必須) や `weeks`, `cutover_date` などのパイプライン実行時パラメータを指定します。
+  - `options`: `config_version_id` (必須) や `cutover_date` などのパイプライン実行パラメータを指定します。Canonical設定に `planning_calendar.json` が含まれていれば、UI/API側で自動的に `--calendar` が付与されます。カレンダーが存在しない場合の暫定フォールバックとして `weeks`（等分週数）を指定できます。
   - (リクエストボディの詳細は旧版の記述を参照)
 
 - **`GET /runs/{run_id}`**: 指定したIDのRun詳細情報を取得します。

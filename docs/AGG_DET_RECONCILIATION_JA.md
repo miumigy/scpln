@@ -61,6 +61,13 @@ sequenceDiagram
 
 これらのデータは `POST /plans/create_and_execute` APIを通じて生成・永続化され、`GET /plans/{version_id}/...` APIで取得できます。
 
+## Planningカレンダー仕様と活用
+- 週境界や営業週の長さは Canonical設定内の `calendars` に `PlanningCalendarSpec` として保持します。各 `period` は `start_date` / `end_date` と `weeks[*]`（`week_code`, `sequence`, `start_date`, `end_date`, `weight`, 任意 `attributes`）を持ち、重み `weight` を比例配分に使用します。
+- `planning_params` には `default_anchor_policy` や `recon_window_days` など、週配分と整合ステップで共通利用するパラメータを格納します。`core/config/models.PlanningCalendarSpec` が正規化したモデルを提供します。
+- パイプライン各段（`allocate.py`, `mrp.py`, `reconcile.py`, `anchor_adjust.py`, `reconcile_levels.py`）は `scripts/calendar_utils` を通じて `planning_calendar.json` を読み込み、週順序・期間→週のマッピング・入荷日→週コード変換を共通化しました。
+- Canonical設定から生成された `planning_calendar.json` が存在する場合、UI/API/CLI は `--calendar` を自動付与します。未提供の場合のみ `--weeks` で等分フォールバックを継続し、サマリー `inputs_summary.calendar_mode` に `fallback_weeks` を記録します。
+- サンプルは `samples/planning/planning_calendar.json` に格納しており、ISO週跨ぎや5週月などの検証ケースを `tests/test_calendar_utils.py` でカバーしています。
+
 ## アーキテクチャとフロー
 - フェーズ（標準）:
   1) Aggregate（粗粒度S&OP）
@@ -228,7 +235,6 @@ sequenceDiagram
 - **UIでの確認:**
   - APIで生成された計画は、`/ui/plans/{version_id}`で視覚的に確認できます。
   - UI上からも同様のパラメータで計画を再実行したり、結果を比較したりすることが可能です。
-
 
 
 

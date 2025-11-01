@@ -154,6 +154,10 @@ PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
 
 - **APIから実行**: `POST /plans/create_and_execute` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
 
+補足:
+- `planning_calendar.json` のフォーマットは `core/config/models.PlanningCalendarSpec` に準拠します。`periods[*].weeks[*]` に `week_code`・期間・重み（`weight`）を与えることで、Allocate/MRP/再整合の配分比率と週順序を統一できます。
+- Canonical設定にカレンダーを含めると UI/API/CLI すべてで `--calendar` が自動指定され、週境界・`planning_params`（例: `default_anchor_policy`, `recon_window_days`）も共通参照されます。カレンダーが存在しない環境のみ、`--weeks` による等分フォールバックで継続動作します。
+
 計画が完了すると、成果物（`plan_final.json`）やKPIレポート（`report.csv`）が生成され、UI上で確認・ダウンロードできます。
 ---
 
