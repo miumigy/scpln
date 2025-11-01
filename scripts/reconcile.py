@@ -20,12 +20,20 @@ import math
 import os
 import sys
 from pathlib import Path
-from typing import DefaultDict, Dict, Any, List, Tuple
+from typing import DefaultDict, Dict, Any, List, Tuple, Optional
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_plan_final_payload,
+)
+from scripts.calendar_utils import (
+    build_calendar_lookup,
+    get_week_distribution,
+    load_planning_calendar,
+    ordered_weeks,
+    resolve_period_for_week,
+    PlanningCalendarLookup,
 )
 
 
@@ -46,7 +54,38 @@ def _load_mix(input_dir: str | None, mix_path: str | None) -> List[str]:
     return skus
 
 
-def _weeks_from(alloc: Dict[str, Any], mrp: Dict[str, Any]) -> List[str]:
+def _resolve_calendar_lookup(
+    calendar_path: Optional[str], input_dir: Optional[str]
+) -> Optional[PlanningCalendarLookup]:
+    """planning_calendar.json を探索して LookUp を返す。"""
+
+    spec = None
+    err: Optional[Exception] = None
+    if calendar_path:
+        try:
+            spec = load_planning_calendar(calendar_path)
+        except Exception as exc:
+            err = exc
+    if spec is None and input_dir:
+        candidate = os.path.join(input_dir, "planning_calendar.json")
+        if os.path.exists(candidate):
+            try:
+                spec = load_planning_calendar(candidate)
+            except Exception as exc:
+                err = exc
+    if err:
+        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        sys.exit(1)
+    if spec is None:
+        return None
+    return build_calendar_lookup(spec)
+
+
+def _weeks_from(
+    alloc: Dict[str, Any],
+    mrp: Dict[str, Any],
+    lookup: Optional[PlanningCalendarLookup],
+) -> List[str]:
     seen = []
     for rec in alloc.get("rows", []):
         w = str(rec.get("week"))
@@ -56,7 +95,7 @@ def _weeks_from(alloc: Dict[str, Any], mrp: Dict[str, Any]) -> List[str]:
         w = str(rec.get("week"))
         if w and w not in seen:
             seen.append(w)
-    return sorted(seen)
+    return ordered_weeks(seen, lookup)
 
 
 def _weekly_capacity(
@@ -65,6 +104,7 @@ def _weekly_capacity(
     *,
     weeks_per_period: int,
     weeks: List[str],
+    lookup: Optional[PlanningCalendarLookup],
 ) -> Dict[str, float]:
     path = capacity_path or (
         os.path.join(input_dir, "capacity.csv") if input_dir else None
@@ -80,18 +120,23 @@ def _weekly_capacity(
             except Exception:
                 c = 0.0
             cap_by_period[per] += c  # 複数WCは合算
-    # 週へ展開（等分）
+    # 週へ展開（カレンダー準拠。未定義は等分）
     out: Dict[str, float] = {}
-    for w in weeks:
-        per = str(w)
-        if per is None:
-            continue
-        if "-W" in per:
-            per = per.split("-W", 1)[0]
-        elif len(per) >= 7 and per[4] == "-":
-            per = per[:7]
-        monthly = cap_by_period.get(per, 0.0)
-        out[w] = monthly / max(1, weeks_per_period)
+    fallback_weeks = max(1, weeks_per_period)
+    for period, monthly in cap_by_period.items():
+        dist = get_week_distribution(period, lookup, fallback_weeks)
+        ratios = [max(0.0, entry.ratio) for entry in dist]
+        total = sum(ratios)
+        if total <= 0 and dist:
+            ratios = [1.0 / len(dist)] * len(dist)
+        elif total > 0:
+            ratios = [r / total for r in ratios]
+        for idx, entry in enumerate(dist):
+            wk = entry.week_code
+            out[wk] = out.get(wk, 0.0) + monthly * ratios[idx]
+    # weeks に存在しない週は 0 扱い
+    for wk in weeks:
+        out.setdefault(wk, 0.0)
     return out
 
 
@@ -215,6 +260,12 @@ def main() -> None:
     ap.add_argument(
         "--weeks", dest="weeks_per_period", type=int, default=4, help="1期間の週数"
     )
+    ap.add_argument(
+        "--calendar",
+        dest="calendar",
+        default=None,
+        help="PlanningカレンダーJSONのパス（未指定時は input_dir から探索）",
+    )
     # v2 入口（受け口のみ。ロジックへの反映は今後のPR）
     ap.add_argument(
         "--cutover-date",
@@ -274,13 +325,19 @@ def main() -> None:
     else:
         alloc, mrp = a1, a0
 
-    weeks = _weeks_from(alloc, mrp)
+    lookup = _resolve_calendar_lookup(args.calendar, args.input_dir)
+    weeks = _weeks_from(alloc, mrp, lookup)
+    week_index = {w: i for i, w in enumerate(weeks)}
+    calendar_mode = "fallback_weeks"
+    if lookup:
+        calendar_mode = lookup.spec.calendar_type or "custom"
     fg_skus = set(_load_mix(args.input_dir, args.mix))
     cap_w = _weekly_capacity(
         args.input_dir,
         args.capacity,
         weeks_per_period=args.weeks_per_period,
         weeks=weeks,
+        lookup=lookup,
     )
 
     # 週別のFG解放ロード
@@ -306,16 +363,21 @@ def main() -> None:
         s = str(args.cutover_date)
         if len(s) >= 7 and s[4] == "-":
             cutover_month = s[:7]
+    period_by_week: Dict[str, str] = {}
+    for w in weeks:
+        per = resolve_period_for_week(w, lookup)
+        if not per:
+            s = str(w)
+            if len(s) >= 7 and s[4] == "-":
+                per = s[:7]
+            elif "-W" in s:
+                per = s.split("-W", 1)[0]
+        period_by_week[w] = per
+
     if use_v2 and cutover_month:
-        pre_weeks = [
-            w for w in weeks if (len(w) >= 7 and w[4] == "-" and w[:7] < cutover_month)
-        ]
-        at_weeks = [
-            w for w in weeks if (len(w) >= 7 and w[4] == "-" and w[:7] == cutover_month)
-        ]
-        post_weeks = [
-            w for w in weeks if (len(w) >= 7 and w[4] == "-" and w[:7] > cutover_month)
-        ]
+        pre_weeks = [w for w in weeks if period_by_week.get(w) < cutover_month]
+        at_weeks = [w for w in weeks if period_by_week.get(w) == cutover_month]
+        post_weeks = [w for w in weeks if period_by_week.get(w) > cutover_month]
         pol = str(args.anchor_policy).upper()
         if pol in ("DET_NEAR", "DET-NEAR"):
             # 1) pre: 通常前進
@@ -420,7 +482,7 @@ def main() -> None:
                     else max(1, n_at // 2)
                 )
                 # 週キー→インデックスのマップ
-                idx_map = {w: i for i, w in enumerate(sorted(at_weeks))}
+                idx_map = {w: i for i, w in enumerate(at_weeks)}
                 w_next_sum = 0.0
                 w_prev_sum = 0.0
                 for row in at_rep:
@@ -485,19 +547,15 @@ def main() -> None:
         adj_by_week, week_report = _adjust_by_capacity(weeks, load_by_week, cap_w)
     # cutoverメタ（境界期間のタグ付け）
     if cutover_month:
-        # cutover月内の週を抽出し、ウィーク番号を推定（"Wk"の数字部分を利用）
+        # cutover月内の週を抽出し、週順で並べ替え
         at_weeks = [
-            r for r in week_report if str(r.get("week", ""))[:7] == cutover_month
+            r
+            for r in week_report
+            if period_by_week.get(str(r.get("week", ""))) == cutover_month
         ]
 
         def _wknum(wk: str) -> int:
-            import re as _re
-
-            m = _re.search(r"Wk(\d+)$", wk)
-            try:
-                return int(m.group(1)) if m else 0
-            except Exception:
-                return 0
+            return week_index.get(wk, 0)
 
         at_weeks_sorted = sorted(at_weeks, key=lambda r: _wknum(str(r.get("week", ""))))
         n_at = len(at_weeks_sorted)
@@ -516,14 +574,15 @@ def main() -> None:
         # 全週にゾーン（pre/at/post）を付与
         for row in week_report:
             w = str(row.get("week", ""))
-            if len(w) >= 7 and w[4] == "-":
-                m = w[:7]
-                if m < cutover_month:
-                    row["zone"] = "pre"
-                elif m == cutover_month:
-                    row["zone"] = "at"
-                else:
-                    row["zone"] = "post"
+            per = period_by_week.get(w)
+            if not per:
+                continue
+            if per < cutover_month:
+                row["zone"] = "pre"
+            elif per == cutover_month:
+                row["zone"] = "at"
+            else:
+                row["zone"] = "post"
 
     # 週別係数を用いてFGの解放をスケーリング + 受入の再配分（lt_weeksでシフト）
     rows_out: List[Dict[str, Any]] = []
@@ -544,10 +603,7 @@ def main() -> None:
                 lt_w = int(r.get("lt_weeks", 0) or 0)
             except Exception:
                 lt_w = 0
-            try:
-                idx = weeks.index(w)
-            except ValueError:
-                idx = 0
+            idx = week_index.get(w, 0)
             rec_idx = min(len(weeks) - 1, idx + max(0, lt_w))
             receipt_adj[(it, weeks[rec_idx])] += adj_rel
         else:
@@ -566,6 +622,8 @@ def main() -> None:
             "mrp_rows": len(mrp.get("rows", [])),
             "weeks": len(weeks),
             "fg_skus": len(fg_skus),
+            "calendar_mode": calendar_mode,
+            "calendar_periods": len(lookup.distributions) if lookup else 0,
         },
         "reconcile_params": {
             "cutover_date": args.cutover_date,
@@ -582,7 +640,8 @@ def main() -> None:
                     [
                         r
                         for r in week_report
-                        if str(r.get("week", ""))[:7] == cutover_month
+                        if period_by_week.get(str(r.get("week", "")))
+                        == cutover_month
                     ]
                 ),
                 "pre_weeks": len(

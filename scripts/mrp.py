@@ -21,12 +21,19 @@ import os
 import sys
 import csv
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, DefaultDict
+from typing import Dict, Any, List, Tuple, DefaultDict, Optional
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_mrp_payload,
+)
+from scripts.calendar_utils import (
+    build_calendar_lookup,
+    load_planning_calendar,
+    map_due_to_week,
+    ordered_weeks,
+    PlanningCalendarLookup,
 )
 
 
@@ -66,17 +73,50 @@ def _load_inventory(path: str | None) -> Dict[str, float]:
     return dict(inv)
 
 
-def _periods_from_alloc(alloc: Dict[str, Any]) -> List[str]:
-    seen = []
+def _resolve_calendar_lookup(
+    calendar_path: Optional[str], input_dir: Optional[str]
+) -> Optional[PlanningCalendarLookup]:
+    """カレンダーファイルを探索し LookUp を返す。"""
+
+    spec = None
+    err: Optional[Exception] = None
+    if calendar_path:
+        try:
+            spec = load_planning_calendar(calendar_path)
+        except Exception as exc:
+            err = exc
+    if spec is None and input_dir:
+        candidate = os.path.join(input_dir, "planning_calendar.json")
+        if os.path.exists(candidate):
+            try:
+                spec = load_planning_calendar(candidate)
+            except Exception as exc:
+                err = exc
+    if err:
+        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        sys.exit(1)
+    if spec is None:
+        return None
+    return build_calendar_lookup(spec)
+
+
+def _weeks_from_alloc(
+    alloc: Dict[str, Any], lookup: Optional[PlanningCalendarLookup]
+) -> List[str]:
+    seen: List[str] = []
     for r in alloc.get("rows", []):
         w = str(r.get("week"))
-        if w not in seen and w:
+        if w and w not in seen:
             seen.append(w)
-    return sorted(seen)
+    return ordered_weeks(seen, lookup)
 
 
 def _load_open_po(
-    path: str | None, *, weeks: List[str]
+    path: str | None,
+    *,
+    weeks: List[str],
+    lookup: Optional[PlanningCalendarLookup],
+    fallback_weeks: int,
 ) -> Dict[Tuple[str, str], float]:
     rec: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(
         float
@@ -84,29 +124,14 @@ def _load_open_po(
     if not path or not os.path.exists(path):
         return dict(rec)
 
-    def _to_week_key(due: str) -> str:
-        s = str(due)
-        if len(s) == 7 and s.count("-") == 1:
-            # 'YYYY-MM' → 末尾に W4 を仮置き
-            return f"{s}-W4"
-        # 'YYYY-MM-DD' を簡易で 1..7=>W1, 8..14=>W2, 15..21=>W3, 22..=>W4 に割当
-        try:
-            y, m, d = s.split("-")
-            day = int(d)
-            wk = 1 if day <= 7 else 2 if day <= 14 else 3 if day <= 21 else 4
-            return f"{y}-{m}-W{wk}"
-        except Exception:
-            # そのまま返す（合致しなければ無視される）
-            return s
-
     for r in _read_csv(path):
         it = str(r.get("item"))
-        due = _to_week_key(str(r.get("due")))
+        due = map_due_to_week(str(r.get("due")), lookup, fallback_weeks)
         try:
             q = float(r.get("qty", 0) or 0)
         except Exception:
             q = 0.0
-        if it and due in weeks:
+        if it and due and due in weeks:
             rec[(it, due)] += q
     return dict(rec)
 
@@ -202,6 +227,12 @@ def main() -> None:
         default=None,
         help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
     )
+    ap.add_argument(
+        "--calendar",
+        dest="calendar",
+        default=None,
+        help="PlanningカレンダーJSONのパス（未指定時は input_dir から探索）",
+    )
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:
@@ -215,8 +246,12 @@ def main() -> None:
 
     items = _load_items(item_path)
     inv = _load_inventory(inv_path)
-    weeks = _periods_from_alloc(alloc)
-    opo = _load_open_po(opo_path, weeks=weeks)
+    lookup = _resolve_calendar_lookup(args.calendar, args.input_dir)
+    weeks = _weeks_from_alloc(alloc, lookup)
+    fallback_weeks = max(1, int(args.weeks_per_period or 1))
+    opo = _load_open_po(
+        opo_path, weeks=weeks, lookup=lookup, fallback_weeks=fallback_weeks
+    )
     bom = _load_bom(bom_path)
 
     # SKU週の要求を集約（gross: demand, backlogは無視 or 参考。ここでは demand を採用）
@@ -250,6 +285,10 @@ def main() -> None:
         it: inv.get(it, 0.0)
         for it in set(k[0] for k in gross_by_item_week.keys()) | set(inv.keys())
     }
+
+    calendar_mode = "fallback_weeks"
+    if lookup:
+        calendar_mode = lookup.spec.calendar_type or "custom"
 
     for it in sorted(on_hand_by_item.keys()):
         lt_w = _lt_weeks(
@@ -309,6 +348,7 @@ def main() -> None:
             "bom_links": len(bom),
             "weeks": len(weeks),
             "lt_unit": args.lt_unit,
+            "calendar_mode": calendar_mode,
         },
         "rows": rows_out,
     }

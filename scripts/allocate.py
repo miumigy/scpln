@@ -14,12 +14,18 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_allocate_payload,
+)
+from scripts.calendar_utils import (
+    build_calendar_lookup,
+    get_week_distribution,
+    load_planning_calendar,
+    PlanningCalendarLookup,
 )
 
 
@@ -55,10 +61,31 @@ def _load_mix(
     return mix
 
 
-def _weeks_of(period: str, weeks: int) -> List[str]:
-    # 期待形式 'YYYY-MM' -> 'YYYY-MM-Wk'
-    base = period
-    return [f"{base}-W{i}" for i in range(1, weeks + 1)]
+def _resolve_calendar_lookup(
+    calendar_path: Optional[str], input_dir: Optional[str]
+) -> Optional[PlanningCalendarLookup]:
+    """カレンダーファイルを探索してLookUpを構築する。"""
+
+    spec = None
+    err: Optional[Exception] = None
+    if calendar_path:
+        try:
+            spec = load_planning_calendar(calendar_path)
+        except Exception as exc:  # validation error を含め捕捉
+            err = exc
+    if spec is None and input_dir:
+        candidate = os.path.join(input_dir, "planning_calendar.json")
+        if os.path.exists(candidate):
+            try:
+                spec = load_planning_calendar(candidate)
+            except Exception as exc:
+                err = exc
+    if err:
+        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        sys.exit(1)
+    if spec is None:
+        return None
+    return build_calendar_lookup(spec)
 
 
 def _round_series(values: List[float], *, mode: str = "none") -> List[float]:
@@ -118,6 +145,12 @@ def main() -> None:
         default=None,
         help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
     )
+    ap.add_argument(
+        "--calendar",
+        dest="calendar",
+        default=None,
+        help="PlanningカレンダーJSONのパス（未指定時は input_dir から探索）",
+    )
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:
@@ -127,6 +160,11 @@ def main() -> None:
     rows_in: List[Dict[str, Any]] = agg.get("rows", [])
     weeks = max(1, int(args.weeks or 4))
     out_rows: List[Dict[str, Any]] = []
+
+    lookup = _resolve_calendar_lookup(args.calendar, args.input_dir)
+    calendar_mode = "fallback_weeks"
+    if lookup:
+        calendar_mode = lookup.spec.calendar_type or "custom"
 
     for r in rows_in:
         fam = str(r.get("family"))
@@ -138,15 +176,22 @@ def main() -> None:
         if not pairs:
             pairs = [(fam, 1.0)]  # ミックス未定義の場合はfamily全量を仮SKUへ
 
+        week_entries = get_week_distribution(per, lookup, weeks)
+        ratios = [max(0.0, entry.ratio) for entry in week_entries]
+        total_ratio = sum(ratios)
+        if total_ratio <= 0 and week_entries:
+            ratios = [1.0 / len(week_entries)] * len(week_entries)
+        elif total_ratio > 0:
+            ratios = [ratio / total_ratio for ratio in ratios]
+
         for sku, share in pairs:
             d_sku = demand * share
             s_sku = supply * share
             b_sku = backlog * share
-            # 週割等分
-            ws = _weeks_of(per, weeks)
-            d_parts = [d_sku / weeks] * weeks
-            s_parts = [s_sku / weeks] * weeks
-            b_parts = [b_sku / weeks] * weeks
+            # カレンダーの重みで週割
+            d_parts = [d_sku * ratios[i] for i in range(len(week_entries))]
+            s_parts = [s_sku * ratios[i] for i in range(len(week_entries))]
+            b_parts = [b_sku * ratios[i] for i in range(len(week_entries))]
 
             # 丸め → 誤差吸収
             d_parts = _round_series(d_parts, mode=args.round_mode)
@@ -156,13 +201,13 @@ def main() -> None:
             s_parts = _absorb_delta(s_sku, s_parts)
             b_parts = _absorb_delta(b_sku, b_parts)
 
-            for i, w in enumerate(ws):
+            for i, entry in enumerate(week_entries):
                 out_rows.append(
                     {
                         "family": fam,
                         "period": per,
                         "sku": sku,
-                        "week": w,
+                        "week": entry.week_code,
                         "demand": d_parts[i],
                         "supply": s_parts[i],
                         "backlog": b_parts[i],
@@ -178,6 +223,8 @@ def main() -> None:
             "mix_families": len(mix),
             "weeks_per_period": weeks,
             "round_mode": args.round_mode,
+            "calendar_mode": calendar_mode,
+            "calendar_periods": len(lookup.distributions) if lookup else 0,
         },
         "rows": out_rows,
     }

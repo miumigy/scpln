@@ -22,7 +22,7 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, DefaultDict
+from typing import Any, Dict, List, Tuple, DefaultDict, Optional
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
@@ -31,10 +31,26 @@ from scripts.plan_pipeline_io import (
 )
 
 
+_CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
+_WEEK_SEQUENCE: Dict[str, int] = {}
+from scripts.calendar_utils import (
+    build_calendar_lookup,
+    load_planning_calendar,
+    map_due_to_week,
+    resolve_period_for_week,
+    PlanningCalendarLookup,
+)
+
+
 def _period_from_week(week_key: str) -> str:
+    per = resolve_period_for_week(str(week_key), _CAL_LOOKUP)
+    if per:
+        return per
     s = str(week_key)
     if len(s) >= 7 and s[4] == "-":
         return s[:7]
+    if "-W" in s:
+        return s.split("-W", 1)[0]
     return s
 
 
@@ -48,6 +64,51 @@ def _round6(x: float) -> float:
         return round(float(x), 6)
     except Exception:
         return 0.0
+
+
+def _resolve_calendar_lookup(
+    calendar_path: Optional[str], input_dir: Optional[str]
+) -> Optional[PlanningCalendarLookup]:
+    spec = None
+    err: Optional[Exception] = None
+    if calendar_path:
+        try:
+            spec = load_planning_calendar(calendar_path)
+        except Exception as exc:
+            err = exc
+    if spec is None and input_dir:
+        candidate = Path(input_dir) / "planning_calendar.json"
+        if candidate.exists():
+            try:
+                spec = load_planning_calendar(str(candidate))
+            except Exception as exc:
+                err = exc
+    if err:
+        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        sys.exit(1)
+    if spec is None:
+        return None
+    return build_calendar_lookup(spec)
+
+
+def _week_sequence_value(code: str, fallback: int) -> int:
+    if code in _WEEK_SEQUENCE:
+        return _WEEK_SEQUENCE[code]
+    import re as _re  # lazy import for fallback parsing
+
+    m = _re.search(r"Wk(\d+)$", code)
+    if m:
+        try:
+            return int(m.group(1))
+        except Exception:
+            pass
+    m = _re.search(r"W(\d+)$", code)
+    if m:
+        try:
+            return int(m.group(1))
+        except Exception:
+            pass
+    return fallback
 
 
 def main() -> None:
@@ -83,11 +144,16 @@ def main() -> None:
         help="1期間の週数ヒント（任意）",
     )
     ap.add_argument(
+        "--calendar",
+        dest="calendar",
+        default=None,
+        help="PlanningカレンダーJSONのパス（未指定時は input_dir から探索）",
+    )
+    ap.add_argument(
         "--calendar-mode",
         dest="calendar_mode",
-        default="simple",
-        choices=["simple", "iso"],
-        help="cutover週の推定モード",
+        default=None,
+        help="互換用（非推奨）",
     )
     ap.add_argument(
         "--max-adjust-ratio",
@@ -194,6 +260,17 @@ def main() -> None:
         help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
     )
     args = ap.parse_args()
+
+    lookup = _resolve_calendar_lookup(args.calendar, args.input_dir)
+    global _CAL_LOOKUP, _WEEK_SEQUENCE
+    _CAL_LOOKUP = lookup
+    _WEEK_SEQUENCE = {}
+    if lookup:
+        for period, entries in lookup.distributions.items():
+            for idx, entry in enumerate(entries, start=1):
+                seq = entry.sequence or idx
+                _WEEK_SEQUENCE.setdefault(entry.week_code, seq)
+    fallback_weeks = max(1, int(args.weeks_per_period or 4))
 
     storage_config, warning = resolve_storage_config(
         args.storage, args.version_id, cli_label="anchor_adjust"
@@ -539,50 +616,43 @@ def main() -> None:
                 )
             if i >= 0:
                 idxs.append(i)
-        # sort rows by week increasing -> assign larger weight depending on policy
-        idxs_sorted = sorted(idxs, key=lambda i: str(det_rows_out[i].get("week")))
+        # sort rows by calendar order
+        idxs_sorted = sorted(
+            idxs,
+            key=lambda i: (
+                _week_sequence_value(str(det_rows_out[i].get("week")), i + 1),
+                str(det_rows_out[i].get("week")),
+            ),
+        )
         weeks_labels = [str(det_rows_out[i].get("week")) for i in idxs_sorted]
+        seq_values = [
+            _week_sequence_value(wk, pos + 1) for pos, wk in enumerate(weeks_labels)
+        ]
 
-        # 推定: cutover週インデックス（0..n-1）
-        # 1) ラベル '...-WkX' を優先
-        def _parse_wk(s: str) -> int | None:
+        # 推定: cutover週シーケンス値（1..n）
+        cutover_seq_est = None
+        mapped_week = map_due_to_week(args.cutover_date, lookup, fallback_weeks)
+        if mapped_week:
+            cutover_seq_est = _week_sequence_value(
+                mapped_week, seq_values[-1] if seq_values else 1
+            )
+        if cutover_seq_est is None:
             try:
-                if "Wk" in s:
-                    p = s.split("Wk")[-1]
-                    return int("".join([ch for ch in p if ch.isdigit()]))
-            except Exception:
-                return None
-            return None
+                parts = str(args.cutover_date).split("-")
+                y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+                import calendar as _cal
 
-        label_wk_nums = [(_parse_wk(s) or (i + 1)) for i, s in enumerate(weeks_labels)]
-        # 2) cutover日から週番号推定
-        cutover_week_num_est = None
-        try:
-            parts = str(args.cutover_date).split("-")
-            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
-            import calendar as _cal
-
-            _, mdays = _cal.monthrange(y, m)  # mdays in month
-            if args.calendar_mode == "iso":
-                # 月内の位置割合で週位置を推定（n本の離散点へ丸め）
+                _, mdays = _cal.monthrange(y, m)
                 frac = max(0.0, min(1.0, (d - 1) / max(1, mdays - 1)))
-                cutover_week_num_est = (
-                    int(round(frac * max(0, len(label_wk_nums) - 1))) + 1
-                )
-            else:
-                cutover_week_num_est = max(1, min(len(label_wk_nums), (d + 6) // 7))
-        except Exception:
-            cutover_week_num_est = None
-        # 3) 最終的な中心位置 cpos
-        if cutover_week_num_est in label_wk_nums:
-            cpos = label_wk_nums.index(cutover_week_num_est)
+                cutover_seq_est = int(round(frac * max(0, len(seq_values) - 1))) + 1
+            except Exception:
+                cutover_seq_est = None
+
+        if cutover_seq_est is not None and seq_values:
+            diffs = [abs(seq - cutover_seq_est) for seq in seq_values]
+            cpos = int(diffs.index(min(diffs)))
         else:
-            # 近い番号に丸め
-            if cutover_week_num_est is not None:
-                diffs = [abs(x - cutover_week_num_est) for x in label_wk_nums]
-                cpos = int(diffs.index(min(diffs)))
-            else:
-                cpos = max(0, (len(idxs_sorted) - 1) // 2)
+            cpos = max(0, (len(idxs_sorted) - 1) // 2)
         n = len(idxs_sorted)
         if n <= 0:
             continue

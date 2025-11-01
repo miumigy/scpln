@@ -18,13 +18,22 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, DefaultDict
+from typing import Any, Dict, List, Tuple, DefaultDict, Optional
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_reconcile_log_payload,
 )
+from scripts.calendar_utils import (
+    build_calendar_lookup,
+    load_planning_calendar,
+    resolve_period_for_week,
+    PlanningCalendarLookup,
+)
+
+
+_CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
 
 
 def _period_from_week(week_key: str) -> str:
@@ -33,6 +42,9 @@ def _period_from_week(week_key: str) -> str:
       - ISO週: 'YYYY-Www' → そのISO週の月(週の月曜日付の月) を返す
       - 'YYYY-MM' または 'YYYY-MM-...': 先頭7桁を返す
     """
+    per = resolve_period_for_week(str(week_key or ""), _CAL_LOOKUP)
+    if per:
+        return per
     s = str(week_key or "")
     try:
         if "-W" in s:  # ISO週形式
@@ -100,6 +112,31 @@ def _round6(x: float) -> float:
         return 0.0
 
 
+def _resolve_calendar_lookup(
+    calendar_path: Optional[str], input_dir: Optional[str]
+) -> Optional[PlanningCalendarLookup]:
+    spec = None
+    err: Optional[Exception] = None
+    if calendar_path:
+        try:
+            spec = load_planning_calendar(calendar_path)
+        except Exception as exc:
+            err = exc
+    if spec is None and input_dir:
+        candidate = Path(input_dir) / "planning_calendar.json"
+        if candidate.exists():
+            try:
+                spec = load_planning_calendar(str(candidate))
+            except Exception as exc:
+                err = exc
+    if err:
+        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        sys.exit(1)
+    if spec is None:
+        return None
+    return build_calendar_lookup(spec)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="AGG/DET ロールアップ差分ログ（v1）")
     ap.add_argument(
@@ -125,6 +162,12 @@ def main() -> None:
         type=int,
         default=4,
         help="月→週の週数ヒント（キー整形補助）",
+    )
+    ap.add_argument(
+        "--calendar",
+        dest="calendar",
+        default=None,
+        help="PlanningカレンダーJSONのパス（任意）",
     )
     # v2入口: cutover/window/anchor の受け口（ログに反映、簡易境界タグ付け）
     ap.add_argument(
@@ -160,6 +203,10 @@ def main() -> None:
         help="PlanRepositoryへ書き込む版ID（storageにdbを含む場合は必須）",
     )
     args = ap.parse_args()
+
+    lookup = _resolve_calendar_lookup(args.calendar, None)
+    global _CAL_LOOKUP
+    _CAL_LOOKUP = lookup
 
     storage_config, warning = resolve_storage_config(
         args.storage, args.version_id, cli_label="reconcile_levels"

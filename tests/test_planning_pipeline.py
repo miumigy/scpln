@@ -263,9 +263,9 @@ def test_reconcile_capacity_respected_and_report(tmp_path: Path):
     )
     content = rep.read_text(encoding="utf-8").splitlines()
     assert content and content[0].startswith("type,week"), "CSV header present"
-    # サービス行に 2025-01-W2 の供給>0 を期待（LTシフトの受入）
-    svc = [line for line in content if line.startswith("service,2025-01-W2")]
-    assert svc, "service row for 2025-01-W2 present"
+    # サービス行に 2025-W02 の供給>0 を期待（LTシフトの受入）
+    svc = [line for line in content if line.startswith("service,2025-W02")]
+    assert svc, "service row for 2025-W02 present"
     # 末尾が fill_rate, >0
     last = svc[0].split(",")
     fill = float(last[-1])
