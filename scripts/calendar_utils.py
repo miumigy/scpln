@@ -172,6 +172,15 @@ def resolve_period_for_week(
     if lookup and week_code in lookup.week_to_period:
         return lookup.week_to_period[week_code]
     if len(week_code) >= 7 and week_code[4] == "-":
+        # ISO週形式 (YYYY-Www) は週内の木曜日で属する月を返す
+        if len(week_code) >= 8 and week_code[5].upper() == "W":
+            try:
+                year = int(week_code[:4])
+                week = int("".join(ch for ch in week_code.split("W", 1)[-1] if ch.isdigit())[:2] or "0")
+                iso_ref = date.fromisocalendar(year, week, 4)
+                return f"{iso_ref.year:04d}-{iso_ref.month:02d}"
+            except Exception:
+                pass
         return week_code[:7]
     return week_code
 
