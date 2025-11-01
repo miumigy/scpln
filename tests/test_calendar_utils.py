@@ -25,9 +25,9 @@ def test_week_distribution_uses_calendar_weights() -> None:
     assert lookup is not None
 
     dist = get_week_distribution("2025-01", lookup, fallback_weeks=4)
-    assert len(dist) == 4
+    assert len(dist) == 5
     assert pytest.approx(sum(w.ratio for w in dist)) == 1.0
-    assert dist[-1].week_code == "2025-W04"
+    assert dist[-1].week_code == "2025-W05"
 
     fallback = get_week_distribution("2024-12", lookup, fallback_weeks=3)
     assert [w.week_code for w in fallback] == [
@@ -47,9 +47,9 @@ def test_ordered_weeks_and_due_mapping() -> None:
     assert ordered == ["2025-W01", "2025-W05", "2025-W06"]
 
     assert map_due_to_week("2025-01-05", lookup, fallback_weeks=4) == "2025-W01"
-    assert map_due_to_week("2025-01", lookup, fallback_weeks=4) == "2025-W04"
-    # 未定義カレンダーの場合はフォールバック
-    assert map_due_to_week("2025-03", lookup, fallback_weeks=4) == "2025-03-W4"
+    assert map_due_to_week("2025-01", lookup, fallback_weeks=4) == "2025-W05"
+    # 月指定は当該月の最終週コードを返す
+    assert map_due_to_week("2025-03", lookup, fallback_weeks=4) == "2025-W14"
 
     assert ordered_weeks(["2025-W02", "2025-W01"], None) == ["2025-W01", "2025-W02"]
 

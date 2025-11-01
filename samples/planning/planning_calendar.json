@@ -11,29 +11,36 @@
           "week_code": "2025-W01",
           "sequence": 1,
           "start_date": "2025-01-01",
-          "end_date": "2025-01-07",
-          "weight": 7
+          "end_date": "2025-01-05",
+          "weight": 5
         },
         {
           "week_code": "2025-W02",
           "sequence": 2,
-          "start_date": "2025-01-08",
-          "end_date": "2025-01-14",
+          "start_date": "2025-01-06",
+          "end_date": "2025-01-12",
           "weight": 7
         },
         {
           "week_code": "2025-W03",
           "sequence": 3,
-          "start_date": "2025-01-15",
-          "end_date": "2025-01-21",
+          "start_date": "2025-01-13",
+          "end_date": "2025-01-19",
           "weight": 7
         },
         {
           "week_code": "2025-W04",
           "sequence": 4,
-          "start_date": "2025-01-22",
+          "start_date": "2025-01-20",
+          "end_date": "2025-01-26",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W05",
+          "sequence": 5,
+          "start_date": "2025-01-27",
           "end_date": "2025-01-31",
-          "weight": 10
+          "weight": 5
         }
       ]
     },
@@ -46,29 +53,470 @@
           "week_code": "2025-W05",
           "sequence": 5,
           "start_date": "2025-02-01",
-          "end_date": "2025-02-07",
-          "weight": 7
+          "end_date": "2025-02-02",
+          "weight": 2
         },
         {
           "week_code": "2025-W06",
           "sequence": 6,
-          "start_date": "2025-02-08",
-          "end_date": "2025-02-14",
+          "start_date": "2025-02-03",
+          "end_date": "2025-02-09",
           "weight": 7
         },
         {
           "week_code": "2025-W07",
           "sequence": 7,
-          "start_date": "2025-02-15",
-          "end_date": "2025-02-21",
+          "start_date": "2025-02-10",
+          "end_date": "2025-02-16",
           "weight": 7
         },
         {
           "week_code": "2025-W08",
           "sequence": 8,
-          "start_date": "2025-02-22",
-          "end_date": "2025-02-28",
+          "start_date": "2025-02-17",
+          "end_date": "2025-02-23",
           "weight": 7
+        },
+        {
+          "week_code": "2025-W09",
+          "sequence": 9,
+          "start_date": "2025-02-24",
+          "end_date": "2025-02-28",
+          "weight": 5
+        }
+      ]
+    },
+    {
+      "period": "2025-03",
+      "start_date": "2025-03-01",
+      "end_date": "2025-03-31",
+      "weeks": [
+        {
+          "week_code": "2025-W09",
+          "sequence": 9,
+          "start_date": "2025-03-01",
+          "end_date": "2025-03-02",
+          "weight": 2
+        },
+        {
+          "week_code": "2025-W10",
+          "sequence": 10,
+          "start_date": "2025-03-03",
+          "end_date": "2025-03-09",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W11",
+          "sequence": 11,
+          "start_date": "2025-03-10",
+          "end_date": "2025-03-16",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W12",
+          "sequence": 12,
+          "start_date": "2025-03-17",
+          "end_date": "2025-03-23",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W13",
+          "sequence": 13,
+          "start_date": "2025-03-24",
+          "end_date": "2025-03-30",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W14",
+          "sequence": 14,
+          "start_date": "2025-03-31",
+          "end_date": "2025-03-31",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "period": "2025-04",
+      "start_date": "2025-04-01",
+      "end_date": "2025-04-30",
+      "weeks": [
+        {
+          "week_code": "2025-W14",
+          "sequence": 14,
+          "start_date": "2025-04-01",
+          "end_date": "2025-04-06",
+          "weight": 6
+        },
+        {
+          "week_code": "2025-W15",
+          "sequence": 15,
+          "start_date": "2025-04-07",
+          "end_date": "2025-04-13",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W16",
+          "sequence": 16,
+          "start_date": "2025-04-14",
+          "end_date": "2025-04-20",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W17",
+          "sequence": 17,
+          "start_date": "2025-04-21",
+          "end_date": "2025-04-27",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W18",
+          "sequence": 18,
+          "start_date": "2025-04-28",
+          "end_date": "2025-04-30",
+          "weight": 3
+        }
+      ]
+    },
+    {
+      "period": "2025-05",
+      "start_date": "2025-05-01",
+      "end_date": "2025-05-31",
+      "weeks": [
+        {
+          "week_code": "2025-W18",
+          "sequence": 18,
+          "start_date": "2025-05-01",
+          "end_date": "2025-05-04",
+          "weight": 4
+        },
+        {
+          "week_code": "2025-W19",
+          "sequence": 19,
+          "start_date": "2025-05-05",
+          "end_date": "2025-05-11",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W20",
+          "sequence": 20,
+          "start_date": "2025-05-12",
+          "end_date": "2025-05-18",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W21",
+          "sequence": 21,
+          "start_date": "2025-05-19",
+          "end_date": "2025-05-25",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W22",
+          "sequence": 22,
+          "start_date": "2025-05-26",
+          "end_date": "2025-05-31",
+          "weight": 6
+        }
+      ]
+    },
+    {
+      "period": "2025-06",
+      "start_date": "2025-06-01",
+      "end_date": "2025-06-30",
+      "weeks": [
+        {
+          "week_code": "2025-W22",
+          "sequence": 22,
+          "start_date": "2025-06-01",
+          "end_date": "2025-06-01",
+          "weight": 1
+        },
+        {
+          "week_code": "2025-W23",
+          "sequence": 23,
+          "start_date": "2025-06-02",
+          "end_date": "2025-06-08",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W24",
+          "sequence": 24,
+          "start_date": "2025-06-09",
+          "end_date": "2025-06-15",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W25",
+          "sequence": 25,
+          "start_date": "2025-06-16",
+          "end_date": "2025-06-22",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W26",
+          "sequence": 26,
+          "start_date": "2025-06-23",
+          "end_date": "2025-06-29",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W27",
+          "sequence": 27,
+          "start_date": "2025-06-30",
+          "end_date": "2025-06-30",
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "period": "2025-07",
+      "start_date": "2025-07-01",
+      "end_date": "2025-07-31",
+      "weeks": [
+        {
+          "week_code": "2025-W27",
+          "sequence": 27,
+          "start_date": "2025-07-01",
+          "end_date": "2025-07-06",
+          "weight": 6
+        },
+        {
+          "week_code": "2025-W28",
+          "sequence": 28,
+          "start_date": "2025-07-07",
+          "end_date": "2025-07-13",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W29",
+          "sequence": 29,
+          "start_date": "2025-07-14",
+          "end_date": "2025-07-20",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W30",
+          "sequence": 30,
+          "start_date": "2025-07-21",
+          "end_date": "2025-07-27",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W31",
+          "sequence": 31,
+          "start_date": "2025-07-28",
+          "end_date": "2025-07-31",
+          "weight": 4
+        }
+      ]
+    },
+    {
+      "period": "2025-08",
+      "start_date": "2025-08-01",
+      "end_date": "2025-08-31",
+      "weeks": [
+        {
+          "week_code": "2025-W31",
+          "sequence": 31,
+          "start_date": "2025-08-01",
+          "end_date": "2025-08-03",
+          "weight": 3
+        },
+        {
+          "week_code": "2025-W32",
+          "sequence": 32,
+          "start_date": "2025-08-04",
+          "end_date": "2025-08-10",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W33",
+          "sequence": 33,
+          "start_date": "2025-08-11",
+          "end_date": "2025-08-17",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W34",
+          "sequence": 34,
+          "start_date": "2025-08-18",
+          "end_date": "2025-08-24",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W35",
+          "sequence": 35,
+          "start_date": "2025-08-25",
+          "end_date": "2025-08-31",
+          "weight": 7
+        }
+      ]
+    },
+    {
+      "period": "2025-09",
+      "start_date": "2025-09-01",
+      "end_date": "2025-09-30",
+      "weeks": [
+        {
+          "week_code": "2025-W36",
+          "sequence": 36,
+          "start_date": "2025-09-01",
+          "end_date": "2025-09-07",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W37",
+          "sequence": 37,
+          "start_date": "2025-09-08",
+          "end_date": "2025-09-14",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W38",
+          "sequence": 38,
+          "start_date": "2025-09-15",
+          "end_date": "2025-09-21",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W39",
+          "sequence": 39,
+          "start_date": "2025-09-22",
+          "end_date": "2025-09-28",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W40",
+          "sequence": 40,
+          "start_date": "2025-09-29",
+          "end_date": "2025-09-30",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "period": "2025-10",
+      "start_date": "2025-10-01",
+      "end_date": "2025-10-31",
+      "weeks": [
+        {
+          "week_code": "2025-W40",
+          "sequence": 40,
+          "start_date": "2025-10-01",
+          "end_date": "2025-10-05",
+          "weight": 5
+        },
+        {
+          "week_code": "2025-W41",
+          "sequence": 41,
+          "start_date": "2025-10-06",
+          "end_date": "2025-10-12",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W42",
+          "sequence": 42,
+          "start_date": "2025-10-13",
+          "end_date": "2025-10-19",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W43",
+          "sequence": 43,
+          "start_date": "2025-10-20",
+          "end_date": "2025-10-26",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W44",
+          "sequence": 44,
+          "start_date": "2025-10-27",
+          "end_date": "2025-10-31",
+          "weight": 5
+        }
+      ]
+    },
+    {
+      "period": "2025-11",
+      "start_date": "2025-11-01",
+      "end_date": "2025-11-30",
+      "weeks": [
+        {
+          "week_code": "2025-W44",
+          "sequence": 44,
+          "start_date": "2025-11-01",
+          "end_date": "2025-11-02",
+          "weight": 2
+        },
+        {
+          "week_code": "2025-W45",
+          "sequence": 45,
+          "start_date": "2025-11-03",
+          "end_date": "2025-11-09",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W46",
+          "sequence": 46,
+          "start_date": "2025-11-10",
+          "end_date": "2025-11-16",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W47",
+          "sequence": 47,
+          "start_date": "2025-11-17",
+          "end_date": "2025-11-23",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W48",
+          "sequence": 48,
+          "start_date": "2025-11-24",
+          "end_date": "2025-11-30",
+          "weight": 7
+        }
+      ]
+    },
+    {
+      "period": "2025-12",
+      "start_date": "2025-12-01",
+      "end_date": "2025-12-31",
+      "weeks": [
+        {
+          "week_code": "2025-W49",
+          "sequence": 49,
+          "start_date": "2025-12-01",
+          "end_date": "2025-12-07",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W50",
+          "sequence": 50,
+          "start_date": "2025-12-08",
+          "end_date": "2025-12-14",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W51",
+          "sequence": 51,
+          "start_date": "2025-12-15",
+          "end_date": "2025-12-21",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W52",
+          "sequence": 52,
+          "start_date": "2025-12-22",
+          "end_date": "2025-12-28",
+          "weight": 7
+        },
+        {
+          "week_code": "2026-W01",
+          "sequence": 53,
+          "start_date": "2025-12-29",
+          "end_date": "2025-12-31",
+          "weight": 3
         }
       ]
     }
