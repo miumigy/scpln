@@ -1,6 +1,9 @@
+import json
+
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
     build_plan_series,
+    build_plan_series_from_detail,
     build_plan_series_from_plan_final,
 )
 
@@ -88,6 +91,42 @@ def test_build_plan_kpis_from_aggregate():
         if r["metric"] == "backlog_total" and r["bucket_type"] == "total"
     )
     assert total_backlog["value"] == 30.0
+
+
+def test_build_plan_series_from_detail_merges_duplicate_weeks():
+    detail = {
+        "rows": [
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "sku": "SKU1",
+                "week": "2025-W05",
+                "demand": 5,
+                "supply": 4,
+                "backlog": 1,
+            },
+            {
+                "family": "F1",
+                "period": "2025-02",
+                "sku": "SKU1",
+                "week": "2025-W05",
+                "demand": 3,
+                "supply": 2,
+                "backlog": 1,
+            },
+        ]
+    }
+
+    rows = build_plan_series_from_detail("v-test", detail)
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["time_bucket_key"] == "2025-W05"
+    assert row["demand"] == 8.0
+    assert row["supply"] == 6.0
+    assert row["backlog"] == 2.0
+    extra = json.loads(row["extra_json"])
+    assert extra["period"] == "2025-01"
+    assert "periods" in extra and extra["periods"] == ["2025-01", "2025-02"]
 
 
 def test_build_plan_series_from_plan_final_inventory():

@@ -983,6 +983,11 @@ def _materialize_planning_inputs(bundle: PlanningDataBundle, dest: Path) -> None
         _write_csv(dest / "period_cost.csv", bundle.period_cost, ["period", "cost"])
     if bundle.period_score:
         _write_csv(dest / "period_score.csv", bundle.period_score, ["period", "score"])
+    if bundle.planning_calendar:
+        (dest / "planning_calendar.json").write_text(
+            json.dumps(bundle.planning_calendar, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
 
 def _write_csv(path: Path, rows: Optional[list], columns: list[str]) -> None:
@@ -1085,6 +1090,13 @@ def prepare_canonical_inputs(
                 encoding="utf-8",
             )
             artifact_paths["period_score.json"] = period_score_path
+        if planning_bundle.planning_calendar:
+            calendar_path = out_dir / "planning_calendar.json"
+            calendar_path.write_text(
+                json.dumps(planning_bundle.planning_calendar, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            artifact_paths["planning_calendar.json"] = calendar_path
         logging.info("DEBUG: Artifacts written.")
 
     return planning_bundle, temp_input_dir, artifact_paths, canonical_config

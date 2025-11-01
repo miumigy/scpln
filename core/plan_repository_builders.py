@@ -106,30 +106,68 @@ def build_plan_series_from_detail(
     if not sku_week:
         return []
 
-    rows: list[PlanSeriesRow] = []
-    now = _now_ms()
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
     for entry in sku_week.get("rows", []):
         sku = entry.get("sku")
         week = entry.get("week")
         if not sku or not week:
             continue
+        key = (str(week), str(sku))
+        bucket = grouped.setdefault(
+            key,
+            {
+                "demand": 0.0,
+                "supply": 0.0,
+                "backlog": 0.0,
+                "families": [],
+                "periods": [],
+            },
+        )
+        bucket["demand"] += _as_float(entry.get("demand"))
+        bucket["supply"] += _as_float(entry.get("supply"))
+        bucket["backlog"] += _as_float(entry.get("backlog"))
+
+        family = entry.get("family")
+        if family is not None:
+            family_str = str(family)
+            if family_str not in bucket["families"]:
+                bucket["families"].append(family_str)
+
+        period = entry.get("period")
+        if period is not None:
+            period_str = str(period)
+            if period_str not in bucket["periods"]:
+                bucket["periods"].append(period_str)
+
+    rows: list[PlanSeriesRow] = []
+    now = _now_ms()
+    for (week, sku), bucket in grouped.items():
+        families = bucket["families"]
+        periods = bucket["periods"]
+        primary_family = families[0] if families else None
+        primary_period = periods[0] if periods else None
         extra = {
-            "family": entry.get("family"),
-            "period": entry.get("period"),
+            "family": primary_family,
+            "period": primary_period,
         }
+        if len(families) > 1:
+            extra["families"] = families
+        if len(periods) > 1:
+            extra["periods"] = periods
+
         rows.append(
             PlanSeriesRow(
                 version_id=version_id,
                 level=level,
                 time_bucket_type="week",
-                time_bucket_key=str(week),
-                item_key=str(sku),
+                time_bucket_key=week,
+                item_key=sku,
                 item_name=None,
                 location_key=default_location_key,
                 location_type=default_location_type,
-                demand=_as_float(entry.get("demand")),
-                supply=_as_float(entry.get("supply")),
-                backlog=_as_float(entry.get("backlog")),
+                demand=bucket["demand"],
+                supply=bucket["supply"],
+                backlog=bucket["backlog"],
                 extra_json=json.dumps(extra, ensure_ascii=False),
                 created_at=now,
                 updated_at=now,

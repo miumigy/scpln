@@ -24,3 +24,6 @@ def test_load_canonical_config_smoke() -> None:
     assert any(bom.parent_item == "完成品A" for bom in config.bom)
     assert validation is not None
     assert not validation.has_errors
+    assert any(
+        cal.calendar_code == "PLANNING_CALENDAR" for cal in config.calendars
+    )

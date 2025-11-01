@@ -50,6 +50,7 @@ class PlanningDataBundle:
     aggregate_input: AggregatePlanInput
     period_cost: List[Dict[str, Any]] = field(default_factory=list)
     period_score: List[Dict[str, Any]] = field(default_factory=list)
+    planning_calendar: Optional[Dict[str, Any]] = None
 
 
 def build_simulation_input(
@@ -101,6 +102,7 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
             aggregate_input=aggregate,
             period_cost=period_cost,
             period_score=period_score,
+            planning_calendar=payload.get("planning_calendar"),
         )
 
     # Fallback: Canonical構造から最小限のPlanning入力を組み立てる
@@ -653,10 +655,28 @@ def _build_planning_bundle_from_canonical(
         open_po=open_po,
     )
 
+    planning_calendar = None
+    for calendar in config.calendars:
+        attrs = calendar.attributes or {}
+        definition = calendar.definition or {}
+        if (
+            planning_calendar is None
+            and attrs.get("calendar_kind") == "planning"
+            and definition
+        ):
+            planning_calendar = definition
+        elif (
+            planning_calendar is None
+            and "periods" in definition
+            and isinstance(definition["periods"], list)
+        ):
+            planning_calendar = definition
+
     return PlanningDataBundle(
         aggregate_input=aggregate,
         period_cost=period_cost,
         period_score=period_score,
+        planning_calendar=planning_calendar,
     )
 
 

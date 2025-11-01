@@ -6,7 +6,9 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from pydantic import ValidationError
 
 from .models import (
     CalendarDefinition,
@@ -21,6 +23,7 @@ from .models import (
     HierarchyEntry,
     NodeInventoryPolicy,
     NodeProductionPolicy,
+    PlanningCalendarSpec,
 )
 from .validators import ValidationResult, validate_canonical_config
 
@@ -132,7 +135,7 @@ def _read_csv(path: Path) -> List[Dict[str, str]]:
 def _read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
     if not directory.exists():
         raise CanonicalLoaderError(f"Planningディレクトリが見つかりません: {directory}")
-    return {
+    payload = {
         "item": _read_csv(directory / "item.csv"),
         "inventory": _read_csv(directory / "inventory.csv"),
         "bom": _read_csv(directory / "bom.csv"),
@@ -143,6 +146,31 @@ def _read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
         "period_cost": _read_csv(directory / "period_cost.csv"),
         "period_score": _read_csv(directory / "period_score.csv"),
     }
+    calendar_path = directory / "planning_calendar.json"
+    planning_calendar = _read_planning_calendar(calendar_path)
+    if planning_calendar is not None:
+        payload["planning_calendar"] = planning_calendar
+    return payload
+
+
+def _read_planning_calendar(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as fp:
+            raw = json.load(fp)
+    except json.JSONDecodeError as exc:
+        raise CanonicalLoaderError(
+            f"planning_calendar.json の読み込みに失敗しました: {path}"
+        ) from exc
+
+    try:
+        spec = PlanningCalendarSpec.model_validate(raw)
+    except ValidationError as exc:
+        raise CanonicalLoaderError(
+            f"planning_calendar.json の形式が不正です: {path}"
+        ) from exc
+    return spec.model_dump(mode="json")
 
 
 def _ingest_psi_products(
@@ -510,19 +538,33 @@ def _build_hierarchies(
 def _build_calendars(
     payload: Dict[str, List[Dict[str, str]]],
 ) -> List[CalendarDefinition]:
-    if not payload.get("period_cost") and not payload.get("period_score"):
-        return []
-    definition = {
-        "period_cost": payload.get("period_cost", []),
-        "period_score": payload.get("period_score", []),
-    }
-    return [
-        CalendarDefinition(
-            calendar_code="PLANNING_PERIODS",
-            definition=definition,
-            attributes={},
+    calendars: List[CalendarDefinition] = []
+
+    planning_calendar = payload.get("planning_calendar")
+    if planning_calendar:
+        calendars.append(
+            CalendarDefinition(
+                calendar_code="PLANNING_CALENDAR",
+                timezone=None,
+                definition=planning_calendar,
+                attributes={"calendar_kind": "planning"},
+            )
         )
-    ]
+
+    if payload.get("period_cost") or payload.get("period_score"):
+        definition = {
+            "period_cost": payload.get("period_cost", []),
+            "period_score": payload.get("period_score", []),
+        }
+        calendars.append(
+            CalendarDefinition(
+                calendar_code="PLANNING_PERIODS",
+                definition=definition,
+                attributes={"calendar_kind": "period_weights"},
+            )
+        )
+
+    return calendars
 
 
 def _build_item(data: Dict) -> CanonicalItem:

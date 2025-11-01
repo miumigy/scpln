@@ -24,6 +24,7 @@ def test_materialize_planning_inputs_creates_required_files(tmp_path):
         "mix_share.csv",
         "item.csv",
         "inventory.csv",
+        "planning_calendar.json",
     ]
 
     for name in expected:
@@ -31,3 +32,6 @@ def test_materialize_planning_inputs_creates_required_files(tmp_path):
 
     demand_csv = (tmp_path / "demand_family.csv").read_text(encoding="utf-8")
     assert "family,period,demand" in demand_csv.splitlines()[0]
+
+    calendar_json = (tmp_path / "planning_calendar.json").read_text(encoding="utf-8")
+    assert '"periods"' in calendar_json
