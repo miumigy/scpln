@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from pydantic import ValidationError
@@ -120,7 +121,7 @@ def get_week_distribution(
     if lookup and period in lookup.distributions:
         return lookup.distributions[period]
 
-    weeks = max(1, int(fallback_weeks or 1))
+    weeks = _infer_weeks_for_period(period, fallback_weeks)
     ratio = 1.0 / weeks
     return [
         WeekDistribution(
@@ -159,6 +160,71 @@ def ordered_weeks(
             ordered.append(code)
 
     return ordered
+
+
+def _weeks_in_calendar_month(year: int, month: int) -> int:
+    """指定された年月に含まれるISO週の個数を返す。"""
+
+    first_day = date(year, month, 1)
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    cur = first_day
+    weeks: Set[Tuple[int, int]] = set()
+    while cur < next_month:
+        iso_year, iso_week, _ = cur.isocalendar()
+        weeks.add((iso_year, iso_week))
+        cur += timedelta(days=1)
+    return len(weeks) if weeks else 1
+
+
+_MONTH_PERIOD_RE = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})$")
+_M_PERIOD_RE = re.compile(r"^M(?P<index>\d+)$", re.IGNORECASE)
+
+
+def _infer_weeks_for_period(period: str, fallback_weeks: int) -> int:
+    """フォールバック週数を期間キーに応じて調整する。
+
+    - YYYY-MM 形式: ISOカレンダーを用いて実際の週数を算出
+    - M{n} 形式: 4-4-5 パターンで第3月ごとに1週追加
+    - その他: 指定されたフォールバック値をそのまま使用
+    """
+
+    base = max(1, int(fallback_weeks or 1))
+    if not period:
+        return base
+
+    # respect explicit overrides (e.g., weeks=3 or weeks=5)
+    if base != 4:
+        return base
+
+    match_month = _MONTH_PERIOD_RE.match(period)
+    if match_month:
+        try:
+            year = int(match_month.group("year"))
+            month = int(match_month.group("month"))
+            if 1 <= month <= 12:
+                iso_weeks = _weeks_in_calendar_month(year, month)
+                if iso_weeks > base:
+                    return min(base + 1, iso_weeks)
+                return base
+        except ValueError:
+            return base
+
+    match_m = _M_PERIOD_RE.match(period)
+    if match_m:
+        try:
+            index = int(match_m.group("index"))
+        except ValueError:
+            return base
+        if index >= 1:
+            # 4-4-5 pattern: add one extra week on every third month
+            if index % 3 == 0:
+                return base + 1
+        return base
+
+    return base
 
 
 def resolve_period_for_week(

@@ -80,3 +80,23 @@ def test_iso_week_spanning_months() -> None:
     assert map_due_to_week("2024-12-30", lookup, 4) == "2025-W01"
     assert map_due_to_week("2025-01-05", lookup, 4) == "2025-W01"
     assert map_due_to_week("2025-02-01", lookup, 4) == "2025-W05"
+
+
+def test_fallback_distribution_handles_m_period_pattern() -> None:
+    dist_m1 = get_week_distribution("M1", None, fallback_weeks=4)
+    assert len(dist_m1) == 4
+    assert [w.week_code for w in dist_m1] == ["M1-W1", "M1-W2", "M1-W3", "M1-W4"]
+
+    dist_m3 = get_week_distribution("M3", None, fallback_weeks=4)
+    assert len(dist_m3) == 5
+    assert dist_m3[-1].week_code == "M3-W5"
+
+    dist_m6 = get_week_distribution("M6", None, fallback_weeks=4)
+    assert len(dist_m6) == 5
+    assert dist_m6[-1].week_code == "M6-W5"
+
+
+def test_fallback_distribution_for_yyyymm_period_uses_iso_weeks() -> None:
+    dist = get_week_distribution("2025-03", None, fallback_weeks=4)
+    assert len(dist) == 5
+    assert dist[-1].week_code == "2025-03-W5"
