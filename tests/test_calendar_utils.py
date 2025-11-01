@@ -52,3 +52,31 @@ def test_ordered_weeks_and_due_mapping() -> None:
     assert map_due_to_week("2025-03", lookup, fallback_weeks=4) == "2025-03-W4"
 
     assert ordered_weeks(["2025-W02", "2025-W01"], None) == ["2025-W01", "2025-W02"]
+
+
+def test_iso_week_spanning_months() -> None:
+    base = Path(__file__).resolve().parents[1]
+    iso_calendar_path = str(base / "tests" / "data" / "calendar_iso_weeks.json")
+    spec = load_planning_calendar(iso_calendar_path)
+    assert spec is not None
+    lookup = build_calendar_lookup(spec)
+    assert lookup is not None
+
+    # 2025-01 is a 5-week month in this calendar
+    dist_jan = get_week_distribution("2025-01", lookup, fallback_weeks=4)
+    assert len(dist_jan) == 5
+    assert [w.week_code for w in dist_jan] == [
+        "2025-W01",
+        "2025-W02",
+        "2025-W03",
+        "2025-W04",
+        "2025-W05",
+    ]
+    # Total weight for Jan is 5+7+7+7+5 = 31
+    assert dist_jan[0].ratio == pytest.approx(5 / 31)
+    assert dist_jan[4].ratio == pytest.approx(5 / 31)
+
+    # map_due_to_week should handle dates at the boundary
+    assert map_due_to_week("2024-12-30", lookup, 4) == "2025-W01"
+    assert map_due_to_week("2025-01-05", lookup, 4) == "2025-W01"
+    assert map_due_to_week("2025-02-01", lookup, 4) == "2025-W05"

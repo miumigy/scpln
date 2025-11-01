@@ -1,0 +1,76 @@
+{
+  "calendar_type": "iso_week",
+  "week_unit": "day",
+  "periods": [
+    {
+      "period": "2024-12",
+      "start_date": "2024-12-01",
+      "end_date": "2024-12-31",
+      "weeks": [
+        {
+          "week_code": "2025-W01",
+          "sequence": 1,
+          "start_date": "2024-12-30",
+          "end_date": "2025-01-05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "period": "2025-01",
+      "start_date": "2025-01-01",
+      "end_date": "2025-01-31",
+      "weeks": [
+        {
+          "week_code": "2025-W01",
+          "sequence": 1,
+          "start_date": "2024-12-30",
+          "end_date": "2025-01-05",
+          "weight": 5
+        },
+        {
+          "week_code": "2025-W02",
+          "sequence": 2,
+          "start_date": "2025-01-06",
+          "end_date": "2025-01-12",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W03",
+          "sequence": 3,
+          "start_date": "2025-01-13",
+          "end_date": "2025-01-19",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W04",
+          "sequence": 4,
+          "start_date": "2025-01-20",
+          "end_date": "2025-01-26",
+          "weight": 7
+        },
+        {
+          "week_code": "2025-W05",
+          "sequence": 5,
+          "start_date": "2025-01-27",
+          "end_date": "2025-02-02",
+          "weight": 5
+        }
+      ]
+    },
+    {
+      "period": "2025-02",
+      "start_date": "2025-02-01",
+      "end_date": "2025-02-28",
+      "weeks": [
+        {
+          "week_code": "2025-W05",
+          "sequence": 5,
+          "start_date": "2025-01-27",
+          "end_date": "2025-02-02",
+          "weight": 2
+        }
+      ]
+    }
+  ]
+}

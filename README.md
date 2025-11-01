@@ -138,14 +138,23 @@ PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
 
 成功すると、`canonical_config_versions.id=...` のようにバージョンIDが出力されます。
 
-**2. 計画の実行**
+  **2. 計画の実行**
 
-- **UIから実行（推奨）**: ブラウザで `http://localhost:8000/ui/plans` を開き、「新規Plan作成（統合Run）」ボタンをクリックします。ダイアログで、先ほど作成した設定バージョン（通常は最新のもの）を選択し、計画を実行します。
+- **UIから実行（推奨）**: ブラウザで `http://localhost:8000/ui/plans` を開き、「Integrated Planning Execution」セクションから計画を実行します。ダイアログで、先ほど作成した設定バージョン（通常は最新のもの）を選択してください。選択した設定にカレンダー定義が含まれている場合、その週設定が自動的にパイプラインへ適用されます。
 
-- **APIから実行**: `POST /plans/integrated/run` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
+- **CLIから実行**: `scripts/run_planning_pipeline.py` を使ってコマンドラインからも実行できます。`-I/--input-dir` で指定したディレクトリに `planning_calendar.json` が存在する場合、そのカレンダー定義が自動で読み込まれます。存在しない場合は、`--weeks` 引数で指定された週数で期間を等分するフォールバックロジックが適用されます。
+
+  ```bash
+  # カレンダー定義を利用して実行
+  PYTHONPATH=. python3 scripts/run_planning_pipeline.py -I samples/planning --version-id 1
+
+  # フォールバック（4週/期間）で実行
+  PYTHONPATH=. python3 scripts/run_planning_pipeline.py --weeks 4 --version-id 1
+  ```
+
+- **APIから実行**: `POST /plans/create_and_execute` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
 
 計画が完了すると、成果物（`plan_final.json`）やKPIレポート（`report.csv`）が生成され、UI上で確認・ダウンロードできます。
-
 ---
 
 ## 計画パイプライン概要（要約）
@@ -181,7 +190,7 @@ flowchart LR
 
 | 用途 | エンドポイント / スクリプト | 備考 |
 | --- | --- | --- |
-| 計画の作成と実行 | `POST /plans/create_and_execute` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可（`.sh` は互換ラッパ） |
+| 計画の作成と実行 | `POST /plans/create_and_execute` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可。`planning_calendar.json` があれば自動利用。 |
 | PSI編集 | `PATCH /plans/{version}/psi` | DET/AGG 双方向。`no_auto` で自動同期停止 |
 | 差分ログ再生成 | `POST /plans/{version}/psi/reconcile` | tol, anchor, carryover, adjust を制御 |
 | Run実行（抽象） | `POST /runs` | `pipeline=integrated` を既存パイプラインに委譲 |
