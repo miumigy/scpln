@@ -19,12 +19,13 @@
         <label>
           <span class="label-title">Canonical Config Version</span>
           {% set selected_config = (form_defaults.config_version_id or '')|string %}
-          <select name="config_version_id">
+          <select name="config_version_id" id="config_version_id">
             <option value="">-- Select --</option>
             {% for opt in canonical_options %}
-              <option value="{{ opt.id }}" {% if opt.id|string == selected_config %}selected{% endif %}>{{ opt.label }}</option>
+              <option value="{{ opt.id }}" {% if opt.id|string == selected_config %}selected{% endif %} data-num-calendars="{{ opt.num_calendars }}">{{ opt.label }}</option>
             {% endfor %}
           </select>
+          <small class="mono" id="config_cal_info"></small>
           {% if canonical_options|length == 0 %}
             <small class="mono warn-text">No canonical configuration found. Create one in /ui/configs first.</small>
           {% endif %}
@@ -250,6 +251,33 @@ function fmtJst(ms){
   return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
 }
 document.addEventListener('DOMContentLoaded', function(){
+  var configSelect = document.getElementById('config_version_id');
+  var calInfo = document.getElementById('config_cal_info');
+
+  function updateCalInfo() {
+    if (!configSelect || !calInfo) return;
+    var selectedOption = configSelect.options[configSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.hasAttribute('data-num-calendars')) {
+        calInfo.textContent = '';
+        calInfo.className = 'mono';
+        return;
+    }
+
+    var numCalendars = selectedOption.getAttribute('data-num-calendars');
+    if (numCalendars && parseInt(numCalendars, 10) > 0) {
+      calInfo.textContent = 'Calendars: ' + numCalendars;
+      calInfo.className = 'mono pill pill-info';
+    } else {
+      calInfo.textContent = 'No calendars. Fallback to weeks.';
+      calInfo.className = 'mono pill pill-warn';
+    }
+  }
+
+  if (configSelect) {
+    configSelect.addEventListener('change', updateCalInfo);
+    updateCalInfo(); // Initial call
+  }
+
   document.querySelectorAll('td.ts-ms').forEach(function(td){
     var ms = td.getAttribute('data-ms');
     var txt = fmtJst(ms);

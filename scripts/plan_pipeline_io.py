@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple, List, Union
 
 from scripts.plan_storage import (
     resolve_storage_mode,
@@ -181,3 +181,38 @@ def store_report_csv_payload(
         storage_mode=config.storage_mode,
         artifact_name=artifact_name,
     )
+
+
+def _calendar_cli_args(
+    *,
+    calendar_path: Optional[Union[str, Path]] = None,
+    input_dir: Optional[Union[str, Path]] = None,
+    fallback_weeks: Optional[int] = None,
+    supports_calendar: bool = True,
+) -> List[str]:
+    """planning_calendar.json を探索し、CLIへ渡す引数を構築する。
+
+    supports_calendar が True の場合はカレンダーファイルが見つかれば --calendar を返す。
+    見つからない場合、または supports_calendar=False の場合に fallback_weeks が指定されていれば
+    --weeks を返し、週等分フォールバックを継続する。
+    """
+
+    path: Optional[Path] = None
+    if calendar_path:
+        candidate = Path(calendar_path)
+        if candidate.exists():
+            path = candidate
+    if path is None and input_dir:
+        candidate = Path(input_dir) / "planning_calendar.json"
+        if candidate.exists():
+            path = candidate
+
+    if supports_calendar and path is not None:
+        return ["--calendar", str(path)]
+
+    if fallback_weeks is not None:
+        weeks = max(1, int(fallback_weeks))
+        return ["--weeks", str(weeks)]
+
+    return []
+

@@ -34,6 +34,7 @@ from core.config.storage import (
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
+from scripts.plan_pipeline_io import _calendar_cli_args
 from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
@@ -569,14 +570,10 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         max_adjust_ratio = _get_param(body, "max_adjust_ratio")
         tol_abs = _get_param(body, "tol_abs")
         tol_rel = _get_param(body, "tol_rel")
-        calendar_mode = _get_param(body, "calendar_mode")
         storage_mode = _storage_mode(body.get("storage_mode"))
         use_db = _should_use_db(storage_mode)
         use_files = _should_use_files(storage_mode)
         lightweight = bool(_get_param(body, "lightweight") or False)
-        weeks_param = _get_param(body, "weeks")
-        default_weeks = 1 if lightweight else 4
-        weeks = str(weeks_param if weeks_param not in (None, "") else default_weeks)
         apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
         if lightweight:
             apply_adjusted = False
@@ -617,6 +614,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         logging.info("Canonical inputs prepared.")
 
         input_dir = str(temp_input_dir)
+        calendar_args = _calendar_cli_args(input_dir=input_dir, fallback_weeks=4)
         canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
         planning_inputs_path = artifact_paths.get("planning_inputs.json")
 
@@ -646,12 +644,11 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 input_dir,
                 "-o",
                 str(out_dir / "sku_week.json"),
-                "--weeks",
-                weeks,
                 "--round",
                 round_mode,
                 "--version-id",
                 version_id,
+                *calendar_args,
             ]
         )
         logging.info("Finished script execution: allocate.py")
@@ -670,10 +667,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     str(out_dir / "mrp.json"),
                     "--lt-unit",
                     lt_unit,
-                    "--weeks",
-                    weeks,
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: mrp.py")
@@ -690,8 +686,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     input_dir,
                     "-o",
                     str(out_dir / "plan_final.json"),
-                    "--weeks",
-                    weeks,
                     *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
@@ -711,6 +705,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     ),
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile.py")
@@ -744,6 +739,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if tol_rel is not None
                         else ["--tol-rel", "1e-6"]
                     ),
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile_levels.py")
@@ -767,9 +763,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if recon_window_days is not None
                         else []
                     ),
-                    "--weeks",
-                    weeks,
-                    *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                     *(["--carryover", str(carryover)] if carryover else []),
                     *(
                         ["--carryover-split", str(carryover_split)]
@@ -787,6 +780,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     input_dir,
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: anchor_adjust.py")
@@ -820,6 +814,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if tol_rel is not None
                         else ["--tol-rel", "1e-6"]
                     ),
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile_levels.py (adjusted)")
@@ -837,10 +832,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         str(out_dir / "mrp_adjusted.json"),
                         "--lt-unit",
                         lt_unit,
-                        "--weeks",
-                        weeks,
                         "--version-id",
                         version_id,
+                        *calendar_args,
                     ]
                 )
                 logging.info("Finished script execution: mrp.py (adjusted)")
@@ -856,8 +850,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         input_dir,
                         "-o",
                         str(out_dir / "plan_final_adjusted.json"),
-                        "--weeks",
-                        weeks,
                         *(
                             ["--cutover-date", str(cutover_date)]
                             if cutover_date
@@ -885,6 +877,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         ),
                         "--version-id",
                         version_id,
+                        *calendar_args,
                     ]
                 )
                 logging.info("Finished script execution: reconcile.py (adjusted)")
@@ -1640,6 +1633,9 @@ def post_plan_psi_reconcile(
     (out_dir / "sku_week.json").write_text(
         json.dumps({"rows": det_rows2}, ensure_ascii=False), encoding="utf-8"
     )
+
+    calendar_args = _calendar_cli_args(input_dir=out_dir, fallback_weeks=4)
+
     # 再整合（before の差分ログ）
     _run_py(
         [
@@ -1655,6 +1651,7 @@ def post_plan_psi_reconcile(
             str(body.get("tol_abs") or "1e-6"),
             "--tol-rel",
             str(body.get("tol_rel") or "1e-6"),
+            *calendar_args,
         ]
     )
     # 成果物を更新
@@ -1667,12 +1664,10 @@ def post_plan_psi_reconcile(
     cutover_date = body.get("cutover_date")
     anchor_policy = body.get("anchor_policy")
     recon_window_days = body.get("recon_window_days")
-    calendar_mode = body.get("calendar_mode")
     carryover = body.get("carryover")
     carryover_split = body.get("carryover_split")
     tol_abs = body.get("tol_abs")
     tol_rel = body.get("tol_rel")
-    weeks = str(body.get("weeks") or "4")
     lt_unit = body.get("lt_unit") or "day"
     apply_adjusted = bool(body.get("apply_adjusted") or False)
     recalc_mrp = bool(body.get("recalc_mrp") or False)
@@ -1694,6 +1689,9 @@ def post_plan_psi_reconcile(
         except RuntimeError as exc:
             return JSONResponse(status_code=400, content={"detail": str(exc)})
         input_dir = str(temp_input_dir)
+        # Note: Use the new input_dir for calendar lookup
+        calendar_args_adj = _calendar_cli_args(input_dir=input_dir, fallback_weeks=4)
+
         _run_py(
             [
                 "scripts/anchor_adjust.py",
@@ -1711,7 +1709,6 @@ def post_plan_psi_reconcile(
                     if recon_window_days is not None
                     else []
                 ),
-                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                 *(["--carryover", str(carryover)] if carryover else []),
                 *(
                     ["--carryover-split", str(carryover_split)]
@@ -1722,6 +1719,7 @@ def post_plan_psi_reconcile(
                 *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
+                *calendar_args_adj,
             ]
         )
         _run_py(
@@ -1751,6 +1749,7 @@ def post_plan_psi_reconcile(
                     if tol_rel is not None
                     else ["--tol-rel", "1e-6"]
                 ),
+                *calendar_args_adj,
             ]
         )
         db.upsert_plan_artifact(
@@ -1775,8 +1774,7 @@ def post_plan_psi_reconcile(
                     str(out_dir / "mrp_adjusted.json"),
                     "--lt-unit",
                     lt_unit,
-                    "--weeks",
-                    weeks,
+                    *calendar_args_adj,
                 ]
             )
             _run_py(
@@ -1789,8 +1787,6 @@ def post_plan_psi_reconcile(
                     input_dir,
                     "-o",
                     str(out_dir / "plan_final_adjusted.json"),
-                    "--weeks",
-                    weeks,
                     *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
@@ -1798,6 +1794,7 @@ def post_plan_psi_reconcile(
                         else []
                     ),
                     *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    *calendar_args_adj,
                 ]
             )
             db.upsert_plan_artifact(

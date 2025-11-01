@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import List
 
+from scripts.plan_pipeline_io import _calendar_cli_args
+
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
@@ -68,7 +70,7 @@ def main() -> None:
         "-I", "--input-dir", default="samples/planning", help="入力ディレクトリ"
     )
     ap.add_argument("-o", "--output-dir", default="out", help="出力ディレクトリ")
-    ap.add_argument("--weeks", type=int, default=4, help="1期間あたりの週数")
+    ap.add_argument("--weeks", type=int, default=4, help="カレンダーがない場合のフォールバック週数")
     ap.add_argument(
         "--round",
         dest="round_mode",
@@ -107,7 +109,6 @@ def main() -> None:
         default=None,
         help="anchor関連オプションのプリセット",
     )
-    ap.add_argument("--calendar-mode", dest="calendar_mode", default="simple")
     ap.add_argument(
         "--max-adjust-ratio", dest="max_adjust_ratio", type=float, default=None
     )
@@ -127,6 +128,8 @@ def main() -> None:
 
     env = os.environ.copy()
     env.setdefault("PYTHONPATH", str(REPO_ROOT))
+
+    calendar_args = _calendar_cli_args(input_dir=input_dir, fallback_weeks=args.weeks)
 
     steps: List[tuple[str, List[str]]] = []
 
@@ -162,10 +165,9 @@ def main() -> None:
         str(input_dir),
         "-o",
         str(sku_json),
-        "--weeks",
-        str(args.weeks),
         "--round",
         args.round_mode,
+        *calendar_args,
     ]
     _extend_storage(cmd, args.storage, args.version_id)
     steps.append(("allocate", cmd))
@@ -182,10 +184,9 @@ def main() -> None:
         str(mrp_json),
         "--lt-unit",
         args.lt_unit,
-        "--weeks",
-        str(args.weeks),
         "--week-days",
         str(args.week_days),
+        *calendar_args,
     ]
     _extend_storage(cmd, args.storage, args.version_id)
     steps.append(("mrp", cmd))
@@ -201,8 +202,7 @@ def main() -> None:
         str(input_dir),
         "-o",
         str(plan_final_json),
-        "--weeks",
-        str(args.weeks),
+        *calendar_args,
     ]
     if args.cutover_date:
         cmd.extend(["--cutover-date", args.cutover_date])
@@ -232,6 +232,7 @@ def main() -> None:
         str(args.tol_abs),
         "--tol-rel",
         str(args.tol_rel),
+        *calendar_args,
     ]
     if args.cutover_date:
         cmd.extend(["--cutover-date", args.cutover_date])
@@ -286,13 +287,10 @@ def main() -> None:
             args.cutover_date,
             "--anchor-policy",
             args.anchor_policy,
+            *calendar_args,
         ]
         if args.recon_window_days is not None:
             cmd.extend(["--recon-window-days", str(args.recon_window_days)])
-        if args.weeks:
-            cmd.extend(["--weeks", str(args.weeks)])
-        if args.calendar_mode:
-            cmd.extend(["--calendar-mode", args.calendar_mode])
         if args.max_adjust_ratio is not None:
             cmd.extend(["--max-adjust-ratio", str(args.max_adjust_ratio)])
         if args.carryover:
@@ -321,6 +319,7 @@ def main() -> None:
             str(args.tol_abs),
             "--tol-rel",
             str(args.tol_rel),
+            *calendar_args,
         ]
         if args.cutover_date:
             cmd.extend(["--cutover-date", args.cutover_date])
@@ -390,10 +389,9 @@ def main() -> None:
                 str(mrp_adj_json),
                 "--lt-unit",
                 args.lt_unit,
-                "--weeks",
-                str(args.weeks),
                 "--week-days",
                 str(args.week_days),
+                *calendar_args,
             ]
             _extend_storage(cmd, args.storage, args.version_id)
             steps.append(("mrp_adjusted", cmd))
@@ -408,8 +406,7 @@ def main() -> None:
                 str(input_dir),
                 "-o",
                 str(plan_final_adj_json),
-                "--weeks",
-                str(args.weeks),
+                *calendar_args,
             ]
             if args.cutover_date:
                 cmd.extend(["--cutover-date", args.cutover_date])

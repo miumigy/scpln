@@ -382,11 +382,16 @@ def _canonical_version_options(limit: int = 50):
         meta = summary.meta
         if meta.version_id is None:
             continue
+        counts = summary.counts or {}
+        num_calendars = counts.get("calendars", 0)
         label_parts = [str(meta.version_id)]
         if meta.name:
             label_parts.append(meta.name)
         if meta.status:
             label_parts.append(f"[{meta.status}]")
+        if num_calendars > 0:
+            label_parts.append(f"(Cal: {num_calendars})")
+
         label = " ".join(label_parts)
         options.append(
             {
@@ -394,6 +399,7 @@ def _canonical_version_options(limit: int = 50):
                 "label": label,
                 "name": meta.name,
                 "status": meta.status,
+                "num_calendars": num_calendars,
             }
         )
     return options
