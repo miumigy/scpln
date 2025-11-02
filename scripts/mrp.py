@@ -93,7 +93,10 @@ def _resolve_calendar_lookup(
             except Exception as exc:
                 err = exc
     if err:
-        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        print(
+            f"[error] planning_calendar の読み込みに失敗しました: {err}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if spec is None:
         return None

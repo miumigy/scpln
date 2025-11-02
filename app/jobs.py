@@ -1093,7 +1093,9 @@ def prepare_canonical_inputs(
         if planning_bundle.planning_calendar:
             calendar_path = out_dir / "planning_calendar.json"
             calendar_path.write_text(
-                json.dumps(planning_bundle.planning_calendar, ensure_ascii=False, indent=2),
+                json.dumps(
+                    planning_bundle.planning_calendar, ensure_ascii=False, indent=2
+                ),
                 encoding="utf-8",
             )
             artifact_paths["planning_calendar.json"] = calendar_path

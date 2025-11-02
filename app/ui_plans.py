@@ -973,8 +973,9 @@ def ui_plan_reconcile(
                 extra={
                     "event": "plan_executed",
                     "version_id": version_id,
-                                    "apply_adjusted": _form_bool(apply_adjusted),
-                                    "lt_unit": lt_unit,                },
+                    "apply_adjusted": _form_bool(apply_adjusted),
+                    "lt_unit": lt_unit,
+                },
             )
             try:
                 PLANS_RECONCILED.inc()

@@ -242,7 +242,12 @@ def resolve_period_for_week(
         if len(week_code) >= 8 and week_code[5].upper() == "W":
             try:
                 year = int(week_code[:4])
-                week = int("".join(ch for ch in week_code.split("W", 1)[-1] if ch.isdigit())[:2] or "0")
+                week = int(
+                    "".join(ch for ch in week_code.split("W", 1)[-1] if ch.isdigit())[
+                        :2
+                    ]
+                    or "0"
+                )
                 iso_ref = date.fromisocalendar(year, week, 4)
                 return f"{iso_ref.year:04d}-{iso_ref.month:02d}"
             except Exception:
