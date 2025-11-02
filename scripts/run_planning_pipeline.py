@@ -70,7 +70,9 @@ def main() -> None:
         "-I", "--input-dir", default="samples/planning", help="入力ディレクトリ"
     )
     ap.add_argument("-o", "--output-dir", default="out", help="出力ディレクトリ")
-    ap.add_argument("--weeks", type=int, default=4, help="カレンダーがない場合のフォールバック週数")
+    ap.add_argument(
+        "--weeks", type=int, default=4, help="カレンダーがない場合のフォールバック週数"
+    )
     ap.add_argument(
         "--round",
         dest="round_mode",

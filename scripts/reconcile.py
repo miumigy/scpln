@@ -74,7 +74,10 @@ def _resolve_calendar_lookup(
             except Exception as exc:
                 err = exc
     if err:
-        print(f"[error] planning_calendar の読み込みに失敗しました: {err}", file=sys.stderr)
+        print(
+            f"[error] planning_calendar の読み込みに失敗しました: {err}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if spec is None:
         return None
@@ -640,8 +643,7 @@ def main() -> None:
                     [
                         r
                         for r in week_report
-                        if period_by_week.get(str(r.get("week", "")))
-                        == cutover_month
+                        if period_by_week.get(str(r.get("week", ""))) == cutover_month
                     ]
                 ),
                 "pre_weeks": len(

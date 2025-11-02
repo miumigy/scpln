@@ -215,4 +215,3 @@ def _calendar_cli_args(
         return ["--weeks", str(weeks)]
 
     return []
-
