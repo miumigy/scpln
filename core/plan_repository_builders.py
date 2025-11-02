@@ -430,6 +430,7 @@ def build_plan_series_from_mrp(
             "planned_order_release": entry.get("planned_order_release"),
             "on_hand_start": entry.get("on_hand_start"),
             "on_hand_end": entry.get("on_hand_end"),
+            "planned_order_receipt": entry.get("planned_order_receipt"),
             "lot": entry.get("lot"),
             "moq": entry.get("moq"),
             "lt_weeks": entry.get("lt_weeks"),

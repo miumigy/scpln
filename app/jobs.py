@@ -37,6 +37,7 @@ from core.plan_repository_builders import (
     build_plan_series,
     build_plan_series_from_plan_final,
     build_plan_series_from_weekly_summary,
+    build_plan_series_from_mrp,
 )
 
 
@@ -628,12 +629,29 @@ class JobManager:
             try:
                 aggregate_obj = _load_json(out_dir / "aggregate.json")
                 detail_obj = _load_json(out_dir / "sku_week.json")
+                mrp_obj = _load_json(out_dir / "mrp.json")
                 plan_final_obj = _load_json(out_dir / "plan_final.json")
                 plan_series_rows = build_plan_series(
                     version_id,
                     aggregate=aggregate_obj,
                     detail=detail_obj,
                 )
+                if mrp_obj:
+                    plan_series_rows.extend(
+                        build_plan_series_from_mrp(
+                            version_id,
+                            mrp_obj,
+                        )
+                    )
+                elif use_db:
+                    try:
+                        existing_mrp_rows = plan_repository.fetch_plan_series(
+                            version_id, "mrp"
+                        )
+                    except Exception:
+                        existing_mrp_rows = []
+                    if existing_mrp_rows:
+                        plan_series_rows.extend(existing_mrp_rows)
                 if plan_final_obj:
                     plan_series_rows.extend(
                         build_plan_series_from_plan_final(version_id, plan_final_obj)

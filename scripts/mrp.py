@@ -327,6 +327,7 @@ def main() -> None:
             rows_out.append(
                 {
                     "item": it,
+                    "sku": it,
                     "week": w,
                     "gross_req": round(gross, 6),
                     "scheduled_receipts": round(sched, 6),

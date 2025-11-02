@@ -2572,13 +2572,49 @@ def get_plan_schedule_csv(version_id: str):
     w = csv.DictWriter(buf, fieldnames=header)
     w.writeheader()
     for r in rows:
+        sku = r.get("sku")
+        if not sku:
+            sku = r.get("item")
+        def _num(value):
+            try:
+                if value is None:
+                    return None
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        scheduled = _num(r.get("scheduled_receipts"))
+        if scheduled is None or abs(scheduled) < 1e-9:
+            planned = _num(r.get("planned_order_receipt"))
+            if planned is None or abs(planned) < 1e-9:
+                planned = _num(r.get("supply"))
+            if planned is not None and abs(planned) >= 1e-9:
+                scheduled = planned
+        on_hand_start = _num(r.get("on_hand_start"))
+        fallback_start = _num(r.get("inventory_open"))
+        if on_hand_start is None or (
+            (on_hand_start is not None)
+            and abs(on_hand_start) < 1e-9
+            and fallback_start is not None
+            and abs(fallback_start) >= 1e-9
+        ):
+            on_hand_start = fallback_start
+        on_hand_end = _num(r.get("on_hand_end"))
+        fallback_end = _num(r.get("inventory_close"))
+        if on_hand_end is None or (
+            (on_hand_end is not None)
+            and abs(on_hand_end) < 1e-9
+            and fallback_end is not None
+            and abs(fallback_end) >= 1e-9
+        ):
+            on_hand_end = fallback_end
         w.writerow(
             {
                 "week": r.get("week"),
-                "sku": r.get("sku"),
-                "scheduled_receipts": r.get("scheduled_receipts"),
-                "on_hand_start": r.get("on_hand_start"),
-                "on_hand_end": r.get("on_hand_end"),
+                "sku": sku,
+                "scheduled_receipts": scheduled,
+                "on_hand_start": on_hand_start,
+                "on_hand_end": on_hand_end,
             }
         )
     try:

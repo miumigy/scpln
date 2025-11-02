@@ -635,7 +635,63 @@ def ui_plan_detail(version_id: str, request: Request):
     try:
         mrows = get_plan_repository().fetch_plan_series(version_id, level="mrp")
         schedule_total = len(mrows)
-        schedule_rows_sample = mrows[:200]
+        for row in mrows[:200]:
+            def _num(value: Any) -> float | None:
+                try:
+                    if value is None:
+                        return None
+                    return float(value)
+                except (TypeError, ValueError):
+                    return None
+
+            extra_raw = row.get("extra_json")
+            if isinstance(extra_raw, dict):
+                extra = dict(extra_raw)
+            else:
+                try:
+                    extra = json.loads(extra_raw) if extra_raw else {}
+                except Exception:
+                    extra = {}
+            scheduled = _num(extra.get("scheduled_receipts"))
+            planned_receipt = _num(extra.get("planned_order_receipt"))
+            supply_val = _num(row.get("supply"))
+            if scheduled is None or abs(scheduled) < 1e-9:
+                candidate = planned_receipt
+                if candidate is None or abs(candidate) < 1e-9:
+                    candidate = supply_val
+                if candidate is not None and abs(candidate) >= 1e-9:
+                    scheduled = candidate
+            on_hand_start = _num(row.get("inventory_open"))
+            fallback_start = _num(extra.get("on_hand_start"))
+            if on_hand_start is None or (
+                (on_hand_start is not None)
+                and abs(on_hand_start) < 1e-9
+                and fallback_start is not None
+                and abs(fallback_start) >= 1e-9
+            ):
+                on_hand_start = fallback_start
+            on_hand_end = _num(row.get("inventory_close"))
+            fallback_end = _num(extra.get("on_hand_end"))
+            if on_hand_end is None or (
+                (on_hand_end is not None)
+                and abs(on_hand_end) < 1e-9
+                and fallback_end is not None
+                and abs(fallback_end) >= 1e-9
+            ):
+                on_hand_end = fallback_end
+            schedule_rows_sample.append(
+                {
+                    "week": row.get("time_bucket_key"),
+                    "sku": row.get("item_key"),
+                    "scheduled_receipts": scheduled
+                    if scheduled is not None
+                    else _num(extra.get("scheduled_receipts"))
+                    if extra.get("scheduled_receipts") is not None
+                    else 0.0,
+                    "on_hand_start": on_hand_start,
+                    "on_hand_end": on_hand_end,
+                }
+            )
     except Exception:
         mrows = []
         schedule_rows_sample = []
