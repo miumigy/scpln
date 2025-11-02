@@ -7,6 +7,7 @@ import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from domain.models import (
@@ -30,6 +31,7 @@ from planning.schemas import (
     OpenPORecord,
 )
 
+from .loader import read_planning_dir
 from .models import (
     CanonicalArc,
     CanonicalBom,
@@ -82,7 +84,35 @@ def build_simulation_input(
 def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
     """Canonical設定からPlanning Hub向け入力を生成する。"""
 
-    payload = (config.meta.attributes or {}).get("planning_payload") or {}
+    attributes = config.meta.attributes or {}
+    payload = attributes.get("planning_payload") or {}
+    if not payload:
+        sources = attributes.get("sources") or {}
+        planning_dir_raw = sources.get("planning_dir")
+        planning_dir_candidates: list[Path] = []
+        if planning_dir_raw:
+            try:
+                planning_dir_path = Path(planning_dir_raw)
+            except (TypeError, ValueError):
+                planning_dir_path = None
+            if planning_dir_path is not None:
+                if planning_dir_path.is_absolute():
+                    planning_dir_candidates.append(planning_dir_path)
+                else:
+                    planning_dir_candidates.extend(
+                        [
+                            Path.cwd() / planning_dir_path,
+                            planning_dir_path,
+                        ]
+                    )
+        for candidate in planning_dir_candidates:
+            try:
+                payload = read_planning_dir(candidate)
+            except Exception:
+                continue
+            if payload:
+                break
+
     if payload:
         aggregate = AggregatePlanInput(
             demand_family=_convert_demand_family(payload.get("demand_family")),

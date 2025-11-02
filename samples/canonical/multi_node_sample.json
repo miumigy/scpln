@@ -6,7 +6,13 @@
     "schema_version": "canonical-1.0",
     "status": "draft",
     "attributes": {
-      "planning_horizon": 90
+      "planning_horizon": 90,
+      "sources": {
+        "planning_dir": "samples/planning",
+        "psi_input": "static/default_input.json",
+        "product_hierarchy": "configs/product_hierarchy.json",
+        "location_hierarchy": "configs/location_hierarchy.json"
+      }
     }
   },
   "items": [
@@ -50,8 +56,8 @@
     {
       "code": "FACTORY-1", "name": "Factory 1", "node_type": "factory", "timezone": "Asia/Tokyo", "region": "JP-EAST",
       "inventory_policies": [
-        {"item_code": "COMP-X", "initial_inventory": 1000, "reorder_point": 400, "order_up_to": 1500},
-        {"item_code": "COMP-Y", "initial_inventory": 1200, "reorder_point": 500, "order_up_to": 1800}
+        {"item_code": "COMP-X", "initial_inventory": 300, "reorder_point": 400, "order_up_to": 1500},
+        {"item_code": "COMP-Y", "initial_inventory": 360, "reorder_point": 500, "order_up_to": 1800}
       ],
       "production_policies": [
         {"item_code": "SKU-A", "production_capacity": 500, "allow_over_capacity": false},
@@ -67,32 +73,32 @@
     {
       "code": "DC-1", "name": "Distribution Center 1", "node_type": "warehouse", "timezone": "Asia/Tokyo", "region": "JP-EAST",
       "inventory_policies": [
-        {"item_code": "SKU-A", "initial_inventory": 200, "reorder_point": 100, "order_up_to": 300, "safety_stock": 50},
-        {"item_code": "SKU-B", "initial_inventory": 150, "reorder_point": 80, "order_up_to": 250, "safety_stock": 40},
-        {"item_code": "SKU-C", "initial_inventory": 300, "reorder_point": 120, "order_up_to": 400, "safety_stock": 60}
+        {"item_code": "SKU-A", "initial_inventory": 60, "reorder_point": 100, "order_up_to": 300, "safety_stock": 50},
+        {"item_code": "SKU-B", "initial_inventory": 45, "reorder_point": 80, "order_up_to": 250, "safety_stock": 40},
+        {"item_code": "SKU-C", "initial_inventory": 90, "reorder_point": 120, "order_up_to": 400, "safety_stock": 60}
       ]
     },
     {
       "code": "DC-2", "name": "Distribution Center 2", "node_type": "warehouse", "timezone": "America/Los_Angeles", "region": "US-WEST",
       "inventory_policies": [
-        {"item_code": "SKU-A", "initial_inventory": 180, "reorder_point": 90, "order_up_to": 280, "safety_stock": 45},
-        {"item_code": "SKU-C", "initial_inventory": 250, "reorder_point": 100, "order_up_to": 350, "safety_stock": 55}
+        {"item_code": "SKU-A", "initial_inventory": 55, "reorder_point": 90, "order_up_to": 280, "safety_stock": 45},
+        {"item_code": "SKU-C", "initial_inventory": 80, "reorder_point": 100, "order_up_to": 350, "safety_stock": 55}
       ]
     },
     {
       "code": "STORE-TYO", "name": "Tokyo Store", "node_type": "store", "timezone": "Asia/Tokyo", "region": "JP-EAST",
       "service_level": 0.93,
       "inventory_policies": [
-        {"item_code": "SKU-A", "initial_inventory": 60, "reorder_point": 40, "order_up_to": 120, "safety_stock": 20},
-        {"item_code": "SKU-B", "initial_inventory": 40, "reorder_point": 30, "order_up_to": 90, "safety_stock": 15}
+        {"item_code": "SKU-A", "initial_inventory": 15, "reorder_point": 40, "order_up_to": 120, "safety_stock": 20},
+        {"item_code": "SKU-B", "initial_inventory": 12, "reorder_point": 30, "order_up_to": 90, "safety_stock": 15}
       ]
     },
     {
       "code": "STORE-LA", "name": "Los Angeles Store", "node_type": "store", "timezone": "America/Los_Angeles", "region": "US-WEST",
       "service_level": 0.9,
       "inventory_policies": [
-        {"item_code": "SKU-A", "initial_inventory": 45, "reorder_point": 30, "order_up_to": 100, "safety_stock": 15},
-        {"item_code": "SKU-C", "initial_inventory": 70, "reorder_point": 45, "order_up_to": 140, "safety_stock": 25}
+        {"item_code": "SKU-A", "initial_inventory": 12, "reorder_point": 30, "order_up_to": 100, "safety_stock": 15},
+        {"item_code": "SKU-C", "initial_inventory": 20, "reorder_point": 45, "order_up_to": 140, "safety_stock": 25}
       ]
     }
   ],
@@ -143,15 +149,15 @@
     }
   ],
   "demands": [
-    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M1", "mean": 80},
-    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M2", "mean": 85},
-    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M3", "mean": 90},
-    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M1", "mean": 50},
-    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M2", "mean": 55},
-    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M3", "mean": 60},
-    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M1", "mean": 120},
-    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M2", "mean": 125},
-    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M3", "mean": 130}
+    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M1", "mean": 200},
+    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M2", "mean": 210},
+    {"node_code": "STORE-TYO", "item_code": "SKU-A", "bucket": "M3", "mean": 220},
+    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M1", "mean": 140},
+    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M2", "mean": 150},
+    {"node_code": "STORE-TYO", "item_code": "SKU-B", "bucket": "M3", "mean": 160},
+    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M1", "mean": 260},
+    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M2", "mean": 270},
+    {"node_code": "STORE-LA", "item_code": "SKU-C", "bucket": "M3", "mean": 280}
   ],
   "hierarchies": [
     {"hierarchy_type": "product", "node_key": "SKU-A", "parent_key": "PRODUCT-FAMILY-1", "level": "sku"},

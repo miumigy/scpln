@@ -5,7 +5,7 @@
     "schema_version": "canonical-1.0",
     "status": "draft",
     "attributes": {
-      "planning_horizon": 60,
+      "planning_horizon": 59,
       "sources": {
         "psi_input": "static/default_input.json",
         "planning_dir": "samples/planning",
@@ -48,7 +48,7 @@
       "inventory_policies": [
         {
           "item_code": "SKU-COMP",
-          "initial_inventory": 500,
+          "initial_inventory": 120,
           "reorder_point": 200,
           "order_up_to": 800
         }
@@ -73,7 +73,7 @@
       "inventory_policies": [
         {
           "item_code": "SKU-FG",
-          "initial_inventory": 80,
+          "initial_inventory": 20,
           "reorder_point": 50,
           "order_up_to": 150,
           "safety_stock": 20
@@ -92,7 +92,7 @@
       "inventory_policies": [
         {
           "item_code": "SKU-FG",
-          "initial_inventory": 30,
+          "initial_inventory": 5,
           "reorder_point": 20,
           "order_up_to": 80,
           "safety_stock": 10
@@ -147,16 +147,16 @@
       "item_code": "SKU-FG",
       "bucket": "M1",
       "demand_model": "normal",
-      "mean": 60,
-      "std_dev": 10
+      "mean": 140,
+      "std_dev": 20
     },
     {
       "node_code": "STORE-001",
       "item_code": "SKU-FG",
       "bucket": "M2",
       "demand_model": "normal",
-      "mean": 70,
-      "std_dev": 12
+      "mean": 180,
+      "std_dev": 24
     }
   ],
   "capacities": [

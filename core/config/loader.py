@@ -44,7 +44,7 @@ def load_canonical_config(
     """レガシーJSON/CSVソースからCanonical設定を構築する。"""
 
     psi_data = _read_json(psi_input_path)
-    planning_payload = _read_planning_dir(planning_dir)
+    planning_payload = read_planning_dir(planning_dir)
     hier_product = _read_json(product_hierarchy_path) if product_hierarchy_path else {}
     hier_location = (
         _read_json(location_hierarchy_path) if location_hierarchy_path else {}
@@ -132,7 +132,7 @@ def _read_csv(path: Path) -> List[Dict[str, str]]:
         return [dict(row) for row in reader]
 
 
-def _read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
+def read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
     if not directory.exists():
         raise CanonicalLoaderError(f"Planningディレクトリが見つかりません: {directory}")
     payload = {
@@ -151,6 +151,10 @@ def _read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
     if planning_calendar is not None:
         payload["planning_calendar"] = planning_calendar
     return payload
+
+
+# 後方互換のためのエイリアス（旧関数名を使用する既存コード向け）
+_read_planning_dir = read_planning_dir
 
 
 def _read_planning_calendar(path: Path) -> Optional[Dict[str, Any]]:

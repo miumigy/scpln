@@ -139,7 +139,12 @@ def test_build_planning_inputs_from_payload():
 
 def test_build_planning_inputs_without_payload_fallback():
     config = _load_config().model_copy(deep=True)
-    config.meta.attributes.pop("planning_payload", None)
+    attrs = dict(config.meta.attributes or {})
+    attrs.pop("planning_payload", None)
+    sources = dict(attrs.get("sources") or {})
+    sources.pop("planning_dir", None)
+    attrs["sources"] = sources
+    config.meta.attributes = attrs
 
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
@@ -150,3 +155,14 @@ def test_build_planning_inputs_without_payload_fallback():
         for record in aggregate.demand_family
     )
     assert all(record.share == 1.0 for record in aggregate.mix_share)
+
+
+def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
+    config = _load_config().model_copy(deep=True)
+    attrs = dict(config.meta.attributes or {})
+    attrs.pop("planning_payload", None)
+    config.meta.attributes = attrs
+
+    bundle = build_planning_inputs(config)
+
+    assert any(entry["period"] == "2025-01" for entry in bundle.period_cost)
