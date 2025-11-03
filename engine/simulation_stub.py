@@ -67,9 +67,9 @@ def run_stub(
     revenue_total = sales_total * price
 
     material_total = sales_total * cost_unit
-    service_cost = revenue_total * 0.25
+    sgna_total = revenue_total * 0.25
     penalty_total = shortage_total * price * 0.1
-    cost_total = material_total + service_cost + penalty_total
+    cost_total = material_total + sgna_total + penalty_total
     profit_total = revenue_total - cost_total
     profit_per_day_avg = profit_total / horizon if horizon else profit_total
 
@@ -77,6 +77,7 @@ def run_stub(
         "fill_rate": fill_rate,
         "revenue_total": revenue_total,
         "cost_total": cost_total,
+        "sgna_total": sgna_total,
         "penalty_total": penalty_total,
         "profit_total": profit_total,
         "profit_per_day_avg": profit_per_day_avg,
@@ -115,6 +116,8 @@ def run_stub(
                 "revenue": revenue_today,
                 "cost": cost_today,
                 "profit": profit_today,
+                "material_cost": material_today,
+                "sgna_cost": service_today,
             }
         )
 
@@ -129,6 +132,20 @@ def run_stub(
                     "unit_cost": round(cost_unit, 6),
                     "amount": round(material_today, 6),
                     "account": "material",
+                }
+            )
+            cost_trace.append(
+                {
+                    "day": day,
+                    "node": "stub",
+                    "item": item_name,
+                    "event": "sale_sgna",
+                    "qty": sales_today,
+                    "unit_cost": round(service_today / sales_today, 6)
+                    if sales_today
+                    else 0.0,
+                    "amount": round(service_today, 6),
+                    "account": "sgna",
                 }
             )
 

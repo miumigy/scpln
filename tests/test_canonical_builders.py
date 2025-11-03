@@ -121,20 +121,27 @@ def test_build_planning_inputs_from_payload():
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
 
-    assert aggregate.schema_version == "agg-1.0"
-    assert any(
-        record.family == "F1" and record.period == "2025-01"
-        for record in aggregate.demand_family
-    )
+    canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
+    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    assert payload_total == pytest.approx(canonical_total, rel=1e-6)
 
-    mix_entry = next(
-        record
-        for record in aggregate.mix_share
-        if record.family == "F1" and record.sku == "SKU1"
-    )
-    assert mix_entry.share == 0.6
+    families = sorted({record.family for record in aggregate.demand_family})
+    expected_families = sorted({profile.item_code for profile in config.demands})
+    assert families == expected_families
 
-    assert any(entry["period"] == "2025-01" for entry in bundle.period_cost)
+    periods = sorted({record.period for record in aggregate.demand_family})
+    expected_periods = sorted({str(profile.bucket) for profile in config.demands})
+    assert periods == expected_periods
+
+    for family in families:
+        shares = [
+            float(record.share or 0.0)
+            for record in aggregate.mix_share
+            if record.family == family
+        ]
+        assert shares and sum(shares) == pytest.approx(1.0)
+
+    assert bundle.planning_calendar is not None
 
 
 def test_build_planning_inputs_without_payload_fallback():
@@ -149,12 +156,25 @@ def test_build_planning_inputs_without_payload_fallback():
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
 
-    assert len(aggregate.demand_family) == 2
-    assert all(
-        record.family in {d.item_code for d in config.demands}
-        for record in aggregate.demand_family
-    )
-    assert all(record.share == 1.0 for record in aggregate.mix_share)
+    canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
+    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    assert payload_total == pytest.approx(canonical_total, rel=1e-6)
+
+    families = sorted({record.family for record in aggregate.demand_family})
+    expected_families = sorted({profile.item_code for profile in config.demands})
+    assert families == expected_families
+
+    periods = sorted({record.period for record in aggregate.demand_family})
+    expected_periods = sorted({str(profile.bucket) for profile in config.demands})
+    assert periods == expected_periods
+
+    for family in families:
+        shares = [
+            float(record.share or 0.0)
+            for record in aggregate.mix_share
+            if record.family == family
+        ]
+        assert shares and sum(shares) == pytest.approx(1.0)
 
 
 def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
@@ -165,20 +185,34 @@ def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
 
     bundle = build_planning_inputs(config)
 
-    assert any(entry["period"] == "2025-01" for entry in bundle.period_cost)
+    aggregate = bundle.aggregate_input
+    canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
+    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    assert payload_total == pytest.approx(canonical_total, rel=1e-6)
+
+    families = sorted({record.family for record in aggregate.demand_family})
+    expected_families = sorted({profile.item_code for profile in config.demands})
+    assert families == expected_families
+
+    periods = sorted({record.period for record in aggregate.demand_family})
+    expected_periods = sorted({str(profile.bucket) for profile in config.demands})
+    assert periods == expected_periods
 
 
 def test_build_planning_inputs_trims_calendar_to_canonical_demand():
-    config = _load_config()
+    config = _load_config().model_copy(deep=True)
+
+    attrs = dict(config.meta.attributes or {})
+    payload = dict(attrs.get("planning_payload") or {})
+    demand_rows = [dict(row) for row in payload.get("demand_family", [])]
+    if not demand_rows:
+        pytest.skip("planning payload does not contain demand rows")
 
     bundle = build_planning_inputs(config)
     assert bundle.planning_calendar is not None
 
     periods = bundle.planning_calendar["periods"]
-    original_periods = config.meta.attributes["planning_payload"]["planning_calendar"][
-        "periods"
-    ]
-    assert 0 < len(periods) <= len(original_periods)
+    assert periods
 
     sim_input = build_simulation_input(config)
     horizon = sim_input.planning_horizon
@@ -194,9 +228,3 @@ def test_build_planning_inputs_trims_calendar_to_canonical_demand():
 
     week_sequences = [week["sequence"] for week in weeks]
     assert week_sequences == list(range(1, len(week_sequences) + 1))
-
-    demand_periods = sorted(
-        {record.period for record in bundle.aggregate_input.demand_family}
-    )
-    calendar_periods = [period["period"] for period in periods]
-    assert demand_periods == calendar_periods

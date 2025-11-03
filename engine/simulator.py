@@ -548,7 +548,8 @@ class SupplyChainSimulator:
                         ) + demand_mean * (eff_LR + 1)
                         qty_to_produce = max(0, math.ceil(order_up_to - inv_pos))
                         if qty_to_produce > 0:
-                            completion_day = day + prod_lt
+                            completion_offset = max(1, int(math.ceil(prod_lt)))
+                            completion_day = day + completion_offset
                             self.production_orders[completion_day].append(
                                 (fg_item, qty_to_produce, node_name)
                             )
@@ -722,6 +723,7 @@ class SupplyChainSimulator:
             sum((pl.get("stock_costs", {}) or {}).values())
             for pl in self.daily_profit_loss
         )
+        total_sgna = sum(pl.get("sgna_cost", 0) or 0 for pl in self.daily_profit_loss)
         total_penalty_stockout = sum(
             ((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0)
             for pl in self.daily_profit_loss
@@ -731,7 +733,7 @@ class SupplyChainSimulator:
             for pl in self.daily_profit_loss
         )
         total_penalty = total_penalty_stockout + total_penalty_backorder
-        total_cost = total_material + total_flow + total_stock + total_penalty
+        total_cost = total_material + total_flow + total_stock + total_penalty + total_sgna
         total_profit = total_revenue - total_cost
 
         top_short = sorted(top_shortage_by_item.items(), key=lambda x: -x[1])[:5]
@@ -757,6 +759,7 @@ class SupplyChainSimulator:
             ),
             "revenue_total": total_revenue,
             "cost_total": total_cost,
+            "sgna_total": total_sgna,
             "penalty_stockout_total": total_penalty_stockout,
             "penalty_backorder_total": total_penalty_backorder,
             "penalty_total": total_penalty,
@@ -863,6 +866,7 @@ class SupplyChainSimulator:
             "day": day + 1,
             "revenue": 0,
             "material_cost": 0,
+            "sgna_cost": 0,
             "flow_costs": {
                 "material_transport_fixed": 0,
                 "material_transport_variable": 0,
@@ -911,6 +915,7 @@ class SupplyChainSimulator:
                     product = self.products.get(item_name)
                     price = 0.0
                     unit_cost = 0.0
+                    sgna_unit = 0.0
                     if product is not None:
                         try:
                             price = float(getattr(product, "sales_price", 0) or 0.0)
@@ -920,6 +925,12 @@ class SupplyChainSimulator:
                             unit_cost = float(getattr(product, "unit_cost", 0) or 0.0)
                         except (TypeError, ValueError):
                             unit_cost = 0.0
+                        try:
+                            sgna_unit = float(
+                                getattr(product, "sgna_cost_per_unit", 0) or 0.0
+                            )
+                        except (TypeError, ValueError):
+                            sgna_unit = 0.0
                     if price > 0:
                         pl["revenue"] += sales_qty * price
                     if unit_cost > 0:
@@ -933,6 +944,18 @@ class SupplyChainSimulator:
                             qty=sales_qty,
                             unit_cost=unit_cost,
                             account="material",
+                        )
+                    if sgna_unit > 0:
+                        sgna_amount = sales_qty * sgna_unit
+                        pl["sgna_cost"] += sgna_amount
+                        self._push_cost(
+                            day=day,
+                            node=node_name,
+                            item=item_name,
+                            event="sale_sgna",
+                            qty=sales_qty,
+                            unit_cost=sgna_unit,
+                            account="sgna",
                         )
 
         transport_costs_by_type = {
@@ -1066,6 +1089,19 @@ class SupplyChainSimulator:
             node = self.nodes_map.get(node_name)
             if not isinstance(node, FactoryNode):
                 continue
+            var_cost = getattr(node, "production_cost_variable", 0) or 0
+            if var_cost > 0 and qty_prod > 0:
+                amount = var_cost * qty_prod
+                pl["flow_costs"]["production_variable"] += amount
+                self._push_cost(
+                    day=day,
+                    node=node_name,
+                    item="",
+                    event="production_var",
+                    qty=qty_prod,
+                    unit_cost=var_cost,
+                    account="production_var",
+                )
             prod_cap = getattr(node, "production_capacity", float("inf"))
             allow_over = getattr(node, "allow_production_over_capacity", True)
             if prod_cap == float("inf") or not allow_over:
@@ -1296,8 +1332,9 @@ class SupplyChainSimulator:
         total_flow = sum(pl["flow_costs"].values())
         total_stock = sum(pl["stock_costs"].values())
         total_penalty = sum(pl["penalty_costs"].values())
+        total_sgna = float(pl.get("sgna_cost", 0) or 0)
         pl["total_cost"] = (
-            pl["material_cost"] + total_flow + total_stock + total_penalty
+            pl["material_cost"] + total_flow + total_stock + total_penalty + total_sgna
         )
         pl["profit_loss"] = pl["revenue"] - pl["total_cost"]
         self.daily_profit_loss.append(pl)
@@ -1330,6 +1367,7 @@ class SupplyChainSimulator:
                 "day": day_num,
                 "revenue": 0.0,
                 "material_cost": 0.0,
+                "sgna_cost": 0.0,
                 "flow": {
                     "production_fixed": 0.0,
                     "production_variable": 0.0,
@@ -1373,6 +1411,7 @@ class SupplyChainSimulator:
             "storage_var": ("stock", "variable"),
             "penalty_stockout": ("penalty", "stockout"),
             "penalty_backorder": ("penalty", "backorder"),
+            "sgna": ("sgna_cost", None),
         }
 
         for rec in self.cost_trace:
@@ -1405,6 +1444,7 @@ class SupplyChainSimulator:
                 + d["flow"]["total"]
                 + d["stock"]["total"]
                 + d["penalty"]["total"]
+                + d["sgna_cost"]
             )
             d["profit_loss"] = d["revenue"] - d["total_cost"]
 
@@ -1435,12 +1475,14 @@ class SupplyChainSimulator:
                 ((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0)
             )
             material_cost = float(pl.get("material_cost", 0) or 0)
+            sgna_cost = float(pl.get("sgna_cost", 0) or 0)
             total_cost = (
                 material_cost
                 + total_flow
                 + total_stock
                 + penalty_stockout
                 + penalty_backorder
+                + sgna_cost
             )
             profit_loss = revenue - total_cost
 
@@ -1471,6 +1513,7 @@ class SupplyChainSimulator:
                     material_cost,
                     float(tr.get("material_cost", 0) or 0),
                 ),
+                ("sgna_cost", sgna_cost, float(tr.get("sgna_cost", 0) or 0)),
                 ("total_cost", total_cost, float(tr.get("total_cost", 0) or 0)),
                 ("profit_loss", profit_loss, float(tr.get("profit_loss", 0) or 0)),
             ]

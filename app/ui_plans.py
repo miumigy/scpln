@@ -85,6 +85,18 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
 _KPI_CARD_DEFS = [
     {
+        "key": "demand_total",
+        "label": "Demand total",
+        "fmt": "number",
+        "precision": 0,
+    },
+    {
+        "key": "supply_total",
+        "label": "Supply total",
+        "fmt": "number",
+        "precision": 0,
+    },
+    {
         "key": "capacity_util",
         "label": "Capacity utilization",
         "fmt": "percent",
@@ -178,6 +190,26 @@ def _augment_kpi_preview(
         total_supply = _safe_sum(_to_float(r.get("supply_plan")) for r in det_rows)
     if total_supply is None:
         total_supply = _safe_sum(_to_float(r.get("supply")) for r in det_rows)
+
+    if total_demand is not None:
+        demand_row = result.get("demand_total")
+        result["demand_total"] = _make_metric(
+            demand_row,
+            "demand_total",
+            total_demand,
+            unit=(demand_row or {}).get("unit") or "units",
+            source=(demand_row or {}).get("source") or "ui_derived",
+        )
+
+    if total_supply is not None:
+        supply_row = result.get("supply_total")
+        result["supply_total"] = _make_metric(
+            supply_row,
+            "supply_total",
+            total_supply,
+            unit=(supply_row or {}).get("unit") or "units",
+            source=(supply_row or {}).get("source") or "ui_derived",
+        )
 
     total_backlog = _to_float((result.get("backlog_total") or {}).get("value"))
     if total_backlog is None:

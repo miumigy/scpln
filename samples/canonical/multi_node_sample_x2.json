@@ -23,7 +23,8 @@
       "lead_time_days": 7,
       "unit_cost": 1500,
       "attributes": {
-        "sales_price": 2400
+        "sales_price": 2400,
+        "sgna_cost_per_unit": 240
       }
     },
     {
@@ -34,7 +35,8 @@
       "lead_time_days": 7,
       "unit_cost": 1800,
       "attributes": {
-        "sales_price": 2800
+        "sales_price": 2800,
+        "sgna_cost_per_unit": 280
       }
     },
     {
@@ -45,7 +47,8 @@
       "lead_time_days": 5,
       "unit_cost": 1200,
       "attributes": {
-        "sales_price": 2000
+        "sales_price": 2000,
+        "sgna_cost_per_unit": 200
       }
     },
     {
@@ -56,7 +59,8 @@
       "lead_time_days": 6,
       "unit_cost": 1600,
       "attributes": {
-        "sales_price": 2600
+        "sales_price": 2600,
+        "sgna_cost_per_unit": 260
       }
     },
     {
@@ -67,7 +71,8 @@
       "lead_time_days": 8,
       "unit_cost": 2100,
       "attributes": {
-        "sales_price": 3200
+        "sales_price": 3200,
+        "sgna_cost_per_unit": 320
       }
     },
     {
@@ -78,7 +83,8 @@
       "lead_time_days": 9,
       "unit_cost": 1400,
       "attributes": {
-        "sales_price": 2300
+        "sales_price": 2300,
+        "sgna_cost_per_unit": 230
       }
     },
     {
@@ -137,6 +143,15 @@
       ],
       "production_policies": [
         {
+          "item_code": null,
+          "production_capacity": 900,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1800,
+          "production_cost_variable": 14,
+          "over_capacity_fixed_cost": 950,
+          "over_capacity_variable_cost": 6
+        },
+        {
           "item_code": "SKU-A",
           "production_capacity": 500,
           "allow_over_capacity": false
@@ -155,6 +170,15 @@
       "timezone": "Asia/Shanghai",
       "region": "CN-EAST",
       "production_policies": [
+        {
+          "item_code": null,
+          "production_capacity": 950,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1500,
+          "production_cost_variable": 12,
+          "over_capacity_fixed_cost": 700,
+          "over_capacity_variable_cost": 5
+        },
         {
           "item_code": "SKU-C",
           "production_capacity": 800,
@@ -177,6 +201,15 @@
         }
       ],
       "production_policies": [
+        {
+          "item_code": null,
+          "production_capacity": 900,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1600,
+          "production_cost_variable": 13,
+          "over_capacity_fixed_cost": 850,
+          "over_capacity_variable_cost": 6
+        },
         {
           "item_code": "SKU-D",
           "production_capacity": 450,
@@ -204,6 +237,15 @@
         }
       ],
       "production_policies": [
+        {
+          "item_code": null,
+          "production_capacity": 650,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1300,
+          "production_cost_variable": 11,
+          "over_capacity_fixed_cost": 600,
+          "over_capacity_variable_cost": 4
+        },
         {
           "item_code": "SKU-F",
           "production_capacity": 500,
@@ -412,43 +454,59 @@
       "from_node": "FACTORY-1",
       "to_node": "DC-1",
       "arc_type": "transport",
-      "lead_time_days": 2
+      "lead_time_days": 2,
+      "transportation_cost_fixed": 420,
+      "transportation_cost_variable": 3.2
     },
     {
       "from_node": "FACTORY-2",
       "to_node": "DC-1",
       "arc_type": "transport",
-      "lead_time_days": 5
+      "lead_time_days": 5,
+      "transportation_cost_fixed": 480,
+      "transportation_cost_variable": 3.8
     },
     {
       "from_node": "FACTORY-2",
       "to_node": "DC-2",
       "arc_type": "transport",
-      "lead_time_days": 14
+      "lead_time_days": 14,
+      "transportation_cost_fixed": 750,
+      "transportation_cost_variable": 4.5,
+      "over_capacity_fixed_cost": 250,
+      "over_capacity_variable_cost": 1.5
     },
     {
       "from_node": "FACTORY-3",
       "to_node": "DC-3",
       "arc_type": "transport",
-      "lead_time_days": 3
+      "lead_time_days": 3,
+      "transportation_cost_fixed": 390,
+      "transportation_cost_variable": 3.0
     },
     {
       "from_node": "FACTORY-3",
       "to_node": "DC-1",
       "arc_type": "transport",
-      "lead_time_days": 9
+      "lead_time_days": 9,
+      "transportation_cost_fixed": 520,
+      "transportation_cost_variable": 3.6
     },
     {
       "from_node": "FACTORY-4",
       "to_node": "DC-4",
       "arc_type": "transport",
-      "lead_time_days": 4
+      "lead_time_days": 4,
+      "transportation_cost_fixed": 410,
+      "transportation_cost_variable": 3.1
     },
     {
       "from_node": "DC-1",
       "to_node": "STORE-TYO",
       "arc_type": "transport",
       "lead_time_days": 1,
+      "transportation_cost_fixed": 140,
+      "transportation_cost_variable": 2.2,
       "min_order_qty": {
         "SKU-A": 10,
         "SKU-B": 10
@@ -463,6 +521,8 @@
       "to_node": "STORE-LA",
       "arc_type": "transport",
       "lead_time_days": 2,
+      "transportation_cost_fixed": 160,
+      "transportation_cost_variable": 2.6,
       "min_order_qty": {
         "SKU-A": 5,
         "SKU-C": 10
@@ -477,6 +537,8 @@
       "to_node": "STORE-BER",
       "arc_type": "transport",
       "lead_time_days": 2,
+      "transportation_cost_fixed": 150,
+      "transportation_cost_variable": 2.4,
       "min_order_qty": {
         "SKU-D": 6,
         "SKU-E": 6
@@ -491,6 +553,8 @@
       "to_node": "STORE-MEX",
       "arc_type": "transport",
       "lead_time_days": 1,
+      "transportation_cost_fixed": 130,
+      "transportation_cost_variable": 2.1,
       "min_order_qty": {
         "SKU-B": 6,
         "SKU-F": 8

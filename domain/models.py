@@ -13,6 +13,7 @@ class Product(BaseModel):
     name: str
     sales_price: float = Field(default=0, ge=0)
     unit_cost: float = Field(default=0, ge=0)
+    sgna_cost_per_unit: float = Field(default=0, ge=0)
     assembly_bom: List[BomItem] = Field(default_factory=list)
 
 

@@ -198,6 +198,9 @@ def _ingest_psi_products(
         )
         data["name"] = prod.get("name", code)
         data["attributes"].setdefault("sales_price", prod.get("sales_price"))
+        data["attributes"].setdefault(
+            "sgna_cost_per_unit", _as_float(prod.get("sgna_cost_per_unit"))
+        )
         for bom_row in prod.get("assembly_bom", []) or []:
             child = bom_row.get("item_name")
             if not child:

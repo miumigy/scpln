@@ -23,7 +23,8 @@
       "lead_time_days": 5,
       "unit_cost": 1200,
       "attributes": {
-        "sales_price": 2200
+        "sales_price": 2200,
+        "sgna_cost_per_unit": 220
       }
     },
     {
@@ -54,6 +55,15 @@
         }
       ],
       "production_policies": [
+        {
+          "item_code": null,
+          "production_capacity": 450,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1400,
+          "production_cost_variable": 11,
+          "over_capacity_fixed_cost": 700,
+          "over_capacity_variable_cost": 4
+        },
         {
           "item_code": "SKU-FG",
           "production_capacity": 400,

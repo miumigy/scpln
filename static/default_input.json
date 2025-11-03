@@ -4,6 +4,7 @@
         {
             "name": "完成品A",
             "sales_price": 1500,
+            "sgna_cost_per_unit": 150,
             "assembly_bom": [
                 { "item_name": "材料X", "quantity_per": 2 },
                 { "item_name": "材料Y", "quantity_per": 5 }
@@ -12,6 +13,7 @@
         {
             "name": "完成品B",
             "sales_price": 1800,
+            "sgna_cost_per_unit": 180,
             "assembly_bom": [
                 { "item_name": "材料Y", "quantity_per": 3 },
                 { "item_name": "材料Z", "quantity_per": 4 }

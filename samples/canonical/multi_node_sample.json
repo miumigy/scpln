@@ -24,7 +24,8 @@
       "lead_time_days": 7,
       "unit_cost": 1500,
       "attributes": {
-        "sales_price": 2400
+        "sales_price": 2400,
+        "sgna_cost_per_unit": 240
       }
     },
     {
@@ -35,7 +36,8 @@
       "lead_time_days": 7,
       "unit_cost": 1800,
       "attributes": {
-        "sales_price": 2800
+        "sales_price": 2800,
+        "sgna_cost_per_unit": 280
       }
     },
     {
@@ -46,7 +48,8 @@
       "lead_time_days": 5,
       "unit_cost": 1200,
       "attributes": {
-        "sales_price": 2000
+        "sales_price": 2000,
+        "sgna_cost_per_unit": 200
       }
     },
     {"code": "COMP-X", "name": "Component X", "item_type": "component", "uom": "unit", "lead_time_days": 10, "unit_cost": 300},
@@ -60,13 +63,39 @@
         {"item_code": "COMP-Y", "initial_inventory": 360, "reorder_point": 500, "order_up_to": 1800}
       ],
       "production_policies": [
-        {"item_code": "SKU-A", "production_capacity": 500, "allow_over_capacity": false},
-        {"item_code": "SKU-B", "production_capacity": 300, "allow_over_capacity": false}
+        {
+          "item_code": null,
+          "production_capacity": 800,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1500,
+          "production_cost_variable": 12,
+          "over_capacity_fixed_cost": 900,
+          "over_capacity_variable_cost": 6
+        },
+        {
+          "item_code": "SKU-A",
+          "production_capacity": 500,
+          "allow_over_capacity": false
+        },
+        {
+          "item_code": "SKU-B",
+          "production_capacity": 300,
+          "allow_over_capacity": false
+        }
       ]
     },
     {
       "code": "FACTORY-2", "name": "Factory 2", "node_type": "factory", "timezone": "Asia/Shanghai", "region": "CN-EAST",
       "production_policies": [
+        {
+          "item_code": null,
+          "production_capacity": 900,
+          "allow_over_capacity": true,
+          "production_cost_fixed": 1200,
+          "production_cost_variable": 10,
+          "over_capacity_fixed_cost": 800,
+          "over_capacity_variable_cost": 5
+        },
         {"item_code": "SKU-C", "production_capacity": 800, "allow_over_capacity": true}
       ]
     },
@@ -103,11 +132,11 @@
     }
   ],
   "arcs": [
-    {"from_node": "FACTORY-1", "to_node": "DC-1", "arc_type": "transport", "lead_time_days": 2},
-    {"from_node": "FACTORY-2", "to_node": "DC-1", "arc_type": "transport", "lead_time_days": 5},
-    {"from_node": "FACTORY-2", "to_node": "DC-2", "arc_type": "transport", "lead_time_days": 14},
-    {"from_node": "DC-1", "to_node": "STORE-TYO", "arc_type": "transport", "lead_time_days": 1, "min_order_qty": {"SKU-A": 10, "SKU-B": 10}, "order_multiple": {"SKU-A": 5, "SKU-B": 5}},
-    {"from_node": "DC-2", "to_node": "STORE-LA", "arc_type": "transport", "lead_time_days": 2, "min_order_qty": {"SKU-A": 5, "SKU-C": 10}, "order_multiple": {"SKU-A": 5, "SKU-C": 5}}
+    {"from_node": "FACTORY-1", "to_node": "DC-1", "arc_type": "transport", "lead_time_days": 2, "transportation_cost_fixed": 400, "transportation_cost_variable": 3.5},
+    {"from_node": "FACTORY-2", "to_node": "DC-1", "arc_type": "transport", "lead_time_days": 5, "transportation_cost_fixed": 550, "transportation_cost_variable": 4.0},
+    {"from_node": "FACTORY-2", "to_node": "DC-2", "arc_type": "transport", "lead_time_days": 14, "transportation_cost_fixed": 700, "transportation_cost_variable": 4.5, "over_capacity_fixed_cost": 250, "over_capacity_variable_cost": 1.5},
+    {"from_node": "DC-1", "to_node": "STORE-TYO", "arc_type": "transport", "lead_time_days": 1, "transportation_cost_fixed": 120, "transportation_cost_variable": 2.0, "min_order_qty": {"SKU-A": 10, "SKU-B": 10}, "order_multiple": {"SKU-A": 5, "SKU-B": 5}},
+    {"from_node": "DC-2", "to_node": "STORE-LA", "arc_type": "transport", "lead_time_days": 2, "transportation_cost_fixed": 150, "transportation_cost_variable": 2.5, "min_order_qty": {"SKU-A": 5, "SKU-C": 10}, "order_multiple": {"SKU-A": 5, "SKU-C": 5}}
   ],
   "bom": [
     {"parent_item": "SKU-A", "child_item": "COMP-X", "quantity": 1},

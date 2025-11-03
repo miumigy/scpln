@@ -141,6 +141,66 @@ class TestFactoryEnhancements(unittest.TestCase):
             ordered, 60, msg=f"Expected LCM-rounded order 60, got {ordered}"
         )
 
+    def test_factory_zero_lead_time_produces_with_offset(self):
+        # Zero production lead time should still yield completed production in subsequent days
+        random.seed(0)
+        sim_input = {
+            "planning_horizon": 10,
+            "products": [{"name": "製品A", "sales_price": 500}],
+            "nodes": [
+                {
+                    "name": "店舗",
+                    "node_type": "store",
+                    "initial_stock": {"製品A": 0},
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
+                {
+                    "name": "倉庫",
+                    "node_type": "warehouse",
+                    "initial_stock": {"製品A": 20},
+                    "service_level": 0.0,
+                    "backorder_enabled": True,
+                },
+                {
+                    "name": "工場",
+                    "node_type": "factory",
+                    "producible_products": ["製品A"],
+                    "initial_stock": {"製品A": 0},
+                    "lead_time": 0,
+                    "production_capacity": 1000,
+                    "service_level": 0.95,
+                    "backorder_enabled": True,
+                },
+            ],
+            "network": [
+                {"from_node": "工場", "to_node": "倉庫", "lead_time": 2},
+                {"from_node": "倉庫", "to_node": "店舗", "lead_time": 1},
+            ],
+            "customer_demand": [
+                {
+                    "store_name": "店舗",
+                    "product_name": "製品A",
+                    "demand_mean": 10,
+                    "demand_std_dev": 0,
+                }
+            ],
+        }
+
+        sim = SupplyChainSimulator(SimulationInput(**sim_input))
+        results, _ = sim.run()
+
+        produced = [
+            nodes.get("製品A", {}).get("produced", 0)
+            for day in results
+            for name, nodes in day["nodes"].items()
+            if name == "工場"
+        ]
+        self.assertTrue(
+            any(p > 0 for p in produced),
+            msg=f"Expected factory production with zero lead time, got {produced}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

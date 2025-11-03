@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 import sys
@@ -134,6 +135,18 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
             period_score=period_score,
             planning_calendar=payload.get("planning_calendar"),
         )
+        mismatch, pa_total, ca_total = _planning_demand_mismatch(
+            aggregate.demand_family, config, rel_tol=0.05, abs_tol=1.0
+        )
+        if mismatch:
+            logging.warning(
+                "planning_payload_demand_mismatch_detected "
+                "(payload_total=%s, canonical_total=%s, config_version=%s)",
+                pa_total,
+                ca_total,
+                getattr(config.meta, "version_id", None),
+            )
+            return _build_planning_bundle_from_canonical(config)
         return _limit_planning_bundle_to_demand_horizon(bundle, config)
 
     # Fallback: Canonical構造から最小限のPlanning入力を組み立てる
@@ -170,11 +183,13 @@ def _build_products(
             continue
         sales_price = _to_float(item.attributes.get("sales_price"))
         unit_cost = _to_float(item.unit_cost)
+        sgna_cost = _to_float(item.attributes.get("sgna_cost_per_unit"))
         products.append(
             Product(
                 name=item.code,
                 sales_price=sales_price,
                 unit_cost=unit_cost,
+                sgna_cost_per_unit=sgna_cost,
                 assembly_bom=bom_map.get(item.code, []),
             )
         )
@@ -711,6 +726,42 @@ def _build_planning_bundle_from_canonical(
         planning_calendar=planning_calendar,
     )
     return _limit_planning_bundle_to_demand_horizon(bundle, config)
+
+
+def _planning_demand_mismatch(
+    records: Iterable[FamilyDemandRecord],
+    config: CanonicalConfig,
+    *,
+    rel_tol: float,
+    abs_tol: float,
+) -> tuple[bool, float, float]:
+    payload_total = _sum_family_demand(records)
+    canonical_total = _sum_canonical_demand(config)
+    delta = abs(payload_total - canonical_total)
+    if canonical_total <= abs_tol:
+        return (delta > abs_tol, payload_total, canonical_total)
+    rel = delta / canonical_total if canonical_total else float("inf")
+    return (rel > rel_tol, payload_total, canonical_total)
+
+
+def _sum_family_demand(records: Iterable[FamilyDemandRecord]) -> float:
+    total = 0.0
+    for record in records or []:
+        try:
+            total += float(record.demand or 0.0)
+        except Exception:
+            continue
+    return total
+
+
+def _sum_canonical_demand(config: CanonicalConfig) -> float:
+    total = 0.0
+    for profile in config.demands:
+        try:
+            total += float(profile.mean or 0.0)
+        except Exception:
+            continue
+    return total
 
 
 def _limit_planning_bundle_to_demand_horizon(

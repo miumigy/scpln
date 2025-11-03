@@ -161,6 +161,10 @@ def test_mrp_basic_properties(tmp_path: Path):
     assert rows, "mrp rows should not be empty"
 
     # ロット/MOQの性質（net_req>0なら受入は切上げ、ロットの倍数）
+    releases = [float(r["planned_order_release"]) for r in rows]
+    receipts = [float(r["planned_order_receipt"]) for r in rows]
+    assert any(rel > 0 for rel in releases), "planned_order_release が常に0のままです"
+    assert abs(sum(releases) - sum(receipts)) < 1e-6
     for r in rows:
         net = float(r["net_req"])
         por = float(r["planned_order_receipt"])
