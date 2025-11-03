@@ -302,6 +302,8 @@ def main() -> None:
         on_hand = on_hand_by_item.get(it, 0.0)
         planned_receipts: Dict[str, float] = {}
         planned_releases: Dict[str, float] = {}
+        row_by_week: Dict[str, Dict[str, Any]] = {}
+        pending_release: Dict[str, float] = {}
 
         for wi, w in enumerate(weeks):
             gross = gross_by_item_week.get((it, w), 0.0)
@@ -317,30 +319,37 @@ def main() -> None:
                 # 解放タイミング（受入よりLT前、境界は0）
                 rel_idx = _roll_weeks(weeks, wi, lt_w)
                 planned_receipts[w] = planned_receipts.get(w, 0.0) + por
-                planned_releases[weeks[rel_idx]] = (
-                    planned_releases.get(weeks[rel_idx], 0.0) + por
+                release_week = weeks[rel_idx]
+                planned_releases[release_week] = (
+                    planned_releases.get(release_week, 0.0) + por
                 )
+                total_release = round(planned_releases[release_week], 6)
+                if release_week in row_by_week:
+                    row_by_week[release_week]["planned_order_release"] = total_release
+                else:
+                    pending_release[release_week] = total_release
             else:
                 # 受入なし、在庫更新
                 on_hand = available - gross
 
-            rows_out.append(
-                {
-                    "item": it,
-                    "sku": it,
-                    "week": w,
-                    "gross_req": round(gross, 6),
-                    "scheduled_receipts": round(sched, 6),
-                    "on_hand_start": round(on_hand_start, 6),
-                    "net_req": round(net, 6),
-                    "planned_order_receipt": round(por, 6),
-                    "planned_order_release": round(planned_releases.get(w, 0.0), 6),
-                    "lt_weeks": lt_w,
-                    "lot": lot,
-                    "moq": moq,
-                    "on_hand_end": round(on_hand, 6),
-                }
-            )
+            release_val = round(planned_releases.get(w, pending_release.pop(w, 0.0)), 6)
+            row = {
+                "item": it,
+                "sku": it,
+                "week": w,
+                "gross_req": round(gross, 6),
+                "scheduled_receipts": round(sched, 6),
+                "on_hand_start": round(on_hand_start, 6),
+                "net_req": round(net, 6),
+                "planned_order_receipt": round(por, 6),
+                "planned_order_release": release_val,
+                "lt_weeks": lt_w,
+                "lot": lot,
+                "moq": moq,
+                "on_hand_end": round(on_hand, 6),
+            }
+            rows_out.append(row)
+            row_by_week[w] = row
 
     payload = {
         "schema_version": alloc.get("schema_version", "agg-1.0"),
