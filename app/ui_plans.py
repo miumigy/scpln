@@ -636,6 +636,7 @@ def ui_plan_detail(version_id: str, request: Request):
         mrows = get_plan_repository().fetch_plan_series(version_id, level="mrp")
         schedule_total = len(mrows)
         for row in mrows[:200]:
+
             def _num(value: Any) -> float | None:
                 try:
                     if value is None:
@@ -683,11 +684,15 @@ def ui_plan_detail(version_id: str, request: Request):
                 {
                     "week": row.get("time_bucket_key"),
                     "sku": row.get("item_key"),
-                    "scheduled_receipts": scheduled
-                    if scheduled is not None
-                    else _num(extra.get("scheduled_receipts"))
-                    if extra.get("scheduled_receipts") is not None
-                    else 0.0,
+                    "scheduled_receipts": (
+                        scheduled
+                        if scheduled is not None
+                        else (
+                            _num(extra.get("scheduled_receipts"))
+                            if extra.get("scheduled_receipts") is not None
+                            else 0.0
+                        )
+                    ),
                     "on_hand_start": on_hand_start,
                     "on_hand_end": on_hand_end,
                 }
