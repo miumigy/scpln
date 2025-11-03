@@ -166,3 +166,37 @@ def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
     bundle = build_planning_inputs(config)
 
     assert any(entry["period"] == "2025-01" for entry in bundle.period_cost)
+
+
+def test_build_planning_inputs_trims_calendar_to_canonical_demand():
+    config = _load_config()
+
+    bundle = build_planning_inputs(config)
+    assert bundle.planning_calendar is not None
+
+    periods = bundle.planning_calendar["periods"]
+    original_periods = config.meta.attributes["planning_payload"]["planning_calendar"][
+        "periods"
+    ]
+    assert 0 < len(periods) <= len(original_periods)
+
+    sim_input = build_simulation_input(config)
+    horizon = sim_input.planning_horizon
+
+    weeks = [
+        week for period in periods for week in period.get("weeks", []) if "weight" in week
+    ]
+    total_days = sum(float(week["weight"]) for week in weeks)
+    assert total_days >= horizon
+    if weeks:
+        total_days_without_last = total_days - float(weeks[-1]["weight"])
+        assert total_days_without_last < horizon
+
+    week_sequences = [week["sequence"] for week in weeks]
+    assert week_sequences == list(range(1, len(week_sequences) + 1))
+
+    demand_periods = sorted(
+        {record.period for record in bundle.aggregate_input.demand_family}
+    )
+    calendar_periods = [period["period"] for period in periods]
+    assert demand_periods == calendar_periods

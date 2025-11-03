@@ -128,15 +128,17 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
         period_score = _normalize_period_entries(
             payload.get("period_score"), value_key="score"
         )
-        return PlanningDataBundle(
+        bundle = PlanningDataBundle(
             aggregate_input=aggregate,
             period_cost=period_cost,
             period_score=period_score,
             planning_calendar=payload.get("planning_calendar"),
         )
+        return _limit_planning_bundle_to_demand_horizon(bundle, config)
 
     # Fallback: Canonical構造から最小限のPlanning入力を組み立てる
-    return _build_planning_bundle_from_canonical(config)
+    bundle = _build_planning_bundle_from_canonical(config)
+    return _limit_planning_bundle_to_demand_horizon(bundle, config)
 
 
 def _resolve_planning_horizon(config: CanonicalConfig, override: Optional[int]) -> int:
@@ -702,12 +704,128 @@ def _build_planning_bundle_from_canonical(
         ):
             planning_calendar = definition
 
-    return PlanningDataBundle(
+    bundle = PlanningDataBundle(
         aggregate_input=aggregate,
         period_cost=period_cost,
         period_score=period_score,
         planning_calendar=planning_calendar,
     )
+    return _limit_planning_bundle_to_demand_horizon(bundle, config)
+
+
+def _limit_planning_bundle_to_demand_horizon(
+    bundle: PlanningDataBundle, config: CanonicalConfig
+) -> PlanningDataBundle:
+    """planning_horizon（日数）に合わせてカレンダーと入力データをトリムする。"""
+
+    calendar = bundle.planning_calendar
+    if not calendar:
+        return bundle
+
+    periods = calendar.get("periods")
+    if not isinstance(periods, list) or not periods:
+        return bundle
+
+    target_days = _resolve_planning_horizon(config, override=None)
+    if target_days <= 0:
+        return bundle
+
+    total_days = _calendar_total_days(periods)
+    if target_days >= total_days:
+        return bundle
+
+    trimmed_periods: List[Dict[str, Any]] = []
+    allowed_periods: List[str] = []
+    cumulative = 0.0
+    week_sequence = 1
+
+    for entry in periods:
+        if cumulative >= target_days:
+            break
+        if not isinstance(entry, dict):
+            continue
+        weeks = entry.get("weeks")
+        if not isinstance(weeks, list):
+            continue
+        new_weeks = []
+        for week in weeks:
+            if cumulative >= target_days:
+                break
+            if not isinstance(week, dict):
+                continue
+            weight = _to_float(week.get("weight"), default=0.0)
+            if weight <= 0:
+                continue
+            new_week = dict(week)
+            new_week["sequence"] = week_sequence
+            week_sequence += 1
+            new_weeks.append(new_week)
+            cumulative += weight
+        if new_weeks:
+            new_entry = dict(entry)
+            new_entry["weeks"] = new_weeks
+            trimmed_periods.append(new_entry)
+            allowed_periods.append(str(entry.get("period", "")))
+
+    if not trimmed_periods:
+        return bundle
+
+    allowed_period_set = {period for period in allowed_periods if period}
+    new_calendar = dict(calendar)
+    new_calendar["periods"] = trimmed_periods
+
+    aggregate_dict = bundle.aggregate_input.dict()
+
+    def _filter_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered: List[Dict[str, Any]] = []
+        for record in records or []:
+            period = str(record.get("period", ""))
+            if period and period in allowed_period_set:
+                filtered.append(dict(record))
+        if filtered:
+            return filtered
+        return [dict(record) for record in records or []]
+
+    aggregate_dict["demand_family"] = _filter_records(
+        aggregate_dict.get("demand_family", [])
+    )
+    aggregate_dict["capacity"] = _filter_records(aggregate_dict.get("capacity", []))
+    aggregate = AggregatePlanInput(**aggregate_dict)
+
+    def _filter_period_entries(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        filtered = [
+            dict(row)
+            for row in rows or []
+            if str(row.get("period", "")) in allowed_period_set
+        ]
+        if filtered:
+            return filtered
+        return [dict(row) for row in rows or []]
+
+    period_cost = _filter_period_entries(bundle.period_cost)
+    period_score = _filter_period_entries(bundle.period_score)
+
+    return PlanningDataBundle(
+        aggregate_input=aggregate,
+        period_cost=period_cost,
+        period_score=period_score,
+        planning_calendar=new_calendar,
+    )
+
+
+def _calendar_total_days(periods: List[Dict[str, Any]]) -> float:
+    total = 0.0
+    for entry in periods:
+        if not isinstance(entry, dict):
+            continue
+        weeks = entry.get("weeks")
+        if not isinstance(weeks, list):
+            continue
+        for week in weeks:
+            if not isinstance(week, dict):
+                continue
+            total += _to_float(week.get("weight"), default=0.0)
+    return total
 
 
 def _to_float(value: Any, *, default: float = 0.0) -> float:

@@ -17,6 +17,7 @@
 ## Unreleased
 
 - docs: README と集約関連ドキュメントを再構成し、`docs/release-notes-v0.5.0.md` を廃止（CHANGELOG を単一のリリースノートと位置付け）
+- fix(plans): Canonical需要に基づいて `planning_calendar` をトリムし、Plan週数を実需要に揃える
 
 ## v0.6.0 (2025-09-14)
 
