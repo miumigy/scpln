@@ -2575,6 +2575,7 @@ def get_plan_schedule_csv(version_id: str):
         sku = r.get("sku")
         if not sku:
             sku = r.get("item")
+
         def _num(value):
             try:
                 if value is None:
