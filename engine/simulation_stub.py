@@ -141,9 +141,9 @@ def run_stub(
                     "item": item_name,
                     "event": "sale_sgna",
                     "qty": sales_today,
-                    "unit_cost": round(service_today / sales_today, 6)
-                    if sales_today
-                    else 0.0,
+                    "unit_cost": (
+                        round(service_today / sales_today, 6) if sales_today else 0.0
+                    ),
                     "amount": round(service_today, 6),
                     "account": "sgna",
                 }

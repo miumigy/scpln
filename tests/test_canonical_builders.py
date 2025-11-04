@@ -122,7 +122,9 @@ def test_build_planning_inputs_from_payload():
     aggregate = bundle.aggregate_input
 
     canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
-    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    payload_total = sum(
+        float(record.demand or 0.0) for record in aggregate.demand_family
+    )
     assert payload_total == pytest.approx(canonical_total, rel=1e-6)
 
     families = sorted({record.family for record in aggregate.demand_family})
@@ -157,7 +159,9 @@ def test_build_planning_inputs_without_payload_fallback():
     aggregate = bundle.aggregate_input
 
     canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
-    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    payload_total = sum(
+        float(record.demand or 0.0) for record in aggregate.demand_family
+    )
     assert payload_total == pytest.approx(canonical_total, rel=1e-6)
 
     families = sorted({record.family for record in aggregate.demand_family})
@@ -187,7 +191,9 @@ def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
 
     aggregate = bundle.aggregate_input
     canonical_total = sum(float(d.mean or 0.0) for d in config.demands)
-    payload_total = sum(float(record.demand or 0.0) for record in aggregate.demand_family)
+    payload_total = sum(
+        float(record.demand or 0.0) for record in aggregate.demand_family
+    )
     assert payload_total == pytest.approx(canonical_total, rel=1e-6)
 
     families = sorted({record.family for record in aggregate.demand_family})
@@ -218,7 +224,10 @@ def test_build_planning_inputs_trims_calendar_to_canonical_demand():
     horizon = sim_input.planning_horizon
 
     weeks = [
-        week for period in periods for week in period.get("weeks", []) if "weight" in week
+        week
+        for period in periods
+        for week in period.get("weeks", [])
+        if "weight" in week
     ]
     total_days = sum(float(week["weight"]) for week in weeks)
     assert total_days >= horizon

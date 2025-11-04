@@ -733,7 +733,9 @@ class SupplyChainSimulator:
             for pl in self.daily_profit_loss
         )
         total_penalty = total_penalty_stockout + total_penalty_backorder
-        total_cost = total_material + total_flow + total_stock + total_penalty + total_sgna
+        total_cost = (
+            total_material + total_flow + total_stock + total_penalty + total_sgna
+        )
         total_profit = total_revenue - total_cost
 
         top_short = sorted(top_shortage_by_item.items(), key=lambda x: -x[1])[:5]
