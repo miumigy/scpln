@@ -161,6 +161,52 @@ def test_plan_repository_write_with_builders(db_setup):
     assert stored_kpi
 
 
+def test_fetch_plan_series_natural_sort(db_setup):
+    repo = PlanRepository(db._conn)
+    version_id = "plan-sort-001"
+    now = int(time.time() * 1000)
+    db.create_plan_version(version_id, status="active")
+
+    buckets = ["M1", "M10", "M2"]
+    series_rows = [
+        {
+            "version_id": version_id,
+            "level": "aggregate",
+            "time_bucket_type": "month",
+            "time_bucket_key": bucket,
+            "item_key": "FAMILY-SORT",
+            "location_key": "SITE-1",
+            "demand": 100.0 + idx * 10,
+            "supply": 90.0 + idx * 5,
+            "backlog": 5.0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        for idx, bucket in enumerate(buckets)
+    ]
+    kpi_rows = [
+        {
+            "version_id": version_id,
+            "metric": "fill_rate",
+            "bucket_type": "month",
+            "bucket_key": bucket,
+            "value": 0.9,
+            "unit": "ratio",
+            "created_at": now,
+            "updated_at": now,
+        }
+        for bucket in buckets
+    ]
+
+    repo.write_plan(version_id, series=series_rows, kpis=kpi_rows)
+
+    fetched_series = repo.fetch_plan_series(version_id, "aggregate")
+    assert [row["time_bucket_key"] for row in fetched_series] == ["M1", "M2", "M10"]
+
+    fetched_kpis = repo.fetch_plan_kpis(version_id)
+    assert [row["bucket_key"] for row in fetched_kpis] == ["M1", "M2", "M10"]
+
+
 def test_plan_repository_capacity_guard_trims_old_versions(db_setup, monkeypatch):
     monkeypatch.setenv("PLANS_DB_MAX_ROWS", "2")
     repo = PlanRepository(db._conn)

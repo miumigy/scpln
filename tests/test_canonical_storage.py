@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 
 from core.config.storage import (
     CanonicalConfigNotFoundError,
@@ -49,3 +50,44 @@ def test_list_versions_and_validation(seed_canonical_data):
 def test_get_config_not_found(seed_canonical_data):
     with pytest.raises(CanonicalConfigNotFoundError):
         get_canonical_config(999)
+
+
+def test_canonical_config_bucket_sort(seed_canonical_data):
+    db_path = seed_canonical_data
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    bucket_payloads = [("M1", 30.0), ("M10", 40.0), ("M2", 35.0)]
+    cur.executemany(
+        """
+        INSERT INTO canonical_demands(
+            config_version_id, node_code, item_code, bucket, demand_model,
+            mean, std_dev, min_qty, max_qty, attributes_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+        """,
+        [
+            (100, "STORE1", "FG1", bucket, "normal", mean, None, None, None, "{}")
+            for bucket, mean in bucket_payloads
+        ],
+    )
+    cur.executemany(
+        """
+        INSERT INTO canonical_capacities(
+            config_version_id, resource_code, resource_type, bucket, capacity,
+            calendar_code, attributes_json
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        [
+            (100, "WC1", "workcenter", bucket, 100.0 + idx * 10, "CAL1", "{}")
+            for idx, (bucket, _) in enumerate(bucket_payloads)
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    config = get_canonical_config(100)
+
+    month_demands = [d.bucket for d in config.demands if d.bucket.startswith("M")]
+    assert month_demands == ["M1", "M2", "M10"]
+
+    month_caps = [c.bucket for c in config.capacities if c.bucket.startswith("M")]
+    assert month_caps == ["M1", "M2", "M10"]

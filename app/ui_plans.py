@@ -38,6 +38,7 @@ from core.plan_repository_views import (
     latest_state_from_events,
     summarize_audit_events,
 )
+from core.sorting import natural_sort_key
 
 
 def table_exists(db_conn, name: str) -> bool:
@@ -78,6 +79,21 @@ def get_plan_repository() -> PlanRepository:
         PLAN_DB_CAPACITY_TRIM_TOTAL,
         PLAN_DB_LAST_TRIM_TIMESTAMP,
     )
+
+
+def _delta_sort_key(row: dict[str, Any]) -> tuple:
+    return (
+        natural_sort_key(row.get("period") or ""),
+        natural_sort_key(row.get("family") or ""),
+    )
+
+
+def _prepare_delta_rows(delta_rows: list[dict[str, Any]] | None, limit: int = 50) -> list[dict[str, Any]]:
+    rows = list(delta_rows or [])
+    rows.sort(key=_delta_sort_key)
+    if limit is not None and limit > 0:
+        return rows[:limit]
+    return rows
 
 
 print("DEBUG: Initializing Jinja2Templates")
@@ -813,9 +829,9 @@ def ui_plan_detail(version_id: str, request: Request):
         }
     except Exception:
         validate = {}
-    # truncate deltas for display
-    deltas = list((recon.get("deltas") or [])[:50]) if recon else []
-    deltas_adj = list((recon_adj.get("deltas") or [])[:50]) if recon_adj else []
+    # truncate deltas for display (natural order by period/family)
+    deltas = _prepare_delta_rows(recon.get("deltas")) if recon else []
+    deltas_adj = _prepare_delta_rows(recon_adj.get("deltas")) if recon_adj else []
     # RunRegistry から Plan/Config/Scenario 関連 Run を取得
     base_sid = (ver or {}).get("base_scenario_id")
     base_sid_str = str(base_sid) if base_sid is not None else None

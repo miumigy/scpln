@@ -20,6 +20,8 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired
 
+from .sorting import natural_sort_key
+
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
@@ -125,6 +127,23 @@ class PlanJobRow(TypedDict):
     trigger: NotRequired[str | None]
     error: NotRequired[str | None]
     payload_json: NotRequired[str | None]
+
+
+def _plan_series_sort_key(row: dict[str, Any]) -> tuple:
+    return (
+        natural_sort_key(row.get("time_bucket_type") or ""),
+        natural_sort_key(row.get("time_bucket_key")),
+        natural_sort_key(row.get("item_key") or ""),
+        natural_sort_key(row.get("location_key") or ""),
+    )
+
+
+def _plan_kpi_sort_key(row: dict[str, Any]) -> tuple:
+    return (
+        natural_sort_key(row.get("bucket_type") or ""),
+        natural_sort_key(row.get("bucket_key")),
+        natural_sort_key(row.get("metric") or ""),
+    )
 
 
 _PLAN_SERIES_COLUMNS: Sequence[str] = (
@@ -390,7 +409,9 @@ class PlanRepository:
             sql.append("AND time_bucket_key=?")
             params.append(bucket_key)
         sql.append("ORDER BY time_bucket_type, time_bucket_key, item_key, location_key")
-        return self._fetch_rows(" ".join(sql), tuple(params))
+        rows = self._fetch_rows(" ".join(sql), tuple(params))
+        rows.sort(key=_plan_series_sort_key)
+        return rows
 
     def fetch_plan_overrides(
         self, version_id: str, level: str | None = None
@@ -417,7 +438,9 @@ class PlanRepository:
             sql.append("AND metric=?")
             params.append(metric)
         sql.append("ORDER BY bucket_type, bucket_key")
-        return self._fetch_rows(" ".join(sql), tuple(params))
+        rows = self._fetch_rows(" ".join(sql), tuple(params))
+        rows.sort(key=_plan_kpi_sort_key)
+        return rows
 
     def fetch_plan_jobs(
         self,

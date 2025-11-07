@@ -13,6 +13,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from app.db import _conn
 
+from core.sorting import natural_sort_key
+
 from .models import (
     CalendarDefinition,
     CanonicalArc,
@@ -469,8 +471,22 @@ def get_canonical_config(
     nodes = [_row_to_node(row, inventory_map, production_map) for row in node_rows]
     arcs = [_row_to_arc(row) for row in arc_rows]
     bom = [_row_to_bom(row) for row in bom_rows]
-    demands = [_row_to_demand(row) for row in demand_rows]
-    capacities = [_row_to_capacity(row) for row in capacity_rows]
+    demands = sorted(
+        (_row_to_demand(row) for row in demand_rows),
+        key=lambda d: (
+            d.node_code or "",
+            d.item_code or "",
+            natural_sort_key(d.bucket),
+        ),
+    )
+    capacities = sorted(
+        (_row_to_capacity(row) for row in capacity_rows),
+        key=lambda c: (
+            c.resource_type or "",
+            c.resource_code or "",
+            natural_sort_key(c.bucket),
+        ),
+    )
     hierarchies = [_row_to_hierarchy(row) for row in hierarchy_rows]
     calendars = [_row_to_calendar(row) for row in calendar_rows]
 
