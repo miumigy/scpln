@@ -92,11 +92,32 @@
     history.replaceState(null, '', url);
   }
 
-  function fmt(v, digits = 3) {
-    if (v === null || v === undefined) return '';
-    const n = Number(v);
-    if (Number.isNaN(n)) return String(v);
-    return n.toFixed(digits);
+  const formatLib = window.ScpFormat;
+
+  function fallbackNumber(value, decimals = 2, stripTrailing = true) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: stripTrailing ? 0 : decimals,
+      maximumFractionDigits: decimals,
+    });
+  }
+
+  function fmtNumber(value, decimals = 2) {
+    if (formatLib && typeof formatLib.formatNumber === 'function') {
+      return formatLib.formatNumber(value, decimals);
+    }
+    return fallbackNumber(value, decimals, true);
+  }
+
+  function fmtPercent(value, decimals = 2) {
+    if (formatLib && typeof formatLib.formatPercent === 'function') {
+      return formatLib.formatPercent(value, decimals);
+    }
+    if (value === null || value === undefined) return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return fallbackNumber(num * 100, decimals, false) + '%';
   }
 
   function updateSortIndicators() {
@@ -176,13 +197,13 @@
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
         <td class="mono truncate" title="${r.run_id}">${runLink}</td>
         <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
-        <td>${r.duration_ms ?? ''}</td>
+        <td>${fmtNumber(r.duration_ms, 2)}</td>
         <td>${r.schema_version ?? ''}</td>
         <td class="mono">${configVerLink}</td>
         <td class="mono">${planLink}</td>
         <td class="mono">${scenarioLink}</td>
-        <td>${fmt(r.summary?.fill_rate, 3)}</td>
-        <td>${fmt(r.summary?.profit_total, 2)}</td>
+        <td>${fmtPercent(r.summary?.fill_rate)}</td>
+        <td>${fmtNumber(r.summary?.profit_total, 2)}</td>
       </tr>
     `;
   }
@@ -227,7 +248,11 @@
       // update pager
       const start = state.total ? (state.offset + 1) : 0;
       const end = Math.min(state.offset + state.limit, state.total);
-      if (pagerInfo) pagerInfo.textContent = `${start}-${end} / ${state.total}`;
+      if (pagerInfo) {
+        const startLabel = state.total ? fmtNumber(start, 0) : '0';
+        const endLabel = state.total ? fmtNumber(end, 0) : '0';
+        pagerInfo.textContent = `${startLabel}-${endLabel} / ${fmtNumber(state.total, 0)}`;
+      }
       if (prevBtn) prevBtn.disabled = (state.offset <= 0);
       if (nextBtn) nextBtn.disabled = (state.offset + state.limit >= state.total);
       if (firstBtn) firstBtn.disabled = (state.offset <= 0);

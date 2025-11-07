@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 import logging
 import json
 import sys
@@ -12,6 +11,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
+
+from fastapi.templating import Jinja2Templates
 
 from app import db
 from app.metrics import (
@@ -23,6 +24,7 @@ from app.metrics import (
     PLANS_RECONCILED,
     PLANS_VIEWED,
 )
+from app.template_filters import register_format_filters
 from app.utils import ms_to_jst_str
 from core.config.storage import (
     CanonicalConfigNotFoundError,
@@ -98,6 +100,7 @@ def _prepare_delta_rows(delta_rows: list[dict[str, Any]] | None, limit: int = 50
 
 print("DEBUG: Initializing Jinja2Templates")
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+register_format_filters(templates)
 
 _KPI_CARD_DEFS = [
     {

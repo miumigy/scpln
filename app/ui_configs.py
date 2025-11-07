@@ -16,6 +16,7 @@ from app.db import (
     get_plan_artifact,
     list_plan_versions,
 )
+from app.template_filters import register_format_filters
 from app.utils import ms_to_jst_str
 from core.config import (
     CanonicalConfig,
@@ -37,6 +38,7 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 logging.info(
     f"Jinja2Templates initialized with directory: {str(_BASE_DIR / 'templates')}"
 )
+register_format_filters(templates)
 
 
 def _format_time(value: Any) -> str:

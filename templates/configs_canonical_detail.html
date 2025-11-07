@@ -34,14 +34,14 @@
       <h4>Entity Counts</h4>
       <table role="grid">
         <tbody>
-          <tr><td>items</td><td class="mono">{{ counts['items'] }}</td></tr>
-          <tr><td>nodes</td><td class="mono">{{ counts['nodes'] }}</td></tr>
-          <tr><td>arcs</td><td class="mono">{{ counts['arcs'] }}</td></tr>
-          <tr><td>bom</td><td class="mono">{{ counts['bom'] }}</td></tr>
-          <tr><td>demands</td><td class="mono">{{ counts['demands'] }}</td></tr>
-          <tr><td>capacities</td><td class="mono">{{ counts['capacities'] }}</td></tr>
-          <tr><td>calendars</td><td class="mono">{{ counts['calendars'] }}</td></tr>
-          <tr><td>hierarchies</td><td class="mono">{{ counts['hierarchies'] }}</td></tr>
+          <tr><td>items</td><td class="mono">{{ counts['items']|fmt_number }}</td></tr>
+          <tr><td>nodes</td><td class="mono">{{ counts['nodes']|fmt_number }}</td></tr>
+          <tr><td>arcs</td><td class="mono">{{ counts['arcs']|fmt_number }}</td></tr>
+          <tr><td>bom</td><td class="mono">{{ counts['bom']|fmt_number }}</td></tr>
+          <tr><td>demands</td><td class="mono">{{ counts['demands']|fmt_number }}</td></tr>
+          <tr><td>capacities</td><td class="mono">{{ counts['capacities']|fmt_number }}</td></tr>
+          <tr><td>calendars</td><td class="mono">{{ counts['calendars']|fmt_number }}</td></tr>
+          <tr><td>hierarchies</td><td class="mono">{{ counts['hierarchies']|fmt_number }}</td></tr>
         </tbody>
       </table>
     </div>
@@ -68,7 +68,7 @@
   <h3>Validation</h3>
   {% if validation_messages.errors %}
     <details open>
-      <summary>Errors ({{ validation_messages.errors|length }})</summary>
+      <summary>Errors ({{ validation_messages.errors|length|fmt_number }})</summary>
       <ul>
         {% for issue in validation_messages.errors %}
           <li><strong>{{ issue.code }}</strong>: {{ issue.message }} <small class="mono">{{ issue.context }}</small></li>
@@ -80,7 +80,7 @@
   {% endif %}
   {% if validation_messages.warnings %}
     <details>
-      <summary>Warnings ({{ validation_messages.warnings|length }})</summary>
+      <summary>Warnings ({{ validation_messages.warnings|length|fmt_number }})</summary>
       <ul>
         {% for issue in validation_messages.warnings %}
           <li><strong>{{ issue.code }}</strong>: {{ issue.message }} <small class="mono">{{ issue.context }}</small></li>

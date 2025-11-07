@@ -140,7 +140,9 @@
     {% set next = (offset + limit) if (offset + limit) < total else offset %}
     <a role="button" class="secondary" href="/ui/jobs?status={{ status }}&offset={{ prev }}&limit={{ limit }}">Prev</a>
     <a role="button" class="secondary" href="/ui/jobs?status={{ status }}&offset={{ next }}&limit={{ limit }}">Next</a>
-    <span class="mono">{{ offset + 1 if total else 0 }}-{{ (offset + limit) if (offset + limit) < total else total }} / {{ total }}</span>
+    {% set start = offset + 1 if total else 0 %}
+    {% set end = (offset + limit) if (offset + limit) < total else total %}
+    <span class="mono">{{ start|fmt_number }}-{{ end|fmt_number }} / {{ total|fmt_number }}</span>
   </div>
 </section>
 {% endblock %}

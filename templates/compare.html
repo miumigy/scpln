@@ -69,7 +69,9 @@
       <tr>
         <td class="mono truncate" title="{{ r.run_id }}">{{ r.run_id }}</td>
         {% for k in keys %}
-        <td>{{ "%.4f"|format(r[k] or 0) }}</td>
+        {% set val = r[k] if r[k] is not none else 0 %}
+        {% set display = val|fmt_metric(k) %}
+        <td>{{ display if display != '' else val }}</td>
         {% endfor %}
       </tr>
       {% endfor %}
@@ -79,7 +81,7 @@
 
   {% if diffs %}
   <div class="section-header gap-top-md">
-    <h3>Diffs (base = {{ diffs[0].base }}{% if threshold is not none %}, threshold = {{ '%.2f'|format(threshold) }}%{% endif %})</h3>
+    <h3>Diffs (base = {{ diffs[0].base }}{% if threshold is not none %}, threshold = {{ threshold|fmt_number }}%{% endif %})</h3>
   </div>
   <div class="table-wrapper">
   <table>
@@ -98,7 +100,7 @@
           {% set pct = v.pct %}
           {% set hit = (threshold is not none) and (pct is not none) and ((pct >= threshold) or (pct <= -threshold)) %}
           <td {% if hit %}style="background: #fff3cd;"{% endif %}>
-            {{ "%.4f"|format(v.abs or 0) }} / {% if pct is not none %}{{ "%.2f"|format(pct) }}%{% else %}-{% endif %}
+            {{ (v.abs or 0)|fmt_number }} / {% if pct is not none %}{{ pct|fmt_number }}%{% else %}-{% endif %}
           </td>
         {% endfor %}
       </tr>

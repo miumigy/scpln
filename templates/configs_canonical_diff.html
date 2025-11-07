@@ -69,7 +69,7 @@
   </div>
   {% if diff.meta.field_changes %}
     <details open class="gap-top-sm">
-      <summary>Changed fields ({{ diff.meta.field_changes | length }})</summary>
+      <summary>Changed fields ({{ diff.meta.field_changes | length | fmt_number }})</summary>
       <ul>
         {% for key, payload in diff.meta.field_changes.items() %}
           <li><strong>{{ key }}</strong>: {{ payload.base }} → {{ payload.compare }}</li>
@@ -82,7 +82,9 @@
   {% if diff.meta.attribute_changes.added or diff.meta.attribute_changes.removed or diff.meta.attribute_changes.changed %}
     <details class="gap-top-sm">
       <summary>Attribute differences</summary>
-      <p>Added: {{ diff.meta.attribute_changes.added }}, Removed: {{ diff.meta.attribute_changes.removed }}</p>
+      {% set added_attrs = diff.meta.attribute_changes.added %}
+      {% set removed_attrs = diff.meta.attribute_changes.removed %}
+      <p>Added ({{ added_attrs|length|fmt_number }}): {{ added_attrs }}<br>Removed ({{ removed_attrs|length|fmt_number }}): {{ removed_attrs }}</p>
       {% if diff.meta.attribute_changes.changed %}
         <ul>
           {% for key in diff.meta.attribute_changes.changed %}
@@ -112,11 +114,11 @@
         {% for key, entity in diff.entities.items() %}
         <tr>
           <td>{{ key }}</td>
-          <td class="mono">{{ entity.base_count }}</td>
-          <td class="mono">{{ entity.compare_count }}</td>
-          <td class="mono">{{ entity.added | length }}</td>
-          <td class="mono">{{ entity.removed | length }}</td>
-          <td class="mono">{{ entity.changed | length }}</td>
+          <td class="mono">{{ entity.base_count|fmt_number }}</td>
+          <td class="mono">{{ entity.compare_count|fmt_number }}</td>
+          <td class="mono">{{ entity.added | length | fmt_number }}</td>
+          <td class="mono">{{ entity.removed | length | fmt_number }}</td>
+          <td class="mono">{{ entity.changed | length | fmt_number }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -127,13 +129,13 @@
     <details class="gap-top-sm">
       <summary>{{ key }} changes</summary>
       {% if entity.added %}
-        <p>Added ({{ entity.added | length }}): <span class="mono">{{ entity.added[:20] }}</span>{% if entity.added|length > 20 %} ...{% endif %}</p>
+        <p>Added ({{ entity.added | length | fmt_number }}): <span class="mono">{{ entity.added[:20] }}</span>{% if entity.added|length > 20 %} ...{% endif %}</p>
       {% endif %}
       {% if entity.removed %}
-        <p>Removed ({{ entity.removed | length }}): <span class="mono">{{ entity.removed[:20] }}</span>{% if entity.removed|length > 20 %} ...{% endif %}</p>
+        <p>Removed ({{ entity.removed | length | fmt_number }}): <span class="mono">{{ entity.removed[:20] }}</span>{% if entity.removed|length > 20 %} ...{% endif %}</p>
       {% endif %}
       {% if entity.changed %}
-        <p>Changed ({{ entity.changed | length }}): <span class="mono">{{ entity.changed[:20] }}</span>{% if entity.changed|length > 20 %} ...{% endif %}</p>
+        <p>Changed ({{ entity.changed | length | fmt_number }}): <span class="mono">{{ entity.changed[:20] }}</span>{% if entity.changed|length > 20 %} ...{% endif %}</p>
       {% endif %}
     </details>
     {% endif %}

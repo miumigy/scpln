@@ -7,6 +7,7 @@ from pathlib import Path
 import csv
 import io
 from app import db as _db
+from app.template_filters import register_format_filters
 
 
 def _get_registry():
@@ -42,6 +43,7 @@ def _get_rec(run_id: str):
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+register_format_filters(templates)
 
 
 @app.post("/ui/compare", response_class=HTMLResponse)

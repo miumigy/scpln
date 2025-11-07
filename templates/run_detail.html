@@ -165,7 +165,8 @@
     <table>
       <tbody>
         {% for k, v in plan_kpi_summary.items() %}
-        <tr><th class="mono">{{ k }}</th><td>{{ "%.3f"|format(v) if v is not none else '' }}</td></tr>
+        {% set formatted = v|fmt_metric(k) %}
+        <tr><th class="mono">{{ k }}</th><td>{{ formatted if formatted != '' else (v if v is not none else '') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -181,7 +182,8 @@
       <tbody>
         {% for k, v in summary.items() %}
         {% if k != '_plan_version_id' %}
-        <tr><th class="mono">{{ k }}</th><td>{{ v }}</td></tr>
+        {% set fmt_val = v|fmt_metric(k) %}
+        <tr><th class="mono">{{ k }}</th><td>{{ fmt_val if fmt_val != '' else v }}</td></tr>
         {% endif %}
         {% endfor %}
       </tbody>
@@ -204,9 +206,9 @@
   <section>
     <h3>Artifacts</h3>
     <ul>
-      <li>results: {{ counts.results_len }}</li>
-      <li>daily_profit_loss: {{ counts.pl_len }}</li>
-      <li>cost_trace: {{ counts.trace_len }}</li>
+      <li>results: {{ counts.results_len|fmt_number }}</li>
+      <li>daily_profit_loss: {{ counts.pl_len|fmt_number }}</li>
+      <li>cost_trace: {{ counts.trace_len|fmt_number }}</li>
       <li class="run-detail__csv-links">
         <span class="mono">CSV:</span>
         <a role="button" class="secondary download-csv" href="#" data-url="/runs/{{ run_id }}/results.csv">results.csv</a>
@@ -224,7 +226,7 @@
     <div class="artifact-preview run-detail__artifact" data-artifact="results">
       <div class="run-detail__artifact-toolbar">
         <strong class="mono">results</strong>
-        <span>Rows: <span class="mono" id="artifact-count-results">{{ counts.results_len }}</span></span>
+        <span>Rows: <span class="mono" id="artifact-count-results">{{ counts.results_len|fmt_number }}</span></span>
         <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="results">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="results" hidden>Show more</button>
@@ -240,7 +242,7 @@
     <div class="artifact-preview run-detail__artifact" data-artifact="daily_profit_loss">
       <div class="run-detail__artifact-toolbar">
         <strong class="mono">daily_profit_loss</strong>
-        <span>Rows: <span class="mono" id="artifact-count-daily_profit_loss">{{ counts.pl_len }}</span></span>
+        <span>Rows: <span class="mono" id="artifact-count-daily_profit_loss">{{ counts.pl_len|fmt_number }}</span></span>
         <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="daily_profit_loss">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="daily_profit_loss" hidden>Show more</button>
@@ -256,7 +258,7 @@
     <div class="artifact-preview run-detail__artifact" data-artifact="cost_trace">
       <div class="run-detail__artifact-toolbar">
         <strong class="mono">cost_trace</strong>
-        <span>Rows: <span class="mono" id="artifact-count-cost_trace">{{ counts.trace_len }}</span></span>
+        <span>Rows: <span class="mono" id="artifact-count-cost_trace">{{ counts.trace_len|fmt_number }}</span></span>
         <div class="run-detail__artifact-actions">
           <button type="button" class="secondary artifact-load" data-action="artifact-load" data-artifact="cost_trace">Load table</button>
           <button type="button" class="secondary artifact-more" data-action="artifact-more" data-artifact="cost_trace" hidden>Show more</button>

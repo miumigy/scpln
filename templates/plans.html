@@ -180,6 +180,9 @@
         <tbody>
           {% for p in plans %}
           {% set last_job = p.jobs['last'] if p.jobs and 'last' in p.jobs else None %}
+          {% set series_rows = p.summary.series_rows if p.summary and p.summary.series_rows is not none else None %}
+          {% set fill_rate = p.summary.kpi.fill_rate if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else None %}
+          {% set backlog_days = p.summary.kpi.backlog_days if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else None %}
           <tr>
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
             <td class="mono">
@@ -199,9 +202,9 @@
               {% else %}-{% endif %}
             </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
-            <td class="mono">{{ p.summary.series_rows if p.summary and p.summary.series_rows is not none else '' }}</td>
-            <td class="mono">{{ "%.2f"|format(p.summary.kpi.fill_rate * 100) if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else '' }}%</td>
-            <td class="mono">{{ "%.2f"|format(p.summary.kpi.backlog_days) if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else '' }}</td>
+            <td class="mono">{{ series_rows|fmt_number }}</td>
+            <td class="mono">{{ fill_rate|fmt_percent }}</td>
+            <td class="mono">{{ backlog_days|fmt_number }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
             <td class="mono">{{ last_job.status if last_job else '' }}</td>
             <td>
@@ -216,7 +219,7 @@
   </div>
   {% if pagination and pagination.total is defined and pagination.limit is defined and pagination.total > pagination.limit %}
   <div class="pagination-footer">
-    <small>Showing {{ pagination.count }} of {{ pagination.total }} plans</small>
+    <small>Showing {{ pagination.count|fmt_number }} of {{ pagination.total|fmt_number }} plans</small>
     <div class="pagination-nav">
       {% if pagination.offset > 0 %}
         {% set prev_offset = pagination.offset - pagination.limit %}

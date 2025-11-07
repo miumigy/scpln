@@ -42,9 +42,35 @@
 
         // --- Function Definitions ---
 
-        function formatNumber(num) {
-            if (num === undefined || num === null) return '-';
-            return Math.round(num).toLocaleString();
+        const formatLib = window.ScpFormat;
+
+        function fallbackNumber(value, decimals = 2, stripTrailing = true) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return '-';
+            return num.toLocaleString('en-US', {
+                minimumFractionDigits: stripTrailing ? 0 : decimals,
+                maximumFractionDigits: decimals,
+            });
+        }
+
+        function formatNumber(num, decimals = 2, { stripTrailing = true } = {}) {
+            if (num === undefined || num === null || num === '') return '-';
+            if (formatLib && typeof formatLib.formatNumber === 'function') {
+                const out = formatLib.formatNumber(num, decimals);
+                return out === '' ? '-' : out;
+            }
+            return fallbackNumber(num, decimals, stripTrailing);
+        }
+
+        function formatPercent(value, decimals = 2) {
+            if (value === undefined || value === null || value === '') return '-';
+            if (formatLib && typeof formatLib.formatPercent === 'function') {
+                const out = formatLib.formatPercent(value, decimals);
+                return out === '' ? '-' : out;
+            }
+            const num = Number(value);
+            if (!Number.isFinite(num)) return '-';
+            return fallbackNumber(num * 100, decimals, false) + '%';
         }
 
         function openTab(evt, tabName) {
@@ -511,10 +537,10 @@
             const summaryKpisTitle = document.getElementById('summary-kpis-title');
             if (summaryKpisTitle) summaryKpisTitle.innerText = 'Summary KPIs';
             html += '<table><tbody>';
-            html += `<tr><th class="kpi-header">Planning Days</th><td>${s.planning_days}</td><th class="kpi-header">Fill Rate</th><td>${(s.fill_rate*100).toFixed(1)}%</td></tr>`;
+            html += `<tr><th class="kpi-header">Planning Days</th><td>${formatNumber(s.planning_days, 2, { stripTrailing: true })}</td><th class="kpi-header">Fill Rate</th><td>${formatPercent(s.fill_rate)}</td></tr>`;
             html += `<tr><th class="kpi-header">Demand (Stores)</th><td>${formatNumber(s.store_demand_total)}</td><th class="kpi-header">Sales (Stores)</th><td>${formatNumber(s.store_sales_total)}</td></tr>`;
             html += `<tr><th class="kpi-header">Total Customer Shortage</th><td>${formatNumber(s.customer_shortage_total)}</td><th class="kpi-header">Total Network Shortage</th><td>${formatNumber(s.network_shortage_total)}</td></tr>`;
-            html += `<tr><th class="kpi-header">Backorder Peak</th><td>${formatNumber(s.backorder_peak)} (Day ${s.backorder_peak_day})</td><th class="kpi-header">Total Revenue</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
+            html += `<tr><th class="kpi-header">Backorder Peak</th><td>${formatNumber(s.backorder_peak)} (Day ${formatNumber(s.backorder_peak_day, 0)})</td><th class="kpi-header">Total Revenue</th><td>${formatNumber(s.revenue_total)}</td></tr>`;
             html += `<tr><th class="kpi-header">Total Cost</th><td>${formatNumber(s.cost_total)}</td><th class="kpi-header">Total Profit</th><td>${formatNumber(s.profit_total)}</td></tr>`;
             if (typeof s.penalty_total !== 'undefined') {
                 html += `<tr><th class="kpi-header">Total Stockout Penalty</th><td>${formatNumber(s.penalty_stockout_total||0)}</td><th class="kpi-header">Total Backorder Penalty</th><td>${formatNumber(s.penalty_backorder_total||0)}</td></tr>`;

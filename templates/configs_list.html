@@ -70,9 +70,9 @@
           <td class="mono">{{ row.meta.updated_at_str or '-' }}</td>
           <td>
             <small class="mono">
-              items={{ row.counts['items'] }} / nodes={{ row.counts['nodes'] }} /
-              arcs={{ row.counts['arcs'] }} / bom={{ row.counts['bom'] }} /
-              demands={{ row.counts['demands'] }} / capacities={{ row.counts['capacities'] }}
+              items={{ row.counts['items']|fmt_number }} / nodes={{ row.counts['nodes']|fmt_number }} /
+              arcs={{ row.counts['arcs']|fmt_number }} / bom={{ row.counts['bom']|fmt_number }} /
+              demands={{ row.counts['demands']|fmt_number }} / capacities={{ row.counts['capacities']|fmt_number }}
             </small>
           </td>
           <td>

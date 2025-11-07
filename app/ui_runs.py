@@ -6,6 +6,7 @@ from fastapi import Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app import db
+from app.template_filters import register_format_filters
 from app.utils import ms_to_jst_str
 from app.metrics import (
     PLAN_DB_WRITE_LATENCY,
@@ -35,6 +36,7 @@ def _get_registry():
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+register_format_filters(templates)
 
 
 @app.get("/ui/runs", response_class=HTMLResponse)

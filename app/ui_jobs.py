@@ -5,9 +5,11 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from app import db
 import json
+from app.template_filters import register_format_filters
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
+register_format_filters(templates)
 
 
 @app.get("/ui/jobs", response_class=HTMLResponse)
