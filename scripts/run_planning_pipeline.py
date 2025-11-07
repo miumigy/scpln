@@ -153,6 +153,8 @@ def main() -> None:
         str(input_dir),
         "-o",
         str(agg_json),
+        "--round",
+        args.round_mode,
     ]
     _extend_storage(cmd, args.storage, args.version_id)
     steps.append(("aggregate", cmd))
@@ -204,6 +206,8 @@ def main() -> None:
         str(input_dir),
         "-o",
         str(plan_final_json),
+        "--round",
+        args.round_mode,
         *calendar_args,
     ]
     if args.cutover_date:
@@ -408,6 +412,8 @@ def main() -> None:
                 str(input_dir),
                 "-o",
                 str(plan_final_adj_json),
+                "--round",
+                args.round_mode,
                 *calendar_args,
             ]
             if args.cutover_date:

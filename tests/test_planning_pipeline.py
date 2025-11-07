@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import subprocess
@@ -41,6 +42,11 @@ def test_aggregate_supply_backlog(tmp_path: Path):
     data = json.loads(agg.read_text(encoding="utf-8"))
     rows = data.get("rows", [])
     assert rows, "aggregate rows should not be empty"
+
+    for row in rows:
+        for key in ("demand", "supply", "backlog", "capacity_total"):
+            val = float(row[key])
+            assert abs(val - round(val)) < 1e-9, f"{key} should be integer"
 
     # 期間2025-01の総供給は min(需要合計, 能力) になる
     dem = sum(r["demand"] for r in rows if r["period"] == "2025-01")
@@ -107,6 +113,45 @@ def test_allocate_mass_balance(tmp_path: Path):
         assert abs(v - float(a["demand"])) < 1e-6
         assert abs(agg_sup[key] - float(a["supply"])) < 1e-6
         assert abs(agg_bac[key] - float(a["backlog"])) < 1e-6
+
+
+def test_allocate_round_int_outputs_integer(tmp_path: Path):
+    out = tmp_path
+    agg = out / "aggregate.json"
+    sku = out / "sku_week.json"
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "plan_aggregate.py"),
+            "-i",
+            str(SAMPLES),
+            "-o",
+            str(agg),
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "allocate.py"),
+            "-i",
+            str(agg),
+            "-I",
+            str(SAMPLES),
+            "-o",
+            str(sku),
+            "--weeks",
+            "4",
+            "--round",
+            "int",
+        ]
+    )
+    sdata = json.loads(sku.read_text(encoding="utf-8"))
+    rows = sdata.get("rows", [])
+    assert rows, "allocate rows should not be empty"
+    for r in rows:
+        for key in ("demand", "supply", "backlog"):
+            val = float(r[key])
+            assert abs(val - round(val)) < 1e-9, "det rows must be integer when round=int"
 
 
 def test_mrp_basic_properties(tmp_path: Path):
@@ -251,6 +296,23 @@ def test_reconcile_capacity_respected_and_report(tmp_path: Path):
         slack_in = float(r.get("carried_slack_in", 0.0))
         # 調整後負荷は有効能力（cap+slack_in）以内
         assert adj <= cap + slack_in + 1e-6
+
+    # FGの調整後解放/受入は整数化されている
+    fg_skus = set()
+    mix_path = SAMPLES / "mix_share.csv"
+    with open(mix_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            sku = row.get("sku")
+            if sku:
+                fg_skus.add(str(sku))
+    fg_rows = [r for r in p.get("rows", []) if str(r.get("item")) in fg_skus]
+    assert fg_rows, "FG rows should exist for rounding check"
+    for row in fg_rows:
+        rel = float(row.get("planned_order_release_adj", 0) or 0)
+        rec = float(row.get("planned_order_receipt_adj", 0) or 0)
+        assert abs(rel - round(rel)) < 1e-9
+        assert abs(rec - round(rec)) < 1e-9
 
     # KPI レポート生成と基本検証
     run(

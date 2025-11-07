@@ -27,6 +27,7 @@ from scripts.calendar_utils import (
     load_planning_calendar,
     PlanningCalendarLookup,
 )
+from scripts.rounding_utils import round_quantity, distribute_int
 
 
 def _read_csv(path: str) -> List[Dict[str, Any]]:
@@ -115,6 +116,33 @@ def _absorb_delta(original_total: float, parts: List[float]) -> List[float]:
     return parts
 
 
+def _week_ratio_weights(entries: List[Any]) -> List[float]:
+    if not entries:
+        return []
+    ratios = [max(0.0, getattr(entry, "ratio", 0.0)) for entry in entries]
+    total = sum(ratios)
+    if total <= 0:
+        return [1.0 / len(entries)] * len(entries)
+    return [r / total for r in ratios]
+
+
+def _distribute_by_ratios(
+    total: int,
+    ratios: List[float],
+    *,
+    caps: Optional[List[int]] = None,
+) -> List[int]:
+    n = len(ratios)
+    if n == 0:
+        return []
+    total_int = max(0, int(total))
+    if total_int == 0:
+        return [0] * n
+    floats = [total_int * r for r in ratios]
+    caps_int = caps[:] if caps is not None else None
+    return distribute_int(floats, total_int, caps=caps_int)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="按分（family→SKU、月→週）")
     ap.add_argument("-i", "--input", required=True, help="plan_aggregateの出力JSON")
@@ -180,21 +208,64 @@ def main() -> None:
             pairs = [(fam, 1.0)]  # ミックス未定義の場合はfamily全量を仮SKUへ
 
         week_entries = get_week_distribution(per, lookup, weeks)
-        ratios = [max(0.0, entry.ratio) for entry in week_entries]
-        total_ratio = sum(ratios)
-        if total_ratio <= 0 and week_entries:
-            ratios = [1.0 / len(week_entries)] * len(week_entries)
-        elif total_ratio > 0:
-            ratios = [ratio / total_ratio for ratio in ratios]
+        week_ratios = _week_ratio_weights(week_entries)
+
+        if args.round_mode == "int":
+            total_d = int(round_quantity(demand, mode="int"))
+            total_s = int(round_quantity(supply, mode="int"))
+            shares = [max(0.0, share) for _, share in pairs]
+            share_sum = sum(shares)
+            if share_sum <= 0:
+                shares = [1.0] * len(pairs)
+                share_sum = len(pairs)
+            norm_shares = [s / share_sum for s in shares]
+            d_sku_ints = distribute_int(
+                [total_d * s for s in norm_shares],
+                total_d,
+            )
+            s_sku_ints = distribute_int(
+                [total_s * s for s in norm_shares],
+                total_s,
+                caps=d_sku_ints,
+            )
+            b_sku_ints = [
+                max(0, d_i - s_i) for d_i, s_i in zip(d_sku_ints, s_sku_ints)
+            ]
+            for (sku, _share), d_sku_int, s_sku_int, b_sku_int in zip(
+                pairs, d_sku_ints, s_sku_ints, b_sku_ints
+            ):
+                demand_parts = _distribute_by_ratios(d_sku_int, week_ratios)
+                supply_parts = _distribute_by_ratios(
+                    s_sku_int,
+                    week_ratios,
+                    caps=demand_parts,
+                )
+                backlog_parts = [
+                    demand_parts[i] - supply_parts[i]
+                    for i in range(len(week_entries))
+                ]
+                for i, entry in enumerate(week_entries):
+                    out_rows.append(
+                        {
+                            "family": fam,
+                            "period": per,
+                            "sku": sku,
+                            "week": entry.week_code,
+                            "demand": demand_parts[i],
+                            "supply": supply_parts[i],
+                            "backlog": backlog_parts[i],
+                        }
+                    )
+            continue
 
         for sku, share in pairs:
             d_sku = demand * share
             s_sku = supply * share
             b_sku = backlog * share
             # カレンダーの重みで週割
-            d_parts = [d_sku * ratios[i] for i in range(len(week_entries))]
-            s_parts = [s_sku * ratios[i] for i in range(len(week_entries))]
-            b_parts = [b_sku * ratios[i] for i in range(len(week_entries))]
+            d_parts = [d_sku * week_ratios[i] for i in range(len(week_entries))]
+            s_parts = [s_sku * week_ratios[i] for i in range(len(week_entries))]
+            b_parts = [b_sku * week_ratios[i] for i in range(len(week_entries))]
 
             # 丸め → 誤差吸収
             d_parts = _round_series(d_parts, mode=args.round_mode)

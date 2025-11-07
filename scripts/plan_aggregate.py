@@ -7,7 +7,7 @@ PR2の範囲: periodごとの総需要に対し、能力が不足する場合は
   - 出力: rows: [{family, period, demand, supply, backlog, capacity_total}]
 
 使い方:
-  python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json
+  python scripts/plan_aggregate.py -i samples/planning -o out/aggregate.json --round int
   python scripts/plan_aggregate.py --demand samples/planning/demand_family.csv \
       --capacity samples/planning/capacity.csv --mix samples/planning/mix_share.csv -o out/aggregate.json
 """
@@ -25,6 +25,7 @@ from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_aggregate_payload,
 )
+from scripts.rounding_utils import round_quantity, distribute_int
 
 # 注意: PR1 のスタブは外部依存を避けるため、pydantic等の導入は行わない
 # 将来PRで planning.schemas を参照し厳格化する
@@ -41,6 +42,57 @@ def _coerce_float(row: Dict[str, Any], key: str, default: float = 0.0) -> float:
         return float(v)
     except Exception:
         return default
+
+
+def _finalize_period_rows(
+    rows_by_period: Dict[str, List[Dict[str, Any]]],
+    cap_by_period: Dict[str, float],
+    *,
+    round_mode: str,
+) -> List[Dict[str, Any]]:
+    finalized: List[Dict[str, Any]] = []
+    for per in sorted(rows_by_period.keys()):
+        period_rows = rows_by_period[per]
+        cap_val = round_quantity(cap_by_period.get(per, 0.0), mode=round_mode)
+        if round_mode == "int":
+            demand_ints = [
+                int(round_quantity(row["demand"], mode="int")) for row in period_rows
+            ]
+            supply_vals = [max(0.0, row["supply"]) for row in period_rows]
+            target = min(int(cap_val), sum(demand_ints))
+            target = max(0, target)
+            supply_ints = distribute_int(supply_vals, target, demand_ints)
+            for row, dem_int, sup_int in zip(period_rows, demand_ints, supply_ints):
+                backlog_int = max(0, dem_int - sup_int)
+                finalized.append(
+                    {
+                        "family": row["family"],
+                        "period": row["period"],
+                        "demand": dem_int,
+                        "supply": sup_int,
+                        "backlog": backlog_int,
+                        "capacity_total": cap_val,
+                    }
+                )
+        else:
+            for row in period_rows:
+                demand_val = round_quantity(row["demand"], mode=round_mode)
+                supply_val = round_quantity(row["supply"], mode=round_mode)
+                backlog_val = round_quantity(
+                    max(0.0, float(demand_val) - float(supply_val)),
+                    mode=round_mode,
+                )
+                finalized.append(
+                    {
+                        "family": row["family"],
+                        "period": row["period"],
+                        "demand": demand_val,
+                        "supply": supply_val,
+                        "backlog": backlog_val,
+                        "capacity_total": cap_val,
+                    }
+                )
+    return finalized
 
 
 def load_inputs(
@@ -92,7 +144,10 @@ def load_inputs(
 
 
 def _aggregate_plan(
-    demand_rows: List[Dict[str, Any]], capacity_rows: List[Dict[str, Any]]
+    demand_rows: List[Dict[str, Any]],
+    capacity_rows: List[Dict[str, Any]],
+    *,
+    round_mode: str = "int",
 ) -> List[Dict[str, Any]]:
     # period別の総能力
     cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(
@@ -119,7 +174,9 @@ def _aggregate_plan(
         periods.add(per)
 
     # 供給（不足時は比例配分）
-    rows: List[Dict[str, Any]] = []
+    rows_by_period: DefaultDict[str, List[Dict[str, Any]]] = __import__(
+        "collections"
+    ).defaultdict(list)
     for fam, per in sorted(dem_by_fp.keys()):
         demand = dem_by_fp[(fam, per)]
         total_dem = dem_sum_by_p[per]
@@ -132,17 +189,17 @@ def _aggregate_plan(
             ratio = total_cap / total_dem if total_dem > 0 else 0.0
             supply = demand * ratio
         backlog = max(0.0, demand - supply)
-        rows.append(
+        rows_by_period[per].append(
             {
                 "family": fam,
                 "period": per,
-                "demand": round(demand, 6),
-                "supply": round(supply, 6),
-                "backlog": round(backlog, 6),
-                "capacity_total": round(total_cap, 6),
+                "demand": demand,
+                "supply": supply,
+                "backlog": backlog,
+                "capacity_total": total_cap,
             }
         )
-    return rows
+    return _finalize_period_rows(rows_by_period, cap_by_period, round_mode=round_mode)
 
 
 def main() -> None:
@@ -163,6 +220,13 @@ def main() -> None:
         "-o", "--output", dest="output", required=True, help="出力JSONパス（雛形）"
     )
     ap.add_argument(
+        "--round",
+        dest="round_mode",
+        default="int",
+        choices=["none", "int", "dec1", "dec2"],
+        help="出力数量の丸め方法（既定:int）",
+    )
+    ap.add_argument(
         "--storage",
         dest="storage",
         choices=["db", "files", "both"],
@@ -179,7 +243,13 @@ def main() -> None:
 
     ds = load_inputs(args.input_dir, args.demand, args.capacity, args.mix)
 
-    rows = _aggregate_plan(ds["demand_rows"], ds["capacity_rows"]) if ds else []
+    rows = (
+        _aggregate_plan(
+            ds["demand_rows"], ds["capacity_rows"], round_mode=args.round_mode
+        )
+        if ds
+        else []
+    )
 
     storage_config, warning = resolve_storage_config(
         args.storage, args.version_id, cli_label="plan_aggregate"

@@ -512,6 +512,8 @@ class JobManager:
                         input_dir,
                         "-o",
                         str(out_dir / "aggregate.json"),
+                        "--round",
+                        round_mode,
                     ]
                 )
             )
@@ -559,6 +561,8 @@ class JobManager:
                     input_dir,
                     "-o",
                     str(out_dir / "plan_final.json"),
+                    "--round",
+                    round_mode,
                     "--weeks",
                     weeks,
                 ]

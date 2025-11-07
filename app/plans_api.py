@@ -627,6 +627,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 input_dir,
                 "-o",
                 str(out_dir / "aggregate.json"),
+                "--round",
+                round_mode,
                 "--version-id",
                 version_id,
             ]
@@ -703,6 +705,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if blend_weight_mode
                         else []
                     ),
+                    "--round",
+                    round_mode,
                     "--version-id",
                     version_id,
                     *calendar_args,
@@ -875,6 +879,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                             if blend_weight_mode
                             else []
                         ),
+                        "--round",
+                        round_mode,
                         "--version-id",
                         version_id,
                         *calendar_args,
@@ -1669,6 +1675,7 @@ def post_plan_psi_reconcile(
     tol_abs = body.get("tol_abs")
     tol_rel = body.get("tol_rel")
     lt_unit = body.get("lt_unit") or "day"
+    round_mode = body.get("round_mode") or "int"
     apply_adjusted = bool(body.get("apply_adjusted") or False)
     recalc_mrp = bool(body.get("recalc_mrp") or False)
     if apply_adjusted and anchor_policy and cutover_date:
@@ -1794,6 +1801,8 @@ def post_plan_psi_reconcile(
                         else []
                     ),
                     *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    "--round",
+                    round_mode,
                     *calendar_args_adj,
                 ]
             )
@@ -2278,6 +2287,7 @@ def post_plan_reconcile(
     calendar_mode = body.get("calendar_mode")
     carryover = body.get("carryover")
     carryover_split = body.get("carryover_split")
+    round_mode = body.get("round_mode") or "int"
     config_version_id = ver.get("config_version_id")
     if config_version_id is None:
         return JSONResponse(
@@ -2441,6 +2451,8 @@ def post_plan_reconcile(
                         else []
                     ),
                     *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    "--round",
+                    round_mode,
                 ]
             )
             db.upsert_plan_artifact(

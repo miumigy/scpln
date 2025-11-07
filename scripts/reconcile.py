@@ -9,7 +9,7 @@
 - 出力: mrp行に `planned_order_release_adj` を付与。週別サマリ（load/capacity/adjusted/spill）を付加
 
 使い方:
-  python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4
+  python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4 --round int
 """
 from __future__ import annotations
 
@@ -82,6 +82,25 @@ def _resolve_calendar_lookup(
     if spec is None:
         return None
     return build_calendar_lookup(spec)
+
+
+def _round_quantity(value: Any, *, mode: str = "int") -> float | int:
+    """数量の丸め。modeに応じて整数/小数桁を揃える。"""
+    try:
+        v = float(value)
+    except Exception:
+        v = 0.0
+    if mode == "none":
+        return round(v, 6)
+    if mode == "int":
+        return int(round(v))
+    if mode.startswith("dec"):
+        try:
+            d = int(mode[3:])
+        except Exception:
+            d = 2
+        return round(v, max(0, d))
+    return round(v, 6)
 
 
 def _weeks_from(
@@ -262,6 +281,13 @@ def main() -> None:
     ap.add_argument("--mix", dest="mix", default=None, help="mix_share.csv（FG判定）")
     ap.add_argument(
         "--weeks", dest="weeks_per_period", type=int, default=4, help="1期間の週数"
+    )
+    ap.add_argument(
+        "--round",
+        dest="round_mode",
+        default="int",
+        choices=["none", "int", "dec1", "dec2"],
+        help="FG解放調整後の丸めモード（既定:int）",
     )
     ap.add_argument(
         "--calendar",
@@ -592,30 +618,55 @@ def main() -> None:
     receipt_adj: DefaultDict[Tuple[str, str], float] = __import__(
         "collections"
     ).defaultdict(float)
+    fg_adj_totals: DefaultDict[str, float] = __import__("collections").defaultdict(float)
     for r in mrp.get("rows", []):
         it = str(r.get("item"))
         w = str(r.get("week"))
         por = float(r.get("planned_order_release", 0) or 0)
+        r2 = dict(r)
         if it in fg_skus:
             base = load_by_week.get(w, 0.0)
             target = adj_by_week.get(w, base)
             factor = (target / base) if base > 0 else 1.0
-            adj_rel = por * factor
-            # 受入週（w + lt_weeks）へシフト
+            adj_rel_raw = por * factor
+            adj_rel = _round_quantity(adj_rel_raw, mode=args.round_mode)
+            fg_adj_totals[w] += float(adj_rel)
             try:
                 lt_w = int(r.get("lt_weeks", 0) or 0)
             except Exception:
                 lt_w = 0
             idx = week_index.get(w, 0)
             rec_idx = min(len(weeks) - 1, idx + max(0, lt_w))
-            receipt_adj[(it, weeks[rec_idx])] += adj_rel
+            receipt_adj[(it, weeks[rec_idx])] += float(adj_rel)
+            r2["planned_order_release_adj"] = adj_rel
+            r2["planned_order_receipt_adj"] = _round_quantity(
+                receipt_adj.get((it, w), 0.0),
+                mode=args.round_mode,
+            )
         else:
-            adj_rel = por
-        r2 = dict(r)
-        r2["planned_order_release_adj"] = round(adj_rel, 6)
-        # 受入の調整値（FGのみ）
-        r2["planned_order_receipt_adj"] = round(receipt_adj.get((it, w), 0.0), 6)
+            adj_rel = round(por, 6)
+            r2["planned_order_release_adj"] = adj_rel
+            r2["planned_order_receipt_adj"] = round(
+                receipt_adj.get((it, w), 0.0), 6
+            )
         rows_out.append(r2)
+
+    rounded_original: Dict[str, float | int] = {}
+    rounded_adjusted: Dict[str, float | int] = {}
+    for w in weeks:
+        rounded_original[w] = _round_quantity(
+            load_by_week.get(w, 0.0), mode=args.round_mode
+        )
+        adj_val = fg_adj_totals.get(w)
+        if w not in fg_adj_totals:
+            adj_val = adj_by_week.get(w, 0.0)
+        rounded_adjusted[w] = _round_quantity(adj_val, mode=args.round_mode)
+    for row in week_report:
+        wk = str(row.get("week", ""))
+        if wk in rounded_original:
+            row["original_load"] = rounded_original[wk]
+        if wk in rounded_adjusted:
+            row["adjusted_load"] = rounded_adjusted[wk]
 
     payload = {
         "schema_version": mrp.get("schema_version", "agg-1.0"),
