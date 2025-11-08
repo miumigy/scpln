@@ -1,55 +1,57 @@
-# サプライチェーン計画MVP
+# Supply Chain Planning MVP
 
 [![CI](https://github.com/miumigy/scpln/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/miumigy/scpln/actions/workflows/ci.yml)
 
-店舗・倉庫・工場・資材をノード/リンクでモデル化し、日次PSIシミュレーションと集約（月次/ファミリ）↔詳細（週次/SKU）の計画整合を同じプラットフォームで扱える統合環境です。Planning Hub UI、計画パイプライン、REST API、RunRegistry（履歴・比較）を組み合わせ、需要計画の検証から供給調整・KPI評価までを一貫して実施できます。
+This repository provides an integrated environment that models stores, warehouses, factories, and materials as nodes and links. It runs daily PSI simulations and keeps aggregated (monthly/family) and detailed (weekly/SKU) plans reconciled on the same platform. By combining the Planning Hub UI, planning pipelines, REST APIs, and the RunRegistry for history and comparison, you can execute the full loop from demand validation to supply adjustment and KPI review.
+
+👉 Looking for the Japanese version? Read [README_JA.md](README_JA.md).
 
 ---
 
-## ハイライト
+## Highlights
 
-- **多粒度整合**: 集約→詳細への按分と、詳細→集約へのロールアップを同一バージョン上で管理。編集やロックを尊重した双方向同期を自動化。
-- **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
-- **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
-- **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
-- **自動化とAPI**: `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
+- **Multi-granularity reconciliation**: Manage top-down allocation and bottom-up rollups within the same plan version, with bidirectional sync that respects edits and locks.
+- **Planning Hub UI**: Navigate plan creation, preview, reconciliation, and execution across tabs. Diff views, KPIs, and CSV exports support rapid decision making.
+- **Canonical configuration management**: `/ui/configs` offers version browsing, diff comparison, JSON and plan artifact import, and consistency checks in a single place. See `docs/config_integration_plan.md` for the detailed roadmap.
+- **Simulation & RunRegistry**: Run daily PSI simulations that respect BOMs, capacity, and service level targets, then persist each run for comparison and reuse.
+- **Automation and APIs**: Submit jobs through `/runs`, trigger reconciliation APIs, and expose CSV exports and metrics. Everything can be orchestrated from CLI tools or CI workflows.
 
 ---
 
-## コンポーネント概要
+## Component overview
 
-### 1. Planning Hub（/ui/plans）
-- Planのバージョン管理・閲覧・ロールアップ/分配編集・ロック管理を提供。
-- PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
-- `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
+### 1. Planning Hub (`/ui/plans`)
+- Provides plan version management, browsing, rollup/allocation editing, and lock administration.
+- PSI editing performs proportional allocation with lock awareness, and tabs expose diffs, carryover, schedules, and comparisons.
+- Hands-on UI walkthroughs are available in `docs/TUTORIAL.md`.
 
-### 2. Canonical設定管理 (/ui/configs)
-- Canonical設定バージョンの閲覧・詳細確認・JSONダウンロード・差分比較を提供します。
-- 検証済みの設定のみをDBに保存し、入力ソースとしてJSONファイルやPlan成果物（`canonical_snapshot.json`）を受け付けます。
-- 差分ページでは、品目・ノード・BOMなどのエンティティごとに追加/削除/変更されたキーの一覧と件数を可視化します。
-- UI経由でインポートされた設定には、どのRun/Planと紐づくか追跡するための `ui_import` 属性が付与されます。
-- 使い始めるには、`/ui/configs` の「サンプルをインポート」ボタンを利用するか、`python3 scripts/seed_canonical.py --save-db` を実行してサンプル設定をDBに直接ロードします。
-- サーバが異なるデータベースを参照している場合（`SCPLN_DB`環境変数）、`--db-path $SCPLN_DB` を指定してサンプルをロードしてください。
+### 2. Canonical configuration management (`/ui/configs`)
+- View versions, inspect details, download JSON, and compare diffs for canonical configurations.
+- Only validated configurations are persisted to the database; inputs can be JSON files or plan artifacts such as `canonical_snapshot.json`.
+- Diff pages visualize added, removed, and changed keys for entities like items, nodes, and BOMs.
+- Configurations imported through the UI receive a `ui_import` attribute to trace which run/plan they originated from.
+- To get started, click “Import sample” in `/ui/configs` or run `python3 scripts/seed_canonical.py --save-db` to load sample data directly.
+- If the server points to a different database (via the `SCPLN_DB` environment variable), pass `--db-path $SCPLN_DB` when loading samples.
 
-Canonical設定統合の設計原則や移行の経緯は、関連ドキュメントで補完されています。
+Design principles and migration history for canonical integration are documented across the relevant papers.
 
-#### UX背景と狙い
-- 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
-- 実行前に差分とKPIインパクトを標準化されたプレビューで確認し、ドライランと本適用を安全に切り分け。
-- Run API を単一経路に統一し、履歴・比較・再実行の観測性と再現性を高める。
+#### UX motivation
+- Remove fragmented entry points and complex rerun steps by offering a single flow: edit → review diffs → execute → review results.
+- Preview diffs and KPI impact in a standardized view before execution to keep dry runs and live application safe.
+- Consolidate all execution through the Run API to improve observability and reproducibility for history, comparisons, and reruns.
 
-#### 設計原則
-- 単一入口・文脈一貫・1アクション実行を徹底し、いつでも後戻りできる状態を維持。
-- 差分プレビューを需要・在庫・サービスレベル・MOQ・キャパシティ・PLの共通フォーマットで表示。
-- シナリオ、パイプライン、ラン、変更セット、バージョンといった用語を統一し、操作とデータモデルを揃える。
+#### Design principles
+- Maintain a single entry point with consistent context and one-action execution, so users can always revert safely.
+- Show diff previews for demand, inventory, service level, MOQ, capacity, and P&L metrics in a common format.
+- Align vocabulary—scenario, pipeline, run, change set, version—between UI actions and data models.
 
-#### Plan/Run情報モデル（Planning Hub全体設計の要点）
-Planning Hub全体設計ドキュメントから、PlanとRunの関係を理解するための主要要素だけを抽出しています。
-- シナリオ: 需要・在庫・政策・制約のバージョン集合。
-- 変更セット: シナリオに対する差分（ドラフト→レビュー→適用/破棄）。
-- Plan: Config/Run/Job を束ねる中核オブジェクト。`state` は `draft → aggregated → disaggregated → scheduled → executed` を遷移し、上流を編集した際は下流成果物を再生成待ちにマーキング。
-- パイプライン: 版管理されたDAG。Planの実行は Run API を通じて `dry` と `apply` の二段階で記録。
-- Run: シナリオ版 × パイプライン版 × 条件（期間/スコープ/環境）の組み合わせ。ログ・KPI差分・成果物を監査用途で保持。
+#### Plan/Run information model (Planning Hub essentials)
+The following elements summarize the relationship between plans and runs from the broader Planning Hub design document:
+- **Scenario**: A versioned collection of demand, inventory, policy, and constraint data.
+- **Change set**: Differences applied to a scenario, progressing from draft to review to applied/discarded.
+- **Plan**: The central object that groups configs, runs, and jobs. Its `state` transitions through `draft → aggregated → disaggregated → scheduled → executed`, and upstream edits mark downstream artifacts for regeneration.
+- **Pipeline**: A versioned DAG. Plan executions are recorded through the Run API with a two-step `dry` and `apply` process.
+- **Run**: A combination of scenario version, pipeline version, and execution parameters (horizon, scope, environment). Runs keep logs, KPI deltas, and artifacts for auditability.
 
 ```mermaid
 flowchart LR
@@ -66,33 +68,32 @@ flowchart LR
   H -->|Discard| A
 ```
 
-#### 現状の対応状況
-- Plan DB化（Canonical設定DB化）と、それに対応するUI（`/ui/plans`, `/ui/configs`）の主要機能実装を完了しています。
-- これには、Planのバージョン管理、ロールアップ/分配編集、差分プレビュー、PSIシミュレーション連携（RunRegistry）が含まれます。
+#### Current coverage
+- Core functionality for plan database support (canonical configuration persistence) and the corresponding UIs (`/ui/plans`, `/ui/configs`) is complete.
+- This includes plan versioning, rollup/allocation editing, diff previews, and PSI simulation integration via the RunRegistry.
 
-#### PSIシミュレーション/Run Registry（A）とPlanning Hub統合Plan（B）の連携
-- B側のPlanning HubでPlanを編集し「計画実行」を行うと、集約→詳細→再整合パイプラインの完了後にA側のPSIシミュレーション（Run）が同じ入力でキューされ、RunRegistryに記録されます。
-- 生成された `version_id` ↔ `run_id` の対応が保証されるため、Plan詳細画面（B）とRun履歴（A）のどちらからでも同一シナリオのKPI・ログ・成果物にアクセスできます。
-- Aで得たサービスレベルや在庫・コストの実績値を、Bの差分/KPIプレビューと突き合わせて「計画（集約・詳細）→実行（PSIシミュレーション）→振り返り」のループを回せます。
-- 代表的な運用: ① Bで変更セットを作成→差分/KPIを確認 → ② 「計画実行」でRunを実行 → ③ AのRunRegistryで結果を検証 → ④ BのPlanを確定/再調整。
+#### Coordination between PSI simulation / RunRegistry (component A) and Planning Hub plans (component B)
+- When a plan is edited in the Planning Hub and “Execute plan” is triggered, the aggregate → detail → reconciliation pipeline finishes first, then queues a PSI simulation (run) on the same inputs, recording it in the RunRegistry.
+- Because every `version_id` and `run_id` pair is synchronized, KPI dashboards, logs, and artifacts are reachable from both the plan detail screen (B) and run history (A).
+- Service levels, inventory, and cost actuals from A can be contrasted against B’s diff/KPI preview to close the loop of plan (aggregate/detail) → execution (PSI simulation) → review.
+- Typical workflow: (1) create a change set in B and review diffs/KPIs → (2) execute the plan to create a run → (3) inspect the result in A’s RunRegistry → (4) finalize or adjust the plan in B.
 
+### 3. Planning pipeline (Aggregate ↔ Detail)
+- Executes the DAG `aggregate → allocate → mrp → reconcile_levels → plan_final`.
+- Algorithms, parameters, and validation flows are documented in `docs/AGG_DET_RECONCILIATION.md`.
+- `tests/test_psi_sync.py` provides regression coverage for DET↔AGG synchronization (CI job `quick-planning-tests`).
 
-### 3. 計画パイプライン（Aggregate ↔ Detail）
-- `aggregate` → `allocate` → `mrp` → `reconcile_levels` → `plan_final` をDAGとして実行。
-- `docs/AGG_DET_RECONCILIATION_JA.md` にアルゴリズム、パラメタ、検証手順を整理。
-- `tests/test_psi_sync.py` でDET⇄AGG同期を回帰テスト化（CI `quick-planning-tests`）。
-
-### 4. PSIシミュレーション & RunRegistry（Aコンポーネント）
-- `SimulationInput`（domain/models）をもとに `SupplyChainSimulator` が日次PSIとコストを算定。
-- Run結果は `data/scpln.db` の RunRegistry に保存し、`/runs` や `/ui/runs` から再参照可能。
-- Run比較API・トレースエクスポートでKPI分析を自動化。
-- Planning Hub（B）から渡されたシナリオやcutover/anchor等のPlanパラメタをRunRegistryが保持することで、A⇔B間で同じバージョンIDを軸にトレースできます。
+### 4. PSI simulation & RunRegistry (component A)
+- `SupplyChainSimulator` computes daily PSI and costs from the `SimulationInput` models in `domain/models`.
+- Run results are persisted to `data/scpln.db` and can be revisited via `/runs` or `/ui/runs`.
+- KPI analysis is automated through the run comparison API and trace exports.
+- Plan parameters such as scenario IDs, cutovers, and anchors are stored alongside runs, enabling bidirectional traceability between components A and B.
 
 ---
 
-## クイックスタート
+## Quick start
 
-### 1. 環境準備
+### 1. Prepare the environment
 
 ```bash
 python3 -m venv .venv
@@ -100,165 +101,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. サービス起動
+### 2. Start services
 
-以下のコマンドでAPIサーバーや開発用DBクライアントを起動します。
+Use the following commands to launch the API server and the developer database client:
 
 ```bash
-# APIサーバーとDBクライアントの両方を起動
+# Start both the API server and the DB client
 bash scripts/serve.sh
 
-# APIサーバーのみを起動
+# Start only the API server
 bash scripts/serve.sh api
 
-# 開発用DBクライアント (Datasette) のみを起動
+# Start only the developer DB client (Datasette)
 bash scripts/serve.sh db
 
-# 起動中のサービスをすべて停止
+# Stop all running services
 bash scripts/stop.sh
 ```
 
-- APIサーバー (Planning Hub): `http://localhost:8000`
-- DBクライアント (Datasette): `http://localhost:8001`
-
-APIサーバーを起動後、ブラウザで `http://localhost:8000` を開くと Planning Hub が表示されます。入口は `/ui/plans` に統一されています。
-
-### 3. 設定の準備と計画実行
-
-本システムは、すべての設定をバージョン管理された「Canonical設定」としてDBで管理します。
-
-**1. サンプル設定のロード**
-
-まず、標準のサンプル設定をDBにロードします。これにより、すぐにUIで確認できる計画の元データが作成されます。
-
-```bash
-# 仮想環境を有効化していることを確認
-PYTHONPATH=. python3 scripts/seed_canonical.py --save-db
-```
-
-成功すると、`canonical_config_versions.id=...` のようにバージョンIDが出力されます。
-
-  **2. 計画の実行**
-
-- **UIから実行（推奨）**: ブラウザで `http://localhost:8000/ui/plans` を開き、「Integrated Planning Execution」セクションから計画を実行します。ダイアログで、先ほど作成した設定バージョン（通常は最新のもの）を選択してください。選択した設定にカレンダー定義が含まれている場合、その週設定が自動的にパイプラインへ適用されます。
-
-- **CLIから実行**: `scripts/run_planning_pipeline.py` を使ってコマンドラインからも実行できます。`-I/--input-dir` で指定したディレクトリに `planning_calendar.json` が存在する場合、そのカレンダー定義が自動で読み込まれます。存在しない場合は、`--weeks` 引数で指定された週数で期間を等分するフォールバックロジックが適用されます。
-
-  ```bash
-  # カレンダー定義を利用して実行
-  PYTHONPATH=. python3 scripts/run_planning_pipeline.py -I samples/planning --version-id 1
-
-  # フォールバック（4週/期間）で実行
-  PYTHONPATH=. python3 scripts/run_planning_pipeline.py --weeks 4 --version-id 1
-  ```
-
-- **APIから実行**: `POST /plans/create_and_execute` エンドポイントに対して、`config_version_id` を含むJSONペイロードを送信することで、計画ジョブを起動できます。
-
-補足:
-- `planning_calendar.json` のフォーマットは `core/config/models.PlanningCalendarSpec` に準拠します。`periods[*].weeks[*]` に `week_code`・期間・重み（`weight`）を与えることで、Allocate/MRP/再整合の配分比率と週順序を統一できます。
-- Canonical設定にカレンダーを含めると UI/API/CLI すべてで `--calendar` が自動指定され、週境界・`planning_params`（例: `default_anchor_policy`, `recon_window_days`）も共通参照されます。カレンダーが存在しない環境のみ、`--weeks` による等分フォールバックで継続動作します。
-
-計画が完了すると、成果物（`plan_final.json`）やKPIレポート（`report.csv`）が生成され、UI上で確認・ダウンロードできます。
----
-
-## 計画パイプライン概要（要約）
-
-```mermaid
-flowchart LR
-  A[Aggregate] --> B[Allocate]
-  B --> C[MRP]
-  C --> D[Reconcile]
-  D --> E[Report]
-```
-
-- **下り（Aggregate→Detail）**: `scripts/allocate.py` が需要・供給・バックログをSKU×週へ分解。ロック・重み・カットオーバーに対応。
-- **上り（Detail→Aggregate）**: `PATCH /plans/{version}/psi` のDET編集が自動でAGGに集計。`tests/test_psi_sync.py` が保存則を検証。
-- **再整合**: `/plans/{version}/psi/reconcile` や `/plans/integrated/run` でcutover/anchor/tolを指定し、差分ログやCarryoverを生成。
-
----
-
-## ドキュメントマップ（MECE）
-
-| カテゴリ | 目的 | ドキュメント |
-| --- | --- | --- |
-| **オンボーディング / 用語** | UI操作と共通用語の理解 | `docs/TUTORIAL-JA.md`, `docs/TERMS-JA.md` |
-| **計画パイプライン** | 集約↔詳細整合、UX計画、導入手順 | `docs/AGG_DET_RECONCILIATION_JA.md` |
-| **運用・セキュリティ** | バックアップ、シークレット対応 | `docs/ops_backup.md`, `docs/SECRET_ROTATION_JA.md` |
-| **ロードマップ / リリース** | 拡張テーマ・リリース履歴 | `docs/EXPANSION_STRATEGY_JA.md`, `CHANGELOG.md` |
-
-各ドキュメントは上記カテゴリに収め、重複内容はリンクで参照し合う構成としています。README は概要と導線を提供し、詳細は個別ドキュメントに委譲します。
-
----
-
-## API & 実行エントリ
-
-| 用途 | エンドポイント / スクリプト | 備考 |
-| --- | --- | --- |
-| 計画の作成と実行 | `POST /plans/create_and_execute` / `scripts/run_planning_pipeline.py` | 同期/非同期、cutover・anchor指定可。`planning_calendar.json` があれば自動利用。 |
-| PSI編集 | `PATCH /plans/{version}/psi` | DET/AGG 双方向。`no_auto` で自動同期停止 |
-| 差分ログ再生成 | `POST /plans/{version}/psi/reconcile` | tol, anchor, carryover, adjust を制御 |
-| Run実行（抽象） | `POST /runs` | `pipeline=integrated` を既存パイプラインに委譲 |
-| Run一覧取得 | `GET /runs` | 実行履歴（RunRegistry）の一覧。`limit`, `offset` などでフィルタ可 |
-| Run詳細取得 | `GET /runs/{run_id}` | 指定したRunの詳細な結果を取得 |
-| KPIレポート | `/plans/{version}/summary`, `/compare`, `/schedule.csv` など | UIタブからのDLに対応 |
-
-メトリクス（Prometheus）やヘルスチェックは `/metrics`, `/healthz` から取得できます。
-
----
-
-## 開発・運用メモ
-
-- **テスト**: `source .venv/bin/activate && PYTHONPATH=. pytest`。高速検証は `scripts/run_tests.sh fast`（`-m "not slow"`）、統合一式は `scripts/run_tests.sh slow` を利用する。CIは `tests`, `quick-planning-tests`, `ci.yml` で構成。`tests/test_psi_sync.py` と `tests/test_planning_pipeline.py` を重点監視。
-- **データベース**: 既定は SQLite (`data/scpln.db`)。`SCPLN_DB` で接続先を変更。バックアップは `backup_script.py` を使用。開発時は `scripts/serve.sh db` で起動するWeb UI (Datasette) を使って直接DBの内容を確認できます。
-- **RunRegistry 管理**: `REGISTRY_BACKEND=db|memory`, `RUNS_DB_MAX_ROWS` でポリシー設定。古いRunは自動クリーンアップ。
-- **環境変数**: 認証 `AUTH_MODE=apikey|basic|none`、ジョブ実行 `JOBS_ENABLED=1`、APIキーはUI側`localStorage.api_key` と合わせて設定。
-- **CI/CD**: GitHub Actions（`ci.yml`, `tests.yml`, `quick-planning-tests.yml`）。Renderへの自動デプロイは `deploy-render.yml` を参照。
-- **ログ/メトリクス**: `simulation.log`, `server.log`, Prometheus `/metrics`。OpenTelemetry連携は `render.yaml` で設定可能。
-
----
-
-## アーキテクチャ
-
-```mermaid
-flowchart TD
-  subgraph "Application Database (SQLite)"
-    direction LR
-    ConfigDB[(Canonical Config DB)]
-    PlanDB[(Plan DB)]
-    RunDB[(RunRegistry DB)]
-  end
-
-  UI[Planning Hub / UI] -->|REST| API[FastAPI Layer]
-  
-  API --> Jobs[Planning Jobs / Workers]
-  
-  Jobs --> Pipelines[Planning Pipelines]
-  Jobs --> Sim[SupplyChainSimulator]
-
-  Pipelines --> PlanDB
-  Sim --> RunDB
-
-  PlanDB --> API
-  RunDB --> API
-  ConfigDB --> API
-
-  API --> UI
-
-  API --> Docs[CSV / Metrics / Logs]
-```
-
-`main.py` が FastAPI アプリを起動し、副作用インポートで API / UI ルートを登録します。計画パイプラインは API 経由で非同期ジョブとして実行され、その結果はすべて Application Database に永続化されます。UI は API を通じてこれらのDBから情報を取得し、ユーザーに表示します。
-
----
-
-## 変更履歴・拡張
-
-- 変更履歴: `CHANGELOG.md`
-- 拡張戦略: `docs/EXPANSION_STRATEGY_JA.md`
-- 既知の制約や今後の改善点は `docs/AGG_DET_RECONCILIATION_JA.md` を参照してください。
-
----
-
-## ライセンス
-
-MIT License で公開しています。詳細は `LICENSE` を参照ください。ドキュメントやコードを再利用する場合は出典を明示してください。
