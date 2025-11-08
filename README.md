@@ -35,6 +35,32 @@ This repository provides an integrated environment that models stores, warehouse
 
 Design principles and migration history for canonical integration are documented across the relevant papers.
 
+#### Planning input CLI (Import / Export)
+In addition to the UI, you can manage planning inputs via dedicated CLI tools that read and write the normalized `planning_input_sets` tables.
+
+| Purpose | Command | Notes |
+|---------|---------|-------|
+| Import CSV/JSON into `planning_input_sets` | `PYTHONPATH=. python scripts/import_planning_inputs.py -i samples/planning --version-id 101 --label weekly_refresh` | Supports `--validate-only`, `--apply-mode merge|replace`, `--json`, and stores rows in the DB without relying on `samples/planning` at runtime. |
+| Export an InputSet to CSV | `PYTHONPATH=. python scripts/export_planning_inputs.py --label weekly_refresh --include-meta --zip` | Outputs `samples/planning` compatible files under `out/planning_inputs_<label>` and, with `--zip`, produces an archive for UI download or CI artifacts. |
+
+Typical flow:
+1. Run the import CLI against curated CSV/JSON (or CI artifacts) to register a new input set for a given canonical version.
+2. Reference the registered label from the Planning Hub or, today, by passing `"input_set_label": "weekly_refresh"` to `/plans/create_and_execute` or the Run API.
+3. Use the export CLI to share the exact inputs that produced a plan, enabling audits and downstream replication.
+
+Example API invocation:
+
+```bash
+curl -sS http://localhost:8000/plans/create_and_execute \
+  -H 'content-type: application/json' \
+  -d '{
+        "config_version_id": 14,
+        "input_set_label": "weekly_refresh",
+        "round_mode": "int",
+        "lt_unit": "day"
+      }' | jq .
+```
+
 #### UX motivation
 - Remove fragmented entry points and complex rerun steps by offering a single flow: edit → review diffs → execute → review results.
 - Preview diffs and KPI impact in a standardized view before execution to keep dry runs and live application safe.
@@ -118,4 +144,3 @@ bash scripts/serve.sh db
 # Stop all running services
 bash scripts/stop.sh
 ```
-

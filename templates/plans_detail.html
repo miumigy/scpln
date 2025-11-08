@@ -50,6 +50,58 @@
     .warn-text {
       color: #b45309;
     }
+    .inputset-card {
+      border-left: 4px solid #2563eb;
+      background-color: #f8fafc;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .inputset-card.warn {
+      border-color: #b45309;
+      background-color: #fff7ed;
+    }
+    .inputset-card h4 {
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .inputset-card .pill {
+      font-size: 0.8em;
+    }
+    .inputset-card p {
+      margin: 0.25rem 0;
+    }
+    .inputset-card .mini-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9em;
+    }
+    .inputset-card .mini-list li {
+      font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+    }
+    .inputset-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .inputset-card-actions a {
+      flex: 0 0 auto;
+    }
+    .pill-muted {
+      background-color: #e2e8f0;
+      color: #334155;
+    }
+    .pill-warn {
+      background-color: #f97316;
+      color: #ffffff;
+    }
     @media (max-width: 1024px) {
       .tab-nav {
         flex-wrap: nowrap;
@@ -96,6 +148,62 @@
     <form method="post" action="/ui/plans/{{ version_id }}/delete" class="gap-top-sm" onsubmit="return confirm('Delete plan {{ version_id }}?');">
       <button type="submit" class="contrast" aria-label="Delete plan {{ version_id }}">Delete Plan</button>
     </form>
+    {% set isi = input_set_info or {} %}
+    {% if isi.legacy %}
+      <section class="inputset-card warn" aria-label="Planning input set warning">
+        <h4>Planning Input Set</h4>
+        <p class="mono">Input set label not recorded (legacy CSV mode).</p>
+        <p>Re-run this plan with <code>input_set_label</code> to enable traceability and diff/export links.</p>
+      </section>
+    {% else %}
+      <section class="inputset-card" aria-label="Planning input set summary">
+        <h4>
+          Planning Input Set
+          {% if isi.status %}<span class="pill">{{ isi.status }}</span>{% endif %}
+          {% if isi.source %}<span class="pill pill-muted">{{ isi.source }}</span>{% endif %}
+        </h4>
+        {% if isi.label %}
+        <p>label: <span class="mono">{{ isi.label }}</span></p>
+        {% endif %}
+        <p>
+          config_version_id:
+          {% if isi.config_version_id %}
+            <a class="mono" href="/ui/configs/canonical/{{ isi.config_version_id }}">{{ isi.config_version_id }}</a>
+          {% else %}
+            <span class="mono">-</span>
+          {% endif %}
+          {% if isi.id %} | input_set_id=<span class="mono">{{ isi.id }}</span>{% endif %}
+        </p>
+        <p>
+          updated_at:
+          <span class="mono">{{ isi.updated_at_str or 'unknown' }}</span>
+          {% if isi.missing %}
+            <span class="pill pill-warn">not found in storage</span>
+          {% endif %}
+        </p>
+        {% if planning_summary %}
+        <ul class="mini-list">
+          <li>demand={{ planning_summary.demand_family|default('-', true) }}</li>
+          <li>capacity={{ planning_summary.capacity|default('-', true) }}</li>
+          <li>mix={{ planning_summary.mix_share|default('-', true) }}</li>
+          <li>inventory={{ planning_summary.inventory|default('-', true) }}</li>
+          <li>open_po={{ planning_summary.open_po|default('-', true) }}</li>
+        </ul>
+        {% endif %}
+        {% if isi.label %}
+        <p class="mono">
+          Export via:
+          <code>PYTHONPATH=. python scripts/export_planning_inputs.py --label {{ isi.label }}</code>
+        </p>
+        <div class="inputset-card-actions">
+          <a role="button" href="/api/plans/input_sets/{{ isi.label | urlencode }}/export?format=zip" download>Export (Zip)</a>
+          <a role="button" class="secondary" href="/ui/plans/input_sets/{{ isi.label | urlencode }}/diff">Diff (vs latest)</a>
+          <a class="secondary" href="/ui/plans?input_set_label={{ isi.label | urlencode }}">Plans with this input set</a>
+          <a class="secondary" href="/ui/runs?input_set_label={{ isi.label | urlencode }}">Runs with this input set</a>
+        </div>
+        {% endif %}
+      </section>
+    {% endif %}
     <nav class="tab-nav">
       <a role="button" class="secondary" data-tab="overview" title="Overview" aria-label="Overview tab">Overview</a>
       <a role="button" class="secondary" data-tab="aggregate" title="Aggregate" aria-label="Aggregate tab">Aggregate</a>
@@ -680,7 +788,7 @@
       {% if disagg_rows %}
       <div class="table-wrapper">
         <table id="tblDisagg">
-          <thead><tr><th>week</th><th>sku</th><th class="numeric">demand</th><th class="numeric">supply_plan</th><th class="numeric">backlog</th><th class="numeric">on_hand_start</th><th class="numeric">on_hand_end</th></tr></thead>
+          <thead><tr><th>week</th><th>sku</th><th class="numeric">demand</th><th class="numeric">supply_plan</th><th class="numeric">backlog</th><th class="numeric">on_hand_start</th><th class="numeric">on_hand_end</th><th class="numeric">lt_weeks</th><th class="numeric">planned_release</th><th class="numeric">planned_release_adj</th><th class="numeric">planned_receipt_adj</th></tr></thead>
           <tbody>
             {% for r in disagg_rows %}
             <tr>
@@ -691,6 +799,10 @@
               <td class="mono numeric">{{ r.backlog|fmt_number }}</td>
               <td class="mono numeric">{{ r.on_hand_start|fmt_number }}</td>
               <td class="mono numeric">{{ r.on_hand_end|fmt_number }}</td>
+              <td class="mono numeric">{{ r.lt_weeks|fmt_number }}</td>
+              <td class="mono numeric">{{ r.planned_release|fmt_number }}</td>
+              <td class="mono numeric">{{ r.planned_release_adj|fmt_number }}</td>
+              <td class="mono numeric">{{ r.planned_receipt_adj|fmt_number }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -704,31 +816,90 @@
 
     <div id="tab-schedule" class="tab-pane" style="display:none;">
     <details open>
-      <summary>Scheduled receipts</summary>
+      <summary>Scheduled receipts / MRP</summary>
       <div class="tab-toolbar mono">
         <input id="schedSku" type="search" placeholder="SKU filter" aria-label="SKU filter">
         <input id="schedWeek" type="search" placeholder="Week filter (e.g. 2025-W01)" aria-label="Week filter">
         <small id="schedMeta"></small>
         <a class="secondary" href="/plans/{{ version_id }}/schedule.csv" target="_blank" rel="noopener">schedule.csv</a>
-        <small>Showing first 200 rows ({{ (schedule_total or 0)|fmt_number }} total)</small>
+        <small>MRP rows (first 200 shown): {{ (schedule_rows_mrp_total or 0)|fmt_number }}</small>
+        <small>MRP Final rows (first 200 shown): {{ (schedule_rows_mrp_final_total or 0)|fmt_number }}</small>
       </div>
-      {% if schedule_rows %}
-      <div class="table-wrapper">
-        <table id="tblSchedule">
-          <thead><tr><th>week</th><th>sku</th><th class="numeric">scheduled_receipts</th><th class="numeric">on_hand_start</th><th class="numeric">on_hand_end</th></tr></thead>
-          <tbody>
-            {% for r in schedule_rows %}
-            <tr>
-              <td class="mono">{{ r.week }}</td>
-              <td class="mono">{{ r.sku }}</td>
-              <td class="mono numeric">{{ r.scheduled_receipts|fmt_number }}</td>
-              <td class="mono numeric">{{ r.on_hand_start|fmt_number }}</td>
-              <td class="mono numeric">{{ r.on_hand_end|fmt_number }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      {% if schedule_rows_mrp or schedule_rows_mrp_final %}
+        {% if schedule_rows_mrp %}
+        <h4>MRP (before reconcile)</h4>
+        <div class="table-wrapper">
+          <table id="tblScheduleMrp" data-schedule-table="mrp">
+            <thead>
+              <tr>
+                <th>week</th>
+                <th>sku</th>
+                <th class="numeric">gross_req</th>
+                <th class="numeric">planned_receipt</th>
+                <th class="numeric">scheduled_receipts</th>
+                <th class="numeric">net_req</th>
+                <th class="numeric">planned_release</th>
+                <th class="numeric">on_hand_start</th>
+                <th class="numeric">on_hand_end</th>
+                <th class="numeric">lt_weeks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in schedule_rows_mrp %}
+              <tr>
+                <td class="mono">{{ r.week }}</td>
+                <td class="mono">{{ r.sku }}</td>
+                <td class="mono numeric">{{ r.gross_req|fmt_number }}</td>
+                <td class="mono numeric">{{ r.planned_receipt|fmt_number }}</td>
+                <td class="mono numeric">{{ r.scheduled_receipts|fmt_number }}</td>
+                <td class="mono numeric">{{ r.net_req|fmt_number }}</td>
+                <td class="mono numeric">{{ r.planned_release|fmt_number }}</td>
+                <td class="mono numeric">{{ r.on_hand_start|fmt_number }}</td>
+                <td class="mono numeric">{{ r.on_hand_end|fmt_number }}</td>
+                <td class="mono numeric">{{ r.lt_weeks|fmt_number }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        {% if schedule_rows_mrp_final %}
+        <h4>MRP Final (after reconcile)</h4>
+        <div class="table-wrapper">
+          <table id="tblScheduleMrpFinal" data-schedule-table="mrp-final">
+            <thead>
+              <tr>
+                <th>week</th>
+                <th>sku</th>
+                <th class="numeric">gross_req</th>
+                <th class="numeric">planned_receipt_adj</th>
+                <th class="numeric">planned_release_adj</th>
+                <th class="numeric">scheduled_receipts</th>
+                <th class="numeric">net_req</th>
+                <th class="numeric">on_hand_start</th>
+                <th class="numeric">on_hand_end</th>
+                <th class="numeric">lt_weeks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in schedule_rows_mrp_final %}
+              <tr>
+                <td class="mono">{{ r.week }}</td>
+                <td class="mono">{{ r.sku }}</td>
+                <td class="mono numeric">{{ r.gross_req|fmt_number }}</td>
+                <td class="mono numeric">{{ r.planned_receipt_adj|fmt_number }}</td>
+                <td class="mono numeric">{{ r.planned_release_adj|fmt_number }}</td>
+                <td class="mono numeric">{{ r.scheduled_receipts|fmt_number }}</td>
+                <td class="mono numeric">{{ r.net_req|fmt_number }}</td>
+                <td class="mono numeric">{{ r.on_hand_start|fmt_number }}</td>
+                <td class="mono numeric">{{ r.on_hand_end|fmt_number }}</td>
+                <td class="mono numeric">{{ r.lt_weeks|fmt_number }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
       {% else %}
       <p>No schedule rows yet. Execute the plan to populate this table.</p>
       {% endif %}
@@ -1670,16 +1841,19 @@
     function apply(){
       var sku = val(document.getElementById('schedSku'));
       var wk = val(document.getElementById('schedWeek'));
-      var rows = document.querySelectorAll('#tblSchedule tbody tr');
       var vis=0, all=0;
-      rows.forEach(function(tr){
-        all++;
-        var tds = tr.querySelectorAll('td');
-        var w = (tds[0] && tds[0].textContent || '').toLowerCase();
-        var s = (tds[1] && tds[1].textContent || '').toLowerCase();
-        var ok = (!wk || w.indexOf(wk)>=0) && (!sku || s.indexOf(sku)>=0);
-        tr.style.display = ok ? '' : 'none';
-        if (ok) vis++;
+      var tables = document.querySelectorAll('[data-schedule-table]');
+      tables.forEach(function(tbl){
+        var rows = tbl.querySelectorAll('tbody tr');
+        rows.forEach(function(tr){
+          all++;
+          var tds = tr.querySelectorAll('td');
+          var w = (tds[0] && tds[0].textContent || '').toLowerCase();
+          var s = (tds[1] && tds[1].textContent || '').toLowerCase();
+          var ok = (!wk || w.indexOf(wk)>=0) && (!sku || s.indexOf(sku)>=0);
+          tr.style.display = ok ? '' : 'none';
+          if (ok) vis++;
+        });
       });
       var meta = document.getElementById('schedMeta');
       if (meta) meta.textContent = vis + ' / ' + all;

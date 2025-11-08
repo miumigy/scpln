@@ -45,6 +45,101 @@ class PlanningCalendarSpec(BaseModel):
     planning_params: Optional[PlanningParams] = None
 
 
+class PlanningFamilyDemand(BaseModel):
+    family_code: str = Field(description="製品ファミリキー")
+    period: str = Field(description="計画期間キー（例: 2025-01, 2025-W03）")
+    demand: float = Field(ge=0.0)
+    source_type: Literal["canonical", "override", "imported"] = Field(
+        default="canonical"
+    )
+    tolerance_abs: Optional[float] = Field(default=None, ge=0.0)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningCapacityBucket(BaseModel):
+    resource_code: str = Field(description="能力リソース/ノードコード")
+    resource_type: Literal["workcenter", "node", "supplier"] = Field(
+        default="workcenter"
+    )
+    period: str = Field(description="計画期間キー")
+    capacity: float = Field(ge=0.0)
+    calendar_code: Optional[str] = Field(default=None)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningMixShare(BaseModel):
+    family_code: str = Field(description="ファミリコード")
+    sku_code: str = Field(description="SKUコード")
+    share: float = Field(ge=0.0, le=1.0)
+    effective_from: Optional[date] = Field(default=None)
+    effective_to: Optional[date] = Field(default=None)
+    weight_source: Literal["historical", "manual", "promotion", "other"] = Field(
+        default="manual"
+    )
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningInventorySnapshot(BaseModel):
+    node_code: str = Field(description="ノードコード")
+    item_code: str = Field(description="品目コード")
+    initial_qty: float = Field(ge=0.0)
+    reorder_point: Optional[float] = Field(default=None, ge=0.0)
+    order_up_to: Optional[float] = Field(default=None, ge=0.0)
+    safety_stock: Optional[float] = Field(default=None, ge=0.0)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningInboundOrder(BaseModel):
+    po_id: Optional[str] = Field(
+        default=None, description="外部参照ID（未指定なら内部IDを付与）"
+    )
+    item_code: str = Field(description="品目コード")
+    source_node: Optional[str] = Field(
+        default=None, description="供給元ノード（ない場合はグローバル）"
+    )
+    dest_node: Optional[str] = Field(
+        default=None, description="受け取りノード（Noneでdefault_location）"
+    )
+    due_date: str = Field(description="入荷期日（ISO日付または期間キー）")
+    qty: float = Field(ge=0.0)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningPeriodMetric(BaseModel):
+    metric_code: Literal["cost", "score", "custom"] = Field(default="cost")
+    period: str = Field(description="計画期間キー")
+    value: float = Field()
+    unit: Optional[str] = Field(default=None)
+    source: Optional[str] = Field(default=None)
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PlanningInputAggregates(BaseModel):
+    family_demands: List[PlanningFamilyDemand] = Field(default_factory=list)
+    capacity_buckets: List[PlanningCapacityBucket] = Field(default_factory=list)
+    mix_shares: List[PlanningMixShare] = Field(default_factory=list)
+    inventory_snapshots: List[PlanningInventorySnapshot] = Field(default_factory=list)
+    inbound_orders: List[PlanningInboundOrder] = Field(default_factory=list)
+    period_metrics: List[PlanningPeriodMetric] = Field(default_factory=list)
+
+
+class PlanningInputSet(BaseModel):
+    id: Optional[int] = Field(default=None, description="InputSet内部ID")
+    config_version_id: int = Field(description="対象 Canonical version ID")
+    label: str = Field(description="InputSet 表示名")
+    status: Literal["draft", "ready", "archived"] = Field(default="draft")
+    source: Literal["csv", "ui", "api", "seed"] = Field(default="csv")
+    created_by: Optional[str] = Field(default=None)
+    created_at: Optional[int] = Field(default=None, description="UNIX ms")
+    updated_at: Optional[int] = Field(default=None, description="UNIX ms")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    calendar_spec: Optional[PlanningCalendarSpec] = Field(default=None)
+    planning_params: Optional[PlanningParams] = Field(default=None)
+    aggregates: PlanningInputAggregates = Field(
+        default_factory=PlanningInputAggregates
+    )
+
+
 class ConfigMeta(BaseModel):
     """設定バージョンのメタ情報。"""
 
@@ -251,4 +346,12 @@ __all__ = [
     "PlanningCalendarPeriod",
     "PlanningParams",
     "PlanningCalendarSpec",
+    "PlanningFamilyDemand",
+    "PlanningCapacityBucket",
+    "PlanningMixShare",
+    "PlanningInventorySnapshot",
+    "PlanningInboundOrder",
+    "PlanningPeriodMetric",
+    "PlanningInputAggregates",
+    "PlanningInputSet",
 ]

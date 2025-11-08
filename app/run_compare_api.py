@@ -19,6 +19,29 @@ def _get_registry():
     return REGISTRY, _BACKEND
 
 
+def _resolve_input_set_label(entry: Dict[str, Any]) -> str | None:
+    label = entry.get("input_set_label")
+    if isinstance(label, str):
+        label = label.strip()
+        if label:
+            return label
+    summary = entry.get("summary")
+    if isinstance(summary, dict):
+        label = summary.get("_input_set_label") or summary.get("input_set_label")
+        if isinstance(label, str):
+            label = label.strip()
+            if label:
+                return label
+    return None
+
+
+def _matches_input_set(entry: Dict[str, Any], label: str | None) -> bool:
+    if label is None or label == "":
+        return True
+    actual = _resolve_input_set_label(entry)
+    return actual == label
+
+
 # 比較対象メトリクスのホワイトリスト（summary のキーに合わせる）
 COMPARE_KEYS = [
     "fill_rate",
@@ -58,6 +81,7 @@ def list_runs(
     scenario_id: int | None = Query(None),
     plan_version_id: str | None = Query(None),
     scenario_name: str | None = Query(None),
+    input_set_label: str | None = Query(None),
 ):
     """ラン一覧を返す。
     - detail=false（既定）: 軽量メタ+summary のみ
@@ -74,6 +98,10 @@ def list_runs(
         if not scenario_name_ids:
             empty = {"runs": [], "total": 0, "offset": offset, "limit": limit or 0}
             return empty
+    if isinstance(input_set_label, str):
+        input_set_label = input_set_label.strip()
+        if input_set_label == "":
+            input_set_label = None
     # サニタイズと limit 既定
     REGISTRY, _BACKEND = _get_registry()
     sort_keys = {"started_at", "duration_ms", "schema_version"}
@@ -104,6 +132,10 @@ def list_runs(
                 detail=True,
             )
             runs_list = resp.get("runs") or []
+            for r in runs_list:
+                resolved = _resolve_input_set_label(r)
+                if resolved:
+                    r["input_set_label"] = resolved
             if config_version_id is not None:
                 runs_list = [
                     r
@@ -124,6 +156,12 @@ def list_runs(
                 ]
                 resp["runs"] = runs_list
                 resp["total"] = len(runs_list)
+            if input_set_label is not None:
+                runs_list = [
+                    r for r in runs_list if _matches_input_set(r, input_set_label)
+                ]
+                resp["runs"] = runs_list
+                resp["total"] = len(runs_list)
             try:
                 RUNS_LIST_REQUESTS.labels(detail="true", backend=_BACKEND).inc()
                 RUNS_LIST_RETURNED.observe(len(resp.get("runs") or []))
@@ -131,6 +169,10 @@ def list_runs(
                 pass
             return resp
         runs = REGISTRY.list()
+        for entry in runs:
+            resolved = _resolve_input_set_label(entry)
+            if resolved:
+                entry["input_set_label"] = resolved
         runs = _filter_and_sort(
             runs,
             sort,
@@ -141,6 +183,7 @@ def list_runs(
             scenario_id,
             plan_version_id,
             scenario_name_ids,
+            input_set_label,
         )
         total = len(runs)
         sliced = runs[offset : offset + limit]
@@ -166,24 +209,26 @@ def list_runs(
         limit = 50
     for rid in ids:
         rec = REGISTRY.get(rid) or {}
-        out.append(
-            {
-                "run_id": rec.get("run_id"),
-                "started_at": rec.get("started_at"),
-                "duration_ms": rec.get("duration_ms"),
-                "schema_version": rec.get("schema_version"),
-                "summary": rec.get("summary", {}),
-                "config_id": rec.get("config_id"),
-                "config_version_id": rec.get("config_version_id"),
-                "scenario_id": rec.get("scenario_id"),
-                "plan_version_id": rec.get("plan_version_id"),
-                "created_at": rec.get("created_at", rec.get("started_at")),
-                "updated_at": rec.get(
-                    "updated_at",
-                    (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
-                ),
-            }
-        )
+        row = {
+            "run_id": rec.get("run_id"),
+            "started_at": rec.get("started_at"),
+            "duration_ms": rec.get("duration_ms"),
+            "schema_version": rec.get("schema_version"),
+            "summary": rec.get("summary", {}),
+            "config_id": rec.get("config_id"),
+            "config_version_id": rec.get("config_version_id"),
+            "scenario_id": rec.get("scenario_id"),
+            "plan_version_id": rec.get("plan_version_id"),
+            "created_at": rec.get("created_at", rec.get("started_at")),
+            "updated_at": rec.get(
+                "updated_at",
+                (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
+            ),
+        }
+        resolved_label = _resolve_input_set_label(row)
+        if resolved_label:
+            row["input_set_label"] = resolved_label
+        out.append(row)
     # DBバックエンドはSQLでページング（ただし config_id 指定時は後方互換のためアプリ側でフィルタリングに切替）
     if (
         hasattr(REGISTRY, "list_page")
@@ -203,9 +248,19 @@ def list_runs(
         )
         # backfill config_id using config_json when missing (DB backend lightweight mode includes config_json)
         runs_list = resp.get("runs") or []
+        for r in runs_list:
+            resolved = _resolve_input_set_label(r)
+            if resolved:
+                r["input_set_label"] = resolved
         if config_version_id is not None:
             runs_list = [
                 r for r in runs_list if r.get("config_version_id") == config_version_id
+            ]
+            resp["runs"] = runs_list
+            resp["total"] = len(runs_list)
+        if input_set_label is not None:
+            runs_list = [
+                r for r in runs_list if _matches_input_set(r, input_set_label)
             ]
             resp["runs"] = runs_list
             resp["total"] = len(runs_list)
@@ -221,24 +276,26 @@ def list_runs(
         rows2: List[Dict[str, Any]] = []
         for rid in ids2:
             rec = REGISTRY.get(rid) or {}
-            rows2.append(
-                {
-                    "run_id": rec.get("run_id"),
-                    "started_at": rec.get("started_at"),
-                    "duration_ms": rec.get("duration_ms"),
-                    "schema_version": rec.get("schema_version"),
-                    "summary": rec.get("summary", {}),
-                    "config_id": rec.get("config_id"),
-                    "config_version_id": rec.get("config_version_id"),
-                    "scenario_id": rec.get("scenario_id"),
-                    "plan_version_id": rec.get("plan_version_id"),
-                    "created_at": rec.get("created_at", rec.get("started_at")),
-                    "updated_at": rec.get(
-                        "updated_at",
-                        (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
-                    ),
-                }
-            )
+            row = {
+                "run_id": rec.get("run_id"),
+                "started_at": rec.get("started_at"),
+                "duration_ms": rec.get("duration_ms"),
+                "schema_version": rec.get("schema_version"),
+                "summary": rec.get("summary", {}),
+                "config_id": rec.get("config_id"),
+                "config_version_id": rec.get("config_version_id"),
+                "scenario_id": rec.get("scenario_id"),
+                "plan_version_id": rec.get("plan_version_id"),
+                "created_at": rec.get("created_at", rec.get("started_at")),
+                "updated_at": rec.get(
+                    "updated_at",
+                    (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
+                ),
+            }
+            resolved_label = _resolve_input_set_label(row)
+            if resolved_label:
+                row["input_set_label"] = resolved_label
+            rows2.append(row)
         rows2 = _filter_and_sort(
             rows2,
             sort,
@@ -249,6 +306,7 @@ def list_runs(
             scenario_id,
             plan_version_id,
             scenario_name_ids,
+            input_set_label,
         )
         total2 = len(rows2)
         rows2 = rows2[offset : offset + limit]
@@ -268,6 +326,7 @@ def list_runs(
         scenario_id,
         plan_version_id,
         scenario_name_ids,
+        input_set_label,
     )
     total = len(out)
     out = out[offset : offset + limit]
@@ -400,6 +459,7 @@ def _filter_and_sort(
     scenario_id: int | None,
     plan_version_id: str | None,
     scenario_name_ids: set[int] | None,
+    input_set_label: str | None,
 ) -> List[Dict[str, Any]]:
     def f(x: Dict[str, Any]) -> bool:
         if schema_version is not None and x.get("schema_version") != schema_version:
@@ -420,6 +480,12 @@ def _filter_and_sort(
             and x.get("scenario_id") not in scenario_name_ids
         ):
             return False
+        if input_set_label is not None and not _matches_input_set(x, input_set_label):
+            return False
+        if "input_set_label" not in x:
+            resolved = _resolve_input_set_label(x)
+            if resolved:
+                x["input_set_label"] = resolved
         return True
 
     out = [r for r in rows if f(r)]

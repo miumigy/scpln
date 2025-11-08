@@ -1,6 +1,7 @@
 from app import db
 from core.plan_repository import PlanRepository
 from core.plan_repository_builders import (
+    attach_inventory_to_detail_series,
     build_plan_series,
     build_plan_series_from_plan_final,
     build_plan_series_from_weekly_summary,
@@ -64,6 +65,7 @@ def test_plan_repository_view_helpers(db_setup):
     }
 
     series_rows = build_plan_series(version_id, aggregate=aggregate, detail=detail)
+    attach_inventory_to_detail_series(series_rows, plan_final)
     series_rows.extend(build_plan_series_from_plan_final(version_id, plan_final))
     repo.write_plan(version_id, series=series_rows, kpis=[])
 
@@ -78,6 +80,10 @@ def test_plan_repository_view_helpers(db_setup):
     assert det_rows[0]["week"] == "2025-01-W1"
     assert det_rows[0]["on_hand_start"] == 12.5
     assert det_rows[0]["on_hand_end"] == 7.5
+    assert det_rows[0]["lt_weeks"] == 2
+    assert det_rows[0]["planned_release"] == 18
+    assert det_rows[0]["planned_release_adj"] == 18
+    assert det_rows[0]["planned_receipt_adj"] == 20
 
 
 def test_build_plan_summaries_fallback_kpi(db_setup):

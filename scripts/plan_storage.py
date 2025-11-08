@@ -24,6 +24,7 @@ from app.metrics import (
 from core.plan_repository_builders import (
     PlanKpiRow,
     PlanSeriesRow,
+    attach_inventory_to_detail_series,
     build_plan_kpis_from_aggregate,
     build_plan_series_from_aggregate,
     build_plan_series_from_detail,
@@ -43,6 +44,21 @@ _PLAN_REPOSITORY = PlanRepository(
     PLAN_DB_CAPACITY_TRIM_TOTAL,
     PLAN_DB_LAST_TRIM_TIMESTAMP,
 )
+
+
+def _update_detail_inventory_from_plan_final(
+    version_id: str, plan_final_data: Dict[str, Any]
+) -> None:
+    if not plan_final_data:
+        return
+    try:
+        det_rows = _PLAN_REPOSITORY.fetch_plan_series(version_id, "det")
+    except Exception:
+        return
+    if not det_rows:
+        return
+    attach_inventory_to_detail_series(det_rows, plan_final_data)
+    _PLAN_REPOSITORY.replace_plan_series_level(version_id, "det", det_rows)
 
 
 def resolve_storage_mode(value: Optional[str] = None) -> str:
@@ -268,6 +284,7 @@ def write_plan_final_result(
             plan_final_data,
             storage_mode=storage_mode,
         )
+        _update_detail_inventory_from_plan_final(version_id, plan_final_data)
     except PlanRepositoryError:
         raise
     return bool(detail_series or weekly_series)

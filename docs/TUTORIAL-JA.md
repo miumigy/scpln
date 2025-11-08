@@ -31,6 +31,30 @@
     - 先ほどロードした設定（例: `canonical-seed`）が一覧に表示されていることを確認します。
     - この画面から、設定の詳細を閲覧したり、バージョン間の差分を比較したりできます。
 
+### 補足: CLIでPlanning入力を管理
+UIとは別に、`planning_input_sets` テーブルを更新・エクスポートするCLIも用意しています。
+
+```bash
+# CSV/JSONをplanning_input_setsに取り込む（検証のみ）
+PYTHONPATH=. python scripts/import_planning_inputs.py \
+  -i samples/planning \
+  --version-id 14 \
+  --label tutorial_input --validate-only
+
+# 実際にDBへ保存
+PYTHONPATH=. python scripts/import_planning_inputs.py \
+  -i samples/planning \
+  --version-id 14 \
+  --label tutorial_input
+
+# 既存InputSetをCSV出力
+PYTHONPATH=. python scripts/export_planning_inputs.py \
+  --label tutorial_input --include-meta --zip
+```
+
+後続のPlan/Runで `tutorial_input` を参照すると、UI・CLIで同じ入力を利用できます。
+`/plans/create_and_execute` や `/runs` API を呼ぶ場合は、JSONに `"input_set_label": "tutorial_input"` を含めることで、`samples/planning` ではなくこの入力セットを利用させることができます。
+
 
 ## 1. 新規Planを作成
 

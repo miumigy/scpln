@@ -1,6 +1,7 @@
 import json
 
 from core.plan_repository_builders import (
+    attach_inventory_to_detail_series,
     build_plan_kpis_from_aggregate,
     build_plan_series,
     build_plan_series_from_detail,
@@ -156,3 +157,37 @@ def test_build_plan_series_from_plan_final_inventory():
     row = rows[0]
     assert row["inventory_open"] == 12.0
     assert row["inventory_close"] == 7.0
+
+
+def test_attach_inventory_to_detail_series_injects_values():
+    detail = {
+        "rows": [
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "sku": "SKU1",
+                "week": "2025-01-W1",
+                "demand": 10,
+                "supply": 10,
+                "backlog": 0,
+            }
+        ]
+    }
+    plan_final = {
+        "rows": [
+            {
+                "item": "SKU1",
+                "week": "2025-01-W1",
+                "on_hand_start": 5,
+                "on_hand_end": 3,
+            }
+        ]
+    }
+    series = build_plan_series("v-test", aggregate=None, detail=detail)
+    attach_inventory_to_detail_series(series, plan_final)
+    det = next(r for r in series if r["level"] == "det")
+    assert det["inventory_open"] == 5.0
+    assert det["inventory_close"] == 3.0
+    extra = json.loads(det["extra_json"])
+    assert extra["on_hand_start"] == 5.0
+    assert extra["on_hand_end"] == 3.0

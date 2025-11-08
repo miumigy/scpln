@@ -16,6 +16,10 @@ from app.metrics import (
     PLAN_DB_LAST_TRIM_TIMESTAMP,
 )
 from core.plan_repository import PlanRepository
+from core.config.storage import (
+    get_planning_input_set,
+    PlanningInputSetNotFoundError,
+)
 
 
 _PLAN_REPOSITORY = PlanRepository(
@@ -70,24 +74,31 @@ def ui_runs(request: Request):
                 except Exception:
                     logging.exception("ui_runs_row_build_failed", extra={"run_id": rid})
                     continue
-        rows = [
-            {
-                "run_id": r.get("run_id"),
-                "started_at": r.get("started_at"),
-                "started_at_str": ms_to_jst_str(r.get("started_at")),
-                "duration_ms": r.get("duration_ms"),
-                "schema_version": r.get("schema_version"),
-                "config_id": r.get("config_id"),
-                "config_version_id": r.get("config_version_id"),
-                "scenario_id": r.get("scenario_id"),
-                "plan_version_id": r.get("plan_version_id")
-                or ((r.get("summary") or {}).get("_plan_version_id")),
-                "summary": r.get("summary") or {},
-                "fill_rate": (r.get("summary") or {}).get("fill_rate"),
-                "profit_total": (r.get("summary") or {}).get("profit_total"),
-            }
-            for r in rows
-        ]
+        enriched = []
+        for r in rows:
+            summary_obj = r.get("summary") or {}
+            label = summary_obj.get("_input_set_label") or r.get("input_set_label")
+            if isinstance(label, str):
+                label = label.strip()
+            enriched.append(
+                {
+                    "run_id": r.get("run_id"),
+                    "started_at": r.get("started_at"),
+                    "started_at_str": ms_to_jst_str(r.get("started_at")),
+                    "duration_ms": r.get("duration_ms"),
+                    "schema_version": r.get("schema_version"),
+                    "config_id": r.get("config_id"),
+                    "config_version_id": r.get("config_version_id"),
+                    "scenario_id": r.get("scenario_id"),
+                    "plan_version_id": r.get("plan_version_id")
+                    or (summary_obj.get("_plan_version_id")),
+                    "summary": summary_obj,
+                    "fill_rate": summary_obj.get("fill_rate"),
+                    "profit_total": summary_obj.get("profit_total"),
+                    "input_set_label": label or None,
+                }
+            )
+        rows = enriched
         return templates.TemplateResponse(
             request,
             "runs.html",
@@ -149,6 +160,32 @@ def ui_run_detail(request: Request, run_id: str):
         summary.get("_plan_version_id") if isinstance(summary, dict) else None
     )
     plan_job_id = rec.get("plan_job_id")
+
+    input_set_label: str | None = None
+    if isinstance(summary, dict):
+        raw_summary_label = summary.get("_input_set_label") or summary.get(
+            "input_set_label"
+        )
+        if isinstance(raw_summary_label, str) and raw_summary_label.strip():
+            input_set_label = raw_summary_label.strip()
+    input_set_artifact = (
+        db.get_plan_artifact(plan_version_id, "planning_input_set.json")
+        if plan_version_id
+        else None
+    )
+    artifact_source = None
+    artifact_updated_at = None
+    if isinstance(input_set_artifact, dict):
+        raw_art_label = input_set_artifact.get("label") or input_set_artifact.get(
+            "input_set_label"
+        )
+        if not input_set_label and isinstance(raw_art_label, str) and raw_art_label.strip():
+            input_set_label = raw_art_label.strip()
+        artifact_source = input_set_artifact.get("source")
+        try:
+            artifact_updated_at = int(input_set_artifact.get("updated_at"))
+        except (TypeError, ValueError):
+            artifact_updated_at = None
 
     plan_kpi_summary: dict[str, float] = {}
     if plan_version_id:
@@ -230,6 +267,48 @@ def ui_run_detail(request: Request, run_id: str):
         except Exception:
             matching_plans = []
 
+    input_set_info = {
+        "label": input_set_label,
+        "config_version_id": config_version_id,
+        "plan_version_id": plan_version_id,
+        "status": None,
+        "source": artifact_source,
+        "updated_at": artifact_updated_at,
+        "updated_at_str": ms_to_jst_str(artifact_updated_at)
+        if artifact_updated_at
+        else None,
+        "id": None,
+        "legacy": False,
+        "missing": False,
+    }
+    if not input_set_label:
+        input_set_info["legacy"] = True
+    else:
+        try:
+            query_kwargs = {"label": input_set_label, "include_aggregates": False}
+            if config_version_id is not None:
+                query_kwargs["config_version_id"] = config_version_id
+            storage_input_set = get_planning_input_set(**query_kwargs)
+            input_set_info.update(
+                {
+                    "id": storage_input_set.id,
+                    "status": storage_input_set.status,
+                    "source": storage_input_set.source or artifact_source,
+                    "updated_at": storage_input_set.updated_at,
+                    "updated_at_str": ms_to_jst_str(storage_input_set.updated_at)
+                    if storage_input_set.updated_at
+                    else input_set_info.get("updated_at_str"),
+                    "config_version_id": storage_input_set.config_version_id,
+                }
+            )
+        except PlanningInputSetNotFoundError:
+            input_set_info["missing"] = True
+        except Exception:
+            logging.exception(
+                "ui_run_detail_load_input_set_failed",
+                extra={"run_id": run_id, "label": input_set_label},
+            )
+
     return templates.TemplateResponse(
         request,
         "run_detail.html",
@@ -249,5 +328,6 @@ def ui_run_detail(request: Request, run_id: str):
             "back_href": back_href,
             "back_label": back_label,
             "matching_plans": matching_plans,
+            "input_set_info": input_set_info,
         },
     )

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Dict, Optional
 
 import pytest
 
@@ -12,6 +13,135 @@ from core.config import (
     build_simulation_input,
     load_canonical_config,
 )
+from core.config.models import (
+    PlanningCapacityBucket,
+    PlanningFamilyDemand,
+    PlanningInboundOrder,
+    PlanningInputAggregates,
+    PlanningInputSet,
+    PlanningInventorySnapshot,
+    PlanningMixShare,
+    PlanningPeriodMetric,
+    PlanningCalendarSpec,
+)
+from core.config.storage import PlanningInputSetNotFoundError
+
+
+def _payload_to_input_set(config: CanonicalConfig) -> Optional[PlanningInputSet]:
+    attrs = dict(config.meta.attributes or {})
+    payload = dict(attrs.get("planning_payload") or {})
+    if not payload:
+        return None
+
+    config.meta.version_id = config.meta.version_id or 1
+    aggregates = PlanningInputAggregates(
+        family_demands=[
+            PlanningFamilyDemand(
+                family_code=str(row.get("family")),
+                period=str(row.get("period")),
+                demand=float(row.get("demand") or 0.0),
+            )
+            for row in payload.get("demand_family", [])
+            if row.get("family") and row.get("period")
+        ],
+        capacity_buckets=[
+            PlanningCapacityBucket(
+                resource_code=str(row.get("workcenter") or row.get("resource_code")),
+                resource_type=row.get("resource_type") or "workcenter",
+                period=str(row.get("period")),
+                capacity=float(row.get("capacity") or 0.0),
+            )
+            for row in payload.get("capacity", [])
+            if (row.get("workcenter") or row.get("resource_code")) and row.get("period")
+        ],
+        mix_shares=[
+            PlanningMixShare(
+                family_code=str(row.get("family") or row.get("family_code")),
+                sku_code=str(row.get("sku") or row.get("sku_code")),
+                share=float(row.get("share") or 0.0),
+            )
+            for row in payload.get("mix_share", [])
+            if (row.get("family") or row.get("family_code"))
+            and (row.get("sku") or row.get("sku_code"))
+        ],
+        inventory_snapshots=[
+            PlanningInventorySnapshot(
+                node_code=str(row.get("loc") or row.get("node_code")),
+                item_code=str(row.get("item") or row.get("item_code")),
+                initial_qty=float(row.get("qty") or row.get("initial_qty") or 0.0),
+            )
+            for row in payload.get("inventory", [])
+            if (row.get("loc") or row.get("node_code"))
+            and (row.get("item") or row.get("item_code"))
+        ],
+        inbound_orders=[
+            PlanningInboundOrder(
+                po_id=row.get("po_id"),
+                item_code=str(row.get("item") or row.get("item_code")),
+                due_date=str(row.get("due") or row.get("due_date")),
+                qty=float(row.get("qty") or 0.0),
+            )
+            for row in payload.get("open_po", [])
+            if (row.get("item") or row.get("item_code"))
+            and (row.get("due") or row.get("due_date"))
+        ],
+        period_metrics=[
+            PlanningPeriodMetric(
+                metric_code="cost",
+                period=str(row.get("period")),
+                value=float(row.get("cost") or 0.0),
+            )
+            for row in payload.get("period_cost", [])
+            if row.get("period")
+        ]
+        + [
+            PlanningPeriodMetric(
+                metric_code="score",
+                period=str(row.get("period")),
+                value=float(row.get("score") or 0.0),
+            )
+            for row in payload.get("period_score", [])
+            if row.get("period")
+        ],
+    )
+
+    calendar_spec = None
+    if payload.get("planning_calendar"):
+        calendar_spec = PlanningCalendarSpec(**payload["planning_calendar"])
+
+    return PlanningInputSet(
+        id=1,
+        config_version_id=config.meta.version_id,
+        label="test-input-set",
+        status="ready",
+        source="csv",
+        aggregates=aggregates,
+        calendar_spec=calendar_spec,
+    )
+
+
+def _mock_planning_input_set(monkeypatch, config: CanonicalConfig):
+    input_set = _payload_to_input_set(config)
+    assert input_set is not None
+
+    def _fake_get_planning_input_set(**kwargs):
+        return input_set
+
+    monkeypatch.setattr(
+        "core.config.builders.get_planning_input_set",
+        _fake_get_planning_input_set,
+    )
+    return input_set
+
+
+def _mock_no_input_set(monkeypatch):
+    def _raise(**kwargs):
+        raise PlanningInputSetNotFoundError("not found")
+
+    monkeypatch.setattr(
+        "core.config.builders.get_planning_input_set",
+        _raise,
+    )
 
 
 def _load_config():
@@ -115,8 +245,9 @@ def test_build_simulation_input_distributes_period_demands():
     assert totals == [pytest.approx(90.0), pytest.approx(60.0), pytest.approx(30.0)]
 
 
-def test_build_planning_inputs_from_payload():
+def test_build_planning_inputs_from_payload(monkeypatch):
     config = _load_config()
+    _mock_planning_input_set(monkeypatch, config)
 
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
@@ -146,7 +277,31 @@ def test_build_planning_inputs_from_payload():
     assert bundle.planning_calendar is not None
 
 
-def test_build_planning_inputs_without_payload_fallback():
+def test_build_planning_inputs_prefers_label(monkeypatch):
+    config = _load_config()
+    input_set = _payload_to_input_set(config)
+    if input_set is None:
+        pytest.skip("planning payload missing in seed config")
+    attrs = dict(config.meta.attributes or {})
+    attrs["planning_input_label"] = "custom_label"
+    config.meta.attributes = attrs
+
+    captured: Dict[str, Any] = {}
+
+    def _fake_get_planning_input_set(**kwargs):
+        captured["label"] = kwargs.get("label")
+        return input_set
+
+    monkeypatch.setattr(
+        "core.config.builders.get_planning_input_set", _fake_get_planning_input_set
+    )
+
+    bundle = build_planning_inputs(config)
+    assert bundle.aggregate_input.demand_family
+    assert captured.get("label") == "custom_label"
+
+
+def test_build_planning_inputs_without_payload_fallback(monkeypatch):
     config = _load_config().model_copy(deep=True)
     attrs = dict(config.meta.attributes or {})
     attrs.pop("planning_payload", None)
@@ -154,6 +309,8 @@ def test_build_planning_inputs_without_payload_fallback():
     sources.pop("planning_dir", None)
     attrs["sources"] = sources
     config.meta.attributes = attrs
+    config.meta.version_id = 1
+    _mock_no_input_set(monkeypatch)
 
     bundle = build_planning_inputs(config)
     aggregate = bundle.aggregate_input
@@ -181,11 +338,13 @@ def test_build_planning_inputs_without_payload_fallback():
         assert shares and sum(shares) == pytest.approx(1.0)
 
 
-def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
+def test_build_planning_inputs_uses_planning_dir_when_payload_missing(monkeypatch):
     config = _load_config().model_copy(deep=True)
     attrs = dict(config.meta.attributes or {})
     attrs.pop("planning_payload", None)
     config.meta.attributes = attrs
+    config.meta.version_id = 1
+    _mock_no_input_set(monkeypatch)
 
     bundle = build_planning_inputs(config)
 
@@ -205,7 +364,7 @@ def test_build_planning_inputs_uses_planning_dir_when_payload_missing():
     assert periods == expected_periods
 
 
-def test_build_planning_inputs_trims_calendar_to_canonical_demand():
+def test_build_planning_inputs_trims_calendar_to_canonical_demand(monkeypatch):
     config = _load_config().model_copy(deep=True)
 
     attrs = dict(config.meta.attributes or {})
@@ -213,6 +372,7 @@ def test_build_planning_inputs_trims_calendar_to_canonical_demand():
     demand_rows = [dict(row) for row in payload.get("demand_family", [])]
     if not demand_rows:
         pytest.skip("planning payload does not contain demand rows")
+    _mock_planning_input_set(monkeypatch, config)
 
     bundle = build_planning_inputs(config)
     assert bundle.planning_calendar is not None
@@ -237,3 +397,49 @@ def test_build_planning_inputs_trims_calendar_to_canonical_demand():
 
     week_sequences = [week["sequence"] for week in weeks]
     assert week_sequences == list(range(1, len(week_sequences) + 1))
+
+
+def test_build_planning_inputs_scales_initial_inventory():
+    config = CanonicalConfig(
+        meta=ConfigMeta(
+            name="scale-test",
+            attributes={"initial_inventory_scale": 2.0},
+        ),
+        items=[
+            CanonicalItem(
+                code="SKU-X",
+                name="SKU-X",
+                item_type="product",
+                unit_cost=100,
+            )
+        ],
+        nodes=[
+            CanonicalNode(
+                code="WH",
+                name="Warehouse",
+                node_type="warehouse",
+                inventory_policies=[
+                    {"item_code": "SKU-X", "initial_inventory": 15}
+                ],
+            )
+        ],
+        arcs=[],
+        bom=[],
+        demands=[
+            DemandProfile(
+                node_code="WH",
+                item_code="SKU-X",
+                bucket="M1",
+                mean=10.0,
+            )
+        ],
+        capacities=[],
+        calendars=[],
+        hierarchies=[],
+    )
+
+    bundle = build_planning_inputs(config)
+    inventory = bundle.aggregate_input.inventory
+    assert inventory
+    assert inventory[0].item == "SKU-X"
+    assert inventory[0].qty == pytest.approx(30.0)

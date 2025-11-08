@@ -31,6 +31,14 @@
           {% endif %}
         </label>
         <label>
+          <span class="label-title">Planning Input Set</span>
+          {% set selected_input_set = form_defaults.input_set_label or '' %}
+          <select name="input_set_label" id="input_set_label" data-current="{{ selected_input_set }}" disabled>
+            <option value="">-- Select canonical config first --</option>
+          </select>
+          <small class="mono" id="input_set_hint">Select a canonical config to load ready input sets.</small>
+        </label>
+        <label>
           <span class="label-title">Base Scenario</span>
           {% set selected_scenario = (form_defaults.base_scenario_id or '')|string %}
           <select name="base_scenario_id">
@@ -116,6 +124,10 @@
   <div class="toolbar gap-bottom-sm">
     <input id="q" type="search" placeholder="Search by version, status, policy" aria-label="Search plan versions" />
     <small class="mono pill" id="meta"></small>
+    <label class="mono">
+      <span class="label-title label-title-inline">Input Set</span>
+      <input id="inputSetFilter" type="search" placeholder="Label" value="{{ input_set_filter or '' }}">
+    </label>
     <div class="toolbar">
       <label class="mono">
         <span class="label-title label-title-inline">Primary Sort</span>
@@ -164,6 +176,7 @@
             <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="config_version" data-label="Config Ver" title="Sort by config version" aria-label="Sort by config version">Config Ver</button>
             </th>
+            <th scope="col">Input Set</th>
             <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="cutover" data-label="Cutover" title="Sort by cutover" aria-label="Sort by cutover">Cutover</button>
             </th>
@@ -183,7 +196,7 @@
           {% set series_rows = p.summary.series_rows if p.summary and p.summary.series_rows is not none else None %}
           {% set fill_rate = p.summary.kpi.fill_rate if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else None %}
           {% set backlog_days = p.summary.kpi.backlog_days if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else None %}
-          <tr>
+          <tr data-input-set="{{ (p.input_set_label or '')|lower }}">
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
             <td class="mono">
               {% if last_job and last_job.run_id %}
@@ -201,6 +214,7 @@
                 <a href="/ui/configs/canonical/{{ p.config_version_id }}">{{ p.config_version_id }}</a>
               {% else %}-{% endif %}
             </td>
+            <td class="mono">{% if p.input_set_label %}{{ p.input_set_label }}{% else %}-{% endif %}</td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
             <td class="mono numeric">{{ series_rows|fmt_number }}</td>
             <td class="mono numeric">{{ fill_rate|fmt_percent }}</td>
@@ -256,6 +270,9 @@ function fmtJst(ms){
 document.addEventListener('DOMContentLoaded', function(){
   var configSelect = document.getElementById('config_version_id');
   var calInfo = document.getElementById('config_cal_info');
+  var inputSetSelect = document.getElementById('input_set_label');
+  var inputSetHint = document.getElementById('input_set_hint');
+  var inputSetDefault = inputSetSelect ? (inputSetSelect.getAttribute('data-current') || '') : '';
 
   function updateCalInfo() {
     if (!configSelect || !calInfo) return;
@@ -276,9 +293,103 @@ document.addEventListener('DOMContentLoaded', function(){
     }
   }
 
+  function setInputSetHint(text, variant){
+    if (!inputSetHint) return;
+    var cls = 'mono';
+    if (variant === 'info') cls = 'mono pill pill-info';
+    if (variant === 'warn') cls = 'mono warn-text';
+    inputSetHint.className = cls;
+    inputSetHint.textContent = text || '';
+  }
+
+  function resetInputSetSelect(message){
+    if (!inputSetSelect) return;
+    inputSetSelect.innerHTML = '';
+    var opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = message || '-- Select canonical config first --';
+    inputSetSelect.appendChild(opt);
+    inputSetSelect.disabled = true;
+  }
+
+  async function loadInputSets(configId, preferInitial){
+    if (!inputSetSelect) return;
+    if (!configId) {
+      resetInputSetSelect('-- Select canonical config first --');
+      setInputSetHint('Select a canonical config to load ready input sets.', 'warn');
+      return;
+    }
+    inputSetSelect.disabled = true;
+    inputSetSelect.innerHTML = '';
+    var loadingOpt = document.createElement('option');
+    loadingOpt.value = '';
+    loadingOpt.textContent = 'Loading...';
+    inputSetSelect.appendChild(loadingOpt);
+    setInputSetHint('Loading input sets...', 'info');
+    try {
+      var res = await fetch('/ui/plans/input_sets?config_version_id=' + encodeURIComponent(configId), { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) { throw new Error('HTTP ' + res.status); }
+      var data = await res.json();
+      var items = Array.isArray(data && data.input_sets) ? data.input_sets : [];
+      inputSetSelect.innerHTML = '';
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = items.length ? '-- Optional --' : '-- No ready input sets --';
+      inputSetSelect.appendChild(placeholder);
+      var desired = '';
+      if (preferInitial && inputSetDefault) {
+        desired = inputSetDefault;
+      } else {
+        desired = inputSetSelect.getAttribute('data-current') || '';
+      }
+      items.forEach(function(item){
+        var opt = document.createElement('option');
+        opt.value = item.label;
+        var parts = [item.label];
+        if (item.source) { parts.push('[' + item.source + ']'); }
+        if (item.updated_at) { parts.push(fmtJst(item.updated_at)); }
+        opt.textContent = parts.join(' · ');
+        if (desired && desired === item.label) {
+          opt.selected = true;
+        }
+        inputSetSelect.appendChild(opt);
+      });
+      if (desired && !items.some(function(it){ return it.label === desired; })) {
+        var missing = document.createElement('option');
+        missing.value = desired;
+        missing.textContent = desired + ' (not ready)';
+        missing.selected = true;
+        inputSetSelect.appendChild(missing);
+      }
+      inputSetSelect.disabled = false;
+      if (items.length) {
+        setInputSetHint('Found ' + items.length + ' ready input sets.', 'info');
+      } else {
+        setInputSetHint('Ready input set not found for this config.', 'warn');
+      }
+    } catch (err) {
+      resetInputSetSelect('-- Failed to load input sets --');
+      setInputSetHint('Failed to load input sets. Try again.', 'warn');
+      console.error('input-set-load-failed', err);
+    }
+  }
+
   if (configSelect) {
-    configSelect.addEventListener('change', updateCalInfo);
+    configSelect.addEventListener('change', function(){
+      updateCalInfo();
+      loadInputSets(configSelect.value, false);
+      inputSetSelect && inputSetSelect.setAttribute('data-current', '');
+    });
     updateCalInfo(); // Initial call
+    loadInputSets(configSelect.value, true);
+  } else if (inputSetSelect) {
+    resetInputSetSelect('-- Select canonical config first --');
+  }
+
+  if (inputSetSelect) {
+    inputSetSelect.addEventListener('change', function(){
+      inputSetSelect.setAttribute('data-current', inputSetSelect.value || '');
+    });
   }
 
   document.querySelectorAll('td.ts-ms').forEach(function(td){
@@ -288,31 +399,52 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   var q = document.getElementById('q');
   var meta = document.getElementById('meta');
+  var inputSetFilter = document.getElementById('inputSetFilter');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
   var sortBadge = document.getElementById('sortBadge');
   var sortButtons = Array.from(document.querySelectorAll('button.sort-trigger[data-sort]'));
   // Persist search filter in localStorage
   var KEY_Q = 'ui_plans_query';
+  var KEY_INPUT_SET = 'ui_plans_inputset';
   try {
     var saved = localStorage.getItem(KEY_Q);
     if (q && saved && typeof saved === 'string') { q.value = saved; }
+    var savedInput = localStorage.getItem(KEY_INPUT_SET);
+    if (inputSetFilter && savedInput && typeof savedInput === 'string') { inputSetFilter.value = savedInput; }
+  } catch(e) {}
+  try {
+    var qs = new URLSearchParams(window.location.search);
+    var qpInput = qs.get('input_set_label');
+    if (qpInput && inputSetFilter) {
+      inputSetFilter.value = qpInput;
+      try { localStorage.setItem(KEY_INPUT_SET, qpInput); } catch(e) {}
+    }
   } catch(e) {}
   function apply(){
     var s = (q && q.value || '').toLowerCase().trim();
+    var label = (inputSetFilter && inputSetFilter.value || '').toLowerCase().trim();
     var vis = 0;
     rows.forEach(function(tr){
       var txt = tr.textContent.toLowerCase();
-      var ok = !s || txt.indexOf(s) >= 0;
+      var rowLabel = (tr.getAttribute('data-input-set') || '').toLowerCase();
+      var ok = (!s || txt.indexOf(s) >= 0) && (!label || rowLabel.indexOf(label) >= 0);
       tr.style.display = ok ? '' : 'none';
       if (ok) vis++;
     });
     if (meta) meta.textContent = vis + ' / ' + rows.length;
-    try { localStorage.setItem(KEY_Q, s); } catch(e) {}
+    try {
+      localStorage.setItem(KEY_Q, s);
+      localStorage.setItem(KEY_INPUT_SET, label);
+    } catch(e) {}
   }
+  function triggerApply() { apply(); }
   if (q) {
     q.addEventListener('input', apply);
-    apply();
   }
+  if (inputSetFilter) {
+    inputSetFilter.addEventListener('input', apply);
+  }
+  apply();
   // Quick sort for common columns (status/created_at/violations)
   var KEY_SORT = 'ui_plans_sort';
   var KEY_SORT2 = 'ui_plans_sort2';

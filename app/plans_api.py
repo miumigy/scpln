@@ -6,12 +6,14 @@ import uuid
 import logging
 import os
 import sys
+import tempfile
+import shutil
 from pathlib import Path
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-from fastapi import Body, Query, Request, HTTPException
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import Body, Query, Request, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from app.metrics import (
     PLAN_EXPORT_COMPARE,
     PLAN_EXPORT_CARRYOVER,
@@ -19,6 +21,7 @@ from app.metrics import (
     PLAN_DB_WRITE_TOTAL,
     PLAN_DB_WRITE_ERROR_TOTAL,
     PLAN_DB_CAPACITY_TRIM_TOTAL,
+    LEGACY_MODE_RUNS_TOTAL,
 )
 
 from app.api import app
@@ -555,6 +558,23 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         version_id = str(
             _get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}"
         )
+        input_set_label = _get_param(body, "input_set_label")
+
+        # Legacyモードの検知
+        if not input_set_label:
+            logging.warning(
+                "legacy_mode_detected",
+                extra={
+                    "entrypoint": "/plans/create_and_execute",
+                    "config_version_id": _get_param(body, "config_version_id"),
+                    "base_scenario_id": _get_param(body, "base_scenario_id"),
+                },
+            )
+            try:
+                LEGACY_MODE_RUNS_TOTAL.labels(entrypoint="/plans/create_and_execute").inc()
+            except Exception:
+                logging.exception("failed_to_inc_legacy_mode_metric")
+
         out_dir = Path(
             _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
         )
@@ -899,6 +919,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
             objective=body.get("objective"),
             note=body.get("note"),
             config_version_id=config_version_id,
+            input_set_label=input_set_label,
         )
         logging.info(f"DEBUG: Plan version {version_id} created in DB.")
         if db.get_plan_version(version_id) is None:
@@ -2685,4 +2706,80 @@ def get_plan_carryover_csv(version_id: str):
         pass
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
+    )
+
+@app.get("/api/plans/input_sets/{label}/export")
+def export_planning_input_set(
+    label: str,
+    background_tasks: BackgroundTasks,
+    format: str = Query("zip", enum=["zip", "csv"]),
+):
+    """
+    指定されたラベルの PlanningInputSet をエクスポートする。
+    format=zip の場合、zipアーカイブを返す。
+    """
+    if format != "zip":
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Currently, only zip format is supported."},
+        )
+
+    temp_dir = tempfile.mkdtemp(prefix="plan-export-")
+    background_tasks.add_task(shutil.rmtree, temp_dir)
+
+    zip_path = Path(temp_dir) / f"planning_input_set_{label}.zip"
+    script_path = str(BASE_DIR / "scripts" / "export_planning_inputs.py")
+
+    args = [
+        sys.executable,
+        script_path,
+        "--label",
+        label,
+        "--output-dir",
+        str(temp_dir),
+        "--zip",
+        "--zip-name",
+        str(zip_path.name),
+    ]
+
+    env = os.environ.copy()
+    env.setdefault("PYTHONPATH", str(BASE_DIR))
+
+    try:
+        result = subprocess.run(
+            args,
+            cwd=str(BASE_DIR),
+            env=env,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logging.error(
+            "Export script failed",
+            extra={
+                "label": label,
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+            },
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to export input set. Stderr: {e.stderr}",
+        )
+    except Exception as e:
+        logging.exception("Export subprocess failed unexpectedly")
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred: {e}"
+        )
+
+    if not zip_path.exists():
+        raise HTTPException(
+            status_code=500, detail="Export script ran but zip file was not created."
+        )
+
+    return FileResponse(
+        path=zip_path,
+        filename=zip_path.name,
+        media_type="application/zip",
     )

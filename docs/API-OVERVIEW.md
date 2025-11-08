@@ -33,12 +33,24 @@ These endpoints execute simulations (runs) and persist, retrieve, or compare the
   - `detail=true`: return full payloads including detailed metrics.
   - `limit`, `offset`: pagination.
   - `sort`, `order`: sort by keys such as `started_at`.
-  - Filter by `config_version_id`, `scenario_id`, `plan_version_id`, etc.
+  - Filter by `config_version_id`, `scenario_id`, `plan_version_id`, `input_set_label`, etc.
 
 - **`POST /runs`**: execute a new run synchronously or asynchronously, typically with the integrated pipeline (`pipeline: "integrated"`).
   - `async=true`: enqueue a background job and return a `job_id`.
   - `async=false` (default): run synchronously and return the plan `version_id` once complete.
-  - `options`: pass pipeline parameters such as required `config_version_id` or optional `cutover_date`. When the canonical configuration contains `planning_calendar.json`, the UI/API automatically adds `--calendar`. Without a calendar, provide `weeks` (equal-weight weeks) as a fallback.
+  - `options`: pass pipeline parameters such as required `config_version_id`, optional `cutover_date`, and new `input_set_label`. When `input_set_label` is provided, the pipeline pulls inputs from the managed `planning_input_sets` table instead of `samples/planning`. When the canonical configuration contains `planning_calendar.json`, the UI/API automatically adds `--calendar`. Without a calendar, provide `weeks` (equal-weight weeks) as a fallback.
+  - example:
+    ```json
+    {
+      "pipeline": "integrated",
+      "options": {
+        "config_version_id": 14,
+        "input_set_label": "weekly_refresh",
+        "round_mode": "int",
+        "lt_unit": "day"
+      }
+    }
+    ```
   - (Legacy request-body examples remain unchanged.)
 
 - **`GET /runs/{run_id}`**: retrieve details for a specific run.

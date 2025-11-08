@@ -32,7 +32,6 @@ from planning.schemas import (
     OpenPORecord,
 )
 
-from .loader import read_planning_dir
 from .models import (
     CanonicalArc,
     CanonicalBom,
@@ -40,6 +39,10 @@ from .models import (
     CanonicalItem,
     CanonicalNode,
     DemandProfile,
+)
+from .storage import (
+    get_planning_input_set,
+    PlanningInputSetNotFoundError,
 )
 
 
@@ -86,71 +89,99 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
     """Canonical設定からPlanning Hub向け入力を生成する。"""
 
     attributes = config.meta.attributes or {}
-    payload = attributes.get("planning_payload") or {}
-    if not payload:
-        sources = attributes.get("sources") or {}
-        planning_dir_raw = sources.get("planning_dir")
-        planning_dir_candidates: list[Path] = []
-        if planning_dir_raw:
-            try:
-                planning_dir_path = Path(planning_dir_raw)
-            except (TypeError, ValueError):
-                planning_dir_path = None
-            if planning_dir_path is not None:
-                if planning_dir_path.is_absolute():
-                    planning_dir_candidates.append(planning_dir_path)
-                else:
-                    planning_dir_candidates.extend(
-                        [
-                            Path.cwd() / planning_dir_path,
-                            planning_dir_path,
-                        ]
-                    )
-        for candidate in planning_dir_candidates:
-            try:
-                payload = read_planning_dir(candidate)
-            except Exception:
-                continue
-            if payload:
-                break
-
-    if payload:
-        aggregate = AggregatePlanInput(
-            demand_family=_convert_demand_family(payload.get("demand_family")),
-            capacity=_convert_capacity(payload.get("capacity")),
-            mix_share=_convert_mix_share(payload.get("mix_share")),
-            item_master=_convert_item_master(payload.get("item")),
-            inventory=_convert_inventory(payload.get("inventory")),
-            open_po=_convert_open_po(payload.get("open_po")),
-        )
-        period_cost = _normalize_period_entries(
-            payload.get("period_cost"), value_key="cost"
-        )
-        period_score = _normalize_period_entries(
-            payload.get("period_score"), value_key="score"
-        )
-        bundle = PlanningDataBundle(
-            aggregate_input=aggregate,
-            period_cost=period_cost,
-            period_score=period_score,
-            planning_calendar=payload.get("planning_calendar"),
-        )
-        mismatch, pa_total, ca_total = _planning_demand_mismatch(
-            aggregate.demand_family, config, rel_tol=0.05, abs_tol=1.0
-        )
-        if mismatch:
-            logging.warning(
-                "planning_payload_demand_mismatch_detected "
-                "(payload_total=%s, canonical_total=%s, config_version=%s)",
-                pa_total,
-                ca_total,
-                getattr(config.meta, "version_id", None),
-            )
-            return _build_planning_bundle_from_canonical(config)
-        return _limit_planning_bundle_to_demand_horizon(bundle, config)
+    bundle = _load_planning_bundle_from_input_set(config)
+    if bundle:
+        return bundle
 
     # Fallback: Canonical構造から最小限のPlanning入力を組み立てる
     bundle = _build_planning_bundle_from_canonical(config)
+    return _limit_planning_bundle_to_demand_horizon(bundle, config)
+
+
+def _load_planning_bundle_from_input_set(
+    config: CanonicalConfig,
+) -> Optional[PlanningDataBundle]:
+    version_id = config.meta.version_id
+    if version_id is None:
+        return None
+
+    attributes = config.meta.attributes or {}
+    label = attributes.get("planning_input_label")
+    try:
+        if label:
+            input_set = get_planning_input_set(label=label, include_aggregates=True)
+        else:
+            input_set = get_planning_input_set(
+                config_version_id=version_id,
+                status="ready",
+                include_aggregates=True,
+            )
+    except (PlanningInputSetNotFoundError, ValueError):
+        return None
+
+    aggregates = input_set.aggregates
+    aggregate = AggregatePlanInput(
+        demand_family=[
+            FamilyDemandRecord(
+                family=row.family_code, period=row.period, demand=row.demand
+            )
+            for row in aggregates.family_demands
+        ],
+        capacity=[
+            CapacityRecord(
+                workcenter=row.resource_code,
+                period=row.period,
+                capacity=row.capacity,
+            )
+            for row in aggregates.capacity_buckets
+        ],
+        mix_share=[
+            MixShareRecord(family=row.family_code, sku=row.sku_code, share=row.share)
+            for row in aggregates.mix_shares
+        ],
+        item_master=_convert_item_master(attributes.get("item")),
+        inventory=[
+            InventoryRecord(item=row.item_code, loc=row.node_code, qty=row.initial_qty)
+            for row in aggregates.inventory_snapshots
+        ],
+        open_po=[
+            OpenPORecord(item=row.item_code, due=row.due_date, qty=row.qty)
+            for row in aggregates.inbound_orders
+        ],
+    )
+    period_cost = [
+        {"period": metric.period, "cost": metric.value}
+        for metric in aggregates.period_metrics
+        if metric.metric_code == "cost"
+    ]
+    period_score = [
+        {"period": metric.period, "score": metric.value}
+        for metric in aggregates.period_metrics
+        if metric.metric_code == "score"
+    ]
+
+    bundle = PlanningDataBundle(
+        aggregate_input=aggregate,
+        period_cost=period_cost,
+        period_score=period_score,
+        planning_calendar=(
+            input_set.calendar_spec.model_dump(mode="json")
+            if input_set.calendar_spec
+            else None
+        ),
+    )
+    mismatch, pa_total, ca_total = _planning_demand_mismatch(
+        aggregate.demand_family, config, rel_tol=0.05, abs_tol=1.0
+    )
+    if mismatch:
+        logging.warning(
+            "planning_input_set_demand_mismatch_detected "
+            "(payload_total=%s, canonical_total=%s, config_version=%s)",
+            pa_total,
+            ca_total,
+            getattr(config.meta, "version_id", None),
+        )
+        return _build_planning_bundle_from_canonical(config)
     return _limit_planning_bundle_to_demand_horizon(bundle, config)
 
 
@@ -614,6 +645,14 @@ def _normalize_period_entries(
 def _build_planning_bundle_from_canonical(
     config: CanonicalConfig,
 ) -> PlanningDataBundle:
+    meta_attrs = dict(config.meta.attributes or {})
+    try:
+        inventory_scale = float(meta_attrs.get("initial_inventory_scale", 1.0))
+    except (TypeError, ValueError):
+        inventory_scale = 1.0
+    if inventory_scale <= 0:
+        inventory_scale = 1.0
+
     product_hierarchy = {
         h.node_key: h.parent_key
         for h in config.hierarchies
@@ -657,7 +696,7 @@ def _build_planning_bundle_from_canonical(
     inventory_records: List[InventoryRecord] = []
     for node in config.nodes:
         for policy in node.inventory_policies:
-            qty = policy.initial_inventory or 0.0
+            qty = (policy.initial_inventory or 0.0) * inventory_scale
             if qty <= 0:
                 continue
             inventory_records.append(

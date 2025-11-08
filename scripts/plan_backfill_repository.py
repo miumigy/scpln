@@ -21,6 +21,7 @@ from core.plan_repository import (
     PlanSeriesRow,
 )
 from core.plan_repository_builders import (
+    attach_inventory_to_detail_series,
     build_plan_kpis_from_aggregate,
     build_plan_series_from_aggregate,
     build_plan_series_from_detail,
@@ -219,6 +220,7 @@ def build_plan_payload(
                 default_location_type="global",
             )
         )
+        attach_inventory_to_detail_series(series, plan_final)
 
     if not series and not kpis:
         raise BackfillError(version_id, "成果物から生成されたデータが空でした")

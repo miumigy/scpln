@@ -30,6 +30,30 @@ Load predefined sample configurations into the database before starting.
    - Confirm the seeded configuration (e.g., `canonical-seed`) appears in the list.
    - Use this view to inspect configuration details or compare versions.
 
+### Optional: manage planning inputs via CLI
+You can register or export planning inputs without going through the UI:
+
+```bash
+# Import CSV/JSON into the planning_input_sets table (validate only)
+PYTHONPATH=. python scripts/import_planning_inputs.py \
+  -i samples/planning \
+  --version-id 14 \
+  --label tutorial_input --validate-only
+
+# Perform the actual import (stores rows in the DB)
+PYTHONPATH=. python scripts/import_planning_inputs.py \
+  -i samples/planning \
+  --version-id 14 \
+  --label tutorial_input
+
+# Export an existing input set back to CSV
+PYTHONPATH=. python scripts/export_planning_inputs.py \
+  --label tutorial_input --include-meta --zip
+```
+
+The run you create later can reference `tutorial_input` so that plans and runs share the same managed dataset.
+When calling `/plans/create_and_execute` (or `/runs`), include `"input_set_label": "tutorial_input"` in the JSON body so the pipeline uses this managed dataset instead of `samples/planning`.
+
 ## 1. Create a new plan
 
 1. Open `/ui/plans`.

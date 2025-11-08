@@ -357,6 +357,54 @@ def build_plan_series_from_plan_final(
     return rows
 
 
+def attach_inventory_to_detail_series(
+    series_rows: List[PlanSeriesRow],
+    plan_final: dict[str, Any] | None,
+) -> None:
+    """detレベルのPlanSeriesへplan_finalの在庫を付与する。"""
+    if not plan_final:
+        return
+
+    inv_map: dict[tuple[str, str], tuple[float, float]] = {}
+    for entry in plan_final.get("rows", []) or []:
+        week = entry.get("week")
+        sku = entry.get("sku") or entry.get("item")
+        if not week or not sku:
+            continue
+        inv_map[(str(week), str(sku))] = (
+            _as_float(entry.get("on_hand_start")),
+            _as_float(entry.get("on_hand_end")),
+        )
+    if not inv_map:
+        return
+
+    for row in series_rows:
+        if row.get("level") != "det":
+            continue
+        key = (str(row.get("time_bucket_key")), str(row.get("item_key")))
+        inv = inv_map.get(key)
+        if not inv:
+            continue
+        start, end = inv
+        row["inventory_open"] = start
+        row["inventory_close"] = end
+
+        extra_raw = row.get("extra_json")
+        if isinstance(extra_raw, dict):
+            extra = dict(extra_raw)
+        else:
+            try:
+                extra = json.loads(extra_raw) if extra_raw else {}
+            except Exception:
+                extra = {}
+        if start is not None:
+            extra["on_hand_start"] = start
+        if end is not None:
+            extra["on_hand_end"] = end
+        if extra:
+            row["extra_json"] = json.dumps(extra, ensure_ascii=False)
+
+
 def build_plan_series_from_weekly_summary(
     version_id: str,
     plan_final: dict[str, Any] | None,

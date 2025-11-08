@@ -63,6 +63,15 @@ def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, A
         inventory_map[(str(week), str(sku))] = {
             "on_hand_start": start,
             "on_hand_end": end,
+            "demand": inv.get("demand"),
+            "supply": inv.get("supply"),
+            "backlog": inv.get("backlog"),
+            "lt_weeks": extra_inv.get("lt_weeks"),
+            "planned_release": extra_inv.get("planned_order_release"),
+            "planned_release_adj": extra_inv.get("planned_order_release_adj"),
+            "planned_receipt": extra_inv.get("planned_order_receipt"),
+            "planned_receipt_adj": extra_inv.get("planned_order_receipt_adj"),
+            "scheduled_receipts": extra_inv.get("scheduled_receipts"),
         }
     result: list[Dict[str, Any]] = []
     for row in rows:
@@ -81,11 +90,17 @@ def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, A
                 "period": extra.get("period"),
                 "sku": row.get("item_key"),
                 "week": row.get("time_bucket_key"),
-                "demand": row.get("demand"),
-                "supply_plan": row.get("supply"),
-                "backlog": row.get("backlog"),
+                "demand": inv.get("demand", row.get("demand")),
+                "supply_plan": inv.get("supply", row.get("supply")),
+                "backlog": inv.get("backlog", row.get("backlog")),
                 "on_hand_start": start,
                 "on_hand_end": end,
+                "lt_weeks": inv.get("lt_weeks"),
+                "planned_release": inv.get("planned_release"),
+                "planned_release_adj": inv.get("planned_release_adj"),
+                "planned_receipt": inv.get("planned_receipt"),
+                "planned_receipt_adj": inv.get("planned_receipt_adj"),
+                "scheduled_receipts": inv.get("scheduled_receipts"),
             }
         )
     return result

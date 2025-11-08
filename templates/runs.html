@@ -16,6 +16,7 @@
           <th scope="col" class="numeric"><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
           <th scope="col"><button type="button" class="link" id="th-sort-schema" title="Sort by schema_version" aria-label="Sort by schema version">schema</button></th>
           <th scope="col">config_version_id</th>
+          <th scope="col">Input Set</th>
           <th scope="col">plan_version_id</th>
           <th scope="col">scenario_id</th>
           <th scope="col" class="numeric">fill_rate</th>
@@ -31,6 +32,7 @@
           <td class="numeric">{{ r.duration_ms|fmt_number }}</td>
           <td>{{ r.schema_version }}</td>
           <td class="mono">{% if r.config_version_id %}<a href="/ui/configs/canonical/{{ r.config_version_id }}">{{ r.config_version_id }}</a>{% else %}-{% endif %}</td>
+          <td class="mono" data-input-set>{{ r.input_set_label or '-' }}</td>
           <td class="mono">{% if r.plan_version_id %}<a href="/ui/plans/{{ r.plan_version_id }}">{{ r.plan_version_id }}</a>{% else %}-{% endif %}</td>
           <td class="mono">{% if r.scenario_id %}<a href="/ui/scenarios?highlight={{ r.scenario_id }}">{{ r.scenario_id }}</a>{% else %}-{% endif %}</td>
           <td class="numeric">{{ (r.fill_rate if r.fill_rate is not none else 0)|fmt_percent }}</td>
@@ -86,6 +88,9 @@
     </label>
     <label>Scenario ID
       <input id="scenario-filter" class="input-compact-sm" type="number" min="1" />
+    </label>
+    <label>Input Set
+      <input id="input-set-filter" class="input-compact-sm" type="text" placeholder="weekly_refresh" />
     </label>
     <label><input id="hide-archived" type="checkbox" checked> Hide archived</label>
     <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>

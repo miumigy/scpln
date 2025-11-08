@@ -299,6 +299,7 @@ def create_plan_version(
     objective: str | None = None,
     note: str | None = None,
     config_version_id: int | None = None,
+    input_set_label: str | None = None,
 ) -> None:
     now = int(time.time() * 1000)
     with _conn() as c:
@@ -313,8 +314,9 @@ def create_plan_version(
                 recon_window_days,
                 objective,
                 note,
-                config_version_id
-            ) VALUES(?,?,?,?,?,?,?,?,?)
+                config_version_id,
+                input_set_label
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 version_id,
@@ -326,6 +328,7 @@ def create_plan_version(
                 objective,
                 note,
                 config_version_id,
+                input_set_label,
             ),
         )
 
@@ -376,7 +379,7 @@ def list_plan_versions(
         rows = c.execute(
             f"""
             SELECT version_id, status, cutover_date, recon_window_days,
-                   config_version_id, base_scenario_id, created_at
+                   config_version_id, base_scenario_id, created_at, input_set_label
             FROM plan_versions
             ORDER BY {order_sql}
             LIMIT ? OFFSET ?
@@ -397,7 +400,7 @@ def list_plan_versions_by_base(
 ) -> List[Dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
-            "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
+            "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at, input_set_label FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
             (base_scenario_id, limit),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -414,6 +417,7 @@ def update_plan_version(version_id: str, **fields: Any) -> None:
         "note",
         "base_scenario_id",
         "config_version_id",
+        "input_set_label",
     }
     keys = [k for k in fields.keys() if k in allowed]
     if not keys:
