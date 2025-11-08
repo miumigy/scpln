@@ -338,23 +338,44 @@ def _augment_kpi_preview(
                 source="ui_derived",
             )
 
-    inventory_points: list[float] = []
-    for row in det_rows:
+    inventory_by_period: dict[str, float] = {}
+    fallback_inventory_map: dict[tuple[str, str], tuple[float | None, float | None]] = {}
+    covered_inventory_keys: set[tuple[str, str]] = set()
+
+    for row in detail_fallback or []:
+        period_key = row.get("week") or row.get("period")
+        sku_key = row.get("sku") or row.get("family")
+        if not period_key or not sku_key:
+            continue
         start = _to_float(row.get("on_hand_start"))
         end = _to_float(row.get("on_hand_end"))
-        if start is None and end is None:
-            continue
-        if start is None:
-            start = end
-        if end is None:
-            end = start
-        if start is None or end is None:
-            continue
-        inventory_points.append((start + end) / 2.0)
-    if not inventory_points and detail_fallback:
-        for row in detail_fallback:
+        fallback_inventory_map[(str(period_key), str(sku_key))] = (start, end)
+
+    def _accumulate_inventory(
+        rows: list[dict[str, Any]] | None,
+        *,
+        use_fallback: bool = False,
+    ) -> None:
+        if not rows:
+            return
+        for row in rows:
             start = _to_float(row.get("on_hand_start"))
             end = _to_float(row.get("on_hand_end"))
+            period_key = row.get("week") or row.get("period")
+            sku_key = row.get("sku") or row.get("family")
+            tuple_key = (
+                (str(period_key), str(sku_key))
+                if (period_key is not None and sku_key is not None)
+                else None
+            )
+            if use_fallback and tuple_key:
+                fb = fallback_inventory_map.get(tuple_key)
+                if fb:
+                    fb_start, fb_end = fb
+                    if start is None:
+                        start = fb_start
+                    if end is None:
+                        end = fb_end
             if start is None and end is None:
                 continue
             if start is None:
@@ -363,10 +384,38 @@ def _augment_kpi_preview(
                 end = start
             if start is None or end is None:
                 continue
-            inventory_points.append((start + end) / 2.0)
+            if not period_key:
+                continue
+            avg_point = (start + end) / 2.0
+            key = str(period_key)
+            inventory_by_period[key] = inventory_by_period.get(key, 0.0) + avg_point
+            if tuple_key:
+                covered_inventory_keys.add(tuple_key)
 
-    if inventory_points and total_supply is not None:
-        avg_inventory = sum(inventory_points) / len(inventory_points)
+    _accumulate_inventory(det_rows, use_fallback=True)
+    if not inventory_by_period and detail_fallback:
+        _accumulate_inventory(detail_fallback)
+
+    if fallback_inventory_map:
+        for key_tuple, (start, end) in fallback_inventory_map.items():
+            if key_tuple in covered_inventory_keys:
+                continue
+            if start is None and end is None:
+                continue
+            if start is None:
+                start = end
+            if end is None:
+                end = start
+            if start is None or end is None:
+                continue
+            period_key, _ = key_tuple
+            avg_point = (start + end) / 2.0
+            inventory_by_period[period_key] = (
+                inventory_by_period.get(period_key, 0.0) + avg_point
+            )
+
+    if inventory_by_period and total_supply is not None:
+        avg_inventory = sum(inventory_by_period.values()) / len(inventory_by_period)
         if avg_inventory > 0:
             inventory_turns = total_supply / avg_inventory
             result["inventory_turns"] = _make_metric(
@@ -634,6 +683,7 @@ def ui_plan_detail(version_id: str, request: Request):
     detail_fallback_rows = [
         {
             "week": row.get("week"),
+            "sku": row.get("sku") or row.get("item"),
             "demand": row.get("gross_req"),
             "supply": row.get("planned_order_receipt_adj")
             or row.get("planned_order_receipt"),
