@@ -357,6 +357,7 @@
       text-align: left;
     }
     .table-wrapper {
+      position: relative;
       overflow: auto;
       max-height: 68vh; /* keep horizontal scrollbar within immediate viewport */
       border-radius: 12px;
@@ -373,12 +374,24 @@
     thead {
       background: #f3f6fc;
     }
+    .table-wrapper thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f3f6fc;
+      box-shadow: inset 0 -1px 0 #e2e8f6;
+    }
     th,
     td {
       padding: 0.75rem 1rem;
       border-bottom: 1px solid #e2e8f6;
       text-align: left;
       vertical-align: top;
+    }
+    th.numeric,
+    td.numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
     td > button,
     td > [role="button"] {

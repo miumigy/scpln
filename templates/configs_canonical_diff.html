@@ -103,22 +103,22 @@
       <thead>
         <tr>
           <th>Entity</th>
-          <th>Base Count</th>
-          <th>Compare Count</th>
-          <th>Added</th>
-          <th>Removed</th>
-          <th>Changed</th>
+          <th class="numeric">Base Count</th>
+          <th class="numeric">Compare Count</th>
+          <th class="numeric">Added</th>
+          <th class="numeric">Removed</th>
+          <th class="numeric">Changed</th>
         </tr>
       </thead>
       <tbody>
         {% for key, entity in diff.entities.items() %}
         <tr>
           <td>{{ key }}</td>
-          <td class="mono">{{ entity.base_count|fmt_number }}</td>
-          <td class="mono">{{ entity.compare_count|fmt_number }}</td>
-          <td class="mono">{{ entity.added | length | fmt_number }}</td>
-          <td class="mono">{{ entity.removed | length | fmt_number }}</td>
-          <td class="mono">{{ entity.changed | length | fmt_number }}</td>
+          <td class="mono numeric">{{ entity.base_count|fmt_number }}</td>
+          <td class="mono numeric">{{ entity.compare_count|fmt_number }}</td>
+          <td class="mono numeric">{{ entity.added | length | fmt_number }}</td>
+          <td class="mono numeric">{{ entity.removed | length | fmt_number }}</td>
+          <td class="mono numeric">{{ entity.changed | length | fmt_number }}</td>
         </tr>
         {% endfor %}
       </tbody>

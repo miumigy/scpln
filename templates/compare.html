@@ -61,7 +61,7 @@
     <thead>
       <tr>
         <th>run_id</th>
-        {% for k in keys %}<th>{{ k }}</th>{% endfor %}
+        {% for k in keys %}<th class="numeric">{{ k }}</th>{% endfor %}
       </tr>
     </thead>
     <tbody>
@@ -71,7 +71,7 @@
         {% for k in keys %}
         {% set val = r[k] if r[k] is not none else 0 %}
         {% set display = val|fmt_metric(k) %}
-        <td>{{ display if display != '' else val }}</td>
+        <td class="numeric">{{ display if display != '' else val }}</td>
         {% endfor %}
       </tr>
       {% endfor %}
@@ -88,7 +88,7 @@
     <thead>
       <tr>
         <th>target</th>
-        {% for k in keys %}<th>{{ k }} (abs / %)</th>{% endfor %}
+        {% for k in keys %}<th class="numeric">{{ k }} (abs / %)</th>{% endfor %}
       </tr>
     </thead>
     <tbody>
@@ -99,7 +99,7 @@
           {% set v = d[k] %}
           {% set pct = v.pct %}
           {% set hit = (threshold is not none) and (pct is not none) and ((pct >= threshold) or (pct <= -threshold)) %}
-          <td {% if hit %}style="background: #fff3cd;"{% endif %}>
+          <td class="numeric" {% if hit %}style="background: #fff3cd;"{% endif %}>
             {{ (v.abs or 0)|fmt_number }} / {% if pct is not none %}{{ pct|fmt_number }}%{% else %}-{% endif %}
           </td>
         {% endfor %}

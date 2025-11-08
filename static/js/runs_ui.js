@@ -1,6 +1,5 @@
 (() => {
   const tbody = document.getElementById('runs-tbody');
-  const reloadBtn = document.getElementById('reload-btn');
   const runIdsInput = document.getElementById('run-ids');
   const useSelectedBtn = document.getElementById('use-selected');
   const compareSelectedBtn = document.getElementById('compare-selected');
@@ -197,13 +196,13 @@
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
         <td class="mono truncate" title="${r.run_id}">${runLink}</td>
         <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
-        <td>${fmtNumber(r.duration_ms, 2)}</td>
+        <td class="numeric">${fmtNumber(r.duration_ms, 2)}</td>
         <td>${r.schema_version ?? ''}</td>
         <td class="mono">${configVerLink}</td>
         <td class="mono">${planLink}</td>
         <td class="mono">${scenarioLink}</td>
-        <td>${fmtPercent(r.summary?.fill_rate)}</td>
-        <td>${fmtNumber(r.summary?.profit_total, 2)}</td>
+        <td class="numeric">${fmtPercent(r.summary?.fill_rate)}</td>
+        <td class="numeric">${fmtNumber(r.summary?.profit_total, 2)}</td>
       </tr>
     `;
   }
@@ -309,7 +308,6 @@
     reloadRuns();
   }
 
-  if (reloadBtn) reloadBtn.addEventListener('click', reloadRuns);
   if (useSelectedBtn) useSelectedBtn.addEventListener('click', useSelected);
   if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelected);
   if (compareSelectedBtn) compareSelectedBtn.addEventListener('click', () => {

@@ -49,11 +49,11 @@
   <table role="grid">
     <thead>
       <tr>
-        <th>id</th>
+        <th class="numeric">id</th>
         <th>name</th>
         <th>tag</th>
-        <th>parent_id</th>
-        <th>locked</th>
+        <th class="numeric">parent_id</th>
+        <th class="numeric">locked</th>
         <th>updated_at</th>
         <th class="col-wide">description</th>
 
@@ -63,11 +63,11 @@
     <tbody>
       {% for r in rows %}
       <tr data-name="{{ (r.name or '')|e }}" data-tag="{{ (r.tag or '')|e }}" data-locked="{{ 1 if r.locked else 0 }}" data-desc="{{ (r.description or '')|e }}">
-        <td>{{ r.id|fmt_number }}</td>
+        <td class="numeric">{{ r.id|fmt_number }}</td>
         <td>{{ r.name }}</td>
         <td>{{ r.tag or '' }}</td>
-        <td>{{ (r.parent_id or '')|fmt_number }}</td>
-        <td>{{ r.locked|fmt_number }}</td>
+        <td class="numeric">{{ (r.parent_id or '')|fmt_number }}</td>
+        <td class="numeric">{{ r.locked|fmt_number }}</td>
         <td class="format-datetime">{{ r.updated_at }}</td>
         <td title="{{ r.description or '' }}" class="truncate-text">{{ r.description or '' }}</td>
 

@@ -167,9 +167,9 @@
             <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="cutover" data-label="Cutover" title="Sort by cutover" aria-label="Sort by cutover">Cutover</button>
             </th>
-            <th scope="col"><button type="button" class="link sort-trigger" data-sort="db_rows" data-label="DB Rows">DB Rows</button></th>
-            <th scope="col"><button type="button" class="link sort-trigger" data-sort="fill_rate" data-label="Fill Rate">Fill Rate</button></th>
-            <th scope="col"><button type="button" class="link sort-trigger" data-sort="backlog_days" data-label="Backlog Days">Backlog Days</button></th>
+            <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="db_rows" data-label="DB Rows">DB Rows</button></th>
+            <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="fill_rate" data-label="Fill Rate">Fill Rate</button></th>
+            <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="backlog_days" data-label="Backlog Days">Backlog Days</button></th>
             <th scope="col">
               <button type="button" class="link sort-trigger" data-sort="created_at" data-label="Created" title="Sort by created at" aria-label="Sort by created at">Created</button>
             </th>
@@ -202,9 +202,9 @@
               {% else %}-{% endif %}
             </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
-            <td class="mono">{{ series_rows|fmt_number }}</td>
-            <td class="mono">{{ fill_rate|fmt_percent }}</td>
-            <td class="mono">{{ backlog_days|fmt_number }}</td>
+            <td class="mono numeric">{{ series_rows|fmt_number }}</td>
+            <td class="mono numeric">{{ fill_rate|fmt_percent }}</td>
+            <td class="mono numeric">{{ backlog_days|fmt_number }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
             <td class="mono">{{ last_job.status if last_job else '' }}</td>
             <td>
