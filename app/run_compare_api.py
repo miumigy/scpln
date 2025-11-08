@@ -219,15 +219,13 @@ def list_runs(
             "config_version_id": rec.get("config_version_id"),
             "scenario_id": rec.get("scenario_id"),
             "plan_version_id": rec.get("plan_version_id"),
+            "input_set_label": rec.get("input_set_label"),
             "created_at": rec.get("created_at", rec.get("started_at")),
             "updated_at": rec.get(
                 "updated_at",
                 (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
             ),
         }
-        resolved_label = _resolve_input_set_label(row)
-        if resolved_label:
-            row["input_set_label"] = resolved_label
         out.append(row)
     # DBバックエンドはSQLでページング（ただし config_id 指定時は後方互換のためアプリ側でフィルタリングに切替）
     if (
@@ -286,15 +284,13 @@ def list_runs(
                 "config_version_id": rec.get("config_version_id"),
                 "scenario_id": rec.get("scenario_id"),
                 "plan_version_id": rec.get("plan_version_id"),
+                "input_set_label": rec.get("input_set_label"),
                 "created_at": rec.get("created_at", rec.get("started_at")),
                 "updated_at": rec.get(
                     "updated_at",
                     (rec.get("started_at") or 0) + (rec.get("duration_ms") or 0),
                 ),
             }
-            resolved_label = _resolve_input_set_label(row)
-            if resolved_label:
-                row["input_set_label"] = resolved_label
             rows2.append(row)
         rows2 = _filter_and_sort(
             rows2,

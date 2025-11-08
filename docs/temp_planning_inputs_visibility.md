@@ -113,6 +113,8 @@
 - `2025-11-09 / agent / P1 / T1-4 / InputSetをzipエクスポートするAPIエンドポイント(/api/plans/input_sets/{label}/export)を実装`
 - `2025-11-09 / agent / P1 / T1-4 / InputSet差分表示UI(/ui/plans/input_sets/{label}/diff)とテンプレートを実装`
 - `2025-11-09 / agent / P3 / T3-1 / Legacyモード実行を検知し、WARNINGログとPrometheusカウンター(scpln_legacy_mode_runs_total)で記録する監視ロジックを実装`
+- `2025-11-09 / agent / Docs / PR #286 を作成し、自動マージを設定`
+- `2025-11-09 / agent / P7 / T7-2 / app/run_compare_api.py を修正し、input_set_label を runs テーブルから直接参照するように変更`
 
 ## Phase 0 詳細アクション（完了）
 1. CSV→Canonical差分表を整理（本書「CSV→Canonical差分」参照）。
