@@ -23,7 +23,6 @@ def test_post_plans_integrated_run_with_canonical(db_setup, tmp_path):
     config, _ = load_canonical_config(
         name="canonical-test",
         psi_input_path=Path("static/default_input.json"),
-        planning_dir=Path("samples/planning"),
         product_hierarchy_path=Path("configs/product_hierarchy.json"),
         location_hierarchy_path=Path("configs/location_hierarchy.json"),
         include_validation=False,
@@ -112,7 +111,6 @@ def test_post_plans_integrated_run_db_only_storage(db_setup, tmp_path):
     config, _ = load_canonical_config(
         name="canonical-test",
         psi_input_path=Path("static/default_input.json"),
-        planning_dir=Path("samples/planning"),
         product_hierarchy_path=Path("configs/product_hierarchy.json"),
         location_hierarchy_path=Path("configs/location_hierarchy.json"),
         include_validation=False,

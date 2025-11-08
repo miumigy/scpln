@@ -115,6 +115,9 @@
 - `2025-11-09 / agent / P3 / T3-1 / Legacyモード実行を検知し、WARNINGログとPrometheusカウンター(scpln_legacy_mode_runs_total)で記録する監視ロジックを実装`
 - `2025-11-09 / agent / Docs / PR #286 を作成し、自動マージを設定`
 - `2025-11-09 / agent / P7 / T7-2 / app/run_compare_api.py を修正し、input_set_label を runs テーブルから直接参照するように変更`
+- `2025-11-09 / agent / P2 / T2-1 / Planning Inputs タブ実装（閲覧・差分）の閲覧部分を実装`
+- `2025-11-09 / agent / P2 / T2-2 / CSVアップロード→検証部分を実装`
+- `2025-11-09 / agent / P3 / T3-2 / テスト資産を InputSet ベースに切り替えを実装`
 
 ## Phase 0 詳細アクション（完了）
 1. CSV→Canonical差分表を整理（本書「CSV→Canonical差分」参照）。

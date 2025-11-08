@@ -139,7 +139,6 @@ def test_simulation_endpoint_builds_from_canonical(db_setup, monkeypatch):
     config, _ = load_canonical_config(
         name="sim-test",
         psi_input_path=Path("static/default_input.json"),
-        planning_dir=Path("samples/planning"),
         product_hierarchy_path=Path("configs/product_hierarchy.json"),
         location_hierarchy_path=Path("configs/location_hierarchy.json"),
     )
@@ -171,7 +170,6 @@ def test_simulation_endpoint_canonical_validation_error(db_setup, monkeypatch):
     config, _ = load_canonical_config(
         name="sim-test",
         psi_input_path=Path("static/default_input.json"),
-        planning_dir=Path("samples/planning"),
         product_hierarchy_path=Path("configs/product_hierarchy.json"),
         location_hierarchy_path=Path("configs/location_hierarchy.json"),
     )

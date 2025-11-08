@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block page_header %}
+  <h2>Input Set Detail: {{ input_set.label }}</h2>
+  <p>Inspect the details of Planning Input Set "{{ input_set.label }}".</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>Overview</h3>
+  </div>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">Label</div>
+      <div class="card-body mono">{{ input_set.label }}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Config Version ID</div>
+      <div class="card-body mono">
+        {% if input_set.config_version_id %}
+          <a href="/ui/configs/canonical/{{ input_set.config_version_id }}">{{ input_set.config_version_id }}</a>
+        {% else %}-{% endif %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Status</div>
+      <div class="card-body mono">{{ input_set.status }}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Source</div>
+      <div class="card-body mono">{{ input_set.source }}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Created At</div>
+      <div class="card-body mono ts-ms" data-ms="{{ input_set.created_at }}">{{ input_set.created_at }}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Updated At</div>
+      <div class="card-body mono ts-ms" data-ms="{{ input_set.updated_at }}">{{ input_set.updated_at }}</div>
+    </div>
+  </div>
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Calendar Specification</h3>
+  </div>
+  <pre class="code-block">{{ input_set.calendar_spec | to_json(indent=2) }}</pre>
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Planning Parameters</h3>
+  </div>
+  <pre class="code-block">{{ input_set.planning_params | to_json(indent=2) }}</pre>
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Aggregates</h3>
+  </div>
+  <div class="tabs">
+    <input type="radio" name="tabs" id="tab-family-demand" checked>
+    <label for="tab-family-demand">Family Demand</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.family_demands %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Family</th>
+              <th>Demand</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.family_demands %}
+            <tr>
+              <td class="mono">{{ item.period }}</td>
+              <td class="mono">{{ item.family }}</td>
+              <td class="mono numeric">{{ item.demand | fmt_number }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No family demand data.</p>
+      {% endif %}
+    </div>
+
+    <input type="radio" name="tabs" id="tab-capacity-buckets">
+    <label for="tab-capacity-buckets">Capacity Buckets</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.capacity_buckets %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Resource Type</th>
+              <th>Calendar Code</th>
+              <th>Capacity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.capacity_buckets %}
+            <tr>
+              <td class="mono">{{ item.period }}</td>
+              <td class="mono">{{ item.resource_type }}</td>
+              <td class="mono">{{ item.calendar_code }}</td>
+              <td class="mono numeric">{{ item.capacity | fmt_number }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No capacity bucket data.</p>
+      {% endif %}
+    </div>
+
+    <input type="radio" name="tabs" id="tab-mix-shares">
+    <label for="tab-mix-shares">Mix Shares</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.mix_shares %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Family</th>
+              <th>SKU</th>
+              <th>Share</th>
+              <th>Effective From</th>
+              <th>Effective To</th>
+              <th>Weight Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.mix_shares %}
+            <tr>
+              <td class="mono">{{ item.family }}</td>
+              <td class="mono">{{ item.sku }}</td>
+              <td class="mono numeric">{{ item.share | fmt_percent }}</td>
+              <td class="mono">{{ item.effective_from or '-' }}</td>
+              <td class="mono">{{ item.effective_to or '-' }}</td>
+              <td class="mono">{{ item.weight_source or '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No mix share data.</p>
+      {% endif %}
+    </div>
+
+    <input type="radio" name="tabs" id="tab-inventory-snapshots">
+    <label for="tab-inventory-snapshots">Inventory Snapshots</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.inventory_snapshots %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>SKU</th>
+              <th>Date</th>
+              <th>On Hand</th>
+              <th>Reorder Point</th>
+              <th>Order Up To</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.inventory_snapshots %}
+            <tr>
+              <td class="mono">{{ item.location }}</td>
+              <td class="mono">{{ item.sku }}</td>
+              <td class="mono">{{ item.date }}</td>
+              <td class="mono numeric">{{ item.on_hand | fmt_number }}</td>
+              <td class="mono numeric">{{ item.reorder_point | fmt_number }}</td>
+              <td class="mono numeric">{{ item.order_up_to | fmt_number }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No inventory snapshot data.</p>
+      {% endif %}
+    </div>
+
+    <input type="radio" name="tabs" id="tab-inbound-orders">
+    <label for="tab-inbound-orders">Inbound Orders</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.inbound_orders %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Source</th>
+              <th>Destination</th>
+              <th>SKU</th>
+              <th>Quantity</th>
+              <th>Arrival Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.inbound_orders %}
+            <tr>
+              <td class="mono">{{ item.order_id }}</td>
+              <td class="mono">{{ item.source }}</td>
+              <td class="mono">{{ item.destination }}</td>
+              <td class="mono">{{ item.sku }}</td>
+              <td class="mono numeric">{{ item.quantity | fmt_number }}</td>
+              <td class="mono">{{ item.arrival_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No inbound order data.</p>
+      {% endif %}
+    </div>
+
+    <input type="radio" name="tabs" id="tab-period-metrics">
+    <label for="tab-period-metrics">Period Metrics</label>
+    <div class="tab-content">
+      {% if input_set.aggregates.period_metrics %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Metric Code</th>
+              <th>Value</th>
+              <th>Unit</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in input_set.aggregates.period_metrics %}
+            <tr>
+              <td class="mono">{{ item.period }}</td>
+              <td class="mono">{{ item.metric_code }}</td>
+              <td class="mono numeric">{{ item.value | fmt_number }}</td>
+              <td class="mono">{{ item.unit or '-' }}</td>
+              <td class="mono">{{ item.source or '-' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p>No period metric data.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+// Format created_at timestamp (ms epoch → YYYY/MM/DD HH:mm:ss JST)
+function fmtJst(ms){
+  var n = Number(ms);
+  if (!Number.isFinite(n)) return '';
+  if (n < 1e12) n = n * 1000;
+  var t = new Date(n + 9*3600*1000); // Shift to JST before formatting via UTC getters
+  var y = t.getUTCFullYear();
+  var mo = String(t.getUTCMonth()+1).padStart(2,'0');
+  var d = String(t.getUTCDate()).padStart(2,'0');
+  var h = String(t.getUTCHours()).padStart(2,'0');
+  var mi = String(t.getUTCMinutes()).padStart(2,'0');
+  var s = String(t.getUTCSeconds()).padStart(2,'0');
+  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('td.ts-ms').forEach(function(td){
+    var ms = td.getAttribute('data-ms');
+    var txt = fmtJst(ms);
+    if (txt) td.textContent = txt;
+  });
+});
+</script>
+{% endblock %}
