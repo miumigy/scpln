@@ -31,6 +31,7 @@ class RunRegistryDB:
                 "scenario_id": payload.get("scenario_id"),
                 "plan_version_id": payload.get("plan_version_id"),
                 "plan_job_id": payload.get("plan_job_id"),
+                "input_set_label": payload.get("input_set_label"),
                 "config_json": (
                     json.dumps(payload.get("config_json"))
                     if payload.get("config_json") is not None
@@ -43,7 +44,7 @@ class RunRegistryDB:
                 c.execute(
                     """
                     UPDATE runs SET started_at=?, duration_ms=?, schema_version=?, summary=?, results=?,
-                        daily_profit_loss=?, cost_trace=?, config_id=?, config_version_id=?, scenario_id=?, plan_version_id=?, plan_job_id=?, config_json=?, updated_at=?
+                        daily_profit_loss=?, cost_trace=?, config_id=?, config_version_id=?, scenario_id=?, plan_version_id=?, plan_job_id=?, config_json=?, updated_at=?, input_set_label=?
                     WHERE run_id=?
                     """,
                     (
@@ -61,6 +62,7 @@ class RunRegistryDB:
                         doc["plan_job_id"],
                         doc["config_json"],
                         doc["updated_at"],
+                        doc["input_set_label"],
                         run_id,
                     ),
                 )
@@ -68,8 +70,8 @@ class RunRegistryDB:
                 c.execute(
                     """
                     INSERT INTO runs(run_id, started_at, duration_ms, schema_version, summary, results,
-                        daily_profit_loss, cost_trace, config_id, config_version_id, scenario_id, plan_version_id, plan_job_id, config_json, created_at, updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        daily_profit_loss, cost_trace, config_id, config_version_id, scenario_id, plan_version_id, plan_job_id, config_json, created_at, updated_at, input_set_label)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         doc["run_id"],
@@ -88,6 +90,7 @@ class RunRegistryDB:
                         doc["config_json"],
                         doc["created_at"],
                         doc["updated_at"],
+                        doc["input_set_label"],
                     ),
                 )
         try:
@@ -173,7 +176,7 @@ class RunRegistryDB:
             cols = (
                 "*"
                 if detail
-                else "run_id, started_at, duration_ms, schema_version, summary, config_id, config_version_id, scenario_id, plan_version_id, config_json, created_at, updated_at"
+                else "run_id, started_at, duration_ms, schema_version, summary, config_id, config_version_id, scenario_id, plan_version_id, input_set_label, config_json, created_at, updated_at"
             )
             rows = c.execute(
                 f"SELECT {cols} FROM runs{where_sql} ORDER BY {sort} {order}, run_id {order} LIMIT ? OFFSET ?",
@@ -205,6 +208,7 @@ class RunRegistryDB:
                                 if "plan_version_id" in r.keys()
                                 else None
                             ),
+                            "input_set_label": r["input_set_label"],
                             "config_json": (
                                 json.loads(r["config_json"])
                                 if r["config_json"]
@@ -241,6 +245,7 @@ class RunRegistryDB:
             "config_json": (
                 json.loads(row["config_json"]) if row["config_json"] else None
             ),
+            "input_set_label": row["input_set_label"],
         }
 
     def delete(self, run_id: str) -> None:

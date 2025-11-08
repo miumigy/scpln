@@ -6,7 +6,7 @@ from fastapi import Body
 from fastapi.responses import JSONResponse
 
 from app.api import app
-from app.metrics import RUNS_QUEUED
+from app.metrics import RUNS_QUEUED, LEGACY_MODE_RUNS_TOTAL
 
 
 @app.post("/runs")
@@ -82,6 +82,22 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     options["blend_split_next"] = _as_float(options_raw.get("blend_split_next"))
     options["blend_weight_mode"] = options_raw.get("blend_weight_mode")
     options["config_version_id"] = _as_int(options_raw.get("config_version_id"))
+    options["input_set_label"] = _as_str(options_raw.get("input_set_label"))
+
+    # Legacyモードの検知
+    if not options.get("input_set_label"):
+        logging.warning(
+            "legacy_mode_detected",
+            extra={
+                "entrypoint": "/runs",
+                "config_version_id": options.get("config_version_id"),
+                "base_scenario_id": options.get("base_scenario_id"),
+            },
+        )
+        try:
+            LEGACY_MODE_RUNS_TOTAL.labels(entrypoint="/runs").inc()
+        except Exception:
+            logging.exception("failed_to_inc_legacy_mode_metric")
 
     # 検証
     if pipeline not in ("integrated",):
@@ -184,6 +200,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
                 "status": "queued",
                 "job_id": job_id,
                 "location": f"/ui/jobs/{job_id}",
+                "input_set_label": options.get("input_set_label"),
             }
         except Exception as e:
             return JSONResponse(status_code=500, content={"detail": str(e)})
@@ -210,6 +227,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
             "version_id": res.get("version_id"),
             "config_version_id": res.get("config_version_id"),
             "artifacts": res.get("artifacts") or [],
+             "input_set_label": res.get("input_set_label"),
             "location": f"/ui/plans/{res.get('version_id')}",
         }
     except Exception as e:

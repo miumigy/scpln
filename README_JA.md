@@ -35,6 +35,32 @@
 
 Canonical設定統合の設計原則や移行の経緯は、関連ドキュメントで補完されています。
 
+#### Planning入力CLI（Import / Export）
+UIに加えて、正規化された `planning_input_sets` テーブルを直接読み書きするCLIを提供しています。
+
+| 目的 | コマンド | 補足 |
+|------|----------|------|
+| CSV/JSON を `planning_input_sets` へ取り込み | `PYTHONPATH=. python scripts/import_planning_inputs.py -i samples/planning --version-id 101 --label weekly_refresh` | `--validate-only`, `--apply-mode merge|replace`, `--json` などを指定可能。ランタイムで `samples/planning` に依存せずDBへ入力を登録。 |
+| InputSet を CSV 出力 | `PYTHONPATH=. python scripts/export_planning_inputs.py --label weekly_refresh --include-meta --zip` | `out/planning_inputs_<label>` に `samples/planning` 互換ファイルを生成。`--zip` でアーカイブ化し、UIダウンロードやCI成果物に活用。 |
+
+標準フロー:
+1. 整備済みCSV/JSON（またはCI成果物）を import CLI で取り込み、対象バージョンに紐づく入力セットを登録。
+2. Planning Hub や API で登録済みラベルを参照して計画生成（`/plans/create_and_execute` へ `"input_set_label":"weekly_refresh"` を渡す）。
+3. export CLI でPlan作成時に利用した入力を再出力し、監査・再現性確保や下流共有に利用。
+
+API での指定例:
+
+```bash
+curl -sS http://localhost:8000/plans/create_and_execute \
+  -H 'content-type: application/json' \
+  -d '{
+        "config_version_id": 14,
+        "input_set_label": "weekly_refresh",
+        "round_mode": "int",
+        "lt_unit": "day"
+      }' | jq .
+```
+
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
 - 実行前に差分とKPIインパクトを標準化されたプレビューで確認し、ドライランと本適用を安全に切り分け。
@@ -119,4 +145,3 @@ bash scripts/serve.sh db
 # 起動中のサービスをすべて停止
 bash scripts/stop.sh
 ```
-

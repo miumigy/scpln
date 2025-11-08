@@ -33,6 +33,7 @@ from core.config.storage import (
 )
 from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
+    attach_inventory_to_detail_series,
     build_plan_kpis_from_aggregate,
     build_plan_series,
     build_plan_series_from_plan_final,
@@ -42,6 +43,7 @@ from core.plan_repository_builders import (
 
 
 _STORAGE_CHOICES = {"db", "files", "both"}
+_PLAN_INPUT_SET_ARTIFACT = "planning_input_set.json"
 
 JOBS_ENABLED = os.getenv("JOBS_ENABLED", "1") == "1"
 JOBS_WORKERS = int(os.getenv("JOBS_WORKERS", "1") or 1)
@@ -441,6 +443,7 @@ class JobManager:
                 cfg.get("out_dir") or (base / "out" / f"job_planning_{job_id}")
             )
             out_dir.mkdir(parents=True, exist_ok=True)
+            input_set_label = cfg.get("input_set_label")
 
             storage_mode = _storage_mode(cfg.get("storage_mode"))
             use_db = _should_use_db(storage_mode)
@@ -457,7 +460,10 @@ class JobManager:
                 artifact_paths,
                 canonical_config,
             ) = prepare_canonical_inputs(
-                int(config_version_id), out_dir, write_artifacts=True
+                int(config_version_id),
+                out_dir,
+                write_artifacts=True,
+                input_set_label=input_set_label,
             )
             input_dir = str(temp_input_dir)
             lightweight = bool(cfg.get("lightweight") or False)
@@ -629,6 +635,18 @@ class JobManager:
                         name,
                         path.read_text(encoding="utf-8"),
                     )
+            if input_set_label:
+                try:
+                    db.upsert_plan_artifact(
+                        version_id,
+                        _PLAN_INPUT_SET_ARTIFACT,
+                        json.dumps({"label": input_set_label}, ensure_ascii=False),
+                    )
+                except Exception:
+                    logging.exception(
+                        "planning_job_store_input_set_label_failed",
+                        extra={"version_id": version_id, "label": input_set_label},
+                    )
 
             try:
                 aggregate_obj = _load_json(out_dir / "aggregate.json")
@@ -657,6 +675,9 @@ class JobManager:
                     if existing_mrp_rows:
                         plan_series_rows.extend(existing_mrp_rows)
                 if plan_final_obj:
+                    attach_inventory_to_detail_series(
+                        plan_series_rows, plan_final_obj
+                    )
                     plan_series_rows.extend(
                         build_plan_series_from_plan_final(version_id, plan_final_obj)
                     )
@@ -854,13 +875,14 @@ class JobManager:
                         scenario_id = int(scenario_raw)
                 except (TypeError, ValueError):
                     scenario_id = None
-                recorded_run_id = record_canonical_run(
-                    canonical_config,
-                    config_version_id=config_version_id,
-                    scenario_id=scenario_id,
-                    plan_version_id=version_id,
-                    plan_job_id=job_id,
-                )
+            recorded_run_id = record_canonical_run(
+                canonical_config,
+                config_version_id=config_version_id,
+                scenario_id=scenario_id,
+                plan_version_id=version_id,
+                plan_job_id=job_id,
+                input_set_label=input_set_label,
+            )
 
             file_list = [
                 "aggregate.json",
@@ -1030,6 +1052,7 @@ def prepare_canonical_inputs(
     out_dir: Path,
     *,
     write_artifacts: bool = False,
+    input_set_label: Optional[str] = None,
 ) -> Tuple[PlanningDataBundle, Path, Dict[str, Path], CanonicalConfig]:
     logging.info(
         f"DEBUG: prepare_canonical_inputs called for config_version_id: {config_version_id}"
@@ -1063,6 +1086,11 @@ def prepare_canonical_inputs(
             f"Canonical config validation issues: {validation.issues}"
         )  # Add this line
         raise RuntimeError(f"canonical config validation failed: {errors}")
+
+    if input_set_label:
+        attrs = dict(canonical_config.meta.attributes or {})
+        attrs["planning_input_label"] = input_set_label
+        canonical_config.meta.attributes = attrs
 
     try:
         logging.info("DEBUG: Building planning inputs from canonical config.")

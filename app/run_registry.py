@@ -79,6 +79,7 @@ def record_canonical_run(
     scenario_id: Optional[int],
     plan_version_id: Optional[str] = None,
     plan_job_id: Optional[str] = None,
+    input_set_label: Optional[str] = None,
     registry: Optional[RunRegistry] = None,
 ) -> Optional[str]:
     """Canonical設定を用いたPSIランを実行し、RunRegistryに保存する。
@@ -108,24 +109,26 @@ def record_canonical_run(
         summary = dict(summary or {})
         if plan_version_id:
             summary.setdefault("_plan_version_id", plan_version_id)
+        if input_set_label:
+            summary.setdefault("_input_set_label", input_set_label)
         run_id = uuid4().hex
-        reg.put(
-            run_id,
-            {
-                "run_id": run_id,
-                "started_at": int(start * 1000),
-                "duration_ms": duration_ms,
-                "schema_version": getattr(sim_input, "schema_version", "1.0"),
-                "summary": summary,
-                "results": results,
-                "daily_profit_loss": daily_pl,
-                "cost_trace": cost_trace,
-                "config_version_id": config_version_id,
-                "scenario_id": scenario_id,
-                "plan_version_id": plan_version_id,
-                "plan_job_id": plan_job_id,
-            },
-        )
+        payload = {
+            "run_id": run_id,
+            "started_at": int(start * 1000),
+            "duration_ms": duration_ms,
+            "schema_version": getattr(sim_input, "schema_version", "1.0"),
+            "summary": summary,
+            "results": results,
+            "daily_profit_loss": daily_pl,
+            "cost_trace": cost_trace,
+            "config_version_id": config_version_id,
+            "scenario_id": scenario_id,
+            "plan_version_id": plan_version_id,
+            "plan_job_id": plan_job_id,
+        }
+        if input_set_label:
+            payload["input_set_label"] = input_set_label
+        reg.put(run_id, payload)
         return run_id
     except Exception:
         logging.exception(

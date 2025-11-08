@@ -6,6 +6,7 @@
     "status": "draft",
     "attributes": {
       "planning_horizon": 181,
+      "initial_inventory_scale": 3,
       "sources": {
         "planning_dir": "samples/planning",
         "psi_input": "static/default_input.json",

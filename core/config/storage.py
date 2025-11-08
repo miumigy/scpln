@@ -9,7 +9,7 @@ import time
 from collections import defaultdict
 from contextlib import closing
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from app.db import _conn
 
@@ -28,8 +28,37 @@ from .models import (
     HierarchyEntry,
     NodeInventoryPolicy,
     NodeProductionPolicy,
+    PlanningCapacityBucket,
+    PlanningFamilyDemand,
+    PlanningInboundOrder,
+    PlanningInputAggregates,
+    PlanningInputSet,
+    PlanningInventorySnapshot,
+    PlanningMixShare,
+    PlanningPeriodMetric,
+    PlanningCalendarSpec,
+    PlanningParams,
 )
 from .validators import ValidationResult, validate_canonical_config
+
+
+class PlanningInputSetNotFoundError(Exception):
+    """指定されたPlanningInputSetが見つからない場合に送出。"""
+
+
+class PlanningInputSetConflictError(Exception):
+    """ユニーク制約などでInputSetを作成できなかった場合に送出。"""
+
+
+@dataclass
+class PlanningInputSetSummary:
+    id: int
+    config_version_id: int
+    label: str
+    status: str
+    source: str
+    created_at: Optional[int]
+    updated_at: Optional[int]
 
 
 def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
@@ -180,6 +209,367 @@ def _row_to_calendar(row: sqlite3.Row) -> CalendarDefinition:
         definition=json.loads(row["definition_json"]) if row["definition_json"] else {},
         attributes=json.loads(row["attributes_json"]) if row["attributes_json"] else {},
     )
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value or {}, ensure_ascii=False)
+
+
+def _json_loads(value: Optional[str]) -> Dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        loaded = json.loads(value)
+        return loaded if isinstance(loaded, dict) else {}
+    except Exception:
+        return {}
+
+
+def _row_to_planning_input_set(
+    row: sqlite3.Row, aggregates: PlanningInputAggregates
+) -> PlanningInputSet:
+    calendar_spec = None
+    if row["calendar_spec_json"]:
+        try:
+            calendar_spec = PlanningCalendarSpec(**json.loads(row["calendar_spec_json"]))
+        except Exception:
+            calendar_spec = None
+    planning_params = None
+    if row["planning_params_json"]:
+        try:
+            planning_params = PlanningParams(**json.loads(row["planning_params_json"]))
+        except Exception:
+            planning_params = None
+
+    return PlanningInputSet(
+        id=row["id"],
+        config_version_id=row["config_version_id"],
+        label=row["label"],
+        status=row["status"],
+        source=row["source"],
+        created_by=row["created_by"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        metadata=_json_loads(row["metadata_json"]),
+        calendar_spec=calendar_spec,
+        planning_params=planning_params,
+        aggregates=aggregates,
+    )
+
+
+def _load_planning_input_aggregates(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> PlanningInputAggregates:
+    return PlanningInputAggregates(
+        family_demands=_load_family_demands(cur, input_set_id),
+        capacity_buckets=_load_capacity_buckets(cur, input_set_id),
+        mix_shares=_load_mix_shares(cur, input_set_id),
+        inventory_snapshots=_load_inventory_snapshots(cur, input_set_id),
+        inbound_orders=_load_inbound_orders(cur, input_set_id),
+        period_metrics=_load_period_metrics(cur, input_set_id),
+    )
+
+
+def _load_family_demands(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningFamilyDemand]:
+    rows = cur.execute(
+        """
+        SELECT family_code, period, demand, source_type, tolerance_abs, attributes_json
+        FROM planning_family_demands
+        WHERE input_set_id = ?
+        ORDER BY family_code, period
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningFamilyDemand(
+            family_code=row["family_code"],
+            period=row["period"],
+            demand=row["demand"],
+            source_type=row["source_type"],
+            tolerance_abs=row["tolerance_abs"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _load_capacity_buckets(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningCapacityBucket]:
+    rows = cur.execute(
+        """
+        SELECT resource_code, resource_type, period, capacity, calendar_code, attributes_json
+        FROM planning_capacity_buckets
+        WHERE input_set_id = ?
+        ORDER BY resource_code, period
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningCapacityBucket(
+            resource_code=row["resource_code"],
+            resource_type=row["resource_type"],
+            period=row["period"],
+            capacity=row["capacity"],
+            calendar_code=row["calendar_code"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _load_mix_shares(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningMixShare]:
+    rows = cur.execute(
+        """
+        SELECT family_code, sku_code, share, effective_from, effective_to,
+               weight_source, attributes_json
+        FROM planning_mix_shares
+        WHERE input_set_id = ?
+        ORDER BY family_code, sku_code, effective_from
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningMixShare(
+            family_code=row["family_code"],
+            sku_code=row["sku_code"],
+            share=row["share"],
+            effective_from=row["effective_from"],
+            effective_to=row["effective_to"],
+            weight_source=row["weight_source"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _load_inventory_snapshots(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningInventorySnapshot]:
+    rows = cur.execute(
+        """
+        SELECT node_code, item_code, initial_qty, reorder_point, order_up_to,
+               safety_stock, attributes_json
+        FROM planning_inventory_snapshots
+        WHERE input_set_id = ?
+        ORDER BY node_code, item_code
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningInventorySnapshot(
+            node_code=row["node_code"],
+            item_code=row["item_code"],
+            initial_qty=row["initial_qty"],
+            reorder_point=row["reorder_point"],
+            order_up_to=row["order_up_to"],
+            safety_stock=row["safety_stock"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _load_inbound_orders(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningInboundOrder]:
+    rows = cur.execute(
+        """
+        SELECT po_id, item_code, source_node, dest_node, due_date, qty, attributes_json
+        FROM planning_inbound_orders
+        WHERE input_set_id = ?
+        ORDER BY due_date, item_code
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningInboundOrder(
+            po_id=row["po_id"],
+            item_code=row["item_code"],
+            source_node=row["source_node"],
+            dest_node=row["dest_node"],
+            due_date=row["due_date"],
+            qty=row["qty"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _load_period_metrics(
+    cur: sqlite3.Cursor, input_set_id: int
+) -> List[PlanningPeriodMetric]:
+    rows = cur.execute(
+        """
+        SELECT metric_code, period, value, unit, source, attributes_json
+        FROM planning_period_metrics
+        WHERE input_set_id = ?
+        ORDER BY metric_code, period
+        """,
+        (input_set_id,),
+    ).fetchall()
+    return [
+        PlanningPeriodMetric(
+            metric_code=row["metric_code"],
+            period=row["period"],
+            value=row["value"],
+            unit=row["unit"],
+            source=row["source"],
+            attributes=_json_loads(row["attributes_json"]),
+        )
+        for row in rows
+    ]
+
+
+def _replace_planning_aggregates(
+    cur: sqlite3.Cursor, input_set_id: int, aggregates: PlanningInputAggregates
+) -> None:
+    cur.execute("DELETE FROM planning_family_demands WHERE input_set_id=?", (input_set_id,))
+    cur.execute("DELETE FROM planning_capacity_buckets WHERE input_set_id=?", (input_set_id,))
+    cur.execute("DELETE FROM planning_mix_shares WHERE input_set_id=?", (input_set_id,))
+    cur.execute(
+        "DELETE FROM planning_inventory_snapshots WHERE input_set_id=?", (input_set_id,)
+    )
+    cur.execute("DELETE FROM planning_inbound_orders WHERE input_set_id=?", (input_set_id,))
+    cur.execute("DELETE FROM planning_period_metrics WHERE input_set_id=?", (input_set_id,))
+
+    if aggregates.family_demands:
+        cur.executemany(
+            """
+            INSERT INTO planning_family_demands(
+                input_set_id, family_code, period, demand, source_type, tolerance_abs,
+                attributes_json
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.family_code,
+                    row.period,
+                    row.demand,
+                    row.source_type,
+                    row.tolerance_abs,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.family_demands
+            ],
+        )
+
+    if aggregates.capacity_buckets:
+        cur.executemany(
+            """
+            INSERT INTO planning_capacity_buckets(
+                input_set_id, resource_code, resource_type, period, capacity,
+                calendar_code, attributes_json
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.resource_code,
+                    row.resource_type,
+                    row.period,
+                    row.capacity,
+                    row.calendar_code,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.capacity_buckets
+            ],
+        )
+
+    if aggregates.mix_shares:
+        cur.executemany(
+            """
+            INSERT INTO planning_mix_shares(
+                input_set_id, family_code, sku_code, share, effective_from, effective_to,
+                weight_source, attributes_json
+            ) VALUES(?,?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.family_code,
+                    row.sku_code,
+                    row.share,
+                    row.effective_from,
+                    row.effective_to,
+                    row.weight_source,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.mix_shares
+            ],
+        )
+
+    if aggregates.inventory_snapshots:
+        cur.executemany(
+            """
+            INSERT INTO planning_inventory_snapshots(
+                input_set_id, node_code, item_code, initial_qty, reorder_point,
+                order_up_to, safety_stock, attributes_json
+            ) VALUES(?,?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.node_code,
+                    row.item_code,
+                    row.initial_qty,
+                    row.reorder_point,
+                    row.order_up_to,
+                    row.safety_stock,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.inventory_snapshots
+            ],
+        )
+
+    if aggregates.inbound_orders:
+        cur.executemany(
+            """
+            INSERT INTO planning_inbound_orders(
+                input_set_id, po_id, item_code, source_node, dest_node, due_date,
+                qty, attributes_json
+            ) VALUES(?,?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.po_id,
+                    row.item_code,
+                    row.source_node,
+                    row.dest_node,
+                    row.due_date,
+                    row.qty,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.inbound_orders
+            ],
+        )
+
+    if aggregates.period_metrics:
+        cur.executemany(
+            """
+            INSERT INTO planning_period_metrics(
+                input_set_id, metric_code, period, value, unit, source, attributes_json
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            [
+                (
+                    input_set_id,
+                    row.metric_code,
+                    row.period,
+                    row.value,
+                    row.unit,
+                    row.source,
+                    _json_dumps(row.attributes),
+                )
+                for row in aggregates.period_metrics
+            ],
+        )
 
 
 def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPolicy]]:
@@ -918,6 +1308,14 @@ __all__ = [
     "save_canonical_config",
     "delete_canonical_config",
     "CanonicalVersionSummary",
+    "create_planning_input_set",
+    "update_planning_input_set",
+    "get_planning_input_set",
+    "list_planning_input_sets",
+    "delete_planning_input_set",
+    "PlanningInputSetSummary",
+    "PlanningInputSetNotFoundError",
+    "PlanningInputSetConflictError",
 ]
 
 
@@ -1018,4 +1416,227 @@ def _update_counts_metadata(
                 "UPDATE canonical_config_versions SET metadata_json=? WHERE id=?",
                 (json.dumps(attributes, ensure_ascii=False), vid),
             )
+        conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Planning Input Set CRUD
+# ---------------------------------------------------------------------------
+
+
+def create_planning_input_set(
+    *,
+    config_version_id: int,
+    label: str,
+    status: str = "draft",
+    source: str = "csv",
+    created_by: Optional[str] = None,
+    calendar_spec: Optional[PlanningCalendarSpec] = None,
+    planning_params: Optional[PlanningParams] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    aggregates: Optional[PlanningInputAggregates] = None,
+) -> PlanningInputSet:
+    now = int(time.time() * 1000)
+    aggregates = aggregates or PlanningInputAggregates()
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        try:
+            cur.execute(
+                """
+                INSERT INTO planning_input_sets(
+                    config_version_id, label, status, source, created_by,
+                    created_at, updated_at, metadata_json, calendar_spec_json,
+                    planning_params_json
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    config_version_id,
+                    label,
+                    status,
+                    source,
+                    created_by,
+                    now,
+                    now,
+                    _json_dumps(metadata),
+                    json.dumps(
+                        calendar_spec.model_dump(mode="json")
+                        if calendar_spec
+                        else {},
+                        ensure_ascii=False,
+                    ),
+                    json.dumps(
+                        planning_params.model_dump(mode="json")
+                        if planning_params
+                        else {},
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise PlanningInputSetConflictError(str(exc)) from exc
+
+        input_set_id = cur.lastrowid
+        _replace_planning_aggregates(cur, input_set_id, aggregates)
+        conn.commit()
+
+    return get_planning_input_set(input_set_id=input_set_id, include_aggregates=True)
+
+
+def update_planning_input_set(
+    input_set_id: int,
+    *,
+    label: Optional[str] = None,
+    status: Optional[str] = None,
+    calendar_spec: Optional[PlanningCalendarSpec] = None,
+    planning_params: Optional[PlanningParams] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    aggregates: Optional[PlanningInputAggregates] = None,
+    replace_mode: bool = False,
+) -> PlanningInputSet:
+    fields: List[str] = []
+    params: List[Any] = []
+    now = int(time.time() * 1000)
+
+    if label is not None:
+        fields.append("label = ?")
+        params.append(label)
+    if status is not None:
+        fields.append("status = ?")
+        params.append(status)
+    if metadata is not None:
+        fields.append("metadata_json = ?")
+        params.append(_json_dumps(metadata))
+    if calendar_spec is not None:
+        fields.append("calendar_spec_json = ?")
+        params.append(
+            json.dumps(calendar_spec.model_dump(mode="json"), ensure_ascii=False)
+        )
+    if planning_params is not None:
+        fields.append("planning_params_json = ?")
+        params.append(
+            json.dumps(planning_params.model_dump(mode="json"), ensure_ascii=False)
+        )
+    fields.append("updated_at = ?")
+    params.append(now)
+    params.append(input_set_id)
+
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        if fields:
+            cur.execute(
+                f"""
+                UPDATE planning_input_sets
+                SET {", ".join(fields)}
+                WHERE id = ?
+                """,
+                params,
+            )
+            if cur.rowcount == 0:
+                raise PlanningInputSetNotFoundError(f"id={input_set_id} not found")
+
+        if aggregates is not None:
+            if replace_mode:
+                _replace_planning_aggregates(cur, input_set_id, aggregates)
+            else:
+                # replace_mode=False の場合も現状全削除→再挿入で差分管理を簡易化
+                _replace_planning_aggregates(cur, input_set_id, aggregates)
+
+        conn.commit()
+
+    return get_planning_input_set(input_set_id=input_set_id, include_aggregates=True)
+
+
+def get_planning_input_set(
+    *,
+    input_set_id: Optional[int] = None,
+    label: Optional[str] = None,
+    config_version_id: Optional[int] = None,
+    status: Optional[str] = None,
+    include_aggregates: bool = True,
+) -> PlanningInputSet:
+    conditions: List[str] = []
+    params: List[Any] = []
+    if input_set_id is not None:
+        conditions.append("id = ?")
+        params.append(input_set_id)
+    if label is not None:
+        conditions.append("label = ?")
+        params.append(label)
+    if config_version_id is not None:
+        conditions.append("config_version_id = ?")
+        params.append(config_version_id)
+    if status is not None:
+        conditions.append("status = ?")
+        params.append(status)
+
+    if not conditions:
+        raise ValueError("input_set_id, label, or config_version_id must be specified")
+
+    query = "SELECT * FROM planning_input_sets WHERE " + " AND ".join(conditions)
+    query += " ORDER BY updated_at DESC LIMIT 1"
+
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        row = cur.execute(query, params).fetchone()
+        if not row:
+            raise PlanningInputSetNotFoundError("Planning input set not found")
+        aggregates = (
+            _load_planning_input_aggregates(cur, row["id"])
+            if include_aggregates
+            else PlanningInputAggregates()
+        )
+        return _row_to_planning_input_set(row, aggregates)
+
+
+def list_planning_input_sets(
+    *,
+    config_version_id: int,
+    status: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> List[PlanningInputSetSummary]:
+    conditions = ["config_version_id = ?"]
+    params: List[Any] = [config_version_id]
+    if status is not None:
+        conditions.append("status = ?")
+        params.append(status)
+
+    query = (
+        "SELECT id, config_version_id, label, status, source, created_at, updated_at "
+        "FROM planning_input_sets WHERE "
+        + " AND ".join(conditions)
+        + " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+    )
+    params.extend([limit, offset])
+
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        rows = cur.execute(query, params).fetchall()
+        return [
+            PlanningInputSetSummary(
+                id=row["id"],
+                config_version_id=row["config_version_id"],
+                label=row["label"],
+                status=row["status"],
+                source=row["source"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
+            for row in rows
+        ]
+
+
+def delete_planning_input_set(
+    input_set_id: int, *, hard: bool = False
+) -> None:
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        if hard:
+            cur.execute("DELETE FROM planning_input_sets WHERE id = ?", (input_set_id,))
+        else:
+            cur.execute(
+                """
+                UPDATE planning_input_sets
+                SET status = 'archived', updated_at = ?
+                WHERE id = ?
+                """,
+                (int(time.time() * 1000), input_set_id),
+            )
+        if cur.rowcount == 0:
+            raise PlanningInputSetNotFoundError(f"id={input_set_id} not found")
         conn.commit()

@@ -85,6 +85,58 @@
       gap: 0.5rem;
       align-items: center;
     }
+    .inputset-card {
+      border-left: 4px solid #2563eb;
+      background-color: #f8fafc;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .inputset-card.warn {
+      border-color: #b45309;
+      background-color: #fff7ed;
+    }
+    .inputset-card h4 {
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .inputset-card .pill {
+      font-size: 0.8em;
+    }
+    .inputset-card p {
+      margin: 0.25rem 0;
+    }
+    .inputset-card .mini-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 0;
+      margin: 0.5rem 0 0;
+      font-size: 0.9em;
+    }
+    .inputset-card .mini-list li {
+      font-family: var(--font-mono, "SFMono-Regular", Consolas, monospace);
+    }
+    .inputset-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .inputset-card-actions a {
+      flex: 0 0 auto;
+    }
+    .pill-muted {
+      background-color: #e2e8f0;
+      color: #334155;
+    }
+    .pill-warn {
+      background-color: #f97316;
+      color: #ffffff;
+    }
     @media (max-width: 768px) {
       .run-detail__header {
         flex-direction: column;
@@ -137,6 +189,62 @@
   <header class="run-detail__header">
     <div id="meta-badges" class="run-detail__badges"></div>
   </header>
+
+  {% set isi = input_set_info or {} %}
+  {% if isi.legacy %}
+    <section class="inputset-card warn" aria-label="Planning input set warning">
+      <h4>Planning Input Set</h4>
+      <p class="mono">Input set label not recorded for this run.</p>
+      <p>Re-run the pipeline with <code>input_set_label</code> to track inputs and enable diff/export workflows.</p>
+    </section>
+  {% else %}
+    <section class="inputset-card" aria-label="Planning input set summary">
+      <h4>
+        Planning Input Set
+        {% if isi.status %}<span class="pill">{{ isi.status }}</span>{% endif %}
+        {% if isi.source %}<span class="pill pill-muted">{{ isi.source }}</span>{% endif %}
+      </h4>
+      {% if isi.label %}
+      <p>label: <span class="mono">{{ isi.label }}</span></p>
+      {% endif %}
+      <p>
+        config_version_id:
+        {% if isi.config_version_id %}
+          <a class="mono" href="/ui/configs/canonical/{{ isi.config_version_id }}">{{ isi.config_version_id }}</a>
+        {% else %}
+          <span class="mono">-</span>
+        {% endif %}
+        {% if isi.id %} | input_set_id=<span class="mono">{{ isi.id }}</span>{% endif %}
+      </p>
+      <p>
+        plan_version_id:
+        {% if isi.plan_version_id %}
+          <a class="mono" href="/ui/plans/{{ isi.plan_version_id }}">{{ isi.plan_version_id }}</a>
+        {% else %}
+          <span class="mono">-</span>
+        {% endif %}
+      </p>
+      <p>
+        updated_at:
+        <span class="mono">{{ isi.updated_at_str or 'unknown' }}</span>
+        {% if isi.missing %}
+          <span class="pill pill-warn">not found in storage</span>
+        {% endif %}
+      </p>
+      {% if isi.label %}
+      <p class="mono">
+        Export via:
+        <code>PYTHONPATH=. python scripts/export_planning_inputs.py --label {{ isi.label }}</code>
+      </p>
+      <div class="inputset-card-actions">
+        <a role="button" href="/api/plans/input_sets/{{ isi.label | urlencode }}/export?format=zip" download>Export (Zip)</a>
+        <a role="button" class="secondary" href="/ui/plans/input_sets/{{ isi.label | urlencode }}/diff">Diff (vs latest)</a>
+        <a class="secondary" href="/ui/plans?input_set_label={{ isi.label | urlencode }}">Plans with this input set</a>
+        <a class="secondary" href="/ui/runs?input_set_label={{ isi.label | urlencode }}">Runs with this input set</a>
+      </div>
+      {% endif %}
+    </section>
+  {% endif %}
 
   <section>
     <h3>Plan Creation</h3>

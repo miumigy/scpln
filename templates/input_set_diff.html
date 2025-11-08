@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+    .diff-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .diff-grid article {
+        padding: 1rem;
+        border: 1px solid var(--surface-border);
+        border-radius: 8px;
+    }
+    .diff-section details {
+        margin-bottom: 1rem;
+        border-left: 2px solid #ccc;
+        padding-left: 1rem;
+    }
+    .diff-section summary {
+        font-size: 1.2em;
+        font-weight: 500;
+    }
+    .diff-table-wrapper {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .diff-table th, .diff-table td {
+        font-size: 0.9em;
+    }
+    .diff-added { background-color: #e6ffed; }
+    .diff-removed { background-color: #ffeef0; }
+    .diff-changed-cell { background-color: #fff3bf; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<h2>Input Set Diff</h2>
+<p>Comparing two planning input sets.</p>
+{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    {% if not current_set %}
+        <article><mark>Error</mark><p>Current input set not found.</p></article>
+    {% else %}
+        <div class="diff-grid">
+            <article>
+                <header><strong>Current</strong></header>
+                <p class="mono">Label: {{ current_set.label }}</p>
+                <p class="mono">ID: {{ current_set.id }}</p>
+                <p class="mono">Updated: {{ current_set.updated_at | ms_to_jst }}</p>
+                <p class="mono">Config Version: {{ current_set.config_version_id }}</p>
+            </article>
+            <article>
+                <header><strong>Compared Against</strong></header>
+                {% if other_set %}
+                    <p class="mono">Label: {{ other_set.label }}</p>
+                    <p class="mono">ID: {{ other_set.id }}</p>
+                    <p class="mono">Updated: {{ other_set.updated_at | ms_to_jst }}</p>
+                    <p class="mono">Config Version: {{ other_set.config_version_id }}</p>
+                {% else %}
+                    <p>No comparable input set found.</p>
+                {% endif %}
+            </article>
+        </div>
+
+        {% if diff_report %}
+            <div class="diff-section">
+                {% for key, diff in diff_report.items() %}
+                    {% if diff.added or diff.removed or diff.changed %}
+                        <details>
+                            <summary>{{ key }}</summary>
+                            
+                            {% if diff.added %}
+                                <h4>Added ({{ diff.added | length }})</h4>
+                                <div class="diff-table-wrapper">
+                                    <table class="diff-table">
+                                        <thead>
+                                            <tr>
+                                                {% for col in diff.added[0].keys() %}
+                                                    <th>{{ col }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in diff.added %}
+                                                <tr class="diff-added">
+                                                    {% for value in row.values() %}
+                                                        <td>{{ value }}</td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endif %}
+
+                            {% if diff.removed %}
+                                <h4>Removed ({{ diff.removed | length }})</h4>
+                                <div class="diff-table-wrapper">
+                                    <table class="diff-table">
+                                        <thead>
+                                            <tr>
+                                                {% for col in diff.removed[0].keys() %}
+                                                    <th>{{ col }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in diff.removed %}
+                                                <tr class="diff-removed">
+                                                    {% for value in row.values() %}
+                                                        <td>{{ value }}</td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endif %}
+
+                            {% if diff.changed %}
+                                <h4>Changed ({{ diff.changed | length }})</h4>
+                                <div class="diff-table-wrapper">
+                                    {% for change in diff.changed %}
+                                        {% set p = change.previous %}
+                                        {% set c = change.current %}
+                                        <details>
+                                            <summary>
+                                                {% for k, v in p.items() if k in ['family_code', 'period', 'resource_code', 'sku_code', 'node_code', 'item_code', 'due_date', 'metric_code'] %}
+                                                    <span class="mono">{{ k }}: {{v}}</span>
+                                                {% endfor %}
+                                            </summary>
+                                            <table class="diff-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Field</th>
+                                                        <th>Previous</th>
+                                                        <th>Current</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for key, current_val in c.items() %}
+                                                        {% set previous_val = p.get(key) %}
+                                                        {% if current_val != previous_val %}
+                                                            <tr>
+                                                                <td>{{ key }}</td>
+                                                                <td class="diff-removed">{{ previous_val }}</td>
+                                                                <td class="diff-added">{{ current_val }}</td>
+                                                            </tr>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </details>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </details>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% elif other_set %}
+            <p>No differences found between the two input sets.</p>
+        {% endif %}
+    {% endif %}
+</section>
+{% endblock %}

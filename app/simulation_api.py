@@ -35,6 +35,7 @@ class PlanningRunParams(BaseModel):
     """
 
     input_dir: str = "samples/planning"
+    input_set_label: str | None = None
     out_dir: str | None = None
     weeks: int = 4
     round_mode: str = "int"

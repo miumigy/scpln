@@ -33,12 +33,24 @@
   - `detail=true`: 結果詳細を含む完全なデータを返します。
   - `limit`, `offset`: ページネーションを制御します。
   - `sort`, `order`: `started_at` などのキーでソートします。
-  - `config_version_id`, `scenario_id`, `plan_version_id` などで結果をフィルタリングできます。
+  - `config_version_id`, `scenario_id`, `plan_version_id`, `input_set_label` などで結果をフィルタリングできます。
 
 - **`POST /runs`**: 新しいRunを同期または非同期で実行します。主に統合パイプライン (`pipeline: "integrated"`) のトリガーとして使用されます。
   - `async=true`: 非同期でジョブを投入し、`job_id` を返します。
   - `async=false` (既定): 同期実行し、完了後にPlanの `version_id` を返します。
-  - `options`: `config_version_id` (必須) や `cutover_date` などのパイプライン実行パラメータを指定します。Canonical設定に `planning_calendar.json` が含まれていれば、UI/API側で自動的に `--calendar` が付与されます。カレンダーが存在しない場合の暫定フォールバックとして `weeks`（等分週数）を指定できます。
+  - `options`: `config_version_id` (必須)、`input_set_label`、`cutover_date` などパイプライン実行パラメータを指定します。`input_set_label` を渡すと `samples/planning` ではなく `planning_input_sets` テーブルに登録済みの入力セットを使用します。Canonical設定に `planning_calendar.json` が含まれていれば、UI/API側で自動的に `--calendar` が付与されます。カレンダーが存在しない場合は `weeks`（等分週数）でフォールバックします。
+  - JSON例:
+    ```json
+    {
+      "pipeline": "integrated",
+      "options": {
+        "config_version_id": 14,
+        "input_set_label": "weekly_refresh",
+        "round_mode": "int",
+        "lt_unit": "day"
+      }
+    }
+    ```
   - (リクエストボディの詳細は旧版の記述を参照)
 
 - **`GET /runs/{run_id}`**: 指定したIDのRun詳細情報を取得します。
