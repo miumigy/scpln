@@ -151,7 +151,9 @@ def test_allocate_round_int_outputs_integer(tmp_path: Path):
     for r in rows:
         for key in ("demand", "supply", "backlog"):
             val = float(r[key])
-            assert abs(val - round(val)) < 1e-9, "det rows must be integer when round=int"
+            assert (
+                abs(val - round(val)) < 1e-9
+            ), "det rows must be integer when round=int"
 
 
 def test_mrp_basic_properties(tmp_path: Path):

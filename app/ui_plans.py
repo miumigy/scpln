@@ -90,7 +90,9 @@ def _delta_sort_key(row: dict[str, Any]) -> tuple:
     )
 
 
-def _prepare_delta_rows(delta_rows: list[dict[str, Any]] | None, limit: int = 50) -> list[dict[str, Any]]:
+def _prepare_delta_rows(
+    delta_rows: list[dict[str, Any]] | None, limit: int = 50
+) -> list[dict[str, Any]]:
     rows = list(delta_rows or [])
     rows.sort(key=_delta_sort_key)
     if limit is not None and limit > 0:

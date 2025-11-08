@@ -618,7 +618,9 @@ def main() -> None:
     receipt_adj: DefaultDict[Tuple[str, str], float] = __import__(
         "collections"
     ).defaultdict(float)
-    fg_adj_totals: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    fg_adj_totals: DefaultDict[str, float] = __import__("collections").defaultdict(
+        float
+    )
     for r in mrp.get("rows", []):
         it = str(r.get("item"))
         w = str(r.get("week"))
@@ -646,9 +648,7 @@ def main() -> None:
         else:
             adj_rel = round(por, 6)
             r2["planned_order_release_adj"] = adj_rel
-            r2["planned_order_receipt_adj"] = round(
-                receipt_adj.get((it, w), 0.0), 6
-            )
+            r2["planned_order_receipt_adj"] = round(receipt_adj.get((it, w), 0.0), 6)
         rows_out.append(r2)
 
     rounded_original: Dict[str, float | int] = {}
