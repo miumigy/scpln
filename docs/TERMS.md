@@ -1,0 +1,44 @@
+# Terminology alignment
+
+Key terms used across the project (UI/README/API) and their definitions.
+
+- **Plan**: core planning object that aggregates edits, executions, and artifacts.
+- **Plan Version**: snapshot of a plan, identified by `version_id`.
+- **Scenario**: logical bundle of input data (demand, inventory, policies, constraints, etc.).
+- **Pipeline**: versioned processing DAG with stages such as `integrated`, `aggregate`, `allocate`, `mrp`, `reconcile`.
+- **Run**: record of a simulation execution, identified by `run_id`. Each run references specific `config_version_id` and `scenario_id` values and may produce a `plan_version_id`.
+- **Job**: unit of asynchronous execution (queued and monitored). Planning pipelines and simulations run as jobs.
+- **Manual override**: user-driven adjustments to a plan. Current state resides in `PlanOverrideRow`; history is tracked in `PlanOverrideEventRow`.
+- **Workspace**: working area on the plan detail page (`/ui/plans/{id}`).
+- **Aggregate / Disaggregate / Schedule / Validate / Execute / Results**: tab names within the plan detail view.
+- **Reconciliation**: process that resolves deltas between aggregate and detail plans (anchor/carryover).
+- **Anchor policy**: strategy for aligning detail (DET) and aggregate (AGG) plans, e.g., `DET_near`, `AGG_far`, `blend`.
+- **Carryover**: method for distributing boundary deltas to the preceding or following periods.
+- **Window days**: adjustment window in days around the boundary.
+- **Cutover date**: date marking the boundary between detail and aggregate planning horizons.
+- **KPI**: key performance indicators such as fill rate, profit, capacity utilization, spill.
+- **PSI simulation**: daily simulation balancing Production, Sales, and Inventory.
+- **Nodes / links**: supply-chain network elements—nodes represent stores, warehouses, factories, materials; links represent transportation routes.
+- **RunRegistry**: system that persists run history for comparison and reuse.
+- **Multi-granularity reconciliation**: keeping aggregate (monthly/family) and detail (weekly/SKU) plans aligned under a single version.
+- **Top-down allocation**: distributing aggregate plan values to detail levels.
+- **Bottom-up rollup**: summing detail plan values back to aggregate levels.
+- **Diff**: feature that displays deltas between plan versions or configuration versions.
+- **Canonical configuration management**: system that stores validated configurations in a database, offering versioning, diffing, and import capabilities.
+- **Canonical configuration**: standardized configuration data used by simulations and planning pipelines.
+- **BOM (Bill of Materials)**: structure defining component requirements and quantities for each product.
+- **Capacity**: upper limit of production or transportation resources.
+- **Service level**: ratio of demand satisfied; the complement of stockout rate.
+- **Metrics**: operational metrics gathered via systems such as Prometheus.
+- **DAG (Directed Acyclic Graph)**: graph structure describing processing order in the planning pipeline.
+- **Dry run**: execution that does not persist results or cause side effects.
+- **Apply run**: execution that commits results to the system (counterpart to dry runs).
+- **Diff preview**: visualization of expected impacts before applying plan changes.
+- **SupplyChainSimulator**: engine that executes PSI simulations.
+- **SimulationInput**: data model provided to `SupplyChainSimulator`.
+- **Datasette**: tool for browsing SQLite databases via web UI.
+- **Prometheus**: monitoring system and time-series database used to collect and visualize metrics.
+- **OpenTelemetry**: open-source framework for collecting and exporting telemetry (metrics, logs, traces).
+- **Application Database**: umbrella term for databases used by the app (ConfigDB, PlanDB, RunDB, etc.).
+- **FastAPI layer**: API surface implemented with the FastAPI framework.
+- **Docs (CSV / Metrics / Logs)**: exported CSVs, metrics, logs, and other artifacts produced by the system.

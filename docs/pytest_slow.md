@@ -1,9 +1,9 @@
 # pytest slow tests
 
-`pytest.ini` で `slow` マーカーを定義し、統合/E2E系テストをここに集約しています。
+The `slow` marker is defined in `pytest.ini` and groups integration/E2E scenarios.
 
-- 通常のローカル検証: `PYTHONPATH=. .venv/bin/pytest -m "not slow"`
-- 重量テストのみ確認: `PYTHONPATH=. .venv/bin/pytest -m slow`
-- 所要時間の確認: `PYTHONPATH=. .venv/bin/pytest -m slow --durations=20`
+- Standard local cycle: `PYTHONPATH=. .venv/bin/pytest -m "not slow"`
+- Run only the heavy suite: `PYTHONPATH=. .venv/bin/pytest -m slow`
+- Inspect durations: `PYTHONPATH=. .venv/bin/pytest -m slow --durations=20`
 
-CI では `slow` も含めて実行される想定ですが、ローカルでは高速サイクル維持のため `not slow` を基本方針としてください。
+CI is expected to include the `slow` suite. Keep local iteration fast by defaulting to `not slow`.
