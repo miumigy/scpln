@@ -228,9 +228,7 @@ def main() -> None:
                 total_s,
                 caps=d_sku_ints,
             )
-            b_sku_ints = [
-                max(0, d_i - s_i) for d_i, s_i in zip(d_sku_ints, s_sku_ints)
-            ]
+            b_sku_ints = [max(0, d_i - s_i) for d_i, s_i in zip(d_sku_ints, s_sku_ints)]
             for (sku, _share), d_sku_int, s_sku_int, b_sku_int in zip(
                 pairs, d_sku_ints, s_sku_ints, b_sku_ints
             ):
@@ -241,8 +239,7 @@ def main() -> None:
                     caps=demand_parts,
                 )
                 backlog_parts = [
-                    demand_parts[i] - supply_parts[i]
-                    for i in range(len(week_entries))
+                    demand_parts[i] - supply_parts[i] for i in range(len(week_entries))
                 ]
                 for i, entry in enumerate(week_entries):
                     out_rows.append(
