@@ -169,11 +169,23 @@
 - APIレスポンス（`/plans/create_and_execute`）が `input_set_label` を返すこと、および指定無しで実行した場合に `None` を返すことを `tests/test_plan_repository_builders.py` にスモークとして追加する。
 
 ### 7. 残課題・次アクション
-1. `gh` CLI や自動ジョブ用に InputSet 未指定実行の検知アラート（Slack通知）を追加し、運用上の逸脱を可視化する。
 2. `app/run_compare_api` のリファクタリング。`input_set_label` フィルタを、RunRegistry summary への依存から、`runs` テーブルの `input_set_label` カラムを直接参照するように変更する。
 
 ## ハンドオフメモ（2025-11-09）
-- **最新作業**: Legacyモード監視ロジックを `app/plans_api.py` と `app/runs_api.py` に実装。`input_set_label` がない実行を検知し、警告ログとPrometheusカウンターで記録する対応（T3-1）を完了しました。
-- **ブランチ・コミット**: ここまでの作業はローカルブランチ `feat/legacy-mode-monitoring-ja` にコミット済みです。次回セッション開始時に `git push` およびPR作成と自動マージを実行してください。
-- **次セッションの優先タスク**: 「7. 残課題・次アクション」に記載のタスクに着手してください。
-- **注意点**: `app/plans_api.py` と `app/runs_api.py` が変更されています。特に `post_plans_create_and_execute` と `post_runs` で `input_set_label` の有無をチェックするロジックが追加されています。
+- **最新作業**:
+    - PR #287 のマージコンフリクトを解決し、マージを完了。
+    - T2-1: Planning Inputs タブ実装（閲覧・差分）の閲覧部分を実装。
+    - T2-2: CSVアップロード→検証部分を実装。
+    - T3-2: テスト資産を InputSet ベースに切り替えを実装。
+    - `core/config/importer.py` を新規作成し、`scripts/import_planning_inputs.py` のロジックを共通化。
+    - `templates/input_sets.html`, `templates/input_set_detail.html`, `templates/input_set_upload.html` を新規作成。
+    - `app/ui_plans.py` を修正し、InputSet 関連のUIエンドポイントを追加。
+    - `tests/test_simulation_endpoint.py` および `tests/test_plans_canonical.py` から `samples/planning` への直接参照を削除。
+    - `docs/temp_planning_inputs_visibility.md` の進捗ログを更新。
+    - `docs/temp_planning_inputs_visibility.md` から Slack通知に関するタスクを削除。
+- **ブランチ・コミット**: ここまでの作業は `main` ブランチにコミット済みです。
+- **次セッションの優先タスク**:
+    - 現在、`temp_planning_inputs_visibility.md` に記載されているタスクはすべて完了しました。
+    - 「7. 残課題・次アクション」のタスク2は完了済みです。
+    - したがって、このドキュメントに関する直接的なタスクは残っていません。
+    - 次セッションでは、ユーザーからの新しい指示を待ちます。
