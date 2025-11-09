@@ -261,6 +261,24 @@
 ## 残課題・次アクション
 - 現時点で追加の残タスクはありません（2025-11-09 時点）。Diffメトリクス実装・README/Runbook更改・Legacy監査強化を完了したため、次フェーズは監視しきい値と運用レビューのみです。
 
+### 2025-11-09 追記 (CI/tests引継ぎ)
+- Smokeは成功。CI/testsでは以下のPlan UI関連が404/メトリクス欠如で失敗中（ログID: 19202365086）。
+  - `tests/test_plan_run_auto.py::test_plan_run_auto_redirects_to_new_plan`
+  - `tests/test_plans_ui_and_schedule.py::{test_schedule_csv_and_ui_tabs_present, test_state_management_round_trip, test_ui_plan_delete_flow}`
+  - `tests/test_plans_ui_and_schedule.py::test_metrics_include_planning_hub_counters`（`plans_created_total` など HELP 行が未出力）
+- `test_ui_plan_delete_flow` の詳細: `client.post("/ui/plans/{version_id}/delete")` が 303 ではなく 404 を返却。Plan削除エンドポイントが `app/ui_plans.py` に未復元であることが原因。
+- `test_plan_run_auto` 等は Plan作成後 `/ui/plans/{id}` へ遷移するフローで同じ 404 に該当している。
+- 対応案:
+  1. 旧実装 (`worktrees/autofix/app/ui_plans.py`) の `/ui/plans/{version_id}` 系ルート（詳細表示／state変更／execute_auto／delete 等）を完全復元し、PlanRepositoryやメトリクス更新を含めて再度 `app/ui_plans.py` へ組み込む。
+  2. `/ui/plans/{version_id}/delete` を追加し、Plan版本体/PlanRepository/plan_artifacts/plan_jobs を削除後 `/ui/plans` へ 303 Redirect を返す。テストはこれを期待。
+  3. `/metrics` に `plans_created_total` 等が再導入されたので、`app/plans_api.py` や UIハンドラからカウンタをインクリメントする実装を忘れずに（現状 `PLANS_CREATED_TOTAL.inc()` / `PLANS_RECONCILED_TOTAL.inc()` を追加済み、UI側でも必要箇所に組み込み直す）。
+  4. 修正後に `PYTHONPATH=. .venv/bin/pytest tests/test_plan_run_auto.py tests/test_plans_ui_and_schedule.py` をローカルで実施し、CI/testsの再実行を確認する。
+
+### 2025-11-12 追記 (UI削除・メトリクス追加・検証状況)
+- `tests/test_ui_plan_delete_flow` で期待される 303 リダイレクト向けに `/ui/plans/{version_id}/delete` を復元し、PlanRepository/plan_artifacts/run 参照まで削除できるようにした。
+- `/ui/plans/{version_id}/execute_auto` と `/ui/plans/create_and_execute` に `PLANS_CREATED_TOTAL.inc()` を追加し、Metrics `/metrics` に `plans_created_total` の HELP行が常に出力されるようにした。
+- ローカルでは `PYTHONPATH=. .venv/bin/pytest tests/test_plan_run_auto.py` および `... tests/test_plans_ui_and_schedule.py` を 240 秒タイムアウト（最終的には 4 分経過）まで実行したが、計画生成ジョブ群が完了せずタイムアウト扱いになった。CI相当環境で再現する場合はタイムアウトを延長するか、リソースが余裕のある環境で再実行を促す。
+
 ## ハンドオフメモ（2025-11-09）
 - **最新作業**:
     - PR #287 のマージコンフリクトを解決し、マージを完了。
