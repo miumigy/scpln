@@ -55,6 +55,11 @@ PYTHONPATH=. python scripts/export_planning_inputs.py \
 後続のPlan/Runで `tutorial_input` を参照すると、UI・CLIで同じ入力を利用できます。
 `/plans/create_and_execute` や `/runs` API を呼ぶ場合は、JSONに `"input_set_label": "tutorial_input"` を含めることで、`samples/planning` ではなくこの入力セットを利用させることができます。
 
+### InputSet監査・監視チェックリスト
+- `PYTHONPATH=. python scripts/show_planning_input_events.py --label tutorial_input --limit 100 --json > tmp/audit/tutorial_input-events.json` を実行し、`evidence/input_sets/tutorial_input/$(date +%Y%m%d)/events.json` に Historyスクリーンショットとともに保存。
+- Diffジョブは `tmp/input_set_diffs/tutorial_input__<against>.json` にキャッシュされているため、失敗やTTL切れ時は当該ファイルを削除し `/ui/plans/input_sets/tutorial_input/diff` を再読み込みするか、`PYTHONPATH=. python scripts/export_planning_inputs.py --label tutorial_input --diff-against <label>` で手動生成して証跡としてください。
+- `input_set_diff_jobs_total{result="success|failure"}`、`input_set_diff_cache_hits_total`、`input_set_diff_cache_stale_total` のメトリクスを追跡し、`monitoring/input_set_diff.rules.yml` の閾値を参照。失敗ログは `rg -n "input_set_diff_job_failed" uvicorn.out` で確認し、必要なら `planning_input_set_events` に `diff_job_id` を書き戻して履歴タブで共有します。
+
 
 ## 1. 新規Planを作成
 

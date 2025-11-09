@@ -350,3 +350,11 @@ Stores artifacts related to a run:
 - `name`: artifact name.
 - `content`: artifact content.
 - `created_at`: timestamp.
+
+## Planning Input Set storage & monitoring
+
+`planning_input_sets` centralizes demand/capacity/mix/inventory/inbound/calendar/planning parameter payloads. Each row records `label`, `config_version_id`, `status` (`draft|ready|archived`), `source` (`csv|ui|api|seed`), serialized metadata (`metadata_json`, `calendar_spec_json`, `planning_params_json`), and approval fields (`approved_by`, `approved_at`, `review_comment`).
+
+`planning_input_set_events` stores action logs (`action`, `actor`, `comment`, `created_at`) per InputSet (`planning_input_sets.id` FK, `ON DELETE CASCADE`). UI/CLI flows keep these events synchronized via `log_planning_input_set_event`.
+
+Plans persist a `planning_input_set.json` artifact so reruns can fall back to either the recorded label or the canonical config when the label is missing. InputSet diff jobs cache results under `tmp/input_set_diffs/<label>__<against>.json` and emit Prometheus counters (`input_set_diff_jobs_total{result="success|failure"}`, `input_set_diff_cache_hits_total`, `input_set_diff_cache_stale_total`); alert rules reside in `monitoring/input_set_diff.rules.yml` while `grafana/dashboards/planning_input_sets.json` visualizes hit ratios and generation latency.

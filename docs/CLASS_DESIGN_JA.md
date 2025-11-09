@@ -350,3 +350,11 @@ classDiagram
 - `name`: アーティファクトの名前。
 - `content`: アーティファクトの内容。
 - `created_at`: 作成日時。
+
+## Planning入力セットの記録・監視
+
+`planning_input_sets` は需要/能力/ミックス/在庫/入荷/カレンダー/パラメタのCSV/JSONを正規化して格納します。各行には `label`, `config_version_id`, ステータス (`draft|ready|archived`), `source` (`csv|ui|api|seed`), メタJSON (`metadata_json`, `calendar_spec_json`, `planning_params_json`)、承認メタ (`approved_by`, `approved_at`, `review_comment`) が含まれます。
+
+`planning_input_set_events` は各InputSetごとの `action`, `actor`, `comment`, `created_at` を記録する監査ログで、`planning_input_sets.id` をFKに `ON DELETE CASCADE` で関連付けられます。UI/CLIの操作は `log_planning_input_set_event` でイベントと同期させます。
+
+Planは `planning_input_set.json` を成果物として残し、ラベルが失われた場合でも再実行時に該当InputSetまたはCanonical設定へフォールバックできます。Diffジョブは `tmp/input_set_diffs/<label>__<against>.json` にキャッシュし、Prometheusカウンタ `input_set_diff_jobs_total{result="success|failure"}`, `input_set_diff_cache_hits_total`, `input_set_diff_cache_stale_total` を更新します。アラートルールは `monitoring/input_set_diff.rules.yml` に記載され、`grafana/dashboards/planning_input_sets.json` ではヒット率・生成時間を可視化しています。

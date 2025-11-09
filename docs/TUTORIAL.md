@@ -54,6 +54,11 @@ PYTHONPATH=. python scripts/export_planning_inputs.py \
 The run you create later can reference `tutorial_input` so that plans and runs share the same managed dataset.
 When calling `/plans/create_and_execute` (or `/runs`), include `"input_set_label": "tutorial_input"` in the JSON body so the pipeline uses this managed dataset instead of `samples/planning`.
 
+### InputSet audit & monitoring checklist
+- Dump the InputSet history with `PYTHONPATH=. python scripts/show_planning_input_events.py --label tutorial_input --limit 100 --json > tmp/audit/tutorial_input-events.json` and store it under `evidence/input_sets/tutorial_input/$(date +%Y%m%d)/events.json` together with a screenshot of the History table.
+- The diff job caches JSON results under `tmp/input_set_diffs/tutorial_input__<against>.json`. Remove the stale file and reload `/ui/plans/input_sets/tutorial_input/diff` to regenerate, or rerun `PYTHONPATH=. python scripts/export_planning_inputs.py --label tutorial_input --diff-against <label>` to produce a manual artifact for audits.
+- Track Prometheus metrics (`input_set_diff_jobs_total{result="success|failure"}`, `input_set_diff_cache_hits_total`, `input_set_diff_cache_stale_total`) and consult `monitoring/input_set_diff.rules.yml` for alert thresholds. When failures occur, search `uvicorn.out` for `input_set_diff_job_failed` to capture the `diff_job_id` and write it back into `planning_input_set_events` if needed.
+
 ## 1. Create a new plan
 
 1. Open `/ui/plans`.
