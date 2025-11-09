@@ -1,28 +1,18 @@
 import re
-import importlib
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.api import app
-
-# 副作用 import で /metrics を登録
-importlib.import_module("app.metrics")
+from app.metrics import metrics_snapshot
 
 pytestmark = pytest.mark.slow
 
 
-def test_metrics_endpoint_works():
-    client = TestClient(app)
-    r = client.get("/metrics")
-    assert r.status_code == 200
-    # Content-Type は Prometheus テキストフォーマット
-    ctype = r.headers.get("content-type", "")
+def test_metrics_snapshot_contains_prometheus_text():
+    resp = metrics_snapshot()
+    assert resp.status_code == 200
+    ctype = resp.media_type or ""
     assert "text/plain" in ctype
-    assert any(
-        ver in ctype for ver in ("version=0.0.4", "version=1.0.0")
-    ), "unexpected Prometheus exposition format version"
-    # 代表的な行が含まれていること（# HELP と process_ 系）
-    body = r.text
+    assert any(ver in ctype for ver in ("version=0.0.4", "version=1.0.0"))
+    body = resp.body.decode("utf-8")
     assert "# HELP" in body
     assert re.search(r"\nprocess_.+?s", body) is not None

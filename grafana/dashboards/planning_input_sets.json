@@ -1,0 +1,68 @@
+{
+  "title": "Planning Input Sets",
+  "uid": "planning-input-sets",
+  "timezone": "utc",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Diff Job Failures (5m)",
+      "targets": [
+        {
+          "expr": "increase(input_set_diff_jobs_total{result=\"failure\"}[$__interval])",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "datasource": "${DS_PROMETHEUS}"
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Diff Cache Hits vs Stale",
+      "targets": [
+        {
+          "expr": "rate(input_set_diff_cache_hits_total[$__interval])",
+          "legendFormat": "hits"
+        },
+        {
+          "expr": "rate(input_set_diff_cache_stale_total[$__interval])",
+          "legendFormat": "stale"
+        }
+      ],
+      "datasource": "${DS_PROMETHEUS}"
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Legacy Mode Runs (10m)",
+      "targets": [
+        {
+          "expr": "increase(run_without_input_set_total{entrypoint=\"/runs\"}[10m])",
+          "legendFormat": "legacy runs"
+        }
+      ],
+      "datasource": "${DS_PROMETHEUS}"
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Artifact Write Errors",
+      "targets": [
+        {
+          "expr": "increase(plan_artifact_write_error_total{artifact=\"planning_input_set.json\"}[15m])",
+          "legendFormat": "errors"
+        }
+      ],
+      "datasource": "${DS_PROMETHEUS}"
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "schemaVersion": 38,
+  "version": 1
+}

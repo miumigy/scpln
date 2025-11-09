@@ -42,6 +42,9 @@ UIに加えて、正規化された `planning_input_sets` テーブルを直接�
 |------|----------|------|
 | CSV/JSON を `planning_input_sets` へ取り込み | `PYTHONPATH=. python scripts/import_planning_inputs.py -i samples/planning --version-id 101 --label weekly_refresh` | `--validate-only`, `--apply-mode merge|replace`, `--json` などを指定可能。ランタイムで `samples/planning` に依存せずDBへ入力を登録。 |
 | InputSet を CSV 出力 | `PYTHONPATH=. python scripts/export_planning_inputs.py --label weekly_refresh --include-meta --zip` | `out/planning_inputs_<label>` に `samples/planning` 互換ファイルを生成。`--zip` でアーカイブ化し、UIダウンロードやCI成果物に活用。 |
+| InputSetイベント履歴を表示 | `PYTHONPATH=. python scripts/show_planning_input_events.py --label weekly_refresh --limit 30 --json` | `planning_input_set_events` の `upload/update/approve/revert` 履歴をJSONまたはテキストで出力。監査ログやCI通知に利用可能。 |
+
+同じ履歴は REST API `GET /api/plans/input_sets/{label}/events?limit=100` からも取得できます。Planning Hub の「History」表と同じペイロードで返却されるため、Runbookや監査エクスポートにそのまま流用できます。
 
 標準フロー:
 1. 整備済みCSV/JSON（またはCI成果物）を import CLI で取り込み、対象バージョンに紐づく入力セットを登録。
@@ -60,6 +63,18 @@ curl -sS http://localhost:8000/plans/create_and_execute \
         "lt_unit": "day"
       }' | jq .
 ```
+
+#### InputSet承認・監査フロー
+- Import/UIアップロード直後のInputSetは `draft` ステータスです。`/ui/plans/input_sets/{label}` の「Review」タブで承認（draft→ready）または差戻し（ready→draft）を実行すると、`approved_by/approved_at/review_comment` が記録され、`planning_input_set_events` に `approve/revert` が追加されます。
+- 履歴は CLI (`scripts/show_planning_input_events.py --label <label> --json`) や REST (`GET /api/plans/input_sets/{label}/events`) から取得し、`evidence/input_sets/<label>/<YYYYMMDD>/` に JSON と Historyスクリーンショットを保管します。
+- Diff確認は `/ui/plans/input_sets/{label}/diff` で行い、初回アクセス時に `scripts/export_planning_inputs.py --diff-against` をバックグラウンドで実行して `tmp/input_set_diffs/` にキャッシュします。
+- より詳細な運用手順やCLIフォールバックは [docs/runbook_planning_inputs_JA.md](docs/runbook_planning_inputs_JA.md) を参照してください。
+
+#### Legacy / Missing 警告への対応
+- Plan/Run詳細には **Legacy mode**（`input_set_label` 無し）と **Missing InputSet**（ラベルはあるがDBに存在しない）の警告カードが表示されます。
+- Legacy mode の場合は承認済みInputSetを指定してPlanを再実行するのが基本運用。再実行できない場合は `scripts/export_planning_inputs.py --label <label> --include-meta --zip` で使用入力をエクスポートし、例外理由とともにRunへ添付します。
+- Missing InputSet の場合は `scripts/import_planning_inputs.py -i out/planning_inputs_<label> --version-id <id> --label <label>` で過去のCSVバンドルを再登録するか、Planを現行Readyセットに付け替えます。
+- いずれも `planning_input_set_events` に対応ログ（UIまたは `log_planning_input_set_event`）を残し、Runbook記載のSlackチャンネルへ報告してください。
 
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
