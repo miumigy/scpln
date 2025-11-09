@@ -3,6 +3,7 @@
 Key terms used across the project (UI/README/API) and their definitions.
 
 - **Plan**: core planning object that aggregates edits, executions, and artifacts.
+- **Plan deletion**: UI/API workflow (`POST /ui/plans/{version_id}/delete`) that removes plan versions, artifacts, and run references via PlanRepository/DB cleanup before redirecting to `/ui/plans`.
 - **Plan Version**: snapshot of a plan, identified by `version_id`.
 - **Scenario**: logical bundle of input data (demand, inventory, policies, constraints, etc.).
 - **Pipeline**: versioned processing DAG with stages such as `integrated`, `aggregate`, `allocate`, `mrp`, `reconcile`.
@@ -26,10 +27,12 @@ Key terms used across the project (UI/README/API) and their definitions.
 - **Diff**: feature that displays deltas between plan versions or configuration versions.
 - **Canonical configuration management**: system that stores validated configurations in a database, offering versioning, diffing, and import capabilities.
 - **Canonical configuration**: standardized configuration data used by simulations and planning pipelines.
+- **Planning Input Set**: normalized input dataset (demand, capacity, mix, inventory, inbound orders, calendar, and planning parameters) that lives in `planning_input_sets`, carries statuses (`draft`/`ready`/`archived`), and writes events to `planning_input_set_events` for auditing before being referenced by plan executions.
 - **BOM (Bill of Materials)**: structure defining component requirements and quantities for each product.
 - **Capacity**: upper limit of production or transportation resources.
 - **Service level**: ratio of demand satisfied; the complement of stockout rate.
 - **Metrics**: operational metrics gathered via systems such as Prometheus.
+- **`plans_created_total`**: Prometheus counter incremented whenever a plan is created, covering both `/plans/create_and_execute` and the Planning Hub UI flows (`execute_auto` / `create_and_execute`), ensuring `/metrics` always advertises the HELP line even for UI-driven creations.
 - **DAG (Directed Acyclic Graph)**: graph structure describing processing order in the planning pipeline.
 - **Dry run**: execution that does not persist results or cause side effects.
 - **Apply run**: execution that commits results to the system (counterpart to dry runs).

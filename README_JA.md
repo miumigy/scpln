@@ -14,7 +14,7 @@
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
 - **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
 - **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
-- **自動化とAPI**: `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能。
+- **自動化とAPI**: `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能で、Planning Hub UI（`execute_auto`/`create_and_execute`）から発生したPlanも `plans_created_total` へカウントされて `/metrics` に追記され、API計測と揃います。
 
 ---
 
@@ -23,6 +23,7 @@
 ### 1. Planning Hub（/ui/plans）
 - Planのバージョン管理・閲覧・ロールアップ/分配編集・ロック管理を提供。
 - PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
+- プラン詳細では `/ui/plans/{version_id}/delete` へのPOSTを通じて PlanRepository/アーティファクト/Run参照を一括削除し、`/ui/plans` へ戻る削除フローを提供。
 - `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
 
 ### 2. Canonical設定管理 (/ui/configs)

@@ -14,7 +14,7 @@ This repository provides an integrated environment that models stores, warehouse
 - **Planning Hub UI**: Navigate plan creation, preview, reconciliation, and execution across tabs. Diff views, KPIs, and CSV exports support rapid decision making.
 - **Canonical configuration management**: `/ui/configs` offers version browsing, diff comparison, JSON and plan artifact import, and consistency checks in a single place. See `docs/config_integration_plan.md` for the detailed roadmap.
 - **Simulation & RunRegistry**: Run daily PSI simulations that respect BOMs, capacity, and service level targets, then persist each run for comparison and reuse.
-- **Automation and APIs**: Submit jobs through `/runs`, trigger reconciliation APIs, and expose CSV exports and metrics. Everything can be orchestrated from CLI tools or CI workflows.
+- **Automation and APIs**: Submit jobs through `/runs`, trigger reconciliation APIs, and expose CSV exports and metrics. Everything can be orchestrated from CLI tools or CI workflows, and the `/metrics` endpoint now surfaces `plans_created_total` even when plans originate from the Planning Hub UI flows (`execute_auto` / `create_and_execute`), matching the API instrumentation.
 
 ---
 
@@ -23,6 +23,7 @@ This repository provides an integrated environment that models stores, warehouse
 ### 1. Planning Hub (`/ui/plans`)
 - Provides plan version management, browsing, rollup/allocation editing, and lock administration.
 - PSI editing performs proportional allocation with lock awareness, and tabs expose diffs, carryover, schedules, and comparisons.
+- Plan detail surfaces a delete action (`POST /ui/plans/{version_id}/delete`) that removes the plan version, artifacts, and run references before redirecting back to `/ui/plans`, satisfying the regression expectations for the UI delete flow.
 - Hands-on UI walkthroughs are available in `docs/TUTORIAL.md`.
 
 ### 2. Canonical configuration management (`/ui/configs`)

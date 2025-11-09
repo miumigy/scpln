@@ -3,6 +3,7 @@
 本プロジェクトで使用する主要用語の対訳・定義を示します（UI/README/APIで統一）。
 
 - Plan（プラン）: 計画の中核オブジェクト。編集・実行・成果物を集約。
+- Plan削除: `/ui/plans/{version_id}/delete` へPOSTしてPlanRepository/アーティファクト/Run参照を削除したうえで `/ui/plans` にリダイレクトするワークフロー。`tests/test_ui_plan_delete_flow` で期待される削除動作を担保。
 - Plan Version（プラン版）: プランのスナップショット。`version_id` で識別。
 - Scenario（シナリオ）: 入力データ群の論理まとまり（需要/在庫/政策/制約など）。
 - Pipeline（パイプライン）: 版管理された処理DAG（Directed Acyclic Graph）。`integrated/aggregate/allocate/mrp/reconcile` などのステージで構成される。
@@ -26,10 +27,12 @@
 - Diff: 計画バージョン間や設定バージョン間の差分を表示する機能。
 - Canonical設定管理: 検証済みの設定をDBで一元管理し、バージョン管理や差分比較、インポート機能を提供するシステム。
 - Canonical設定: シミュレーションや計画パイプラインの入力となる、標準化された設定データ。
+- Planning入力セット: `planning_input_sets` テーブルに格納される、需要/能力/ミックス/在庫/入荷/カレンダー/パラメタを正規化したデータ群。`draft` → `ready` → `archived` のステータスを持ち、`planning_input_set_events` で承認履歴が記録されてから Run に紐づく。
 - BOM (Bill Of Materials): 部品表。製品を構成する部品とその数量を定義したもの。
 - 能力: 生産設備や輸送手段などが持つ処理能力の上限。
 - サービスレベル: 顧客要求を満たす割合。欠品率の裏返し。
 - メトリクス: システムの稼働状況やパフォーマンスを示す指標。Prometheusなどで収集される。
+- `plans_created_total`: プラン生成の度にインクリメントされるPrometheusカウンタ。API（`/plans/create_and_execute`）とPlanning Hub UI（`execute_auto` / `create_and_execute`）の両方で更新され、`/metrics` に常にHELP行が出力されるようにする。
 - DAG (Directed Acyclic Graph): 有向非巡回グラフ。計画パイプラインの処理順序などを表現する際に用いられる。
 - ドライラン: 計画やシミュレーションを実行するが、結果を永続化したり、システムに影響を与えたりしない試行実行。
 - 本適用: ドライランと対比され、計画やシミュレーションの結果をシステムに反映させる実行。
