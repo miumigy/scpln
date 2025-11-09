@@ -22,7 +22,7 @@ RUNS_TOTAL = Counter(
 )
 
 RUNS_QUEUED = Counter(
-    "scpln_runs_queued_total",
+    "runs_queued_total",
     "Number of runs enqueued for asynchronous execution",
 )
 
@@ -60,24 +60,35 @@ COMPARE_DURATION = Histogram(
     buckets=(0.1, 0.25, 0.5, 1, 2, 5, 10, float("inf")),
 )
 
-# ---------------------------------------------------------------------------
-# Plan export / artifact metrics
-# ---------------------------------------------------------------------------
+PLANS_CREATED_TOTAL = Counter(
+    "plans_created_total",
+    "Number of plans created",
+)
 
-PLAN_EXPORT_COMPARE = Counter(
-    "plan_export_compare_total",
+PLANS_RECONCILED_TOTAL = Counter(
+    "plans_reconciled_total",
+    "Number of plan reconcile operations executed",
+)
+
+PLANS_VIEWED_TOTAL = Counter(
+    "plans_viewed_total",
+    "Number of plan detail page views",
+)
+
+PLAN_SCHEDULE_EXPORT_TOTAL = Counter(
+    "plan_schedule_export_total",
+    "Number of plan schedule CSV exports",
+)
+
+PLAN_COMPARE_EXPORT_TOTAL = Counter(
+    "plan_compare_export_total",
     "Number of plan compare exports",
     labelnames=("mode",),
 )
 
-PLAN_EXPORT_SCHEDULE = Counter(
-    "plan_export_schedule_total",
-    "Number of plan schedule CSV exports",
-)
-
-PLAN_EXPORT_CARRYOVER = Counter(
-    "plan_export_carryover_total",
-    "Number of carryover CSV exports",
+PLAN_CARRYOVER_EXPORT_TOTAL = Counter(
+    "plan_carryover_export_total",
+    "Number of plan carryover CSV exports",
 )
 
 PLAN_ARTIFACT_WRITE_ERROR_TOTAL = Counter(

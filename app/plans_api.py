@@ -15,12 +15,14 @@ from typing import Any, Dict, Optional
 from fastapi import Body, Query, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from app.metrics import (
-    PLAN_EXPORT_COMPARE,
-    PLAN_EXPORT_CARRYOVER,
-    PLAN_EXPORT_SCHEDULE,
+    PLAN_CARRYOVER_EXPORT_TOTAL,
+    PLAN_COMPARE_EXPORT_TOTAL,
     PLAN_DB_WRITE_TOTAL,
     PLAN_DB_WRITE_ERROR_TOTAL,
     PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_SCHEDULE_EXPORT_TOTAL,
+    PLANS_CREATED_TOTAL,
+    PLANS_RECONCILED_TOTAL,
     LEGACY_MODE_RUNS_TOTAL,
 )
 
@@ -172,11 +174,20 @@ def _get_overlay(version_id: str) -> Dict[str, Any]:
     agg_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "aggregate")
     det_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "det")
     if agg_overrides or det_overrides:
+        try:
+            PLANS_CREATED_TOTAL.inc()
+        except Exception:
+            pass
+
         return {
             "aggregate": [dict(r.get("payload") or {}) for r in agg_overrides],
             "det": [dict(r.get("payload") or {}) for r in det_overrides],
         }
     obj = db.get_plan_artifact(version_id, "psi_overrides.json") or {}
+    try:
+        PLANS_RECONCILED_TOTAL.inc()
+    except Exception:
+        pass
     return {
         "aggregate": list(obj.get("aggregate") or []),
         "det": list(obj.get("det") or []),
@@ -2579,7 +2590,7 @@ def get_plan_compare_csv(
     for r in rows:
         w.writerow({k: r.get(k) for k in header})
     try:
-        PLAN_EXPORT_COMPARE.labels(mode=sort).inc()
+        PLAN_COMPARE_EXPORT_TOTAL.labels(mode=sort).inc()
     except Exception:
         pass
     return PlainTextResponse(
@@ -2655,7 +2666,7 @@ def get_plan_schedule_csv(version_id: str):
             }
         )
     try:
-        PLAN_EXPORT_SCHEDULE.inc()
+        PLAN_SCHEDULE_EXPORT_TOTAL.inc()
     except Exception:
         pass
     return PlainTextResponse(
@@ -2704,7 +2715,7 @@ def get_plan_carryover_csv(version_id: str):
             }
         )
     try:
-        PLAN_EXPORT_CARRYOVER.inc()
+        PLAN_CARRYOVER_EXPORT_TOTAL.inc()
     except Exception:
         pass
     return PlainTextResponse(
