@@ -675,9 +675,7 @@ class JobManager:
                     if existing_mrp_rows:
                         plan_series_rows.extend(existing_mrp_rows)
                 if plan_final_obj:
-                    attach_inventory_to_detail_series(
-                        plan_series_rows, plan_final_obj
-                    )
+                    attach_inventory_to_detail_series(plan_series_rows, plan_final_obj)
                     plan_series_rows.extend(
                         build_plan_series_from_plan_final(version_id, plan_final_obj)
                     )

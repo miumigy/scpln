@@ -574,7 +574,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 },
             )
             try:
-                LEGACY_MODE_RUNS_TOTAL.labels(entrypoint="/plans/create_and_execute").inc()
+                LEGACY_MODE_RUNS_TOTAL.labels(
+                    entrypoint="/plans/create_and_execute"
+                ).inc()
             except Exception:
                 logging.exception("failed_to_inc_legacy_mode_metric")
 
@@ -2710,6 +2712,7 @@ def get_plan_carryover_csv(version_id: str):
     return PlainTextResponse(
         content=buf.getvalue(), media_type="text/csv; charset=utf-8"
     )
+
 
 @app.get("/api/plans/input_sets/{label}/export")
 def export_planning_input_set(

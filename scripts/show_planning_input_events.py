@@ -70,7 +70,9 @@ def main() -> int:
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        print(f"Input Set {input_set.label} (id={input_set.id}, status={input_set.status})")
+        print(
+            f"Input Set {input_set.label} (id={input_set.id}, status={input_set.status})"
+        )
         for ev in events:
             ts = ev.created_at or 0
             actor = ev.actor or "-"
