@@ -1,0 +1,52 @@
+groups:
+  - name: planning-input-sets
+    rules:
+      - record: job:input_set_diff_failures_5m
+        expr: increase(input_set_diff_jobs_total{result="failure"}[5m])
+
+      - alert: InputSetDiffFailuresWarning
+        expr: increase(input_set_diff_jobs_total{result="failure"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: planning
+        annotations:
+          summary: "InputSet diff jobs are failing"
+          description: |
+            {{ $value }} failures detected in the last 5 minutes.
+            Check /ui/plans/input_sets/*/diff and uvicorn.out for 'input_set_diff_job_failed'.
+
+      - alert: InputSetDiffFailuresCritical
+        expr: increase(input_set_diff_jobs_total{result="failure"}[5m]) >= 3
+        for: 5m
+        labels:
+          severity: critical
+          team: planning
+        annotations:
+          summary: "InputSet diff jobs repeatedly failing"
+          description: |
+            3 or more failures in 5 minutes. Investigate cache lockups or exporter issues.
+
+      - record: job:run_without_input_set_10m
+        expr: increase(run_without_input_set_total{entrypoint="/runs"}[10m])
+
+      - alert: LegacyModeRuns
+        expr: increase(run_without_input_set_total{entrypoint="/runs"}[10m]) > 5
+        labels:
+          severity: warning
+          team: planning
+        annotations:
+          summary: "Legacy mode runs detected"
+          description: |
+            {{ $value }} runs without input_set_label in 10 minutes.
+            Rebind plans to approved InputSets or investigate missing data.
+
+      - alert: PlanningInputArtifactErrors
+        expr: increase(plan_artifact_write_error_total{artifact="planning_input_set.json"}[15m]) > 0
+        labels:
+          severity: critical
+          team: planning
+        annotations:
+          summary: "Planning InputSet artifact writes failing"
+          description: |
+            Artifact write errors occurred in the last 15 minutes. Check DB permissions and disk space.

@@ -24,10 +24,10 @@
 - Alembic migration `36858d371b14_add_planning_input_sets.py` が適用されていること。
 
 ## フェーズ
-1. **Phase 0**: モデル・DB・CLI 基盤整備（完了済み）
-2. **Phase 1**: Planning Hub / API で InputSet を選択・適用できるようにする（進行中）
-3. **Phase 2**: UI で入力セットの閲覧・アップロード承認フローを提供
-4. **Phase 3**: レガシー CSV モードの廃止・監査強化・テスト資産更新
+1. **Phase 0**: モデル・DB・CLI 基盤整備（完了）
+2. **Phase 1**: Planning Hub / API で InputSet を選択・適用できるようにする（完了）
+3. **Phase 2**: UI で入力セットの閲覧・差分・アップロード承認フローを提供（完了）
+4. **Phase 3**: レガシー CSV モードの廃止・監査強化・テスト資産更新（部分完了：Legacy検知と主要テスト移行済み、監査系タスク継続）
 
 ## タスク一覧
 | ID | フェーズ | 内容 | 担当 | 状態 | 備考 |
@@ -39,10 +39,11 @@
 | T1-2 | P1 | Planning Hub で InputSet を選択可能にする UI 変更 | agent | 完了 | `plans.html` フォーム＋Plan/Run detail カード |
 | T1-3 | P1 | Run/Plan DBテーブルに InputSet ラベルを永続化 | agent | 完了 | `runs.input_set_label`, `plan_versions.input_set_label` |
 | T1-4 | P1 | InputSetカードに Diff/Export CTA を追加 | agent | 完了 | UI, API, templates |
-| T2-1 | P2 | Planning Inputs タブ実装（閲覧・差分） | TBD | 未着手 | app/ui_plans.py |
-| T2-2 | P2 | CSVアップロード→検証→承認ウィザード | TBD | 未着手 | UI + storage |
+| T2-1 | P2 | Planning Inputs タブ実装（閲覧・差分） | agent | 完了 | `app/ui_plans.py`, `templates/input_sets*.html` |
+| T2-2 | P2 | CSVアップロード→検証→承認ウィザード | agent | 完了 | UI アップロード→draft登録、承認フォーム、イベント履歴、Diff非同期化まで実装。通知は当面スコープ外 |
+| T2-3 | P2 | InputSet 承認・公開（draft→ready 切替と監査ログ） | agent | 完了 | 承認メタおよびイベントログを永続化し、UIから履歴を参照可能にした（コメントは任意入力のまま） |
 | T3-1 | P3 | Legacy CSV モードの停止と警告 | agent | 完了 | ログとPrometheusメトリクスで検知 |
-| T3-2 | P3 | テスト資産を InputSet ベースに切り替え | TBD | 未着手 | tests/* |
+| T3-2 | P3 | テスト資産を InputSet ベースに切り替え | agent | 完了 | `tests/test_simulation_endpoint.py`, `tests/test_plans_canonical.py` |
 
 ## CSV→Canonical 差分（要約）
 | CSV/JSON | ギャップ | 対応方針 |
@@ -82,7 +83,7 @@
   ```
 
 ## DBスキーマ & Alembic
-- 親: `planning_input_sets (id, config_version_id, label, status, source, metadata_json, calendar_spec_json, planning_params_json, created_at, updated_at)`.
+- 親: `planning_input_sets (id, config_version_id, label, status, source, metadata_json, calendar_spec_json, planning_params_json, created_at, updated_at, approved_by, approved_at, review_comment)`.
 - 子: `planning_family_demands`, `planning_capacity_buckets`, `planning_mix_shares`, `planning_inventory_snapshots`, `planning_inbound_orders`, `planning_period_metrics`（いずれも `input_set_id` FK, ON DELETE CASCADE）。
 - Migration `36858d371b14_add_planning_input_sets.py`:
   - テーブル作成 + インデックス。
@@ -90,9 +91,13 @@
   - ダウングレード時は InputSet を `planning_payload` へ戻す。
 - Migration `8eeb7b69d3b6_add_input_set_label_to_plans_and_runs.py`:
   - `runs` テーブルと `plan_versions` テーブルに `input_set_label` カラム（nullable, index付き）を追加。
+- Migration `1d7b0dcf4c23_add_input_set_approval_columns.py`:
+  - `planning_input_sets` に `approved_by`, `approved_at`, `review_comment` を追加し、承認者・承認時刻・コメントを保持。
+- Migration `7f8e8f1dd0f5_add_planning_input_set_events.py`:
+  - `planning_input_set_events` テーブルを追加し、InputSetごとの `action / actor / comment / created_at` を履歴として保持。FKは `planning_input_sets.id`（ON DELETE CASCADE）。
 
 ## Storage API
-- 新規公開関数: `create_planning_input_set`, `update_planning_input_set`, `get_planning_input_set`, `list_planning_input_sets`, `delete_planning_input_set`.
+- 新規公開関数: `create_planning_input_set`, `update_planning_input_set`, `get_planning_input_set`, `list_planning_input_sets`, `delete_planning_input_set`, `list_planning_input_set_events`, `log_planning_input_set_event`.
 - 例外: `PlanningInputSetNotFoundError`, `PlanningInputSetConflictError`.
 - サブテーブルは `_replace_planning_aggregates` が全削除→一括挿入を担当。
 
@@ -118,6 +123,7 @@
 - `2025-11-09 / agent / P2 / T2-1 / Planning Inputs タブ実装（閲覧・差分）の閲覧部分を実装`
 - `2025-11-09 / agent / P2 / T2-2 / CSVアップロード→検証部分を実装`
 - `2025-11-09 / agent / P3 / T3-2 / テスト資産を InputSet ベースに切り替えを実装`
+- `2025-11-09 / agent / P2 / T2-2 / InputSet承認イベント履歴と Diff 非同期生成キャッシュを実装し、UIから履歴・ステータスを確認可能にした`
 
 ## Phase 0 詳細アクション（完了）
 1. CSV→Canonical差分表を整理（本書「CSV→Canonical差分」参照）。
@@ -160,16 +166,100 @@
 - **Diff/Resultsタブ**: InputSet 情報がある場合 `planning_inputs.json` の行数メタを示し、「入力セット差分をダウンロード」ボタンを表示。差分リンクは Export CLI (`scripts/export_planning_inputs.py --diff-against`) を叩く UI ボタンで代替する。
 
 ### 5. ログ・モニタリング
-- `plan_store_input_set_label_failed` / `planning_job_store_input_set_label_failed` で `logging.exception` を発火済み。Prometheus カウンタ `plan_artifact_write_error_total{artifact="planning_input_set.json"}` を追加し、Plan artifact 書き込み失敗を可視化する（バックログ）。
+- `plan_store_input_set_label_failed` / `planning_job_store_input_set_label_failed` で `logging.exception` を発火済み。Prometheus カウンタ `plan_artifact_write_error_total{artifact="planning_input_set.json"}` を導入し、Plan artifact 書き込み失敗を記録する。
 - RunRegistry へラベル書き込みが行われなかった場合は `logging.warning("run_registry_missing_input_label", {"run_id": run_id, "plan_version": version_id})` を出す。
-- `input_set_label` が指定されずに実行された場合、`legacy_mode_detected` という警告ログと `scpln_legacy_mode_runs_total` というPrometheusカウンターで記録する。
+- `input_set_label` が指定されずに実行された場合、`legacy_mode_detected` という警告ログと `run_without_input_set_total`（旧 `scpln_legacy_mode_runs_total`）という Prometheus カウンターで記録する。
 
 ### 6. テスト観点
 - `tests/test_canonical_builders.py` に `planning_input_label` 指定時の InputSet 読み込みテストを追加済み。今後は Plan API → artifact → RunRegistry までの e2e を `tests/test_plan_repository_views.py` に追加して回帰を防ぐ。
 - APIレスポンス（`/plans/create_and_execute`）が `input_set_label` を返すこと、および指定無しで実行した場合に `None` を返すことを `tests/test_plan_repository_builders.py` にスモークとして追加する。
 
-### 7. 残課題・次アクション
-2. `app/run_compare_api` のリファクタリング。`input_set_label` フィルタを、RunRegistry summary への依存から、`runs` テーブルの `input_set_label` カラムを直接参照するように変更する。
+## Phase 2 詳細仕様: Planning Inputs タブとアップロード
+
+### 1. Planning Inputs タブ（閲覧・差分）
+- `/ui/plans/input_sets` は `list_planning_input_sets(status="ready")` を呼び出し、`templates/input_sets.html` でクライアントサイド検索・JST表示・Diff CTA（`/ui/plans/input_sets/{label}/diff`）を提供。
+- `/ui/plans/input_sets/{label}` は `include_aggregates=True` の詳細 API を呼び出し、`templates/input_set_detail.html` のタブで demand/capacity/mix/inventory/inbound/metric 各テーブルを切替表示する。
+- Diff 画面は `scripts/export_planning_inputs.py --diff-against` を subprocess 実行し `diff_report.json` を読み込むため、1回あたり 3〜5 秒ほど処理時間がかかる。結果の TTL キャッシュ化とバックグラウンド実行（ジョブキュー）を Phase 2.2 で実装予定。
+
+### 2. CSVアップロード〜検証パイプライン
+- `/ui/plans/input_sets/upload`（GET）は `list_canonical_configs()` の結果をセレクトボックスへ描画し、カレンダー数に応じたピルを表示（`templates/input_set_upload.html`）。フォームに「アップロードは draft として保存される」旨を追記。
+- POST は UploadFile 群を一時ディレクトリへ保存後、`core.config.importer.import_planning_inputs()` を `apply_mode="replace"` かつ `status="draft"`, `source="ui"` で実行。成功時は 303 リダイレクトで詳細画面へ遷移し、失敗時は `HTTPException` によるエラーバナーを表示する。
+- 最低1ファイル必須チェックを追加し、空アップロードを即時検出する。
+
+### 3. 承認・公開フロー（進行中）
+- `planning_input_sets` に `approved_by`, `approved_at`, `review_comment` を追加（Alembic `1d7b0dcf4c23`）。`core.config.storage` と `PlanningInputSet` モデルも同フィールドを保持する。
+- `/ui/plans/input_sets` で status フィルタを提供し、Draft/Ready/Archived/All 切替をサーバーサイドで実施。UI説明文に Draft→Ready 承認の流れを記載。
+- 詳細画面 (`templates/input_set_detail.html`) に承認メタ（承認者・承認時刻・コメント）と `Approve / Revert` フォームを追加。`/ui/plans/input_sets/{label}/review` で ready/draft への即時切替を実装。コメントは任意入力とし、空欄でも保存できる。
+- 監査ログ・承認イベント履歴は未実装。通知（Slack/メール/Webhook）は運用方針として導入しないため、以降のタスクから除外する。
+
+### 4. Fallback 警告 UI
+- Plan detail / Run detail の InputSet カードに `legacy`（ラベル無し）と `missing`（ラベルはあるが storage に存在しない）の2種類の警告を表示。
+- `missing` ケースでは計画アーカイブ由来の情報で表示している旨と、再インポート/復旧手順（CLIコマンド例）を提示。Diff/Export CTA を押下する前に対処を促す。
+- この変更により、`PlanningInputSetNotFoundError` フォールバック時の可視化要件（Phase2 TODO その3）をUI上でカバーした。
+
+### 5. 承認イベント履歴
+- `planning_input_set_events` テーブルを新設し、UI/CLI からのアップロード（upload/update）と承認操作（approve/revert）を記録。`core.config.storage.log_planning_input_set_event` でCRUD層から一元管理。
+- `core.config.importer.import_planning_inputs` は作成/更新完了後にイベントを自動記録するため、CLIインポートでも履歴が残る。
+- InputSet詳細画面では履歴テーブルを表示し、最新100件をJST表示で確認できる。コメントは任意であり、空欄時は `-` 表示となる。
+- REST API `/api/plans/input_sets/{label}/events` と CLI (`scripts/show_planning_input_events.py`) で履歴を取得可能。CIやRunbookからも統一したペイロードで参照できる。
+
+### 6. Diffジョブの非同期化
+- `/ui/plans/input_sets/{label}/diff` での比較は、`tmp/input_set_diffs/` 配下のキャッシュを用いた非同期生成に変更。初回アクセス時はバックグラウンドで `scripts/export_planning_inputs.py --diff-against` を実行し、結果JSONをキャッシュする。
+- キャッシュはTTL 600秒で自動失効し、同一ペアに対する連続アクセスはキャッシュヒットで即時描画される。生成中はUIにステータスを表示し、刷新を促す。
+- ロックファイルにより並列実行を抑止し、失敗時はログ（`input_set_diff_job_failed`）を出力。キャッシュは `ms_to_jst` 表示で最終生成時刻を確認できる。
+
+### 7. 監査フローと方針
+- **イベント取得経路**: UI（InputSet詳細のHistoryタブ）、REST (`GET /api/plans/input_sets/{label}/events?limit=...`)、CLI (`scripts/show_planning_input_events.py`) を用意。すべて同一ペイロードのため、RunbookではREST→CLIの順に紹介する。
+- **通知ポリシー**: Slack/メール等の自動通知は導入せず、監査時に履歴をダンプして証跡に添付する運用とする。コメントは任意入力だが、Runbookで推奨テンプレ（例: `JIRA-123 approve by ops_lead`）を提示する。
+- **Diff運用**: `/ui/plans/input_sets/{label}/diff` はキャッシュ生成が成功した時点で `Last generated` 表記が更新される。Runbookでは「最新時間が要件を満たすかを確認→不足ならリロード→それでも更新されない場合は `tmp/input_set_diffs` を削除して再実行」と記載する。
+
+## Runbook: InputSetイベント監査
+- **目的**: `planning_input_set_events` に蓄積された upload/update/approve/revert を日次監査し、証跡を共通フォルダへ保管する。
+- **UI手順**:
+  1. `Planning > Input Sets` で対象ラベルを開き、`History` タブを選択。
+  2. `Action / Actor / Comment / JST` カラムをスクリーンショット化し、承認ワークフローの一次確認として保存する。
+- **CLI手順**:
+  - `.venv` を有効化し、以下でJSONダンプを取得（Runbookにそのまま記載）。
+    ```bash
+    PYTHONPATH=. .venv/bin/python scripts/show_planning_input_events.py \
+      --label weekly_refresh --limit 100 --json \
+      > tmp/audit/input-set-weekly_refresh-$(date +%Y%m%d).json
+    ```
+  - 生成物を `evidence/input_sets/weekly_refresh/YYYYMMDD/events.json` へ移動し、JIRA/Confluenceへ添付。
+  - `Input set 'xxx' not found.` が出た場合は `scripts/list_planning_input_sets.py` でラベルを再確認し、Draftなら `foo@draft` も対象に含める。
+- **REST手順**:
+  - `curl -H "Authorization: Bearer $TOKEN" "https://<host>/api/plans/input_sets/{label}/events?limit=50" | jq '.'` をテンプレ化し、CI/CD成果物として保存。
+  - レスポンス `metadata` に含まれる diff/job 情報を監査レポートへ転記する。
+- **証跡保管**:
+  - `evidence/input_sets/{label}/YYYYMMDD/{events.json,history.png}` を1セットで保存し、Git管理外に置く（`.gitignore` 済み）。
+  - 週次でS3へアーカイブし、必要に応じてセキュア共有する。
+- **FAQ**:
+  - イベント0件 → `scripts/import_planning_inputs.py` が `log_events=False` で走っていないか確認し、必要に応じて `core.config.storage.log_planning_input_set_event` で補完。
+  - 承認コメントが空 → UIフォーム送信時にテンプレ（`JIRA-123 approve by ops_lead`）を入力するようRunbookで明示する。
+
+## Diffジョブ監視・リトライ方針
+- **メトリクス**:
+  - `input_set_diff_jobs_total{result="success|failure"}` を `scripts/export_planning_inputs.py` の diff完了時に更新。
+  - `input_set_diff_cache_hits_total` / `input_set_diff_cache_stale_total` を `app/ui_plans.py` の diffハンドラで更新し、キャッシュ健全性を可視化。
+- **ダッシュボード/アラート**:
+  - `monitoring/input_set_diff.rules.yml` に `delta(input_set_diff_jobs_total{result="failure"}[5m]) > 0`（Warning）と `>=3`（Critical）を記載し、Slack `#planning-alert` へ通知。
+  - `grafana/dashboards/planning_input_sets.json` にヒット率（cache hit / 全リクエスト）と平均生成時間のパネルを追加。
+- **手動リトライ**:
+  1. `ls tmp/input_set_diffs` で該当キャッシュを確認。
+  2. `rm tmp/input_set_diffs/{label}__{against}.json` で削除し、UIでDiffを再度開く。
+  3. CLIバックアップ: `PYTHONPATH=. .venv/bin/python scripts/export_planning_inputs.py --label foo --diff-against bar > tmp/input_set_diffs/manual/foo-bar.json` を実行し、証跡としてアップロード。
+- **ログ確認**:
+  - `rg -n "input_set_diff_job_failed" uvicorn.out` で直近失敗を特定し、`metadata.diff_job_id` を `planning_input_set_events` に書き戻して履歴タブで共有。
+- **将来拡張**:
+  - Celery/Arq 等へジョブを委譲する場合でも同一メトリクス名と `job_type="input_set_diff"` ラベルを維持し、Grafana構成を変えずに済むようにする。
+
+## README / Runbook 反映（完了）
+- README / README_JA の Planning Inputs 節に承認フロー・イベント監査・Legacy/Missing 警告の対処手順を追記（2025-11-09）。
+- Ops Runbook とその日本語版を `docs/runbook_planning_inputs*.md` として追加し、UI/CLI承認、証跡保管、Diffジョブ監視、警告ハンドリング、Slackエスカレーションを具体化。
+- README から Runbook への導線と `evidence/input_sets/{label}/YYYYMMDD/{events.json,history.png}` の保存ルールを明記。
+
+## 残課題・次アクション
+- 現時点で追加の残タスクはありません（2025-11-09 時点）。Diffメトリクス実装・README/Runbook更改・Legacy監査強化を完了したため、次フェーズは監視しきい値と運用レビューのみです。
 
 ## ハンドオフメモ（2025-11-09）
 - **最新作業**:
@@ -181,11 +271,23 @@
     - `templates/input_sets.html`, `templates/input_set_detail.html`, `templates/input_set_upload.html` を新規作成。
     - `app/ui_plans.py` を修正し、InputSet 関連のUIエンドポイントを追加。
     - `tests/test_simulation_endpoint.py` および `tests/test_plans_canonical.py` から `samples/planning` への直接参照を削除。
-    - `docs/temp_planning_inputs_visibility.md` の進捗ログを更新。
+    - `docs/temp_planning_inputs_visibility.md` を Phase 2 仕様と承認フロー方針に合わせて更新。
     - `docs/temp_planning_inputs_visibility.md` から Slack通知に関するタスクを削除。
+    - Alembic `1d7b0dcf4c23` と `core/config/*` を更新し、InputSet 承認メタ（approved_by/at/review_comment）を永続化。
+    - UI アップロードを draft 登録へ切り替え、一覧に status フィルタと説明文を追加。
+    - InputSet 詳細に承認メタ表示と Approve/Revert フォームを追加し、`/ui/plans/input_sets/{label}/review` を実装。
+    - Plan/Run detail に InputSet 欠落（legacy/missing）の警告カードを追加し、Fallback 運用手順を提示。
+    - `planning_input_set_events` を導入し、UI・CLI 起点の操作履歴を記録。Diff 画面ではキャッシュ＋非同期生成でUXを改善した。
+    - `/api/plans/input_sets/{label}/events` と `scripts/show_planning_input_events.py` を追加し、履歴をREST/CLIから取得できるようにした。
 - **ブランチ・コミット**: ここまでの作業は `main` ブランチにコミット済みです。
 - **次セッションの優先タスク**:
-    - 現在、`temp_planning_inputs_visibility.md` に記載されているタスクはすべて完了しました。
-    - 「7. 残課題・次アクション」のタスク2は完了済みです。
-    - したがって、このドキュメントに関する直接的なタスクは残っていません。
-    - 次セッションでは、ユーザーからの新しい指示を待ちます。
+    - InputSetイベント閲覧API/CLIのRunbook手順を追加し、監査エクスポートの手順を整備する。
+    - Diffキャッシュ生成のメトリクス収集とリトライ導線を整備する。
+    - README/Runbook に InputSet 承認ワークフローと fallback 警告の対処手順（通知非対応方針を含む）を記載する。
+- ### Events (`scripts/show_planning_input_events.py`)
+  - 主要引数: `--label`, `--limit`, `--json`.
+  - 処理: `planning_input_set_events` を取得し、テキストまたはJSONで出力。
+  - 代表コマンド:
+    ```bash
+    PYTHONPATH=. python scripts/show_planning_input_events.py --label demo_inputs --limit 20 --json
+    ```

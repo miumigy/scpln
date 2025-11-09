@@ -7,6 +7,8 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.metrics import PLAN_ARTIFACT_WRITE_ERROR_TOTAL
+
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
@@ -335,11 +337,18 @@ def create_plan_version(
 
 def upsert_plan_artifact(version_id: str, name: str, json_text: str) -> None:
     now = int(time.time() * 1000)
-    with _conn() as c:
-        c.execute(
-            "INSERT OR REPLACE INTO plan_artifacts(version_id, name, json_text, created_at) VALUES(?,?,?,?)",
-            (version_id, name, json_text, now),
-        )
+    try:
+        with _conn() as c:
+            c.execute(
+                "INSERT OR REPLACE INTO plan_artifacts(version_id, name, json_text, created_at) VALUES(?,?,?,?)",
+                (version_id, name, json_text, now),
+            )
+    except Exception:
+        try:
+            PLAN_ARTIFACT_WRITE_ERROR_TOTAL.labels(artifact=name).inc()
+        except Exception:
+            pass
+        raise
 
 
 def get_plan_artifact(version_id: str, name: str) -> Dict[str, Any] | None:

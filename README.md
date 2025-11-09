@@ -42,6 +42,9 @@ In addition to the UI, you can manage planning inputs via dedicated CLI tools th
 |---------|---------|-------|
 | Import CSV/JSON into `planning_input_sets` | `PYTHONPATH=. python scripts/import_planning_inputs.py -i samples/planning --version-id 101 --label weekly_refresh` | Supports `--validate-only`, `--apply-mode merge|replace`, `--json`, and stores rows in the DB without relying on `samples/planning` at runtime. |
 | Export an InputSet to CSV | `PYTHONPATH=. python scripts/export_planning_inputs.py --label weekly_refresh --include-meta --zip` | Outputs `samples/planning` compatible files under `out/planning_inputs_<label>` and, with `--zip`, produces an archive for UI download or CI artifacts. |
+| Show InputSet events | `PYTHONPATH=. python scripts/show_planning_input_events.py --label weekly_refresh --limit 30 --json` | Dumps the audit trail (`upload/update/approve/revert`) recorded in `planning_input_set_events`. Omit `--json` for a concise text log. |
+
+The same history is also available via the REST endpoint `GET /api/plans/input_sets/{label}/events?limit=100`, which the Planning Hub uses to render the “History” table on the Input Set detail page. Use this API in CI or monitoring jobs to capture the exact reviewer, timestamp, and optional comment associated with each change.
 
 Typical flow:
 1. Run the import CLI against curated CSV/JSON (or CI artifacts) to register a new input set for a given canonical version.
@@ -60,6 +63,18 @@ curl -sS http://localhost:8000/plans/create_and_execute \
         "lt_unit": "day"
       }' | jq .
 ```
+
+#### InputSet approval & audit workflow
+- Imports and UI uploads land as `draft` input sets. Reviewers use `/ui/plans/input_sets/{label}` → “Review” to approve (`draft → ready`) or revert, which stamps `approved_by/approved_at/review_comment` and records an event.
+- Event history is centralized in `planning_input_set_events`. Capture evidence via the CLI (`scripts/show_planning_input_events.py --label <label> --json`) or `GET /api/plans/input_sets/{label}/events`. Store JSON dumps and History screenshots under `evidence/input_sets/<label>/<YYYYMMDD>/`.
+- Diff reviews rely on `/ui/plans/input_sets/{label}/diff`, which asynchronously runs `scripts/export_planning_inputs.py --diff-against` and caches the result under `tmp/input_set_diffs/`.
+- Detailed SOPs (including CLI fallbacks and cache resets) live in [docs/runbook_planning_inputs.md](docs/runbook_planning_inputs.md).
+
+#### Handling legacy or missing InputSet warnings
+- Plan/Run detail pages surface two warnings: **Legacy mode** (no `input_set_label`) and **Missing InputSet** (label recorded but absent from storage). Both block auditability if left unresolved.
+- For Legacy mode, rerun the plan with a ready input set label. If reruns are impossible, export the CSV bundle (`scripts/export_planning_inputs.py --label <label> --include-meta --zip`) and attach the evidence to the incident record.
+- For Missing input sets, re-import the archived files with the original label or rebind affected plans to a currently approved set. Use `scripts/import_planning_inputs.py -i out/planning_inputs_<label> --version-id <id> --label <label>` to restore state.
+- All exceptions and fallbacks must be logged in `planning_input_set_events` (via the UI or `log_planning_input_set_event`) and reported through the operations channels described in the runbook.
 
 #### UX motivation
 - Remove fragmented entry points and complex rerun steps by offering a single flow: edit → review diffs → execute → review results.

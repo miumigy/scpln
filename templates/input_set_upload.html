@@ -8,12 +8,13 @@
   <div class="section-header">
     <h3>Upload Files</h3>
   </div>
+  <p class="section-description">アップロードされたセットは draft として登録され、承認後に Ready へ昇格します。</p>
   <form action="/ui/plans/input_sets/upload" method="post" enctype="multipart/form-data">
     <label for="config_version_id">Canonical Config Version</label>
     <select name="config_version_id" id="config_version_id" required>
       <option value="">-- Select --</option>
       {% for opt in canonical_options %}
-        <option value="{{ opt.id }}">{{ opt.label }}</option>
+        <option value="{{ opt.id }}" data-num-calendars="{{ opt.num_calendars }}">{{ opt.label }}</option>
       {% endfor %}
     </select>
     <small class="mono" id="config_cal_info"></small>
