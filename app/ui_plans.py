@@ -738,6 +738,11 @@ def ui_plan_execute_auto(
     }
     runs_api = _get_runs_api()
     res = runs_api.post_runs(body)
+    if isinstance(res, dict):
+        try:
+            PLANS_CREATED_TOTAL.inc()
+        except Exception:
+            pass
     from fastapi.responses import RedirectResponse
 
     # 正常系でlocationへ誘導
@@ -745,6 +750,47 @@ def ui_plan_execute_auto(
         return RedirectResponse(url=str(res.get("location")), status_code=303)
     # 失敗時は元画面へ
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@router.post("/ui/plans/{version_id}/delete")
+def ui_plan_delete(version_id: str, request: Request):
+    from fastapi.responses import RedirectResponse
+
+    db.init_db()
+    ver = db.get_plan_version(version_id)
+    if not ver:
+        return RedirectResponse(
+            url="/ui/plans?error=plan_not_found",
+            status_code=303,
+        )
+    try:
+        get_plan_repository().delete_plan(version_id)
+    except Exception:
+        logging.exception(
+            "ui_plan_delete_repo_failed",
+            extra={"version_id": version_id},
+        )
+        return RedirectResponse(
+            url=f"/ui/plans/{version_id}?error=delete_failed",
+            status_code=303,
+        )
+    for cleanup, phase in (
+        (db.delete_plan_artifacts, "artifacts"),
+        (db.clear_plan_version_from_runs, "runs"),
+        (db.delete_plan_version, "plan_version"),
+    ):
+        try:
+            cleanup(version_id)
+        except Exception:
+            logging.exception(
+                "ui_plan_delete_cleanup_failed",
+                extra={"version_id": version_id, "phase": phase},
+            )
+    logging.info(
+        "plan_version_deleted",
+        extra={"version_id": version_id, "actor": "ui_plans"},
+    )
+    return RedirectResponse(url="/ui/plans", status_code=303)
 
 
 _STEPS = ["draft", "aggregated", "disaggregated", "scheduled", "executed"]
@@ -884,6 +930,11 @@ def ui_plans_create_and_execute(
     }
 
     res = _get_runs_api().post_runs(body)
+    if isinstance(res, dict):
+        try:
+            PLANS_CREATED_TOTAL.inc()
+        except Exception:
+            pass
     from fastapi.responses import RedirectResponse
 
     # 正常系でlocationへ誘導 (非同期の場合は /ui/jobs/{job_id})
