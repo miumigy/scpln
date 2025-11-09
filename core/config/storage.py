@@ -33,6 +33,7 @@ from .models import (
     PlanningInboundOrder,
     PlanningInputAggregates,
     PlanningInputSet,
+    PlanningInputSetEvent,
     PlanningInventorySnapshot,
     PlanningMixShare,
     PlanningPeriodMetric,
@@ -59,6 +60,12 @@ class PlanningInputSetSummary:
     source: str
     created_at: Optional[int]
     updated_at: Optional[int]
+    approved_by: Optional[str] = None
+    approved_at: Optional[int] = None
+    review_comment: Optional[str] = None
+
+
+_UNSET = object()
 
 
 def _row_to_meta(row: sqlite3.Row) -> ConfigMeta:
@@ -250,10 +257,25 @@ def _row_to_planning_input_set(
         created_by=row["created_by"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        approved_by=row["approved_by"],
+        approved_at=row["approved_at"],
+        review_comment=row["review_comment"],
         metadata=_json_loads(row["metadata_json"]),
         calendar_spec=calendar_spec,
         planning_params=planning_params,
         aggregates=aggregates,
+    )
+
+
+def _row_to_planning_input_set_event(row: sqlite3.Row) -> PlanningInputSetEvent:
+    return PlanningInputSetEvent(
+        id=row["id"],
+        input_set_id=row["input_set_id"],
+        action=row["action"],
+        actor=row["actor"],
+        comment=row["comment"],
+        metadata=_json_loads(row["metadata_json"]),
+        created_at=row["created_at"],
     )
 
 
@@ -1312,6 +1334,8 @@ __all__ = [
     "update_planning_input_set",
     "get_planning_input_set",
     "list_planning_input_sets",
+    "list_planning_input_set_events",
+    "log_planning_input_set_event",
     "delete_planning_input_set",
     "PlanningInputSetSummary",
     "PlanningInputSetNotFoundError",
@@ -1431,6 +1455,9 @@ def create_planning_input_set(
     status: str = "draft",
     source: str = "csv",
     created_by: Optional[str] = None,
+    approved_by: Optional[str] = None,
+    approved_at: Optional[int] = None,
+    review_comment: Optional[str] = None,
     calendar_spec: Optional[PlanningCalendarSpec] = None,
     planning_params: Optional[PlanningParams] = None,
     metadata: Optional[Dict[str, Any]] = None,
@@ -1445,8 +1472,8 @@ def create_planning_input_set(
                 INSERT INTO planning_input_sets(
                     config_version_id, label, status, source, created_by,
                     created_at, updated_at, metadata_json, calendar_spec_json,
-                    planning_params_json
-                ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                    planning_params_json, approved_by, approved_at, review_comment
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     config_version_id,
@@ -1469,6 +1496,9 @@ def create_planning_input_set(
                         else {},
                         ensure_ascii=False,
                     ),
+                    approved_by,
+                    approved_at,
+                    review_comment,
                 ),
             )
         except sqlite3.IntegrityError as exc:
@@ -1486,6 +1516,9 @@ def update_planning_input_set(
     *,
     label: Optional[str] = None,
     status: Optional[str] = None,
+    approved_by: Any = _UNSET,
+    approved_at: Any = _UNSET,
+    review_comment: Any = _UNSET,
     calendar_spec: Optional[PlanningCalendarSpec] = None,
     planning_params: Optional[PlanningParams] = None,
     metadata: Optional[Dict[str, Any]] = None,
@@ -1502,6 +1535,15 @@ def update_planning_input_set(
     if status is not None:
         fields.append("status = ?")
         params.append(status)
+    if approved_by is not _UNSET:
+        fields.append("approved_by = ?")
+        params.append(approved_by)
+    if approved_at is not _UNSET:
+        fields.append("approved_at = ?")
+        params.append(approved_at)
+    if review_comment is not _UNSET:
+        fields.append("review_comment = ?")
+        params.append(review_comment)
     if metadata is not None:
         fields.append("metadata_json = ?")
         params.append(_json_dumps(metadata))
@@ -1587,21 +1629,26 @@ def get_planning_input_set(
 
 def list_planning_input_sets(
     *,
-    config_version_id: int,
+    config_version_id: Optional[int] = None,
     status: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> List[PlanningInputSetSummary]:
-    conditions = ["config_version_id = ?"]
-    params: List[Any] = [config_version_id]
+    conditions: List[str] = []
+    params: List[Any] = []
+    if config_version_id is not None:
+        conditions.append("config_version_id = ?")
+        params.append(config_version_id)
     if status is not None:
         conditions.append("status = ?")
         params.append(status)
 
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
     query = (
-        "SELECT id, config_version_id, label, status, source, created_at, updated_at "
+        "SELECT id, config_version_id, label, status, source, created_at, updated_at, "
+        "approved_by, approved_at, review_comment "
         "FROM planning_input_sets WHERE "
-        + " AND ".join(conditions)
+        + where_clause
         + " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
     )
     params.extend([limit, offset])
@@ -1617,9 +1664,65 @@ def list_planning_input_sets(
                 source=row["source"],
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
+                approved_by=row["approved_by"],
+                approved_at=row["approved_at"],
+                review_comment=row["review_comment"],
             )
             for row in rows
         ]
+
+
+def list_planning_input_set_events(
+    input_set_id: int, *, limit: int = 100
+) -> List[PlanningInputSetEvent]:
+    query = (
+        "SELECT id, input_set_id, action, actor, comment, metadata_json, created_at "
+        "FROM planning_input_set_events "
+        "WHERE input_set_id = ? "
+        "ORDER BY created_at DESC "
+        "LIMIT ?"
+    )
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        rows = cur.execute(query, (input_set_id, limit)).fetchall()
+        return [_row_to_planning_input_set_event(row) for row in rows]
+
+
+def log_planning_input_set_event(
+    input_set_id: int,
+    *,
+    action: str,
+    actor: Optional[str] = None,
+    comment: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> PlanningInputSetEvent:
+    now = int(time.time() * 1000)
+    with closing(_conn()) as conn, closing(conn.cursor()) as cur:
+        cur.execute(
+            """
+            INSERT INTO planning_input_set_events(
+                input_set_id, action, actor, comment, metadata_json, created_at
+            ) VALUES(?,?,?,?,?,?)
+            """,
+            (
+                input_set_id,
+                action,
+                actor,
+                comment,
+                _json_dumps(metadata),
+                now,
+            ),
+        )
+        event_id = cur.lastrowid
+        conn.commit()
+        return PlanningInputSetEvent(
+            id=event_id,
+            input_set_id=input_set_id,
+            action=action,
+            actor=actor,
+            comment=comment,
+            metadata=metadata or {},
+            created_at=now,
+        )
 
 
 def delete_planning_input_set(

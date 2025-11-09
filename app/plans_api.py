@@ -34,6 +34,9 @@ from app.metrics import (
 )
 from core.config.storage import (
     CanonicalConfigNotFoundError,
+    get_planning_input_set,
+    list_planning_input_set_events,
+    PlanningInputSetNotFoundError,
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
@@ -2783,3 +2786,38 @@ def export_planning_input_set(
         filename=zip_path.name,
         media_type="application/zip",
     )
+
+
+@app.get("/api/plans/input_sets/{label}/events")
+def list_planning_input_set_events_api(
+    label: str,
+    limit: int = Query(100, ge=1, le=500),
+):
+    """
+    指定されたラベルの PlanningInputSet に紐づくイベント履歴を返す。
+    """
+    try:
+        input_set = get_planning_input_set(label=label, include_aggregates=False)
+    except PlanningInputSetNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Input set '{label}' not found.")
+
+    events = list_planning_input_set_events(input_set.id, limit=limit)
+    return {
+        "input_set": {
+            "id": input_set.id,
+            "label": input_set.label,
+            "config_version_id": input_set.config_version_id,
+            "status": input_set.status,
+        },
+        "events": [
+            {
+                "id": e.id,
+                "action": e.action,
+                "actor": e.actor,
+                "comment": e.comment,
+                "created_at": e.created_at,
+                "metadata": e.metadata,
+            }
+            for e in events
+        ],
+    }

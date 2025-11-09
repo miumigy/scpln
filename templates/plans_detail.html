@@ -155,6 +155,16 @@
         <p class="mono">Input set label not recorded (legacy CSV mode).</p>
         <p>Re-run this plan with <code>input_set_label</code> to enable traceability and diff/export links.</p>
       </section>
+    {% elif isi.missing %}
+      <section class="inputset-card warn" aria-label="Planning input set missing warning">
+        <h4>Planning Input Set</h4>
+        <p class="mono">Input set label <code>{{ isi.label }}</code> was recorded, but the canonical InputSet record was not found.</p>
+        <p>The UI is showing artifacts reconstructed from the plan archive. Re-import or restore the InputSet to regain diff/export accuracy.</p>
+        <p>
+          Suggested CLI:<br>
+          <code>PYTHONPATH=. python scripts/export_planning_inputs.py --label {{ isi.label | default('UNKNOWN', true) }}</code>
+        </p>
+      </section>
     {% else %}
       <section class="inputset-card" aria-label="Planning input set summary">
         <h4>

@@ -197,6 +197,12 @@
       <p class="mono">Input set label not recorded for this run.</p>
       <p>Re-run the pipeline with <code>input_set_label</code> to track inputs and enable diff/export workflows.</p>
     </section>
+  {% elif isi.missing %}
+    <section class="inputset-card warn" aria-label="Planning input set missing warning">
+      <h4>Planning Input Set</h4>
+      <p class="mono">Input set label <code>{{ isi.label }}</code> exists on the run, but the canonical record is missing.</p>
+      <p>The UI falls back to plan artifacts only. Re-import or recover the InputSet to restore diff/export accuracy.</p>
+    </section>
   {% else %}
     <section class="inputset-card" aria-label="Planning input set summary">
       <h4>

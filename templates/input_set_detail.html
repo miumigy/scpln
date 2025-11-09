@@ -37,8 +37,96 @@
       <div class="card-header">Updated At</div>
       <div class="card-body mono ts-ms" data-ms="{{ input_set.updated_at }}">{{ input_set.updated_at }}</div>
     </div>
+    <div class="card">
+      <div class="card-header">Approved By</div>
+      <div class="card-body mono">{{ input_set.approved_by or '-' }}</div>
+    </div>
+    <div class="card">
+      <div class="card-header">Approved At</div>
+      <div class="card-body mono ts-ms" data-ms="{{ input_set.approved_at or '' }}">{{ input_set.approved_at or '-' }}</div>
+    </div>
   </div>
 </section>
+
+{% if input_set.review_comment %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>Review Comment</h3>
+  </div>
+  <p class="mono">{{ input_set.review_comment }}</p>
+</section>
+{% endif %}
+
+{% if input_set.status != "archived" %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>Review Actions</h3>
+  </div>
+  <div class="card-grid">
+    {% if input_set.status == "draft" %}
+    <div class="card">
+      <div class="card-header">Approve & Publish</div>
+      <div class="card-body">
+        <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post" class="vertical-form">
+          <input type="hidden" name="action" value="approve" />
+          <label for="approve_reviewer">Reviewer</label>
+          <input type="text" id="approve_reviewer" name="reviewer" placeholder="e.g., ops_lead">
+          <label for="approve_comment">Comment (optional)</label>
+          <textarea id="approve_comment" name="review_comment" rows="2" placeholder="承認メモ (任意)"></textarea>
+          <button type="submit" class="btn-primary">Approve</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    {% if input_set.status == "ready" %}
+    <div class="card">
+      <div class="card-header">Revert to Draft</div>
+      <div class="card-body">
+        <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post" class="vertical-form">
+          <input type="hidden" name="action" value="revert" />
+          <label for="revert_reviewer">Reviewer</label>
+          <input type="text" id="revert_reviewer" name="reviewer" placeholder="e.g., ops_lead">
+          <label for="revert_comment">Comment</label>
+          <textarea id="revert_comment" name="review_comment" rows="2" placeholder="差し戻し理由 (任意)"></textarea>
+          <button type="submit" class="btn-secondary">Revert to Draft</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <p class="section-description">承認操作は即時に反映され、Plan作成フォームの選択肢も更新されます。</p>
+</section>
+{% endif %}
+
+{% if input_set_events %}
+<section class="page-section">
+  <div class="section-header">
+    <h3>History</h3>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Timestamp</th>
+          <th scope="col">Action</th>
+          <th scope="col">Actor</th>
+          <th scope="col">Comment</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ev in input_set_events %}
+        <tr>
+          <td class="mono ts-ms" data-ms="{{ ev.created_at }}">{{ ev.created_at or '-' }}</td>
+          <td class="mono">{{ ev.action }}</td>
+          <td class="mono">{{ ev.actor or '-' }}</td>
+          <td class="mono">{{ ev.comment or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 
 <section class="page-section">
   <div class="section-header">
@@ -260,13 +348,13 @@
 </section>
 {% endblock %}
 {% block scripts %}
+{{ super() }}
 <script>
-// Format created_at timestamp (ms epoch → YYYY/MM/DD HH:mm:ss JST)
 function fmtJst(ms){
   var n = Number(ms);
   if (!Number.isFinite(n)) return '';
   if (n < 1e12) n = n * 1000;
-  var t = new Date(n + 9*3600*1000); // Shift to JST before formatting via UTC getters
+  var t = new Date(n + 9*3600*1000);
   var y = t.getUTCFullYear();
   var mo = String(t.getUTCMonth()+1).padStart(2,'0');
   var d = String(t.getUTCDate()).padStart(2,'0');
@@ -276,10 +364,10 @@ function fmtJst(ms){
   return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
 }
 document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('td.ts-ms').forEach(function(td){
-    var ms = td.getAttribute('data-ms');
+  document.querySelectorAll('.ts-ms').forEach(function(el){
+    var ms = el.getAttribute('data-ms');
     var txt = fmtJst(ms);
-    if (txt) td.textContent = txt;
+    if (txt) el.textContent = txt;
   });
 });
 </script>

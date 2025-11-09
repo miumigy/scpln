@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,6 +24,7 @@ from core.config.storage import (
     update_planning_input_set,
     get_planning_input_set,
     PlanningInputSetNotFoundError,
+    log_planning_input_set_event,
 )
 
 
@@ -122,6 +124,13 @@ def import_planning_inputs(
     label: str,
     apply_mode: str = "replace",
     validate_only: bool = False,
+    *,
+    status: str = "ready",
+    source: str = "csv",
+    created_by: Optional[str] = None,
+    approved_by: Optional[str] = None,
+    approved_at: Optional[int] = None,
+    review_comment: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     指定されたディレクトリから計画入力を読み込み、PlanningInputSetとしてDBにインポートします。
@@ -139,6 +148,12 @@ def import_planning_inputs(
         result["message"] = "validation_only"
         return result
 
+    approval_timestamp = approved_at
+    if status == "ready" and approval_timestamp is None:
+        approval_timestamp = int(time.time() * 1000)
+
+    event_actor = created_by or source
+
     try:
         existing = get_planning_input_set(label=label, include_aggregates=False)
     except PlanningInputSetNotFoundError:
@@ -146,25 +161,60 @@ def import_planning_inputs(
 
     try:
         if existing:
-            update_planning_input_set(
-                existing.id,
-                label=label,
-                status="ready",
-                calendar_spec=calendar_spec,
-                aggregates=aggregates,
-                replace_mode=(apply_mode == "replace"),
-            )
+            update_kwargs: Dict[str, Any] = {
+                "label": label,
+                "status": status,
+                "calendar_spec": calendar_spec,
+                "aggregates": aggregates,
+                "replace_mode": (apply_mode == "replace"),
+            }
+            if status == "ready":
+                if approved_by is not None:
+                    update_kwargs["approved_by"] = approved_by
+                update_kwargs["approved_at"] = approval_timestamp
+                if review_comment is not None:
+                    update_kwargs["review_comment"] = review_comment
+            else:
+                update_kwargs["approved_by"] = None
+                update_kwargs["approved_at"] = None
+                if review_comment is not None:
+                    update_kwargs["review_comment"] = review_comment
+            update_planning_input_set(existing.id, **update_kwargs)
             result["updated"] = existing.id
+            log_planning_input_set_event(
+                existing.id,
+                action="update",
+                actor=event_actor,
+                metadata={
+                    "source": source,
+                    "apply_mode": apply_mode,
+                    "status": status,
+                },
+            )
         else:
             created = create_planning_input_set(
                 config_version_id=config_version_id,
                 label=label,
-                status="ready",
-                source="ui_upload", # UIからのアップロードを示す
+                status=status,
+                source=source,
+                created_by=created_by,
+                approved_by=approved_by if status == "ready" else None,
+                approved_at=approval_timestamp if status == "ready" else None,
+                review_comment=review_comment,
                 aggregates=aggregates,
                 calendar_spec=calendar_spec,
             )
             result["created"] = created.id
+            log_planning_input_set_event(
+                created.id,
+                action="upload",
+                actor=event_actor,
+                metadata={
+                    "source": source,
+                    "apply_mode": apply_mode,
+                    "status": status,
+                },
+            )
     except PlanningInputSetConflictError as exc:
         result["status"] = "error"
         result["message"] = f"Failed to import planning inputs: {exc}"

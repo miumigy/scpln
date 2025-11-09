@@ -65,6 +65,13 @@
             </article>
         </div>
 
+        {% if diff_generated_at %}
+            <p class="mono">Last generated: {{ diff_generated_at | ms_to_jst }}</p>
+        {% endif %}
+        {% if diff_generating %}
+            <p class="mono warn-text">Diff is being generated in the background. Please refresh after a few seconds.</p>
+        {% endif %}
+
         {% if diff_report %}
             <div class="diff-section">
                 {% for key, diff in diff_report.items() %}
@@ -161,8 +168,10 @@
                     {% endif %}
                 {% endfor %}
             </div>
-        {% elif other_set %}
+        {% elif other_set and not diff_generating %}
             <p>No differences found between the two input sets.</p>
+        {% elif other_set %}
+            <p>Diff is being generated. Please refresh shortly.</p>
         {% endif %}
     {% endif %}
 </section>

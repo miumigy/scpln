@@ -11,6 +11,7 @@ import shutil
 import time
 import subprocess
 import re
+from typing import Any, Mapping, Sequence
 
 from core.config.storage import (
     get_planning_input_set,
@@ -36,7 +37,19 @@ _DIFF_CACHE_DIR = _BASE_DIR / "tmp" / "input_set_diffs"
 _DIFF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 _DIFF_CACHE_TTL_SECONDS = 600
 _DIFF_LOCK_TTL_SECONDS = 600
+_DIFF_TABLE_LIMIT = 500
 _SLUG_PATTERN = re.compile(r"[^a-zA-Z0-9_-]+")
+_NAT_SORT_TOKEN = re.compile(r"\d+|\D+")
+_DELTA_SORT_KEYS = (
+    "period",
+    "family_code",
+    "sku_code",
+    "resource_code",
+    "node_code",
+    "item_code",
+    "due_date",
+    "metric_code",
+)
 
 
 def _safe_slug(value: str | None) -> str:
@@ -44,6 +57,45 @@ def _safe_slug(value: str | None) -> str:
         return "unknown"
     slug = _SLUG_PATTERN.sub("-", value).strip("-").lower()
     return slug or "unknown"
+
+
+def _naturalize_value(value: Any) -> tuple:
+    if value is None:
+        return (2, "")
+    if isinstance(value, (int, float)):
+        return (0, value)
+    text = str(value).strip()
+    if not text:
+        return (1, "")
+    tokens = _NAT_SORT_TOKEN.findall(text)
+    if not tokens:
+        return (1, text.lower())
+    normalized: list[tuple[str, Any]] = []
+    for token in tokens:
+        if token.isdigit():
+            normalized.append(("n", int(token)))
+        else:
+            normalized.append(("s", token.lower()))
+    return tuple(normalized)
+
+
+def _prepare_delta_rows(
+    rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    limit: int | None = 200,
+) -> list[Mapping[str, Any]]:
+    """
+    Diffレポートの行を自然順ソートし、必要に応じて件数を制限する。
+    """
+    if not rows:
+        return []
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: tuple(_naturalize_value(row.get(key)) for key in _DELTA_SORT_KEYS),
+    )
+    if limit is not None:
+        return list(sorted_rows[:limit])
+    return list(sorted_rows)
 
 
 def _list_canonical_options() -> list[dict[str, object]]:
@@ -411,6 +463,16 @@ def ui_plan_input_set_diff(
                     lock_path,
                 )
                 diff_generating = True
+        elif isinstance(diff_report, dict):
+            for section in diff_report.values():
+                if not isinstance(section, dict):
+                    continue
+                rows_added = section.get("added")
+                rows_removed = section.get("removed")
+                if rows_added is not None:
+                    section["added"] = _prepare_delta_rows(rows_added, limit=_DIFF_TABLE_LIMIT)
+                if rows_removed is not None:
+                    section["removed"] = _prepare_delta_rows(rows_removed, limit=_DIFF_TABLE_LIMIT)
 
     return templates.TemplateResponse(
         request,

@@ -8,7 +8,16 @@
   <div class="section-header">
     <h3>Input Set List</h3>
   </div>
+  <p class="section-description">UIからのアップロードは draft として登録され、承認後に Ready へ昇格します。</p>
   <div class="toolbar gap-bottom-sm">
+    <form id="statusForm" method="get" class="inline-form">
+      <label for="statusFilter" class="mono">Status</label>
+      <select name="status" id="statusFilter">
+        {% for value, label in status_options or [] %}
+          <option value="{{ value }}" {% if value == selected_status %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
     <input id="q" type="search" placeholder="Search by label, status, source" aria-label="Search input sets" />
     <small class="mono pill" id="meta"></small>
   </div>
@@ -77,6 +86,8 @@ document.addEventListener('DOMContentLoaded', function(){
   var q = document.getElementById('q');
   var meta = document.getElementById('meta');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
+  var statusForm = document.getElementById('statusForm');
+  var statusFilter = document.getElementById('statusFilter');
 
   function applyFilter(){
     var s = (q && q.value || '').toLowerCase().trim();
@@ -92,6 +103,11 @@ document.addEventListener('DOMContentLoaded', function(){
 
   if (q) {
     q.addEventListener('input', applyFilter);
+  }
+  if (statusForm && statusFilter) {
+    statusFilter.addEventListener('change', function(){
+      statusForm.submit();
+    });
   }
   applyFilter();
 });

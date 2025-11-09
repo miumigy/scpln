@@ -132,12 +132,25 @@ class PlanningInputSet(BaseModel):
     created_by: Optional[str] = Field(default=None)
     created_at: Optional[int] = Field(default=None, description="UNIX ms")
     updated_at: Optional[int] = Field(default=None, description="UNIX ms")
+    approved_by: Optional[str] = Field(default=None, description="承認者")
+    approved_at: Optional[int] = Field(default=None, description="承認日時 (UNIX ms)")
+    review_comment: Optional[str] = Field(default=None, description="承認/差戻しコメント")
     metadata: Dict[str, Any] = Field(default_factory=dict)
     calendar_spec: Optional[PlanningCalendarSpec] = Field(default=None)
     planning_params: Optional[PlanningParams] = Field(default=None)
     aggregates: PlanningInputAggregates = Field(
         default_factory=PlanningInputAggregates
     )
+
+
+class PlanningInputSetEvent(BaseModel):
+    id: Optional[int] = Field(default=None)
+    input_set_id: int
+    action: Literal["upload", "update", "approve", "revert"]
+    actor: Optional[str] = None
+    comment: Optional[str] = None
+    created_at: Optional[int] = Field(default=None, description="UNIX ms")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ConfigMeta(BaseModel):
@@ -354,4 +367,5 @@ __all__ = [
     "PlanningPeriodMetric",
     "PlanningInputAggregates",
     "PlanningInputSet",
+    "PlanningInputSetEvent",
 ]
