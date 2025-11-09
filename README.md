@@ -77,6 +77,11 @@ curl -sS http://localhost:8000/plans/create_and_execute \
 - For Missing input sets, re-import the archived files with the original label or rebind affected plans to a currently approved set. Use `scripts/import_planning_inputs.py -i out/planning_inputs_<label> --version-id <id> --label <label>` to restore state.
 - All exceptions and fallbacks must be logged in `planning_input_set_events` (via the UI or `log_planning_input_set_event`) and reported through the operations channels described in the runbook.
 
+#### InputSet monitoring & diff job guardrails
+- Diff jobs are tracked via Prometheus metrics (`input_set_diff_jobs_total{result="success|failure"}`, `input_set_diff_cache_hits_total`, `input_set_diff_cache_stale_total`). Alert rules such as `monitoring/input_set_diff.rules.yml` look for successive failures, while the Planning Inputs Grafana dashboard (`grafana/dashboards/planning_input_sets.json`) visualizes hit ratios and average generation time.
+- Cached diffs live under `tmp/input_set_diffs/<label>__<against>.json`. Delete the stale cache file, then reopen the UI diff view to trigger regeneration, or rerun `PYTHONPATH=. .venv/bin/python scripts/export_planning_inputs.py --label foo --diff-against bar` to produce manual artifacts that can be archived for audits.
+- Keep evidence for each InputSet label under `evidence/input_sets/{label}/{YYYYMMDD}/` (history screenshot + `events.json` dump) and rotate them into secure storage per the runbook. Use `rg -n "input_set_diff_job_failed" uvicorn.out` when investigating failures and replay the associated `diff_job_id` via `planning_input_set_events`.
+
 #### UX motivation
 - Remove fragmented entry points and complex rerun steps by offering a single flow: edit → review diffs → execute → review results.
 - Preview diffs and KPI impact in a standardized view before execution to keep dry runs and live application safe.

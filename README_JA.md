@@ -77,6 +77,11 @@ curl -sS http://localhost:8000/plans/create_and_execute \
 - Missing InputSet の場合は `scripts/import_planning_inputs.py -i out/planning_inputs_<label> --version-id <id> --label <label>` で過去のCSVバンドルを再登録するか、Planを現行Readyセットに付け替えます。
 - いずれも `planning_input_set_events` に対応ログ（UIまたは `log_planning_input_set_event`）を残し、Runbook記載のSlackチャンネルへ報告してください。
 
+#### Planning入力セット監視とDiffジョブ
+- `input_set_diff_jobs_total{result="success|failure"}`、`input_set_diff_cache_hits_total`、`input_set_diff_cache_stale_total` のメトリクスでDiffジョブとキャッシュの健全性を追跡。`monitoring/input_set_diff.rules.yml` では失敗連続をアラートし、`grafana/dashboards/planning_input_sets.json` でヒット率や平均生成時間を可視化します。
+- `tmp/input_set_diffs/{label}__{against}.json` を削除しUIでDiffを再アクセスするとDiffが再生成されます。必要なら `PYTHONPATH=. .venv/bin/python scripts/export_planning_inputs.py --label foo --diff-against bar` で手動Diffをエクスポートして監査証跡として保管してください。
+- 証跡は `evidence/input_sets/{label}/{YYYYMMDD}/`（Historyスクリーンショット＋`events.json`）にまとめてRunbookどおりセキュアにアーカイブ。`rg -n "input_set_diff_job_failed" uvicorn.out` で直近のログを追跡し、`planning_input_set_events` に `diff_job_id` を書き戻してHistoryタブで共有します。
+
 #### UX背景と狙い
 - 入口の分散や再実行手順の煩雑さを解消し、「編集→差分確認→実行→結果確認」を一貫体験として提供。
 - 実行前に差分とKPIインパクトを標準化されたプレビューで確認し、ドライランと本適用を安全に切り分け。
