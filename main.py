@@ -10,13 +10,6 @@ from collections import defaultdict
 from typing import Optional
 import time as _time
 from app.run_registry import REGISTRY as _REGISTRY
-from prometheus_client import make_asgi_app
-
-
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
-
-
 try:
     from app import metrics as _metrics  # noqa: F401  # /metrics を副作用で登録
 except Exception:

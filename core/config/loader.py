@@ -27,6 +27,8 @@ from .models import (
 )
 from .validators import ValidationResult, validate_canonical_config
 
+_DEFAULT_PLANNING_DIR = Path("samples") / "planning"
+
 
 class CanonicalLoaderError(RuntimeError):
     """ローダー処理における例外。"""
@@ -36,7 +38,7 @@ def load_canonical_config(
     *,
     name: str,
     psi_input_path: Path,
-    planning_dir: Path,
+    planning_dir: Path | str | None = None,
     product_hierarchy_path: Optional[Path] = None,
     location_hierarchy_path: Optional[Path] = None,
     include_validation: bool = True,
@@ -44,7 +46,8 @@ def load_canonical_config(
     """レガシーJSON/CSVソースからCanonical設定を構築する。"""
 
     psi_data = _read_json(psi_input_path)
-    planning_payload = read_planning_dir(planning_dir)
+    target_planning_dir = Path(planning_dir) if planning_dir is not None else _DEFAULT_PLANNING_DIR
+    planning_payload = read_planning_dir(target_planning_dir)
     hier_product = _read_json(product_hierarchy_path) if product_hierarchy_path else {}
     hier_location = (
         _read_json(location_hierarchy_path) if location_hierarchy_path else {}
@@ -82,7 +85,7 @@ def load_canonical_config(
         attributes={
             "sources": {
                 "psi_input": str(psi_input_path),
-                "planning_dir": str(planning_dir),
+                "planning_dir": str(target_planning_dir),
                 "product_hierarchy": (
                     str(product_hierarchy_path) if product_hierarchy_path else None
                 ),
