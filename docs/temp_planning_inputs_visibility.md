@@ -298,10 +298,10 @@
     - `planning_input_set_events` を導入し、UI・CLI 起点の操作履歴を記録。Diff 画面ではキャッシュ＋非同期生成でUXを改善した。
     - `/api/plans/input_sets/{label}/events` と `scripts/show_planning_input_events.py` を追加し、履歴をREST/CLIから取得できるようにした。
 - **ブランチ・コミット**: ここまでの作業は `main` ブランチにコミット済みです。
-- **次セッションの優先タスク**:
-    - InputSetイベント閲覧API/CLIのRunbook手順を追加し、監査エクスポートの手順を整備する。
-    - Diffキャッシュ生成のメトリクス収集とリトライ導線を整備する。
-    - README/Runbook に InputSet 承認ワークフローと fallback 警告の対処手順（通知非対応方針を含む）を記載する。
+- **次セッションの優先タスク**（2025-11-12時点で対応済み、以降は運用レビュー/監視調整へ）:
+    - InputSetイベント閲覧API/CLIのRunbook手順を追加し、監査エクスポートの手順を整備する（`docs/runbook_planning_inputs*.md` に記載）。
+    - Diffキャッシュ生成のメトリクス収集とリトライ導線を整備する（`app/ui_plans.py` の diff ハンドラと `input_set_diff_*` メトリクスに反映）。
+    - README/Runbook に InputSet 承認ワークフローと fallback 警告の対処手順（通知非対応方針を含む）を記載する（`README.md` ・`README_JA.md` に節を追加済み）。
 - ### Events (`scripts/show_planning_input_events.py`)
   - 主要引数: `--label`, `--limit`, `--json`.
   - 処理: `planning_input_set_events` を取得し、テキストまたはJSONで出力。
