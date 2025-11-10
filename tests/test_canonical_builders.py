@@ -418,9 +418,7 @@ def test_build_planning_inputs_scales_initial_inventory():
                 code="WH",
                 name="Warehouse",
                 node_type="warehouse",
-                inventory_policies=[
-                    {"item_code": "SKU-X", "initial_inventory": 15}
-                ],
+                inventory_policies=[{"item_code": "SKU-X", "initial_inventory": 15}],
             )
         ],
         arcs=[],

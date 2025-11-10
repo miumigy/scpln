@@ -46,7 +46,9 @@ def load_canonical_config(
     """レガシーJSON/CSVソースからCanonical設定を構築する。"""
 
     psi_data = _read_json(psi_input_path)
-    target_planning_dir = Path(planning_dir) if planning_dir is not None else _DEFAULT_PLANNING_DIR
+    target_planning_dir = (
+        Path(planning_dir) if planning_dir is not None else _DEFAULT_PLANNING_DIR
+    )
     planning_payload = read_planning_dir(target_planning_dir)
     hier_product = _read_json(product_hierarchy_path) if product_hierarchy_path else {}
     hier_location = (

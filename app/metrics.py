@@ -175,6 +175,7 @@ INPUT_SET_DIFF_CACHE_STALE_TOTAL = Counter(
 # Metrics endpoint helpers
 # ---------------------------------------------------------------------------
 
+
 def metrics_snapshot() -> Response:
     """Return Prometheus exposition text for FastAPI /metrics endpoint."""
     payload = generate_latest(REGISTRY)

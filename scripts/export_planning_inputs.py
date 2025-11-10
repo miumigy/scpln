@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import tempfile
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 import shutil
@@ -88,7 +87,10 @@ def export_input_set(args: argparse.Namespace) -> Dict[str, object]:
     aggregate = input_set.aggregates
     write_csv(
         output_dir / "demand_family.csv",
-        [{"family": r.family_code, "period": r.period, "demand": r.demand} for r in aggregate.family_demands],
+        [
+            {"family": r.family_code, "period": r.period, "demand": r.demand}
+            for r in aggregate.family_demands
+        ],
         ["family", "period", "demand"],
     )
     write_csv(
@@ -148,7 +150,12 @@ def export_input_set(args: argparse.Namespace) -> Dict[str, object]:
 
     if input_set.calendar_spec:
         with (output_dir / "planning_calendar.json").open("w", encoding="utf-8") as fp:
-            json.dump(input_set.calendar_spec.model_dump(mode="json"), fp, ensure_ascii=False, indent=2)
+            json.dump(
+                input_set.calendar_spec.model_dump(mode="json"),
+                fp,
+                ensure_ascii=False,
+                indent=2,
+            )
 
     if args.include_meta:
         meta = {
@@ -163,8 +170,15 @@ def export_input_set(args: argparse.Namespace) -> Dict[str, object]:
         with (output_dir / "input_set_meta.json").open("w", encoding="utf-8") as fp:
             json.dump(meta, fp, ensure_ascii=False, indent=2)
         if input_set.planning_params:
-            with (output_dir / "planning_params.json").open("w", encoding="utf-8") as fp:
-                json.dump(input_set.planning_params.model_dump(mode="json"), fp, ensure_ascii=False, indent=2)
+            with (output_dir / "planning_params.json").open(
+                "w", encoding="utf-8"
+            ) as fp:
+                json.dump(
+                    input_set.planning_params.model_dump(mode="json"),
+                    fp,
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
     if args.diff_against:
         diff = _build_diff_report(input_set, args.diff_against)
@@ -198,25 +212,58 @@ def _build_diff_report(current, other_label: str) -> Dict[str, List[Dict[str, ob
     def _diff_lists(curr, prev, key_fields):
         curr_map = _agg_to_map(curr, key_fields)
         prev_map = _agg_to_map(prev, key_fields)
-        added = [curr_map[k].model_dump() if hasattr(curr_map[k], "model_dump") else curr_map[k].__dict__ for k in curr_map.keys() - prev_map.keys()]
-        removed = [prev_map[k].model_dump() if hasattr(prev_map[k], "model_dump") else prev_map[k].__dict__ for k in prev_map.keys() - curr_map.keys()]
+        added = [
+            (
+                curr_map[k].model_dump()
+                if hasattr(curr_map[k], "model_dump")
+                else curr_map[k].__dict__
+            )
+            for k in curr_map.keys() - prev_map.keys()
+        ]
+        removed = [
+            (
+                prev_map[k].model_dump()
+                if hasattr(prev_map[k], "model_dump")
+                else prev_map[k].__dict__
+            )
+            for k in prev_map.keys() - curr_map.keys()
+        ]
         changed = []
         for key in curr_map.keys() & prev_map.keys():
             curr_row = curr_map[key]
             prev_row = prev_map[key]
             if curr_row != prev_row:
-                changed.append({"current": curr_row.model_dump(), "previous": prev_row.model_dump()})
+                changed.append(
+                    {
+                        "current": curr_row.model_dump(),
+                        "previous": prev_row.model_dump(),
+                    }
+                )
         return {"added": added, "removed": removed, "changed": changed}
 
     curr = current.aggregates
     prev = other.aggregates
     return {
-        "demand_family": _diff_lists(curr.family_demands, prev.family_demands, ["family_code", "period"]),
-        "capacity": _diff_lists(curr.capacity_buckets, prev.capacity_buckets, ["resource_code", "period"]),
-        "mix_share": _diff_lists(curr.mix_shares, prev.mix_shares, ["family_code", "sku_code"]),
-        "inventory": _diff_lists(curr.inventory_snapshots, prev.inventory_snapshots, ["node_code", "item_code"]),
-        "open_po": _diff_lists(curr.inbound_orders, prev.inbound_orders, ["item_code", "due_date"]),
-        "period_metrics": _diff_lists(curr.period_metrics, prev.period_metrics, ["metric_code", "period"]),
+        "demand_family": _diff_lists(
+            curr.family_demands, prev.family_demands, ["family_code", "period"]
+        ),
+        "capacity": _diff_lists(
+            curr.capacity_buckets, prev.capacity_buckets, ["resource_code", "period"]
+        ),
+        "mix_share": _diff_lists(
+            curr.mix_shares, prev.mix_shares, ["family_code", "sku_code"]
+        ),
+        "inventory": _diff_lists(
+            curr.inventory_snapshots,
+            prev.inventory_snapshots,
+            ["node_code", "item_code"],
+        ),
+        "open_po": _diff_lists(
+            curr.inbound_orders, prev.inbound_orders, ["item_code", "due_date"]
+        ),
+        "period_metrics": _diff_lists(
+            curr.period_metrics, prev.period_metrics, ["metric_code", "period"]
+        ),
     }
 
 
@@ -224,10 +271,14 @@ def _resolve_input_set(args: argparse.Namespace):
     if args.label:
         return get_planning_input_set(label=args.label, include_aggregates=True)
     if args.version_id:
-        summaries = list_planning_input_sets(config_version_id=args.version_id, status="ready", limit=1)
+        summaries = list_planning_input_sets(
+            config_version_id=args.version_id, status="ready", limit=1
+        )
         if not summaries:
             raise SystemExit(f"No InputSet found for version {args.version_id}")
-        return get_planning_input_set(input_set_id=summaries[0].id, include_aggregates=True)
+        return get_planning_input_set(
+            input_set_id=summaries[0].id, include_aggregates=True
+        )
     raise SystemExit("--label or --version-id must be specified")
 
 
