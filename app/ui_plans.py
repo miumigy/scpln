@@ -363,11 +363,89 @@ async def ui_post_input_set_upload(
         if temp_dir:
             shutil.rmtree(temp_dir)
 
+def _list_sample_input_sets() -> list[dict[str, str]]:
+    """Scan samples/planning_input_sets for available sample sets."""
+    sample_dir = _BASE_DIR / "samples" / "planning_input_sets"
+    if not sample_dir.is_dir():
+        return []
+
+    samples = []
+    for d in sample_dir.iterdir():
+        if not d.is_dir():
+            continue
+        meta_path = d / "meta.json"
+        if not meta_path.is_file():
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            samples.append(
+                {
+                    "name": d.name,
+                    "description": meta.get("description", d.name),
+                }
+            )
+        except Exception:
+            logging.warning(f"Failed to parse meta.json for sample: {d.name}", exc_info=True)
+    return sorted(samples, key=lambda x: x["name"])
+
+
+@router.post("/ui/plans/input_sets/sample", response_class=HTMLResponse)
+async def ui_post_load_sample_input_set(request: Request, sample_name: str = Form(...)):
+    """Load a predefined sample input set into the database."""
+    error_url = "/ui/plans/input_sets?error="
+    sample_dir = _BASE_DIR / "samples" / "planning_input_sets" / sample_name
+    if not sample_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Sample '{sample_name}' not found.")
+
+    meta_path = sample_dir / "meta.json"
+    if not meta_path.is_file():
+        raise HTTPException(status_code=404, detail=f"meta.json for sample '{sample_name}' not found.")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        label = meta.get("label")
+        canonical_sample_name = meta.get("canonical_sample_name")
+        if not label or not canonical_sample_name:
+            return RedirectResponse(url=error_url + "Invalid_meta_json", status_code=303)
+
+        # Find the corresponding canonical config version ID
+        config_version_id = None
+        summaries = list_canonical_version_summaries(limit=1000)
+        for summary in summaries:
+            if summary.meta.path and summary.meta.path.endswith(canonical_sample_name):
+                config_version_id = summary.meta.version_id
+                break
+        
+        if not config_version_id:
+            return RedirectResponse(url=error_url + f"Canonical_config_for_{canonical_sample_name}_not_found", status_code=303)
+
+        # Import the sample data
+        result = import_planning_inputs(
+            directory=sample_dir,
+            config_version_id=config_version_id,
+            label=label,
+            apply_mode="replace",
+            validate_only=False,
+            status="draft",
+            source="sample",
+            created_by="ui_load_sample",
+        )
+        if result.get("status") == "error":
+            return RedirectResponse(url=error_url + result.get("message", "Import_failed"), status_code=303)
+
+        return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
+
+    except Exception as e:
+        logging.exception("Failed to load sample input set.")
+        return RedirectResponse(url=error_url + f"Internal_error_{e}", status_code=303)
+
+
 @router.get("/ui/plans/input_sets", response_class=HTMLResponse)
 def ui_list_input_sets(request: Request):
     status_query = (request.query_params.get("status") or "ready").lower()
     status_filter = None if status_query == "all" else status_query
     input_sets = list_planning_input_sets(status=status_filter)
+    sample_input_sets = _list_sample_input_sets()
     status_options = [
         ("all", "All"),
         ("draft", "Draft"),
@@ -380,6 +458,7 @@ def ui_list_input_sets(request: Request):
         {
             "subtitle": "Planning Input Sets",
             "input_sets": input_sets,
+            "sample_input_sets": sample_input_sets,
             "status_options": status_options,
             "selected_status": status_query,
         },
