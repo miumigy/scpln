@@ -548,10 +548,11 @@
       </div>
       {% set current_path = request.url.path if request is defined else '' %}
       <nav id="primaryNav" class="app-nav" data-open="false" aria-label="Primary navigation">
-        <a class="nav-link{{ ' active' if current_path.startswith('/ui/plans') else '' }}" href="/ui/plans">Planning Hub</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/plans') and not current_path.startswith('/ui/plans/input_sets') else '' }}" href="/ui/plans">Planning Hub</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/runs') else '' }}" href="/ui/runs">Run History</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/scenarios') else '' }}" href="/ui/scenarios">Scenarios</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/configs') else '' }}" href="/ui/configs">Configurations</a>
+        <a class="nav-link{{ ' active' if current_path.startswith('/ui/plans/input_sets') else '' }}" href="/ui/plans/input_sets">Input Sets</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/jobs') else '' }}" href="/ui/jobs">Jobs</a>
         <a class="nav-link" href="https://github.com/miumigy/scpln/blob/main/docs/TERMS.md" target="_blank" rel="noopener">Glossary</a>
       </nav>
