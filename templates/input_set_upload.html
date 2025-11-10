@@ -1,66 +1,42 @@
 {% extends "base.html" %}
+
 {% block page_header %}
-  <h2>Upload Planning Input Set</h2>
-  <p>Upload CSV files to create a new Planning Input Set.</p>
+  <h2>{{ subtitle }}</h2>
+  <p>新しい計画インプットセットをCSVファイルでアップロードします。</p>
 {% endblock %}
+
 {% block content %}
-<section class="page-section">
-  <div class="section-header">
-    <h3>Upload Files</h3>
+  <div class="page-section">
+    <form action="/ui/plans/input_sets/upload" method="post" enctype="multipart/form-data">
+      <div class="form-grid">
+        <label for="label">
+          <span class="label-title">セットのラベル</span>
+          <input type="text" id="label" name="label" placeholder="例: weekly_forecast_set_v1" required>
+          <small>このインプットセットを一意に識別するラベル。</small>
+        </label>
+
+        <label for="config_version_id">
+          <span class="label-title">Canonical Config Version</span>
+          <select id="config_version_id" name="config_version_id" required>
+            <option value="">-- 選択してください --</option>
+            {% for config in canonical_options %}
+              <option value="{{ config.version_id }}">{{ config.label }} (ID: {{ config.version_id }})</option>
+            {% endfor %}
+          </select>
+          <small>このインプットセットが関連付けられるCanonical Configのバージョン。</small>
+        </label>
+
+        <label for="files" class="span-full">
+          <span class="label-title">CSVファイル</span>
+          <input type="file" id="files" name="files" accept=".csv" multiple required>
+          <small>アップロードするCSVファイルを選択してください。複数選択可能です。</small>
+        </label>
+      </div>
+
+      <div class="stack gap-sm gap-top-md">
+        <button type="submit" class="btn-primary">アップロード</button>
+        <a href="/ui/plans/input_sets" role="button" class="secondary">キャンセル</a>
+      </div>
+    </form>
   </div>
-  <p class="section-description">アップロードされたセットは draft として登録され、承認後に Ready へ昇格します。</p>
-  <form action="/ui/plans/input_sets/upload" method="post" enctype="multipart/form-data">
-    <label for="config_version_id">Canonical Config Version</label>
-    <select name="config_version_id" id="config_version_id" required>
-      <option value="">-- Select --</option>
-      {% for opt in canonical_options %}
-        <option value="{{ opt.id }}" data-num-calendars="{{ opt.num_calendars }}">{{ opt.label }}</option>
-      {% endfor %}
-    </select>
-    <small class="mono" id="config_cal_info"></small>
-    {% if canonical_options|length == 0 %}
-      <small class="mono warn-text">No canonical configuration found. Create one in /ui/configs first.</small>
-    {% endif %}
-
-    <label for="label">Input Set Label</label>
-    <input type="text" name="label" id="label" placeholder="e.g., my_new_inputs" required>
-
-    <label for="files">CSV Files (demand_family.csv, capacity.csv, etc.)</label>
-    <input type="file" name="files" id="files" multiple accept=".csv">
-
-    <button type="submit" class="btn-primary">Upload and Validate</button>
-  </form>
-</section>
-{% endblock %}
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  var configSelect = document.getElementById('config_version_id');
-  var calInfo = document.getElementById('config_cal_info');
-
-  function updateCalInfo() {
-    if (!configSelect || !calInfo) return;
-    var selectedOption = configSelect.options[configSelect.selectedIndex];
-    if (!selectedOption || !selectedOption.hasAttribute('data-num-calendars')) {
-        calInfo.textContent = '';
-        calInfo.className = 'mono';
-        return;
-    }
-
-    var numCalendars = selectedOption.getAttribute('data-num-calendars');
-    if (numCalendars && parseInt(numCalendars, 10) > 0) {
-      calInfo.textContent = 'Calendars: ' + numCalendars;
-      calInfo.className = 'mono pill pill-info';
-    } else {
-      calInfo.textContent = 'No calendars. Fallback to weeks.';
-      calInfo.className = 'mono pill pill-warn';
-    }
-  }
-
-  if (configSelect) {
-    configSelect.addEventListener('change', updateCalInfo);
-    updateCalInfo(); // Initial call
-  }
-});
-</script>
 {% endblock %}

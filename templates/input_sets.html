@@ -1,116 +1,95 @@
 {% extends "base.html" %}
+
 {% block page_header %}
-  <h2>Planning Input Sets</h2>
-  <p>Manage and inspect canonical input sets used for planning.</p>
+  <h2>{{ subtitle }}</h2>
+  <p>計画インプットセットの管理とバージョン管理を行います。</p>
 {% endblock %}
+
 {% block content %}
-<section class="page-section">
-  <div class="section-header">
-    <h3>Input Set List</h3>
-  </div>
-  <p class="section-description">UIからのアップロードは draft として登録され、承認後に Ready へ昇格します。</p>
-  <div class="toolbar gap-bottom-sm">
-    <form id="statusForm" method="get" class="inline-form">
-      <label for="statusFilter" class="mono">Status</label>
-      <select name="status" id="statusFilter">
-        {% for value, label in status_options or [] %}
-          <option value="{{ value }}" {% if value == selected_status %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </form>
-    <input id="q" type="search" placeholder="Search by label, status, source" aria-label="Search input sets" />
-    <a role="button" href="/ui/plans/input_sets/upload" class="primary">Upload New Set</a>
-    <small class="mono pill" id="meta"></small>
+  <div class="page-section">
+    <div class="stack justify-between gap-bottom-md">
+      <h3>インプットセットのアップロード</h3>
+      <a href="/ui/plans/input_sets/upload" role="button" class="btn-primary">新規セットをアップロード</a>
+    </div>
+    <p class="help-text">新しい計画インプットセットをCSVファイルでアップロードし、管理します。</p>
   </div>
 
-  {% if input_sets %}
-  <div class="table-wrapper">
-    <table id="tblInputSets">
-        <thead>
-          <tr>
-            <th scope="col">Label</th>
-            <th scope="col">Config Version</th>
-            <th scope="col">Status</th>
-            <th scope="col">Source</th>
-            <th scope="col">Updated At</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for iset in input_sets %}
-          <tr>
-            <td class="mono"><a href="/ui/plans/input_sets/{{ iset.label }}">{{ iset.label }}</a></td>
-            <td class="mono">
-              {% if iset.config_version_id %}
-                <a href="/ui/configs/canonical/{{ iset.config_version_id }}">{{ iset.config_version_id }}</a>
-              {% else %}-{% endif %}
-            </td>
-            <td class="mono">{{ iset.status }}</td>
-            <td class="mono">{{ iset.source }}</td>
-            <td class="mono ts-ms" data-ms="{{ iset.updated_at }}">{{ iset.updated_at }}</td>
-            <td>
-              <a role="button" class="secondary" href="/ui/plans/input_sets/{{ iset.label }}/diff">Diff</a>
-            </td>
-          </tr>
+  <div class="page-section">
+    <h3>サンプルからロード</h3>
+    <p class="help-text">定義済みのサンプルデータセットをロードして、すぐに計画を開始できます。</p>
+    <form action="/ui/plans/input_sets/sample" method="post" class="stack align-end">
+      <label for="sample_name">
+        <span class="label-title">サンプル選択</span>
+        <select name="sample_name" id="sample_name" required>
+          <option value="">-- サンプルを選択 --</option>
+          {% for sample in sample_input_sets or [] %}
+            <option value="{{ sample.name }}">{{ sample.name }} ({{ sample.description }})</option>
           {% endfor %}
-        </tbody>
-    </table>
+        </select>
+      </label>
+      <button type="submit" class="btn-primary">サンプルをロード</button>
+    </form>
+    {% if request.query_params.get("error") %}
+      <p style="color: red;">エラー: {{ request.query_params.get("error") }}</p>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="section-description">No input sets found. Please import some via CLI or API.</p>
-  {% endif %}
-</section>
-{% endblock %}
-{% block scripts %}
-<script>
-// Format created_at timestamp (ms epoch → YYYY/MM/DD HH:mm:ss JST)
-function fmtJst(ms){
-  var n = Number(ms);
-  if (!Number.isFinite(n)) return '';
-  if (n < 1e12) n = n * 1000;
-  var t = new Date(n + 9*3600*1000); // Shift to JST before formatting via UTC getters
-  var y = t.getUTCFullYear();
-  var mo = String(t.getUTCMonth()+1).padStart(2,'0');
-  var d = String(t.getUTCDate()).padStart(2,'0');
-  var h = String(t.getUTCHours()).padStart(2,'0');
-  var mi = String(t.getUTCMinutes()).padStart(2,'0');
-  var s = String(t.getUTCSeconds()).padStart(2,'0');
-  return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
-}
-document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('td.ts-ms').forEach(function(td){
-    var ms = td.getAttribute('data-ms');
-    var txt = fmtJst(ms);
-    if (txt) td.textContent = txt;
-  });
 
-  var q = document.getElementById('q');
-  var meta = document.getElementById('meta');
-  var rows = Array.from(document.querySelectorAll('tbody tr'));
-  var statusForm = document.getElementById('statusForm');
-  var statusFilter = document.getElementById('statusFilter');
+  <div class="page-section">
+    <div class="stack justify-between gap-bottom-md">
+      <h3>既存のインプットセット</h3>
+      <form action="/ui/plans/input_sets" method="get" class="stack gap-xs nowrap">
+        <label for="status-filter" class="sr-only">ステータスでフィルタ</label>
+        <select name="status" id="status-filter" onchange="this.form.submit()">
+          {% for status_val, status_label in status_options %}
+            <option value="{{ status_val }}" {% if status_val == selected_status %}selected{% endif %}>{{ status_label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
 
-  function applyFilter(){
-    var s = (q && q.value || '').toLowerCase().trim();
-    var vis = 0;
-    rows.forEach(function(tr){
-      var txt = tr.textContent.toLowerCase();
-      var ok = (!s || txt.indexOf(s) >= 0);
-      tr.style.display = ok ? '' : 'none';
-      if (ok) vis++;
-    });
-    if (meta) meta.textContent = vis + ' / ' + rows.length;
-  }
-
-  if (q) {
-    q.addEventListener('input', applyFilter);
-  }
-  if (statusForm && statusFilter) {
-    statusFilter.addEventListener('change', function(){
-      statusForm.submit();
-    });
-  }
-  applyFilter();
-});
-</script>
+    {% if input_sets %}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ラベル</th>
+              <th>ステータス</th>
+              <th>Configバージョン</th>
+              <th>作成日時</th>
+              <th>作成者</th>
+              <th>アクション</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for input_set in input_sets %}
+              <tr>
+                <td><a href="/ui/plans/input_sets/{{ input_set.label }}">{{ input_set.label }}</a></td>
+                <td><span class="pill">{{ input_set.status }}</span></td>
+                <td><a href="/ui/configs/canonical/{{ input_set.config_version_id }}">{{ input_set.config_version_id }}</a></td>
+                <td>{{ input_set.created_at | format_datetime }}</td>
+                <td>{{ input_set.created_by }}</td>
+                <td class="table-actions">
+                  <a href="/ui/plans/input_sets/{{ input_set.label }}" role="button" class="secondary">詳細</a>
+                  {% if input_set.status == 'draft' %}
+                    <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post">
+                      <input type="hidden" name="action" value="approve">
+                      <button type="submit" class="contrast">承認</button>
+                    </form>
+                  {% elif input_set.status == 'ready' %}
+                    <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post">
+                      <input type="hidden" name="action" value="revert">
+                      <button type="submit" class="secondary">ドラフトに戻す</button>
+                    </form>
+                  {% endif %}
+                  <a href="/ui/plans/input_sets/{{ input_set.label }}/diff" role="button" class="secondary">差分</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>表示するインプットセットがありません。</p>
+    {% endif %}
+  </div>
 {% endblock %}
