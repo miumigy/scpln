@@ -257,9 +257,7 @@ def list_runs(
             resp["runs"] = runs_list
             resp["total"] = len(runs_list)
         if input_set_label is not None:
-            runs_list = [
-                r for r in runs_list if _matches_input_set(r, input_set_label)
-            ]
+            runs_list = [r for r in runs_list if _matches_input_set(r, input_set_label)]
             resp["runs"] = runs_list
             resp["total"] = len(runs_list)
         try:

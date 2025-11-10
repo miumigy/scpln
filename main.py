@@ -10,6 +10,7 @@ from collections import defaultdict
 from typing import Optional
 import time as _time
 from app.run_registry import REGISTRY as _REGISTRY
+
 try:
     from app import metrics as _metrics  # noqa: F401  # /metrics を副作用で登録
 except Exception:

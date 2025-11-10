@@ -35,5 +35,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_planning_input_set_events_input_set_id", table_name="planning_input_set_events")
+    op.drop_index(
+        "ix_planning_input_set_events_input_set_id",
+        table_name="planning_input_set_events",
+    )
     op.drop_table("planning_input_set_events")

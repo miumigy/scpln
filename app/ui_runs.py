@@ -179,7 +179,11 @@ def ui_run_detail(request: Request, run_id: str):
         raw_art_label = input_set_artifact.get("label") or input_set_artifact.get(
             "input_set_label"
         )
-        if not input_set_label and isinstance(raw_art_label, str) and raw_art_label.strip():
+        if (
+            not input_set_label
+            and isinstance(raw_art_label, str)
+            and raw_art_label.strip()
+        ):
             input_set_label = raw_art_label.strip()
         artifact_source = input_set_artifact.get("source")
         try:
@@ -274,9 +278,9 @@ def ui_run_detail(request: Request, run_id: str):
         "status": None,
         "source": artifact_source,
         "updated_at": artifact_updated_at,
-        "updated_at_str": ms_to_jst_str(artifact_updated_at)
-        if artifact_updated_at
-        else None,
+        "updated_at_str": (
+            ms_to_jst_str(artifact_updated_at) if artifact_updated_at else None
+        ),
         "id": None,
         "legacy": False,
         "missing": False,
@@ -295,9 +299,11 @@ def ui_run_detail(request: Request, run_id: str):
                     "status": storage_input_set.status,
                     "source": storage_input_set.source or artifact_source,
                     "updated_at": storage_input_set.updated_at,
-                    "updated_at_str": ms_to_jst_str(storage_input_set.updated_at)
-                    if storage_input_set.updated_at
-                    else input_set_info.get("updated_at_str"),
+                    "updated_at_str": (
+                        ms_to_jst_str(storage_input_set.updated_at)
+                        if storage_input_set.updated_at
+                        else input_set_info.get("updated_at_str")
+                    ),
                     "config_version_id": storage_input_set.config_version_id,
                 }
             )

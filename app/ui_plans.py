@@ -31,13 +31,10 @@ from app.metrics import (
     INPUT_SET_DIFF_CACHE_HITS_TOTAL,
     INPUT_SET_DIFF_CACHE_STALE_TOTAL,
     INPUT_SET_DIFF_JOBS_TOTAL,
-    PLAN_CARRYOVER_EXPORT_TOTAL,
-    PLAN_COMPARE_EXPORT_TOTAL,
     PLAN_DB_CAPACITY_TRIM_TOTAL,
     PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     PLAN_DB_LAST_TRIM_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
-    PLAN_SCHEDULE_EXPORT_TOTAL,
     PLAN_SERIES_ROWS_TOTAL,
     PLANS_RECONCILED_TOTAL,
     PLANS_VIEWED_TOTAL,
@@ -123,6 +120,8 @@ def get_plan_repository() -> PlanRepository:
         PLAN_DB_CAPACITY_TRIM_TOTAL,
         PLAN_DB_LAST_TRIM_TIMESTAMP,
     )
+
+
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 register_format_filters(templates)
 
@@ -273,8 +272,9 @@ def _render_plans_page(
                 "has_data": has_data,
             },
         )
-    except Exception as e:
+    except Exception:
         import traceback
+
         traceback.print_exc(file=sys.stderr)
         raise
 
@@ -963,6 +963,7 @@ def ui_plans_create_and_execute(
         form_defaults=form_defaults,
     )
 
+
 def _safe_slug(value: str | None) -> str:
     if not value:
         return "unknown"
@@ -1002,7 +1003,9 @@ def _prepare_delta_rows(
         return []
     sorted_rows = sorted(
         rows,
-        key=lambda row: tuple(_naturalize_value(row.get(key)) for key in _DELTA_SORT_KEYS),
+        key=lambda row: tuple(
+            _naturalize_value(row.get(key)) for key in _DELTA_SORT_KEYS
+        ),
     )
     if limit is not None:
         return list(sorted_rows[:limit])
@@ -1055,7 +1058,9 @@ def _load_cached_diff(cache_path: Path) -> tuple[dict | None, int | None]:
             pass
         return data, generated_at
     except Exception:
-        logging.exception("input_set_diff_cache_load_failed", extra={"cache": str(cache_path)})
+        logging.exception(
+            "input_set_diff_cache_load_failed", extra={"cache": str(cache_path)}
+        )
         try:
             INPUT_SET_DIFF_CACHE_STALE_TOTAL.inc()
         except Exception:
@@ -1087,10 +1092,14 @@ def _schedule_diff_generation(
         lock_path.touch()
     except Exception:
         logging.warning("input_set_diff_lock_touch_failed", exc_info=True)
-    background_tasks.add_task(_generate_diff_report, label, other_label, cache_path, lock_path)
+    background_tasks.add_task(
+        _generate_diff_report, label, other_label, cache_path, lock_path
+    )
 
 
-def _generate_diff_report(label: str, other_label: str, cache_path: Path, lock_path: Path) -> None:
+def _generate_diff_report(
+    label: str, other_label: str, cache_path: Path, lock_path: Path
+) -> None:
     temp_dir = Path(tempfile.mkdtemp(prefix="input-set-diff-"))
     try:
         script_path = str(_BASE_DIR / "scripts" / "export_planning_inputs.py")
@@ -1126,7 +1135,9 @@ def _generate_diff_report(label: str, other_label: str, cache_path: Path, lock_p
             return
         diff_path = temp_dir / "diff_report.json"
         if diff_path.exists():
-            cache_path.write_text(diff_path.read_text(encoding="utf-8"), encoding="utf-8")
+            cache_path.write_text(
+                diff_path.read_text(encoding="utf-8"), encoding="utf-8"
+            )
             try:
                 INPUT_SET_DIFF_JOBS_TOTAL.labels(result="success").inc()
             except Exception:
@@ -1159,6 +1170,7 @@ def _generate_diff_report(label: str, other_label: str, cache_path: Path, lock_p
         except Exception:
             logging.warning("input_set_diff_lock_remove_failed", exc_info=True)
 
+
 @router.get("/ui/plans/input_sets/upload", response_class=HTMLResponse)
 def ui_get_input_set_upload_form(request: Request):
     canonical_options = _list_canonical_options()
@@ -1171,6 +1183,7 @@ def ui_get_input_set_upload_form(request: Request):
         },
     )
 
+
 @router.post("/ui/plans/input_sets/upload", response_class=HTMLResponse)
 async def ui_post_input_set_upload(
     request: Request,
@@ -1181,10 +1194,14 @@ async def ui_post_input_set_upload(
     if not label or not label.strip():
         raise HTTPException(status_code=400, detail="Input Set Label is required.")
     if not config_version_id:
-        raise HTTPException(status_code=400, detail="Canonical Config Version is required.")
+        raise HTTPException(
+            status_code=400, detail="Canonical Config Version is required."
+        )
 
     if not files or all((not f.filename) for f in files):
-        raise HTTPException(status_code=400, detail="At least one CSV file is required.")
+        raise HTTPException(
+            status_code=400, detail="At least one CSV file is required."
+        )
 
     temp_dir = None
     try:
@@ -1195,8 +1212,10 @@ async def ui_post_input_set_upload(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             uploaded_file_paths.append(file_path)
-        
-        logging.info(f"Uploaded files for input set '{label}' (config_version_id: {config_version_id}) to: {temp_dir}")
+
+        logging.info(
+            f"Uploaded files for input set '{label}' (config_version_id: {config_version_id}) to: {temp_dir}"
+        )
         for p in uploaded_file_paths:
             logging.info(f" - {p}")
 
@@ -1216,15 +1235,20 @@ async def ui_post_input_set_upload(
             if result["status"] == "error":
                 raise HTTPException(status_code=400, detail=result["message"])
 
-            return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
+            return RedirectResponse(
+                url=f"/ui/plans/input_sets/{label}", status_code=303
+            )
         except HTTPException:
-            raise # re-raise HTTPException
+            raise  # re-raise HTTPException
         except Exception as e:
             logging.exception("Failed to import planning inputs.")
-            raise HTTPException(status_code=500, detail=f"Failed to import planning inputs: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to import planning inputs: {e}"
+            )
     finally:
         if temp_dir:
             shutil.rmtree(temp_dir)
+
 
 @router.get("/ui/plans/input_sets", response_class=HTMLResponse)
 def ui_list_input_sets(request: Request):
@@ -1248,13 +1272,18 @@ def ui_list_input_sets(request: Request):
         },
     )
 
+
 @router.get("/ui/plans/input_sets/{label}", response_class=HTMLResponse)
 def ui_get_input_set_detail(label: str, request: Request):
     try:
         input_set = get_planning_input_set(label=label, include_aggregates=True)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
-    events = list_planning_input_set_events(input_set.id, limit=100) if input_set.id else []
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
+    events = (
+        list_planning_input_set_events(input_set.id, limit=100) if input_set.id else []
+    )
 
     return templates.TemplateResponse(
         request,
@@ -1278,10 +1307,14 @@ async def ui_review_input_set(
     try:
         input_set = get_planning_input_set(label=label, include_aggregates=False)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     if input_set.status == "archived":
-        raise HTTPException(status_code=400, detail="Archived input sets cannot be reviewed.")
+        raise HTTPException(
+            status_code=400, detail="Archived input sets cannot be reviewed."
+        )
 
     reviewer_value = reviewer.strip() or "ui_reviewer"
     comment_value = review_comment.strip() or None
@@ -1320,7 +1353,9 @@ async def ui_review_input_set(
         else:
             raise HTTPException(status_code=400, detail="Unsupported review action.")
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
 
@@ -1329,14 +1364,19 @@ async def ui_review_input_set(
 def ui_plan_input_set_diff(
     label: str,
     request: Request,
-    against: str | None = Query(None, description="Label of the input set to compare against. Defaults to latest ready set."),
+    against: str | None = Query(
+        None,
+        description="Label of the input set to compare against. Defaults to latest ready set.",
+    ),
 ):
     background_tasks = BackgroundTasks()
 
     try:
         current_set = get_planning_input_set(label=label, include_aggregates=True)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     other_label = against
     other_set = None
@@ -1353,7 +1393,9 @@ def ui_plan_input_set_diff(
 
     if other_label:
         try:
-            other_set = get_planning_input_set(label=other_label, include_aggregates=True)
+            other_set = get_planning_input_set(
+                label=other_label, include_aggregates=True
+            )
         except PlanningInputSetNotFoundError:
             other_set = None
 
@@ -1381,9 +1423,13 @@ def ui_plan_input_set_diff(
                 rows_added = section.get("added")
                 rows_removed = section.get("removed")
                 if rows_added is not None:
-                    section["added"] = _prepare_delta_rows(rows_added, limit=_DIFF_TABLE_LIMIT)
+                    section["added"] = _prepare_delta_rows(
+                        rows_added, limit=_DIFF_TABLE_LIMIT
+                    )
                 if rows_removed is not None:
-                    section["removed"] = _prepare_delta_rows(rows_removed, limit=_DIFF_TABLE_LIMIT)
+                    section["removed"] = _prepare_delta_rows(
+                        rows_removed, limit=_DIFF_TABLE_LIMIT
+                    )
 
     return templates.TemplateResponse(
         request,

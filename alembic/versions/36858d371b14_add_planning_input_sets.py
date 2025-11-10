@@ -9,8 +9,8 @@ from alembic import op
 
 
 # revision identifiers, used by Alembic.
-revision = '36858d371b14'
-down_revision = 'f63a4c8f02c3'
+revision = "36858d371b14"
+down_revision = "f63a4c8f02c3"
 branch_labels = None
 depends_on = None
 
@@ -19,7 +19,12 @@ def upgrade() -> None:
     op.create_table(
         "planning_input_sets",
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("config_version_id", sa.Integer, sa.ForeignKey("canonical_config_versions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "config_version_id",
+            sa.Integer,
+            sa.ForeignKey("canonical_config_versions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("label", sa.Text, nullable=False, unique=True),
         sa.Column("status", sa.Text, nullable=False, server_default="draft"),
         sa.Column("source", sa.Text, nullable=False, server_default="csv"),
@@ -39,32 +44,56 @@ def upgrade() -> None:
 
     op.create_table(
         "planning_family_demands",
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("family_code", sa.Text, nullable=False),
         sa.Column("period", sa.Text, nullable=False),
         sa.Column("demand", sa.Float, nullable=False, server_default="0"),
         sa.Column("source_type", sa.Text, nullable=False, server_default="canonical"),
         sa.Column("tolerance_abs", sa.Float, nullable=True),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
-        sa.PrimaryKeyConstraint("input_set_id", "family_code", "period", name="pk_planning_family_demands"),
+        sa.PrimaryKeyConstraint(
+            "input_set_id", "family_code", "period", name="pk_planning_family_demands"
+        ),
     )
 
     op.create_table(
         "planning_capacity_buckets",
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("resource_code", sa.Text, nullable=False),
-        sa.Column("resource_type", sa.Text, nullable=False, server_default="workcenter"),
+        sa.Column(
+            "resource_type", sa.Text, nullable=False, server_default="workcenter"
+        ),
         sa.Column("period", sa.Text, nullable=False),
         sa.Column("capacity", sa.Float, nullable=False, server_default="0"),
         sa.Column("calendar_code", sa.Text, nullable=True),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
-        sa.PrimaryKeyConstraint("input_set_id", "resource_code", "period", name="pk_planning_capacity_buckets"),
+        sa.PrimaryKeyConstraint(
+            "input_set_id",
+            "resource_code",
+            "period",
+            name="pk_planning_capacity_buckets",
+        ),
     )
 
     op.create_table(
         "planning_mix_shares",
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("family_code", sa.Text, nullable=False),
         sa.Column("sku_code", sa.Text, nullable=False),
         sa.Column("effective_from", sa.Text, nullable=True),
@@ -73,13 +102,22 @@ def upgrade() -> None:
         sa.Column("weight_source", sa.Text, nullable=False, server_default="manual"),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
         sa.UniqueConstraint(
-            "input_set_id", "family_code", "sku_code", "effective_from", name="uq_planning_mix_shares_key"
+            "input_set_id",
+            "family_code",
+            "sku_code",
+            "effective_from",
+            name="uq_planning_mix_shares_key",
         ),
     )
 
     op.create_table(
         "planning_inventory_snapshots",
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("node_code", sa.Text, nullable=False),
         sa.Column("item_code", sa.Text, nullable=False),
         sa.Column("initial_qty", sa.Float, nullable=False, server_default="0"),
@@ -87,13 +125,23 @@ def upgrade() -> None:
         sa.Column("order_up_to", sa.Float, nullable=True),
         sa.Column("safety_stock", sa.Float, nullable=True),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
-        sa.PrimaryKeyConstraint("input_set_id", "node_code", "item_code", name="pk_planning_inventory_snapshots"),
+        sa.PrimaryKeyConstraint(
+            "input_set_id",
+            "node_code",
+            "item_code",
+            name="pk_planning_inventory_snapshots",
+        ),
     )
 
     op.create_table(
         "planning_inbound_orders",
         sa.Column("id", sa.Integer, primary_key=True),
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("po_id", sa.Text, nullable=True),
         sa.Column("item_code", sa.Text, nullable=False),
         sa.Column("source_node", sa.Text, nullable=True),
@@ -101,19 +149,28 @@ def upgrade() -> None:
         sa.Column("due_date", sa.Text, nullable=False),
         sa.Column("qty", sa.Float, nullable=False, server_default="0"),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
-        sa.UniqueConstraint("input_set_id", "po_id", name="uq_planning_inbound_orders_po"),
+        sa.UniqueConstraint(
+            "input_set_id", "po_id", name="uq_planning_inbound_orders_po"
+        ),
     )
 
     op.create_table(
         "planning_period_metrics",
-        sa.Column("input_set_id", sa.Integer, sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "input_set_id",
+            sa.Integer,
+            sa.ForeignKey("planning_input_sets.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("metric_code", sa.Text, nullable=False),
         sa.Column("period", sa.Text, nullable=False),
         sa.Column("value", sa.Float, nullable=False),
         sa.Column("unit", sa.Text, nullable=True),
         sa.Column("source", sa.Text, nullable=True),
         sa.Column("attributes_json", sa.Text, nullable=False, server_default="{}"),
-        sa.PrimaryKeyConstraint("input_set_id", "metric_code", "period", name="pk_planning_period_metrics"),
+        sa.PrimaryKeyConstraint(
+            "input_set_id", "metric_code", "period", name="pk_planning_period_metrics"
+        ),
     )
 
     _migrate_planning_payload()
@@ -133,7 +190,11 @@ def downgrade() -> None:
 
 def _migrate_planning_payload() -> None:
     conn = op.get_bind()
-    rows = conn.execute(sa.text("SELECT id, metadata_json, created_at, updated_at FROM canonical_config_versions")).fetchall()
+    rows = conn.execute(
+        sa.text(
+            "SELECT id, metadata_json, created_at, updated_at FROM canonical_config_versions"
+        )
+    ).fetchall()
     now = int(time.time() * 1000)
     for row in rows:
         metadata = _safe_json_load(row.metadata_json)
@@ -163,7 +224,9 @@ def _migrate_planning_payload() -> None:
                     {"migrated_from": "planning_payload"}, ensure_ascii=False
                 ),
                 "calendar": json.dumps(calendar_spec or {}, ensure_ascii=False),
-                "params": json.dumps(payload.get("planning_params") or {}, ensure_ascii=False),
+                "params": json.dumps(
+                    payload.get("planning_params") or {}, ensure_ascii=False
+                ),
             },
         )
         input_set_id = insert_result.lastrowid
@@ -172,8 +235,12 @@ def _migrate_planning_payload() -> None:
         _bulk_insert_mix(conn, input_set_id, payload.get("mix_share"))
         _bulk_insert_inventory(conn, input_set_id, payload.get("inventory"))
         _bulk_insert_open_po(conn, input_set_id, payload.get("open_po"))
-        _bulk_insert_period_metric(conn, input_set_id, payload.get("period_cost"), "cost")
-        _bulk_insert_period_metric(conn, input_set_id, payload.get("period_score"), "score")
+        _bulk_insert_period_metric(
+            conn, input_set_id, payload.get("period_cost"), "cost"
+        )
+        _bulk_insert_period_metric(
+            conn, input_set_id, payload.get("period_score"), "score"
+        )
         metadata.pop("planning_payload", None)
         metadata["planning_inputs_migrated"] = True
         conn.execute(
@@ -413,7 +480,11 @@ def _bulk_insert_period_metric(conn, input_set_id, rows, metric_code):
         if not period:
             continue
         try:
-            value = float(row.get("cost" if metric_code == "cost" else "score") or row.get("value") or 0)
+            value = float(
+                row.get("cost" if metric_code == "cost" else "score")
+                or row.get("value")
+                or 0
+            )
         except Exception:
             value = 0.0
         items.append(
@@ -482,7 +553,11 @@ def _fetch_capacity_for_payload(conn, input_set_id):
         {"id": input_set_id},
     ).fetchall()
     return [
-        {"workcenter": row.resource_code, "period": row.period, "capacity": row.capacity}
+        {
+            "workcenter": row.resource_code,
+            "period": row.period,
+            "capacity": row.capacity,
+        }
         for row in rows
     ]
 

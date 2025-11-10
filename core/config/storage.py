@@ -9,7 +9,7 @@ import time
 from collections import defaultdict
 from contextlib import closing
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional
 
 from app.db import _conn
 
@@ -238,7 +238,9 @@ def _row_to_planning_input_set(
     calendar_spec = None
     if row["calendar_spec_json"]:
         try:
-            calendar_spec = PlanningCalendarSpec(**json.loads(row["calendar_spec_json"]))
+            calendar_spec = PlanningCalendarSpec(
+                **json.loads(row["calendar_spec_json"])
+            )
         except Exception:
             calendar_spec = None
     planning_params = None
@@ -342,9 +344,7 @@ def _load_capacity_buckets(
     ]
 
 
-def _load_mix_shares(
-    cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningMixShare]:
+def _load_mix_shares(cur: sqlite3.Cursor, input_set_id: int) -> List[PlanningMixShare]:
     rows = cur.execute(
         """
         SELECT family_code, sku_code, share, effective_from, effective_to,
@@ -450,14 +450,22 @@ def _load_period_metrics(
 def _replace_planning_aggregates(
     cur: sqlite3.Cursor, input_set_id: int, aggregates: PlanningInputAggregates
 ) -> None:
-    cur.execute("DELETE FROM planning_family_demands WHERE input_set_id=?", (input_set_id,))
-    cur.execute("DELETE FROM planning_capacity_buckets WHERE input_set_id=?", (input_set_id,))
+    cur.execute(
+        "DELETE FROM planning_family_demands WHERE input_set_id=?", (input_set_id,)
+    )
+    cur.execute(
+        "DELETE FROM planning_capacity_buckets WHERE input_set_id=?", (input_set_id,)
+    )
     cur.execute("DELETE FROM planning_mix_shares WHERE input_set_id=?", (input_set_id,))
     cur.execute(
         "DELETE FROM planning_inventory_snapshots WHERE input_set_id=?", (input_set_id,)
     )
-    cur.execute("DELETE FROM planning_inbound_orders WHERE input_set_id=?", (input_set_id,))
-    cur.execute("DELETE FROM planning_period_metrics WHERE input_set_id=?", (input_set_id,))
+    cur.execute(
+        "DELETE FROM planning_inbound_orders WHERE input_set_id=?", (input_set_id,)
+    )
+    cur.execute(
+        "DELETE FROM planning_period_metrics WHERE input_set_id=?", (input_set_id,)
+    )
 
     if aggregates.family_demands:
         cur.executemany(
@@ -1485,15 +1493,15 @@ def create_planning_input_set(
                     now,
                     _json_dumps(metadata),
                     json.dumps(
-                        calendar_spec.model_dump(mode="json")
-                        if calendar_spec
-                        else {},
+                        calendar_spec.model_dump(mode="json") if calendar_spec else {},
                         ensure_ascii=False,
                     ),
                     json.dumps(
-                        planning_params.model_dump(mode="json")
-                        if planning_params
-                        else {},
+                        (
+                            planning_params.model_dump(mode="json")
+                            if planning_params
+                            else {}
+                        ),
                         ensure_ascii=False,
                     ),
                     approved_by,
@@ -1725,9 +1733,7 @@ def log_planning_input_set_event(
         )
 
 
-def delete_planning_input_set(
-    input_set_id: int, *, hard: bool = False
-) -> None:
+def delete_planning_input_set(input_set_id: int, *, hard: bool = False) -> None:
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         if hard:
             cur.execute("DELETE FROM planning_input_sets WHERE id = ?", (input_set_id,))

@@ -9,9 +9,10 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from core.config.importer import import_planning_inputs
+
 
 def run() -> int:
     args = parse_args()

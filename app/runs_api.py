@@ -227,7 +227,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
             "version_id": res.get("version_id"),
             "config_version_id": res.get("config_version_id"),
             "artifacts": res.get("artifacts") or [],
-             "input_set_label": res.get("input_set_label"),
+            "input_set_label": res.get("input_set_label"),
             "location": f"/ui/plans/{res.get('version_id')}",
         }
     except Exception as e:
