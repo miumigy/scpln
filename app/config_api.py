@@ -1,5 +1,24 @@
 """Legacy /configs API へのリクエストに 410 Gone を返すガードモジュール。"""
 
+
+def _list_canonical_options(limit: int = 50):
+    """Canonical Config を選択するためのドロップダウン用リストを返す。"""
+    from core.config import list_canonical_version_summaries
+
+    summaries = list_canonical_version_summaries(limit=limit, include_deleted=False)
+    options = []
+    for summary in summaries:
+        meta = summary.meta
+        version_id = meta.version_id
+        if version_id is None:
+            continue
+        label = meta.name
+        if meta.version_tag:
+            label = f"{label} ({meta.version_tag})"
+        options.append({"version_id": version_id, "label": label})
+    return options
+
+
 from fastapi import HTTPException
 
 from app.api import app
