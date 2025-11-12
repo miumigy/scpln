@@ -8,19 +8,54 @@ from typing import Any
 JST = timezone(timedelta(hours=9))
 
 
+def _coerce_datetime(value: Any) -> datetime | None:
+    """任意入力をJSTタイムゾーンのdatetimeに変換。"""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, (int, float)):
+        ts = float(value)
+        if abs(ts) >= 1e12:  # treat as milliseconds
+            ts /= 1000.0
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        # 数値文字列なら数値扱い
+        try:
+            ts = float(text)
+        except ValueError:
+            try:
+                dt = datetime.fromisoformat(text)
+            except ValueError:
+                return None
+        else:
+            if abs(ts) >= 1e12:
+                ts /= 1000.0
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+    else:
+        return None
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(JST)
+
+
 def ms_to_jst_str(ms: Any) -> str:
     """ミリ秒Unix時刻をJSTのYYYY/MM/DD hh:mm:ss文字列に整形。
 
     - 整数/浮動小数/文字列を受け取り、変換不可の場合は空文字を返す。
     """
-    if ms is None:
-        return ""
-    try:
-        ts = float(ms) / 1000.0
-        dt = datetime.fromtimestamp(ts, tz=JST)
-        return dt.strftime("%Y/%m/%d %H:%M:%S")
-    except Exception:
-        return ""
+    dt = _coerce_datetime(ms)
+    return dt.strftime("%Y/%m/%d %H:%M:%S") if dt else ""
+
+
+def format_datetime(value: Any) -> str:
+    """入力値をJST日時文字列へ変換（ms/秒/ISO8601/datetimeに対応）。"""
+    dt = _coerce_datetime(value)
+    return dt.strftime("%Y/%m/%d %H:%M:%S") if dt else ""
 
 
 def _coerce_decimal(value: Any) -> Decimal | None:

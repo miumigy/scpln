@@ -1,9 +1,25 @@
 import json
 import os
+import sqlite3
 import time
 from typing import Any, Dict, List, Optional
 
 from .db import _conn
+
+
+def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    """指定テーブルの存在を確認し、使用済みコネクションを確実に閉じる。"""
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 class RunRegistryDB:

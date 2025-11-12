@@ -1,15 +1,21 @@
 import os
 import shutil
+import sys
 import pytest
 from pathlib import Path
 from alembic.config import main as alembic_main
 import json
 import sqlite3
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from app import db as appdb
-import sys  # これを追加
 
 # テスト中はPlan経由のRunRegistry記録で重いPSIシミュレーションを省略する
 os.environ.setdefault("SCPLN_SKIP_SIMULATION_API", "1")
+os.environ.setdefault("SCPLN_SKIP_STARTUP_SEED", "1")
 
 _DEFAULT_TEMPLATE_PATH = (
     Path(__file__).resolve().parents[1] / "tmp" / "alembic_template" / "template.db"
