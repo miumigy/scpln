@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -99,9 +100,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             logger.error(f"Could not read request body: {e_body}")
 
     # 元々のエラーレスポンスを返す
+    detail = jsonable_encoder(exc.errors())
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()},
+        content={"detail": detail},
     )
 
 

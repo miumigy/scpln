@@ -96,6 +96,16 @@ def init_db(force: bool = False) -> None:
             _logger.info("DBマイグレーションが完了しました")
 
 
+def count_table_rows(table_name: str) -> int:
+    """指定テーブルの行数を返す（UIのページネーション等で使用）。"""
+    # safety: allow only simple identifiers to avoid SQL injection
+    if not table_name.replace("_", "").isalnum():
+        raise ValueError(f"invalid table name: {table_name}")
+    with _conn() as c:
+        row = c.execute(f"SELECT COUNT(*) AS cnt FROM {table_name}").fetchone()
+        return int(row["cnt"] if row and "cnt" in row.keys() else 0)
+
+
 def create_job(
     job_id: str, jtype: str, status: str, submitted_at: int, params_json: str | None
 ) -> None:
