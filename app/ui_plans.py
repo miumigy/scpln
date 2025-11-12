@@ -517,6 +517,7 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
 
 
 @router.get("/ui/plans/input_sets", response_class=HTMLResponse)
+@router.get("/ui/input_sets", response_class=HTMLResponse)
 def ui_list_input_sets(request: Request):
     status_query = (request.query_params.get("status") or "ready").lower()
     status_filter = None if status_query == "all" else status_query

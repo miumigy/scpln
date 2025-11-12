@@ -6,6 +6,12 @@
 {% block content %}
 <article class="page-section">
   <header style="margin-bottom:1rem;"></header>
+  {% set plan_vid = job.plan_version_id or (result.version_id if result else None) %}
+  {% if plan_vid %}
+  <p class="mono" data-test="job-plan-link">
+    <a href="/ui/plans/{{ plan_vid }}">Plan detail: {{ plan_vid }}</a>
+  </p>
+  {% endif %}
   <section>
     <table>
       <tbody>
@@ -14,7 +20,6 @@
         <tr><th>submitted_at</th><td class="ts-ms" data-ms="{{ job.submitted_at }}">{{ job.submitted_at }}</td></tr>
         <tr><th>started_at</th><td class="ts-ms" data-ms="{{ job.started_at or '' }}">{{ job.started_at or '' }}</td></tr>
         <tr><th>finished_at</th><td class="ts-ms" data-ms="{{ job.finished_at or '' }}">{{ job.finished_at or '' }}</td></tr>
-        {% set plan_vid = job.plan_version_id or (result.version_id if result else None) %}
         <tr><th>plan_version_id</th>
           <td class="mono">
             {% if plan_vid %}

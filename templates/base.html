@@ -552,7 +552,8 @@
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/runs') else '' }}" href="/ui/runs">Run History</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/scenarios') else '' }}" href="/ui/scenarios">Scenarios</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/configs') else '' }}" href="/ui/configs">Configurations</a>
-        <a class="nav-link{{ ' active' if current_path.startswith('/ui/plans/input_sets') else '' }}" href="/ui/plans/input_sets">Input Sets</a>
+        {% set input_sets_active = current_path.startswith('/ui/input_sets') or current_path.startswith('/ui/plans/input_sets') %}
+        <a class="nav-link{{ ' active' if input_sets_active else '' }}" href="/ui/input_sets">Input Sets</a>
         <a class="nav-link{{ ' active' if current_path.startswith('/ui/jobs') else '' }}" href="/ui/jobs">Jobs</a>
         <a class="nav-link" href="https://github.com/miumigy/scpln/blob/main/docs/TERMS.md" target="_blank" rel="noopener">Glossary</a>
       </nav>
