@@ -17,7 +17,7 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
@@ -48,6 +48,83 @@ register_format_filters(templates)
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _DIFF_TABLE_LIMIT = 100
+
+
+def _form_value(form, name: str) -> str | None:
+    val = form.get(name)
+    if val is None:
+        return None
+    if isinstance(val, str):
+        text = val.strip()
+        return text or None
+    return str(val)
+
+
+def _form_int(form, name: str) -> int | None:
+    value = _form_value(form, name)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _form_float(form, name: str) -> float | None:
+    value = _form_value(form, name)
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _checkbox_checked(form, name: str) -> bool:
+    value = form.get(name)
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "0", "false", "off")
+    return bool(value)
+
+
+def _extract_plan_options(form) -> dict[str, object]:
+    opts: dict[str, object] = {}
+    opts["version_id"] = _form_value(form, "version_id")
+    opts["config_version_id"] = _form_int(form, "config_version_id")
+    opts["base_scenario_id"] = _form_int(form, "base_scenario_id")
+    opts["input_set_label"] = _form_value(form, "input_set_label")
+    opts["weeks"] = _form_int(form, "weeks") or 4
+    opts["lt_unit"] = _form_value(form, "lt_unit") or "day"
+    opts["round_mode"] = _form_value(form, "round_mode") or "int"
+    opts["cutover_date"] = _form_value(form, "cutover_date")
+    opts["recon_window_days"] = _form_int(form, "recon_window_days")
+    opts["anchor_policy"] = _form_value(form, "anchor_policy")
+    opts["calendar_mode"] = _form_value(form, "calendar_mode")
+    opts["carryover"] = _form_value(form, "carryover")
+    opts["carryover_split"] = _form_float(form, "carryover_split")
+    opts["apply_adjusted"] = _checkbox_checked(form, "apply_adjusted")
+    opts["tol_abs"] = _form_float(form, "tol_abs")
+    opts["tol_rel"] = _form_float(form, "tol_rel")
+    opts["max_adjust_ratio"] = _form_float(form, "max_adjust_ratio")
+    opts["blend_split_next"] = _form_float(form, "blend_split_next")
+    opts["blend_weight_mode"] = _form_value(form, "blend_weight_mode")
+    opts["lightweight"] = _checkbox_checked(form, "lightweight")
+    return opts
+
+
+def _raise_from_json_response(resp: JSONResponse) -> None:
+    detail: str | dict[str, object] | None = None
+    try:
+        payload = json.loads(resp.body.decode("utf-8"))
+        detail = payload.get("detail") if isinstance(payload, dict) else payload
+    except Exception:
+        try:
+            detail = resp.body.decode("utf-8", errors="ignore")
+        except Exception:
+            detail = None
+    raise HTTPException(status_code=resp.status_code, detail=detail or "request failed")
 
 
 def _list_plan_runs(version_id: str, *, limit: int = 10):
@@ -200,6 +277,71 @@ def _schedule_diff_generation(
             shutil.rmtree(temp_dir, ignore_errors=True)
 
     background_tasks.add_task(_run_diff_job)
+
+
+@router.post("/ui/plans/create_and_execute", response_class=HTMLResponse)
+async def ui_plans_create_and_execute(request: Request):
+    form = await request.form()
+    options = _extract_plan_options(form)
+    config_version_id = options.get("config_version_id")
+    if not config_version_id:
+        raise HTTPException(
+            status_code=400, detail="config_version_id is required to create a plan"
+        )
+    options.setdefault("lightweight", True)
+    payload = {
+        "pipeline": "integrated",
+        "async": True,
+        "options": options,
+    }
+    from app import runs_api as runs_api_module
+
+    result = runs_api_module.post_runs(payload)
+    if isinstance(result, JSONResponse):
+        _raise_from_json_response(result)
+    location = result.get("location")
+    if not location:
+        raise HTTPException(
+            status_code=500, detail="Job location was not provided by /runs"
+        )
+    return RedirectResponse(url=location, status_code=303)
+
+
+@router.post("/ui/plans/{plan_version_id}/execute_auto", response_class=HTMLResponse)
+async def ui_plans_execute_auto(plan_version_id: str, request: Request):
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Plan version not found")
+
+    form = await request.form()
+    options = _extract_plan_options(form)
+    config_version_id = (
+        options.get("config_version_id") or version.get("config_version_id")
+    )
+    if not config_version_id:
+        raise HTTPException(
+            status_code=400,
+            detail="config_version_id is not available for this plan",
+        )
+    options["config_version_id"] = config_version_id
+    options["base_scenario_id"] = (
+        options.get("base_scenario_id") or version.get("base_scenario_id")
+    )
+    options["input_set_label"] = (
+        options.get("input_set_label") or version.get("input_set_label")
+    )
+    if not options.get("version_id"):
+        options["version_id"] = f"{version_id}-auto-{int(time.time())}"
+    options["lightweight"] = True
+
+    from app import plans_api as plans_api_module
+
+    result = plans_api_module.post_plans_create_and_execute(options)
+    if isinstance(result, JSONResponse):
+        _raise_from_json_response(result)
+    new_version_id = result.get("version_id") or options["version_id"]
+    return RedirectResponse(url=f"/ui/plans/{new_version_id}", status_code=303)
 
 
 class PlanningRunForm(BaseModel):
@@ -577,7 +719,7 @@ def ui_plan_input_set_diff(
 
 
 @router.get("/ui/plans/{plan_version_id}", response_class=HTMLResponse)
-def ui_plan_detail(plan_version_id: int, request: Request):
+def ui_plan_detail(plan_version_id: str, request: Request):
     version_id = str(plan_version_id)
     version = db.get_plan_version(version_id)
     if not version:
