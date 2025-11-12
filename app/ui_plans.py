@@ -22,7 +22,6 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from app import db
-from app.config_api import _list_canonical_options
 from app.run_registry_db import table_exists
 from app.metrics import (
     INPUT_SET_DIFF_CACHE_HITS_TOTAL,
@@ -358,6 +357,8 @@ def ui_list_input_sets(request: Request):
 
 @router.get("/ui/plans/input_sets/upload", response_class=HTMLResponse)
 def ui_get_input_set_upload_form(request: Request):
+    from app.config_api import _list_canonical_options
+
     canonical_options = _list_canonical_options()
     return templates.TemplateResponse(
         request,

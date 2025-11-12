@@ -121,14 +121,19 @@ async def seed_defaults_if_empty() -> None:
         logger.info("seed: startup seed skipped by SCPLN_SKIP_STARTUP_SEED")
         return
 
+    logger.info("seed: startup seeding begin")
+
     try:
         from app import db  # 遅延import（起動順の安定化）
 
         db.init_db()  # DB初期化
+        logger.info("seed: db.init_db completed")
 
         # 1) シナリオのシード
         try:
+            logger.info("seed: listing scenarios")
             scenarios = db.list_scenarios(limit=1)
+            logger.info(f"seed: list_scenarios returned {len(scenarios)} rows")
             if not scenarios:
                 sid = db.create_scenario(
                     name="default",
@@ -142,6 +147,7 @@ async def seed_defaults_if_empty() -> None:
             logger.warning(f"seed: scenario seed skipped: {e}")
 
         # 2) 旧configsテーブルは廃止済みのため、追加シードは行わない
+        logger.info("seed: startup seeding complete")
     except Exception as e:
         logger.warning(f"seed: startup seeding failed: {e}")
 

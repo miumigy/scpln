@@ -84,8 +84,10 @@ def init_db(force: bool = False) -> None:
         cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path_to_use}")
 
         _logger.info("DBマイグレーションを適用します: %s", db_path_to_use)
+        _logger.info("db.init_db: running alembic upgrade head")
         try:
             command.upgrade(cfg, "head")
+            _logger.info("db.init_db: alembic upgrade head completed")
         except Exception as exc:
             _logger.error("DBマイグレーションに失敗しました: %s", exc)
             raise
