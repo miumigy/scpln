@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -41,6 +42,7 @@ from core.config.storage import (
 )
 from core.sorting import natural_sort_key
 from core.config.importer import import_planning_inputs
+from core.plan_repository import PlanRepository
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -48,6 +50,8 @@ register_format_filters(templates)
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _DIFF_TABLE_LIMIT = 100
+_PLAN_STATE_STEPS = ["draft", "aggregated", "disaggregated", "scheduled", "executed"]
+_PLAN_REPOSITORY: PlanRepository | None = None
 
 
 def _form_value(form, name: str) -> str | None:
@@ -125,6 +129,47 @@ def _raise_from_json_response(resp: JSONResponse) -> None:
         except Exception:
             detail = None
     raise HTTPException(status_code=resp.status_code, detail=detail or "request failed")
+
+
+def _get_plan_repository() -> PlanRepository:
+    global _PLAN_REPOSITORY
+    if _PLAN_REPOSITORY is None:
+        _PLAN_REPOSITORY = PlanRepository(db._conn)
+    return _PLAN_REPOSITORY
+
+
+def _normalize_plan_state(raw: dict | None) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    state = dict(raw)
+    status = state.get("state") or state.get("status") or "draft"
+    if status not in _PLAN_STATE_STEPS:
+        status = "draft"
+    state["state"] = status
+    state["status"] = status
+    state.setdefault("display_status", status)
+    timestamp = (
+        state.get("updated_at")
+        or state.get("timestamp")
+        or state.get("submitted_at")
+        or state.get("approved_at")
+    )
+    if timestamp is not None:
+        try:
+            ts = int(timestamp)
+            if ts < 1_000_000_000_000:
+                ts *= 1000
+            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+            state["display_time"] = dt.isoformat().replace("+00:00", "Z")
+        except Exception:
+            pass
+    invalid = state.get("invalid")
+    if invalid is None:
+        state["invalid"] = []
+    elif not isinstance(invalid, list):
+        state["invalid"] = [invalid]
+    state.setdefault("source", state.get("source") or "ui")
+    return state
 
 
 def _list_plan_runs(version_id: str, *, limit: int = 10):
@@ -737,6 +782,10 @@ def ui_plan_detail(plan_version_id: str, request: Request):
 
     context_config_version_id = version.get("config_version_id")
 
+    plan_state = _normalize_plan_state(
+        db.get_plan_artifact(version_id, "state.json") or None
+    )
+
     return templates.TemplateResponse(
         request,
         "plans_detail.html",
@@ -747,9 +796,116 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             "config_version_id": context_config_version_id,
             "plan_runs": plan_runs,
             "plan_run_ids": plan_run_ids,
-            "plan_state": None,
+            "plan_state": plan_state,
             "canonical_meta": None,
             "canonical_counts": None,
             "related_plans": related_plans,
         },
     )
+
+
+@router.post("/ui/plans/{plan_version_id}/state/advance", response_class=HTMLResponse)
+def ui_plan_state_advance(plan_version_id: str, to: str = Form(...)):
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Plan version not found")
+    target = (to or "").strip()
+    if target not in _PLAN_STATE_STEPS:
+        target = "draft"
+    state = db.get_plan_artifact(version_id, "state.json") or {
+        "state": version.get("status") or "draft",
+        "invalid": [],
+    }
+    current = state.get("state") or "draft"
+    if current not in _PLAN_STATE_STEPS:
+        current = "draft"
+    if _PLAN_STATE_STEPS.index(target) < _PLAN_STATE_STEPS.index(current):
+        target = current
+    invalid = [
+        step
+        for step in state.get("invalid") or []
+        if step in _PLAN_STATE_STEPS
+        and _PLAN_STATE_STEPS.index(step) > _PLAN_STATE_STEPS.index(target)
+    ]
+    state.update(
+        {
+            "state": target,
+            "status": target,
+            "display_status": target,
+            "invalid": invalid,
+            "updated_at": int(time.time() * 1000),
+            "actor": "ui_plan_state",
+            "source": "ui",
+        }
+    )
+    db.upsert_plan_artifact(
+        version_id, "state.json", json.dumps(state, ensure_ascii=False)
+    )
+    try:
+        db.update_plan_version(version_id, status=target)
+    except Exception:
+        logging.exception(
+            "ui_plan_state_update_failed", extra={"version_id": version_id}
+        )
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@router.post("/ui/plans/{plan_version_id}/state/invalidate", response_class=HTMLResponse)
+def ui_plan_state_invalidate(plan_version_id: str, from_step: str = Form(...)):
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Plan version not found")
+    step = (from_step or "").strip()
+    if step not in _PLAN_STATE_STEPS:
+        step = "draft"
+    idx = _PLAN_STATE_STEPS.index(step)
+    state = {
+        "state": step,
+        "status": step,
+        "display_status": step,
+        "invalid": _PLAN_STATE_STEPS[idx + 1 :],
+        "updated_at": int(time.time() * 1000),
+        "actor": "ui_plan_state",
+        "source": "ui",
+    }
+    db.upsert_plan_artifact(
+        version_id, "state.json", json.dumps(state, ensure_ascii=False)
+    )
+    try:
+        db.update_plan_version(version_id, status=step)
+    except Exception:
+        logging.exception(
+            "ui_plan_state_invalidate_update_failed",
+            extra={"version_id": version_id},
+        )
+    return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
+
+
+@router.post("/ui/plans/{plan_version_id}/delete", response_class=HTMLResponse)
+def ui_plan_delete(plan_version_id: str):
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Plan version not found")
+
+    try:
+        _get_plan_repository().delete_plan(version_id)
+    except Exception:
+        logging.exception(
+            "ui_plan_delete_repository_failed", extra={"version_id": version_id}
+        )
+    for cleanup in (
+        db.delete_plan_artifacts,
+        db.delete_plan_version,
+        db.clear_plan_version_from_runs,
+    ):
+        try:
+            cleanup(version_id)
+        except Exception:
+            logging.exception(
+                "ui_plan_delete_cleanup_failed",
+                extra={"version_id": version_id, "op": cleanup.__name__},
+            )
+    return RedirectResponse(url="/ui/plans", status_code=303)

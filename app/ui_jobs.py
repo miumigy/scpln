@@ -12,6 +12,28 @@ templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 register_format_filters(templates)
 
 
+def _extract_plan_version_id(source: str | dict | None) -> str | None:
+    if source is None:
+        return None
+    data = source
+    if isinstance(source, str):
+        try:
+            data = json.loads(source)
+        except Exception:
+            return None
+    if not isinstance(data, dict):
+        return None
+    direct = data.get("version_id")
+    if isinstance(direct, (str, int)):
+        return str(direct)
+    options = data.get("options")
+    if isinstance(options, dict):
+        opt_vid = options.get("version_id")
+        if isinstance(opt_vid, (str, int)):
+            return str(opt_vid)
+    return None
+
+
 @app.get("/ui/jobs", response_class=HTMLResponse)
 def ui_jobs(
     request: Request, status: str | None = None, offset: int = 0, limit: int = 20
@@ -31,6 +53,10 @@ def ui_jobs(
                     r["plan_version_id"] = js.get("version_id")
         except Exception:
             pass
+        if not r.get("plan_version_id"):
+            vid = _extract_plan_version_id(r.get("params_json"))
+            if vid:
+                r["plan_version_id"] = vid
     return templates.TemplateResponse(
         request,
         "jobs.html",
@@ -57,6 +83,12 @@ def ui_job_detail(request: Request, job_id: str):
             result = json.loads(row.get("result_json"))
     except Exception:
         result = None
+    if not row.get("plan_version_id"):
+        resolved = _extract_plan_version_id(result) or _extract_plan_version_id(
+            row.get("params_json")
+        )
+        if resolved:
+            row["plan_version_id"] = resolved
     return templates.TemplateResponse(
         request,
         "job_detail.html",
