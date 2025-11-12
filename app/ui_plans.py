@@ -1,10 +1,22 @@
+import json
 import logging
 import shutil
+import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -12,34 +24,183 @@ from pydantic import BaseModel, Field
 from app import db
 from app.config_api import _list_canonical_options
 from app.run_registry_db import table_exists
-from core.plan_repository import (
+from app.metrics import (
+    INPUT_SET_DIFF_CACHE_HITS_TOTAL,
+    INPUT_SET_DIFF_CACHE_STALE_TOTAL,
+    INPUT_SET_DIFF_JOBS_TOTAL,
+)
+from app.template_filters import register_format_filters
+from app.utils import format_datetime, ms_to_jst_str
+from core.config.storage import (
     get_planning_input_set,
+    list_canonical_version_summaries,
     list_planning_input_set_events,
     list_planning_input_sets,
-    list_planning_runs,
+    log_planning_input_set_event,
     PlanningInputSetNotFoundError,
     update_planning_input_set,
-    log_planning_input_set_event,
 )
-from core.plan_repository_builders import import_planning_inputs
-from core.plan_repository_views import (
-    get_planning_run_detail,
-    list_canonical_version_summaries,
-    list_plan_versions,
-)
-from scripts.plan_pipeline_io import (
-    _diff_cache_paths,
-    _is_lock_active,
-    _load_cached_diff,
-    _prepare_delta_rows,
-    _schedule_diff_generation,
-)
+from core.sorting import natural_sort_key
+from core.config.importer import import_planning_inputs
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+register_format_filters(templates)
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _DIFF_TABLE_LIMIT = 100
+
+
+def _list_plan_runs(version_id: str, *, limit: int = 10):
+    """指定PlanVersionに紐づく直近のRun一覧をDBから取得する。"""
+    plan_runs: list[dict[str, str | int | None]] = []
+    plan_run_ids: list[str] = []
+    with db._conn() as conn:
+        rows = conn.execute(
+            "SELECT run_id, summary, started_at FROM runs WHERE plan_version_id=? ORDER BY started_at DESC, run_id DESC LIMIT ?",
+            (version_id, limit),
+        ).fetchall()
+    for row in rows:
+        summary: dict[str, str | int | float | None] = {}
+        try:
+            summary = json.loads(row["summary"] or "{}")
+        except Exception:
+            summary = {}
+        plan_runs.append(
+            {
+                "run_id": row["run_id"],
+                "started_at": row["started_at"],
+                "started_at_str": ms_to_jst_str(row["started_at"]),
+                "fill_rate": summary.get("fill_rate"),
+                "profit_total": summary.get("profit_total"),
+            }
+        )
+        plan_run_ids.append(row["run_id"])
+    return plan_runs, plan_run_ids
+
+
+def _diff_cache_paths(label: str, other_label: str) -> tuple[Path, Path]:
+    base_dir = _BASE_DIR / "tmp" / "input_set_diffs"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{label}__{other_label}.json"
+    cache_path = base_dir / filename
+    lock_path = base_dir / f"{label}__{other_label}.lock"
+    return cache_path, lock_path
+
+
+def _is_lock_active(lock_path: Path) -> bool:
+    if not lock_path.exists():
+        return False
+    try:
+        if time.time() - lock_path.stat().st_mtime > 120:
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+            return False
+    except Exception:
+        return lock_path.exists()
+    return True
+
+
+def _load_cached_diff(cache_path: Path) -> tuple[dict | None, int | None]:
+    if not cache_path.exists():
+        INPUT_SET_DIFF_CACHE_STALE_TOTAL.inc()
+        return None, None
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("diff payload is not a dict")
+        timestamp = int(cache_path.stat().st_mtime * 1000)
+        INPUT_SET_DIFF_CACHE_HITS_TOTAL.inc()
+        return payload, timestamp
+    except Exception:
+        logging.exception("input_set_diff_cache_invalid", extra={"path": str(cache_path)})
+        INPUT_SET_DIFF_CACHE_STALE_TOTAL.inc()
+        return None, None
+
+
+def _prepare_delta_rows(rows: list[dict], *, limit: int | None = None) -> list[dict]:
+    if not rows:
+        return []
+
+    def _sort_key(row: dict) -> tuple:
+        primary = row.get("period") or row.get("week") or row.get("time_bucket_key") or ""
+        secondary = row.get("family") or row.get("sku") or row.get("item_key") or ""
+        return (natural_sort_key(primary), natural_sort_key(secondary))
+
+    sorted_rows = sorted(rows, key=_sort_key)
+    if limit is not None and limit >= 0:
+        return sorted_rows[:limit]
+    return sorted_rows
+
+
+def _schedule_diff_generation(
+    background_tasks: BackgroundTasks,
+    label: str,
+    other_label: str,
+    cache_path: Path,
+    lock_path: Path,
+) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        lock_path.write_text(str(time.time()), encoding="utf-8")
+    except Exception:
+        pass
+
+    def _run_diff_job() -> None:
+        temp_dir = Path(tempfile.mkdtemp(prefix="diff-"))
+        try:
+            script_path = _BASE_DIR / "scripts" / "export_planning_inputs.py"
+            cmd = [
+                sys.executable,
+                str(script_path),
+                "--label",
+                label,
+                "--diff-against",
+                other_label,
+                "-o",
+                str(temp_dir),
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=str(_BASE_DIR),
+                capture_output=True,
+                text=True,
+            )
+            if proc.returncode != 0:
+                logging.error(
+                    "input_set_diff_job_failed",
+                    extra={
+                        "label": label,
+                        "other_label": other_label,
+                        "stderr": proc.stderr,
+                    },
+                )
+                INPUT_SET_DIFF_JOBS_TOTAL.labels(result="failure").inc()
+                return
+            diff_file = temp_dir / "diff_report.json"
+            if not diff_file.exists():
+                logging.error(
+                    "input_set_diff_job_missing_report",
+                    extra={"label": label, "other_label": other_label},
+                )
+                INPUT_SET_DIFF_JOBS_TOTAL.labels(result="failure").inc()
+                return
+            shutil.copy(diff_file, cache_path)
+            INPUT_SET_DIFF_JOBS_TOTAL.labels(result="success").inc()
+        except Exception:
+            logging.exception("input_set_diff_job_crashed")
+            INPUT_SET_DIFF_JOBS_TOTAL.labels(result="failure").inc()
+        finally:
+            try:
+                lock_path.unlink()
+            except Exception:
+                pass
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+    background_tasks.add_task(_run_diff_job)
 
 
 class PlanningRunForm(BaseModel):
@@ -48,7 +209,7 @@ class PlanningRunForm(BaseModel):
 
 
 def _fetch_plan_rows(limit: int = 50, offset: int = 0):
-    plans = list_plan_versions(limit=limit, offset=offset)
+    plans = db.list_plan_versions(limit=limit, offset=offset)
     total_count = db.count_table_rows("plan_versions")
     pagination = {
         "limit": limit,
@@ -174,6 +335,8 @@ def ui_list_input_sets(request: Request):
     status_query = (request.query_params.get("status") or "ready").lower()
     status_filter = None if status_query == "all" else status_query
     input_sets = list_planning_input_sets(status=status_filter)
+    for item in input_sets:
+        setattr(item, "created_at_str", format_datetime(getattr(item, "created_at", None)))
     sample_input_sets = _list_sample_input_sets()
     status_options = [
         ("all", "All"),
@@ -414,18 +577,36 @@ def ui_plan_input_set_diff(
 
 @router.get("/ui/plans/{plan_version_id}", response_class=HTMLResponse)
 def ui_plan_detail(plan_version_id: int, request: Request):
-    plan_version = get_planning_run_detail(plan_version_id)
-    if not plan_version:
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
         raise HTTPException(status_code=404, detail="Plan version not found")
 
-    runs = list_planning_runs(plan_version_id=plan_version_id)
+    plan_runs, plan_run_ids = _list_plan_runs(version_id)
+
+    related_plans = []
+    base_scenario_id = version.get("base_scenario_id")
+    if base_scenario_id is not None:
+        related_plans = db.list_plan_versions_by_base(base_scenario_id, limit=5)
+        related_plans = [
+            p for p in related_plans if str(p.get("version_id")) != version_id
+        ]
+
+    context_config_version_id = version.get("config_version_id")
 
     return templates.TemplateResponse(
         request,
         "plans_detail.html",
         {
-            "subtitle": f"Plan: {plan_version.label}",
-            "plan_version": plan_version,
-            "runs": runs,
+            "subtitle": f"Plan: {version_id}",
+            "version": version,
+            "version_id": version_id,
+            "config_version_id": context_config_version_id,
+            "plan_runs": plan_runs,
+            "plan_run_ids": plan_run_ids,
+            "plan_state": None,
+            "canonical_meta": None,
+            "canonical_counts": None,
+            "related_plans": related_plans,
         },
     )
