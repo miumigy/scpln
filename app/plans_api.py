@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import json
@@ -6,19 +7,24 @@ import uuid
 import logging
 import os
 import sys
+import tempfile
+import shutil
 from pathlib import Path
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-from fastapi import Body, Query, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import Body, Query, Request, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
 from app.metrics import (
-    PLAN_EXPORT_COMPARE,
-    PLAN_EXPORT_CARRYOVER,
-    PLAN_EXPORT_SCHEDULE,
+    PLAN_CARRYOVER_EXPORT_TOTAL,
+    PLAN_COMPARE_EXPORT_TOTAL,
     PLAN_DB_WRITE_TOTAL,
     PLAN_DB_WRITE_ERROR_TOTAL,
     PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_SCHEDULE_EXPORT_TOTAL,
+    PLANS_CREATED_TOTAL,
+    PLANS_RECONCILED_TOTAL,
+    LEGACY_MODE_RUNS_TOTAL,
 )
 
 from app.api import app
@@ -31,9 +37,13 @@ from app.metrics import (
 )
 from core.config.storage import (
     CanonicalConfigNotFoundError,
+    get_planning_input_set,
+    list_planning_input_set_events,
+    PlanningInputSetNotFoundError,
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
+from scripts.plan_pipeline_io import _calendar_cli_args
 from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
@@ -165,11 +175,20 @@ def _get_overlay(version_id: str) -> Dict[str, Any]:
     agg_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "aggregate")
     det_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "det")
     if agg_overrides or det_overrides:
+        try:
+            PLANS_CREATED_TOTAL.inc()
+        except Exception:
+            pass
+
         return {
             "aggregate": [dict(r.get("payload") or {}) for r in agg_overrides],
             "det": [dict(r.get("payload") or {}) for r in det_overrides],
         }
     obj = db.get_plan_artifact(version_id, "psi_overrides.json") or {}
+    try:
+        PLANS_RECONCILED_TOTAL.inc()
+    except Exception:
+        pass
     return {
         "aggregate": list(obj.get("aggregate") or []),
         "det": list(obj.get("det") or []),
@@ -554,6 +573,25 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         version_id = str(
             _get_param(body, "version_id") or f"v{ts}-{uuid.uuid4().hex[:8]}"
         )
+        input_set_label = _get_param(body, "input_set_label")
+
+        # Legacyモードの検知
+        if not input_set_label:
+            logging.warning(
+                "legacy_mode_detected",
+                extra={
+                    "entrypoint": "/plans/create_and_execute",
+                    "config_version_id": _get_param(body, "config_version_id"),
+                    "base_scenario_id": _get_param(body, "base_scenario_id"),
+                },
+            )
+            try:
+                LEGACY_MODE_RUNS_TOTAL.labels(
+                    entrypoint="/plans/create_and_execute"
+                ).inc()
+            except Exception:
+                logging.exception("failed_to_inc_legacy_mode_metric")
+
         out_dir = Path(
             _get_param(body, "out_dir") or (BASE_DIR / "out" / f"api_planning_{ts}")
         )
@@ -569,14 +607,10 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         max_adjust_ratio = _get_param(body, "max_adjust_ratio")
         tol_abs = _get_param(body, "tol_abs")
         tol_rel = _get_param(body, "tol_rel")
-        calendar_mode = _get_param(body, "calendar_mode")
         storage_mode = _storage_mode(body.get("storage_mode"))
         use_db = _should_use_db(storage_mode)
         use_files = _should_use_files(storage_mode)
         lightweight = bool(_get_param(body, "lightweight") or False)
-        weeks_param = _get_param(body, "weeks")
-        default_weeks = 1 if lightweight else 4
-        weeks = str(weeks_param if weeks_param not in (None, "") else default_weeks)
         apply_adjusted = bool(_get_param(body, "apply_adjusted") or False)
         if lightweight:
             apply_adjusted = False
@@ -617,6 +651,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         logging.info("Canonical inputs prepared.")
 
         input_dir = str(temp_input_dir)
+        calendar_args = _calendar_cli_args(input_dir=input_dir, fallback_weeks=4)
         canonical_snapshot_path = artifact_paths.get("canonical_snapshot.json")
         planning_inputs_path = artifact_paths.get("planning_inputs.json")
 
@@ -629,6 +664,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 input_dir,
                 "-o",
                 str(out_dir / "aggregate.json"),
+                "--round",
+                round_mode,
                 "--version-id",
                 version_id,
             ]
@@ -646,12 +683,11 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 input_dir,
                 "-o",
                 str(out_dir / "sku_week.json"),
-                "--weeks",
-                weeks,
                 "--round",
                 round_mode,
                 "--version-id",
                 version_id,
+                *calendar_args,
             ]
         )
         logging.info("Finished script execution: allocate.py")
@@ -670,10 +706,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     str(out_dir / "mrp.json"),
                     "--lt-unit",
                     lt_unit,
-                    "--weeks",
-                    weeks,
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: mrp.py")
@@ -690,8 +725,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     input_dir,
                     "-o",
                     str(out_dir / "plan_final.json"),
-                    "--weeks",
-                    weeks,
                     *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
@@ -709,8 +742,11 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if blend_weight_mode
                         else []
                     ),
+                    "--round",
+                    round_mode,
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile.py")
@@ -744,6 +780,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if tol_rel is not None
                         else ["--tol-rel", "1e-6"]
                     ),
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile_levels.py")
@@ -767,9 +804,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if recon_window_days is not None
                         else []
                     ),
-                    "--weeks",
-                    weeks,
-                    *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                     *(["--carryover", str(carryover)] if carryover else []),
                     *(
                         ["--carryover-split", str(carryover_split)]
@@ -787,6 +821,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                     input_dir,
                     "--version-id",
                     version_id,
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: anchor_adjust.py")
@@ -820,6 +855,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         if tol_rel is not None
                         else ["--tol-rel", "1e-6"]
                     ),
+                    *calendar_args,
                 ]
             )
             logging.info("Finished script execution: reconcile_levels.py (adjusted)")
@@ -837,10 +873,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         str(out_dir / "mrp_adjusted.json"),
                         "--lt-unit",
                         lt_unit,
-                        "--weeks",
-                        weeks,
                         "--version-id",
                         version_id,
+                        *calendar_args,
                     ]
                 )
                 logging.info("Finished script execution: mrp.py (adjusted)")
@@ -856,8 +891,6 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                         input_dir,
                         "-o",
                         str(out_dir / "plan_final_adjusted.json"),
-                        "--weeks",
-                        weeks,
                         *(
                             ["--cutover-date", str(cutover_date)]
                             if cutover_date
@@ -883,8 +916,11 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                             if blend_weight_mode
                             else []
                         ),
+                        "--round",
+                        round_mode,
                         "--version-id",
                         version_id,
+                        *calendar_args,
                     ]
                 )
                 logging.info("Finished script execution: reconcile.py (adjusted)")
@@ -900,6 +936,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
             objective=body.get("objective"),
             note=body.get("note"),
             config_version_id=config_version_id,
+            input_set_label=input_set_label,
         )
         logging.info(f"DEBUG: Plan version {version_id} created in DB.")
         if db.get_plan_version(version_id) is None:
@@ -1640,6 +1677,9 @@ def post_plan_psi_reconcile(
     (out_dir / "sku_week.json").write_text(
         json.dumps({"rows": det_rows2}, ensure_ascii=False), encoding="utf-8"
     )
+
+    calendar_args = _calendar_cli_args(input_dir=out_dir, fallback_weeks=4)
+
     # 再整合（before の差分ログ）
     _run_py(
         [
@@ -1655,6 +1695,7 @@ def post_plan_psi_reconcile(
             str(body.get("tol_abs") or "1e-6"),
             "--tol-rel",
             str(body.get("tol_rel") or "1e-6"),
+            *calendar_args,
         ]
     )
     # 成果物を更新
@@ -1667,13 +1708,12 @@ def post_plan_psi_reconcile(
     cutover_date = body.get("cutover_date")
     anchor_policy = body.get("anchor_policy")
     recon_window_days = body.get("recon_window_days")
-    calendar_mode = body.get("calendar_mode")
     carryover = body.get("carryover")
     carryover_split = body.get("carryover_split")
     tol_abs = body.get("tol_abs")
     tol_rel = body.get("tol_rel")
-    weeks = str(body.get("weeks") or "4")
     lt_unit = body.get("lt_unit") or "day"
+    round_mode = body.get("round_mode") or "int"
     apply_adjusted = bool(body.get("apply_adjusted") or False)
     recalc_mrp = bool(body.get("recalc_mrp") or False)
     if apply_adjusted and anchor_policy and cutover_date:
@@ -1694,6 +1734,9 @@ def post_plan_psi_reconcile(
         except RuntimeError as exc:
             return JSONResponse(status_code=400, content={"detail": str(exc)})
         input_dir = str(temp_input_dir)
+        # Note: Use the new input_dir for calendar lookup
+        calendar_args_adj = _calendar_cli_args(input_dir=input_dir, fallback_weeks=4)
+
         _run_py(
             [
                 "scripts/anchor_adjust.py",
@@ -1711,7 +1754,6 @@ def post_plan_psi_reconcile(
                     if recon_window_days is not None
                     else []
                 ),
-                *(["--calendar-mode", str(calendar_mode)] if calendar_mode else []),
                 *(["--carryover", str(carryover)] if carryover else []),
                 *(
                     ["--carryover-split", str(carryover_split)]
@@ -1722,6 +1764,7 @@ def post_plan_psi_reconcile(
                 *(["--tol-rel", str(tol_rel)] if (tol_rel is not None) else []),
                 "-I",
                 input_dir,
+                *calendar_args_adj,
             ]
         )
         _run_py(
@@ -1751,6 +1794,7 @@ def post_plan_psi_reconcile(
                     if tol_rel is not None
                     else ["--tol-rel", "1e-6"]
                 ),
+                *calendar_args_adj,
             ]
         )
         db.upsert_plan_artifact(
@@ -1775,8 +1819,7 @@ def post_plan_psi_reconcile(
                     str(out_dir / "mrp_adjusted.json"),
                     "--lt-unit",
                     lt_unit,
-                    "--weeks",
-                    weeks,
+                    *calendar_args_adj,
                 ]
             )
             _run_py(
@@ -1789,8 +1832,6 @@ def post_plan_psi_reconcile(
                     input_dir,
                     "-o",
                     str(out_dir / "plan_final_adjusted.json"),
-                    "--weeks",
-                    weeks,
                     *(["--cutover-date", str(cutover_date)] if cutover_date else []),
                     *(
                         ["--recon-window-days", str(recon_window_days)]
@@ -1798,6 +1839,9 @@ def post_plan_psi_reconcile(
                         else []
                     ),
                     *(["--anchor-policy", str(anchor_policy)] if anchor_policy else []),
+                    "--round",
+                    round_mode,
+                    *calendar_args_adj,
                 ]
             )
             db.upsert_plan_artifact(
@@ -2062,7 +2106,7 @@ def get_plans(
         plans = db.list_plan_versions(
             limit=limit_value, offset=offset_value, order=order_value
         )
-        total = db.count_plan_versions()
+        total = db.count_table_rows("plan_versions")
 
         pagination = {
             "limit": limit_value,

@@ -381,12 +381,10 @@ def get_json(session: requests.Session, url: str) -> Dict[str, Any]:
     r.raise_for_status()
     return r.json()
 
-
 def post_form(
     session: requests.Session, url: str, data: Dict[str, Any]
 ) -> requests.Response:
     return session.post(url, data=data, timeout=60, allow_redirects=False)
-
 
 def post_json(
     session: requests.Session, url: str, data: Dict[str, Any]
@@ -394,7 +392,6 @@ def post_json(
     r = session.post(url, json=data, timeout=120)
     r.raise_for_status()
     return r.json()
-
 
 def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
     r = session.get(url, timeout=15)
@@ -415,7 +412,6 @@ def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
                     pass
     return out
 
-
 def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
     try:
         data = get_json(session, f"{base}/plans")
@@ -428,7 +424,6 @@ def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
         return (plans2[0] or {}).get("version_id")
     except Exception:
         return None
-
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -457,8 +452,15 @@ def main() -> int:
 
     os.environ["SCPLN_DB"] = str(db_path)
 
+    # スクリプトのディレクトリからプロジェクトルートを特定
+    project_root = Path(__file__).parent.parent.resolve()
+    venv_python = project_root / ".venv" / "bin" / "python"
+
+    # 存在しない場合は sys.executable をフォールバックとして使用
+    python_executable = str(venv_python) if venv_python.exists() else sys.executable
+
     # DB初期化とマイグレーション
-    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
+    subprocess.run([python_executable, "-m", "alembic", "upgrade", "head"], check=True)
 
     seed_test_data(str(db_path))
 
@@ -494,111 +496,78 @@ def main() -> int:
     except Exception as e:
         ng("AT-02 Home リダイレクト", str(e))
 
-    # AT-01: Plan 作成 (UI経由・非同期)
+    # AT-01: Plan 作成 (API経由・同期的)
     plan_id: Optional[str] = None
     try:
-        form = {
-            "config_version_id": "100",
+        payload = {
+            "config_version_id": 100,
             "weeks": 4,
             "lt_unit": "day",
             "cutover_date": "2025-01-15",
             "recon_window_days": 14,
             "anchor_policy": "blend",
-            "tol_abs": "1e-6",
-            "tol_rel": "1e-6",
+            "tol_abs": 1e-6,
+            "tol_rel": 1e-6,
             "calendar_mode": "iso",
             "carryover": "both",
             "carryover_split": 0.5,
-            "apply_adjusted": 1,
+            "apply_adjusted": True,
         }
-        r = post_form(s, f"{base}/ui/plans/create_and_execute", form)
+        res = post_json(s, f"{base}/plans/create_and_execute", payload)
 
-        # 1. ジョブ投入とリダイレクト先の検証
-        if r.status_code not in (302, 303):
-            raise RuntimeError(f"Plan creation failed with status: {r.status_code}")
-
-        location = r.headers.get("Location")
-        if not location or not location.startswith("/ui/jobs/"):
-            raise RuntimeError(f"Invalid redirect to non-job page: {location}")
-
-        job_url = f"{base}{location}"
-        ok("AT-01 Plan作成→ジョブ投入・リダイレクト")
-
-        # 2. ジョブの完了をポーリング
-        import time
-        import re
-
-        vid = None
-        for i in range(60):  # タイムアウト: 60 * 2s = 120s
-            time.sleep(2)
-            job_page = s.get(job_url, timeout=30)
-            job_page.raise_for_status()
-
-            if "status</th><td>succeeded</td>" in job_page.text:
-                # 3. 完了ページから version_id を抽出
-                match = re.search(r'href="/ui/plans/([^"]+)"', job_page.text)
-                if match:
-                    vid = match.group(1)
-                    ok("AT-01 ジョブ完了・version_id取得")
-                    break
-                else:
-                    # 成功したのにリンクが見つからない場合
-                    raise RuntimeError(
-                        "Job succeeded but version_id link not found in page"
-                    )
-            elif "status</th><td>failed</td>" in job_page.text:
-                raise RuntimeError("Job execution failed")
-
+        vid = res.get("version_id")
         if not vid:
-            ng("AT-01 Plan作成", "Job did not complete in time or version_id not found")
-        else:
-            # 4. 後続のテストを実行
-            plan_id = vid
-            # summary（必須キー）
-            summ = get_json(s, f"{base}/plans/{vid}/summary")
-            if "weekly_summary" in summ:
-                ok("AT-01 Plan作成→summary取得")
-            else:
-                ng("AT-01 Plan作成→summary取得", "weekly_summary 欠落")
+            raise RuntimeError(f"Plan creation failed, no version_id in response: {res}")
 
-            # HTML: /ui/plans 一覧
-            try:
-                rlist = s.get(f"{base}/ui/plans", timeout=30)
-                if rlist.status_code == 200 and ("Plan Versions" in rlist.text):
-                    if "aria-label=" in rlist.text:
-                        ok("HTML: /ui/plans: code=200, title/aria-label OK")
-                    else:
-                        ng("HTML: /ui/plans", "aria-label not found")
+        ok("AT-01 Plan作成→version_id取得")
+        plan_id = vid
+
+        # 後続のテストを実行
+        # summary（必須キー）
+        summ = get_json(s, f"{base}/plans/{vid}/summary")
+        if "weekly_summary" in summ:
+            ok("AT-01 Plan作成→summary取得")
+        else:
+            ng("AT-01 Plan作成→summary取得", "weekly_summary 欠落")
+
+        # HTML: /ui/plans 一覧
+        try:
+            rlist = s.get(f"{base}/ui/plans", timeout=30)
+            if rlist.status_code == 200 and ("Plan Versions" in rlist.text):
+                if "aria-label=" in rlist.text:
+                    ok("HTML: /ui/plans: code=200, title/aria-label OK")
                 else:
-                    ng("HTML: /ui/plans", f"code={rlist.status_code}")
-            except Exception as e:
-                ng("HTML: /ui/plans", str(e))
-            # HTML: /ui/plans/{id} 詳細
-            try:
-                rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
-                if rdet.status_code == 200 and (
-                    "Plan Detail" in rdet.text or 'data-tab="overview"' in rdet.text
-                ):
-                    # Representative tab aria-labels
-                    labels = [
-                        "Overview tab",
-                        "Aggregate tab",
-                        "Disaggregate tab",
-                        "Schedule tab",
-                        "Validate tab",
-                        "PSI tab",
-                        "Execute tab",
-                        "Results tab",
-                        "Diff tab",
-                    ]
-                    if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
-                        ok("HTML: /ui/plans/{id}: code=200, tab aria-label OK")
-                    else:
-                        ng("HTML: /ui/plans/{id}", "tab aria-label not found")
+                    ng("HTML: /ui/plans", "aria-label not found")
+            else:
+                ng("HTML: /ui/plans", f"code={rlist.status_code}")
+        except Exception as e:
+            ng("HTML: /ui/plans", str(e))
+        # HTML: /ui/plans/{id} 詳細
+        try:
+            rdet = s.get(f"{base}/ui/plans/{vid}", timeout=30)
+            if rdet.status_code == 200 and (
+                "Plan Detail" in rdet.text or 'data-tab="overview"' in rdet.text
+            ):
+                # Representative tab aria-labels
+                labels = [
+                    "Overview tab",
+                    "Aggregate tab",
+                    "Disaggregate tab",
+                    "Schedule tab",
+                    "Validate tab",
+                    "PSI tab",
+                    "Execute tab",
+                    "Results tab",
+                    "Diff tab",
+                ]
+                if any((f'aria-label="{lab}"' in rdet.text) for lab in labels):
+                    ok("HTML: /ui/plans/{id}: code=200, tab aria-label OK")
                 else:
-                    ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
-            except Exception as e:
-                ng("HTML: /ui/plans/{id}", str(e))
+                    ng("HTML: /ui/plans/{id}", "tab aria-label not found")
+            else:
+                ng("HTML: /ui/plans/{id}", f"code={rdet.status_code}")
+        except Exception as e:
+            ng("HTML: /ui/plans/{id}", str(e))
     except Exception as e:
         ng("AT-01 Plan作成", str(e))
         plan_id = None
