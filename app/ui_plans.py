@@ -409,7 +409,15 @@ def _fetch_plan_rows(limit: int = 50, offset: int = 0):
     return plans, pagination
 
 
-def _render_plans_page(request: Request, plans, pagination, has_data: bool):
+def _render_plans_page(
+    request: Request,
+    plans,
+    pagination,
+    has_data: bool,
+    error: str | None = None,
+    form_defaults: dict | None = None,
+):
+    defaults = dict(form_defaults or {})
     return templates.TemplateResponse(
         request,
         "plans.html",
@@ -418,6 +426,8 @@ def _render_plans_page(request: Request, plans, pagination, has_data: bool):
             "plans": plans,
             "pagination": pagination,
             "has_data": has_data,
+            "error": error,
+            "form_defaults": defaults,
         },
     )
 
@@ -435,7 +445,12 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     pagination = pagination if pagination is not None else {}
 
     return _render_plans_page(
-        request, plans=rows, pagination=pagination, has_data=has_data
+        request,
+        plans=rows,
+        pagination=pagination,
+        has_data=has_data,
+        error=None,
+        form_defaults={},
     )
 
 
