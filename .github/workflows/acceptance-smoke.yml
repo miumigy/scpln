@@ -15,6 +15,7 @@ jobs:
       SCPLN_DB: ${{ github.workspace }}/scpln.db
       REGISTRY_BACKEND: db
       AUTH_MODE: none
+      SCPLN_SKIP_STARTUP_SEED: "1"
     steps:
       - uses: actions/checkout@v4
 
