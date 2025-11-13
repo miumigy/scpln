@@ -2,43 +2,43 @@
 
 {% block page_header %}
   <h2>{{ subtitle }}</h2>
-  <p>計画インプットセットの管理とバージョン管理を行います。</p>
+  <p>Manage and version planning input sets.</p>
 {% endblock %}
 
 {% block content %}
   <div class="page-section">
     <div class="stack justify-between gap-bottom-md">
-      <h3>インプットセットのアップロード</h3>
-      <a href="/ui/plans/input_sets/upload" role="button" class="btn-primary">新規セットをアップロード</a>
+      <h3>Upload Input Sets</h3>
+      <a href="/ui/plans/input_sets/upload" role="button" class="btn-primary">Upload new set</a>
     </div>
-    <p class="help-text">新しい計画インプットセットをCSVファイルでアップロードし、管理します。</p>
+    <p class="help-text">Upload and manage new planning input sets via CSV files.</p>
   </div>
 
   <div class="page-section">
-    <h3>サンプルからロード</h3>
-    <p class="help-text">定義済みのサンプルデータセットをロードして、すぐに計画を開始できます。</p>
+    <h3>Load from Sample</h3>
+    <p class="help-text">Load a predefined sample dataset to start planning immediately.</p>
     <form action="/ui/plans/input_sets/sample" method="post" class="stack align-end">
       <label for="sample_name">
-        <span class="label-title">サンプル選択</span>
+        <span class="label-title">Select Sample</span>
         <select name="sample_name" id="sample_name" required>
-          <option value="">-- サンプルを選択 --</option>
+          <option value="">-- Select a sample --</option>
           {% for sample in sample_input_sets or [] %}
             <option value="{{ sample.name }}">{{ sample.name }} ({{ sample.description }})</option>
           {% endfor %}
         </select>
       </label>
-      <button type="submit" class="btn-primary">サンプルをロード</button>
+      <button type="submit" class="btn-primary">Load sample</button>
     </form>
     {% if request.query_params.get("error") %}
-      <p style="color: red;">エラー: {{ request.query_params.get("error") }}</p>
+      <p style="color: red;">Error: {{ request.query_params.get("error") }}</p>
     {% endif %}
   </div>
 
   <div class="page-section">
     <div class="stack justify-between gap-bottom-md">
-      <h3>既存のインプットセット</h3>
+      <h3>Existing Input Sets</h3>
       <form action="/ui/plans/input_sets" method="get" class="stack gap-xs nowrap">
-        <label for="status-filter" class="sr-only">ステータスでフィルタ</label>
+        <label for="status-filter" class="sr-only">Filter by status</label>
         <select name="status" id="status-filter" onchange="this.form.submit()">
           {% for status_val, status_label in status_options %}
             <option value="{{ status_val }}" {% if status_val == selected_status %}selected{% endif %}>{{ status_label }}</option>
@@ -52,12 +52,12 @@
         <table>
           <thead>
             <tr>
-              <th>ラベル</th>
-              <th>ステータス</th>
-              <th>Configバージョン</th>
-              <th>作成日時</th>
-              <th>作成者</th>
-              <th>アクション</th>
+              <th>Label</th>
+              <th>Status</th>
+              <th>Config Version</th>
+              <th>Created At</th>
+              <th>Created By</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -69,19 +69,19 @@
                 <td>{{ input_set.created_at | format_datetime }}</td>
                 <td>{{ input_set.created_by }}</td>
                 <td class="table-actions">
-                  <a href="/ui/plans/input_sets/{{ input_set.label }}" role="button" class="secondary">詳細</a>
+                  <a href="/ui/plans/input_sets/{{ input_set.label }}" role="button" class="secondary">Details</a>
                   {% if input_set.status == 'draft' %}
                     <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post">
                       <input type="hidden" name="action" value="approve">
-                      <button type="submit" class="contrast">承認</button>
+                      <button type="submit" class="contrast">Approve</button>
                     </form>
                   {% elif input_set.status == 'ready' %}
                     <form action="/ui/plans/input_sets/{{ input_set.label }}/review" method="post">
                       <input type="hidden" name="action" value="revert">
-                      <button type="submit" class="secondary">ドラフトに戻す</button>
+                      <button type="submit" class="secondary">Revert to draft</button>
                     </form>
                   {% endif %}
-                  <a href="/ui/plans/input_sets/{{ input_set.label }}/diff" role="button" class="secondary">差分</a>
+                  <a href="/ui/plans/input_sets/{{ input_set.label }}/diff" role="button" class="secondary">Diff</a>
                 </td>
               </tr>
             {% endfor %}
@@ -89,7 +89,7 @@
         </table>
       </div>
     {% else %}
-      <p>表示するインプットセットがありません。</p>
+      <p>No input sets to display.</p>
     {% endif %}
   </div>
 {% endblock %}

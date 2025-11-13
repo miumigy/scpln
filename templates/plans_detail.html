@@ -1803,7 +1803,7 @@
       });
       try { localStorage.setItem('plan_detail_tab', tab); } catch(e){}
     }
-    document.addEventListener('DOMContentLoaded', function(){
+    function initTabNav(){
       var saved = null;
       try { saved = localStorage.getItem('plan_detail_tab'); } catch(e){}
       var init = saved || 'overview';
@@ -1811,7 +1811,12 @@
       document.querySelectorAll('nav [data-tab]').forEach(function(a){
         a.addEventListener('click', function(){ activate(a.getAttribute('data-tab')); });
       });
-    });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTabNav);
+    } else {
+      initTabNav();
+    }
   })();
 </script>
 <script>

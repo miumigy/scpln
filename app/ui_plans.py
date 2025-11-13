@@ -7,6 +7,7 @@ import tempfile
 import time
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Callable
 
 from fastapi import (
     APIRouter,
@@ -20,7 +21,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from app import db
 from app.run_registry_db import table_exists
@@ -31,18 +32,22 @@ from app.metrics import (
 )
 from app.template_filters import register_format_filters
 from app.utils import format_datetime, ms_to_jst_str
+from core.config.models import CanonicalConfig
 from core.config.storage import (
     get_planning_input_set,
-    list_canonical_version_summaries,
+    list_canonical_versions,
     list_planning_input_set_events,
     list_planning_input_sets,
     log_planning_input_set_event,
     PlanningInputSetNotFoundError,
+    save_canonical_config,
     update_planning_input_set,
 )
 from core.sorting import natural_sort_key
 from core.config.importer import import_planning_inputs
 from core.plan_repository import PlanRepository
+from app.config_api import _list_canonical_options
+from core.plan_repository_views import fetch_aggregate_rows, fetch_detail_rows
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -418,6 +423,8 @@ def _render_plans_page(
     form_defaults: dict | None = None,
 ):
     defaults = dict(form_defaults or {})
+    canonical_options = _list_canonical_options()
+    scenario_options: list[dict[str, str]] = []
     return templates.TemplateResponse(
         request,
         "plans.html",
@@ -428,6 +435,8 @@ def _render_plans_page(
             "has_data": has_data,
             "error": error,
             "form_defaults": defaults,
+            "canonical_options": canonical_options,
+            "scenario_options": scenario_options,
         },
     )
 
@@ -499,16 +508,41 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
         if not label or not canonical_sample_name:
             return RedirectResponse(url=error_url + "Invalid_meta_json", status_code=303)
 
-        # Find the corresponding canonical config version ID
+        # Locate and load the canonical config sample file
+        canonical_config_path = _BASE_DIR / "samples" / "canonical" / canonical_sample_name
+        if not canonical_config_path.is_file():
+            return RedirectResponse(
+                url=error_url + f"Canonical_sample_file_{canonical_sample_name}_not_found",
+                status_code=303,
+            )
+
+        try:
+            canonical_payload = json.loads(
+                canonical_config_path.read_text(encoding="utf-8")
+            )
+            canonical_config = CanonicalConfig.model_validate(canonical_payload)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            logging.exception("Failed to parse canonical sample JSON.", exc_info=exc)
+            return RedirectResponse(
+                url=error_url + f"Canonical_sample_parse_failed_{canonical_sample_name}",
+                status_code=303,
+            )
+
+        config_name = canonical_config.meta.name
+        if not config_name:
+            return RedirectResponse(
+                url=error_url + f"Canonical_sample_name_missing_{canonical_sample_name}",
+                status_code=303,
+            )
+
+        # Ensure the canonical config exists in the DB
         config_version_id = None
-        summaries = list_canonical_version_summaries(limit=1000)
-        for summary in summaries:
-            if summary.meta.path and summary.meta.path.endswith(canonical_sample_name):
-                config_version_id = summary.meta.version_id
+        for existing_meta in list_canonical_versions(limit=1000):
+            if existing_meta.name == config_name:
+                config_version_id = existing_meta.version_id
                 break
-        
         if not config_version_id:
-            return RedirectResponse(url=error_url + f"Canonical_config_for_{canonical_sample_name}_not_found", status_code=303)
+            config_version_id = save_canonical_config(canonical_config)
 
         # Import the sample data
         result = import_planning_inputs(
@@ -518,7 +552,7 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
             apply_mode="replace",
             validate_only=False,
             status="draft",
-            source="sample",
+            source="seed",
             created_by="ui_load_sample",
         )
         if result.get("status") == "error":
@@ -801,6 +835,50 @@ def ui_plan_detail(plan_version_id: str, request: Request):
     plan_state = _normalize_plan_state(
         db.get_plan_artifact(version_id, "state.json") or None
     )
+    repo = _get_plan_repository()
+
+    def _load_artifact_payload(
+        name: str,
+        fallback: Callable[[], list[dict[str, object]]] | None = None,
+    ) -> tuple[dict[str, object], list[dict[str, object]]]:
+        payload = db.get_plan_artifact(version_id, name) or {}
+        rows = payload.get("rows") or []
+        if not rows and fallback:
+            try:
+                rows = fallback()
+            except Exception:
+                rows = []
+        payload["rows"] = rows
+        return payload, rows
+
+    aggregate_payload, aggregate_rows = _load_artifact_payload(
+        "aggregate.json", lambda: fetch_aggregate_rows(repo, version_id)
+    )
+    disagg_payload, disagg_rows = _load_artifact_payload(
+        "sku_week.json", lambda: fetch_detail_rows(repo, version_id)
+    )
+    mrp_payload = db.get_plan_artifact(version_id, "mrp.json") or {}
+    schedule_rows_mrp = mrp_payload.get("rows") or []
+    plan_final_payload = db.get_plan_artifact(version_id, "plan_final.json") or {}
+    plan_final_rows = plan_final_payload.get("rows") or []
+    mrp_adj_payload = db.get_plan_artifact(version_id, "mrp_adjusted.json") or {}
+    schedule_rows_mrp_final = mrp_adj_payload.get("rows") or plan_final_rows
+    weekly_summary = plan_final_payload.get("weekly_summary") or []
+    boundary_summary = plan_final_payload.get("boundary_summary") or {}
+    recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
+    recon_adj = db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
+    deltas = recon.get("deltas") or []
+    deltas_adj = recon_adj.get("deltas") or []
+    planning_summary = dict(plan_final_payload.get("inputs_summary") or {})
+    planning_summary.setdefault("schema_version", plan_final_payload.get("schema_version"))
+    validate_context = {
+        "tol_violations_before": recon.get("summary", {}).get("tol_violations"),
+        "tol_violations_after": recon_adj.get("summary", {}).get("tol_violations"),
+        "mrp_total_rows": len(schedule_rows_mrp),
+        "mrp_final_rows": len(schedule_rows_mrp_final),
+        "neg_inventory_rows": None,
+        "fractional_receipts_rows": None,
+    }
 
     return templates.TemplateResponse(
         request,
@@ -816,6 +894,23 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             "canonical_meta": None,
             "canonical_counts": None,
             "related_plans": related_plans,
+            "aggregate": aggregate_payload,
+            "disagg_rows": disagg_rows,
+            "disagg_total": len(disagg_rows),
+            "schedule_rows_mrp": schedule_rows_mrp,
+            "schedule_rows_mrp_total": len(schedule_rows_mrp),
+            "schedule_rows_mrp_final": schedule_rows_mrp_final,
+            "schedule_rows_mrp_final_total": len(schedule_rows_mrp_final),
+            "validate": validate_context,
+            "recon": recon,
+            "recon_adj": recon_adj,
+            "deltas": deltas,
+            "deltas_adj": deltas_adj,
+            "weekly_summary": weekly_summary,
+            "boundary_summary": boundary_summary,
+            "planning_summary": planning_summary,
+            "latest_runs": plan_runs,
+            "latest_run_ids": plan_run_ids,
         },
     )
 

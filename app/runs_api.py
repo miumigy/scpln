@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 import logging
+import time
+from uuid import uuid4
 from fastapi import Body
 from fastapi.responses import JSONResponse
 
@@ -100,6 +102,9 @@ def post_runs(body: Dict[str, Any] = Body(...)):
             logging.exception("failed_to_inc_legacy_mode_metric")
 
     # 検証
+    if not options.get("version_id"):
+        options["version_id"] = f"v{int(time.time()*1000)}-{uuid4().hex[:8]}"
+
     if pipeline not in ("integrated",):
         return JSONResponse(status_code=400, content={"detail": "unsupported pipeline"})
     if options["weeks"] is None or options["weeks"] <= 0:

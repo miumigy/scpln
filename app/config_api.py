@@ -15,7 +15,15 @@ def _list_canonical_options(limit: int = 50):
         label = meta.name
         if meta.version_tag:
             label = f"{label} ({meta.version_tag})"
-        options.append({"version_id": version_id, "label": label})
+        calendar_count = summary.counts.get("calendars", 0)
+        options.append(
+            {
+                "id": version_id,
+                "version_id": version_id,
+                "label": label,
+                "num_calendars": calendar_count,
+            }
+        )
     return options
 
 

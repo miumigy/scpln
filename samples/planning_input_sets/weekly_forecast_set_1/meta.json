@@ -1,5 +1,5 @@
 {
   "label": "weekly_forecast_set_v1",
   "canonical_sample_name": "multi_node_sample_3Mths.json",
-  "description": "3ヶ月スパンのマルチノード構成に対応する、週次の需要予測サンプルセットです。"
+  "description": "Weekly demand forecasting sample set for a multi-node configuration over a 3-month span."
 }

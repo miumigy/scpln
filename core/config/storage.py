@@ -255,7 +255,7 @@ def _row_to_planning_input_set(
         config_version_id=row["config_version_id"],
         label=row["label"],
         status=row["status"],
-        source=row["source"],
+        source=_normalize_input_set_source(row["source"]),
         created_by=row["created_by"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -279,6 +279,14 @@ def _row_to_planning_input_set_event(row: sqlite3.Row) -> PlanningInputSetEvent:
         metadata=_json_loads(row["metadata_json"]),
         created_at=row["created_at"],
     )
+
+def _normalize_input_set_source(source: str | None) -> str:
+    """Normalize legacy sample source values."""
+    if not source:
+        return "csv"
+    if source == "sample":
+        return "seed"
+    return source
 
 
 def _load_planning_input_aggregates(

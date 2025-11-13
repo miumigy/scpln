@@ -2,7 +2,7 @@
 
 {% block page_header %}
   <h2>{{ subtitle }}</h2>
-  <p>新しい計画インプットセットをCSVファイルでアップロードします。</p>
+  <p>Upload a new planning input set via CSV files.</p>
 {% endblock %}
 
 {% block content %}
@@ -10,32 +10,32 @@
     <form action="/ui/plans/input_sets/upload" method="post" enctype="multipart/form-data">
       <div class="form-grid">
         <label for="label">
-          <span class="label-title">セットのラベル</span>
-          <input type="text" id="label" name="label" placeholder="例: weekly_forecast_set_v1" required>
-          <small>このインプットセットを一意に識別するラベル。</small>
+          <span class="label-title">Set label</span>
+          <input type="text" id="label" name="label" placeholder="e.g.: weekly_forecast_set_v1" required>
+          <small>Unique label to identify this input set.</small>
         </label>
 
         <label for="config_version_id">
           <span class="label-title">Canonical Config Version</span>
           <select id="config_version_id" name="config_version_id" required>
-            <option value="">-- 選択してください --</option>
+          <option value="">-- Please select --</option>
             {% for config in canonical_options %}
               <option value="{{ config.version_id }}">{{ config.label }} (ID: {{ config.version_id }})</option>
             {% endfor %}
           </select>
-          <small>このインプットセットが関連付けられるCanonical Configのバージョン。</small>
+          <small>Canonical Config version associated with this input set.</small>
         </label>
 
         <label for="files" class="span-full">
-          <span class="label-title">CSVファイル</span>
+          <span class="label-title">CSV files</span>
           <input type="file" id="files" name="files" accept=".csv" multiple required>
-          <small>アップロードするCSVファイルを選択してください。複数選択可能です。</small>
+          <small>Select CSV files to upload (multiple selection allowed).</small>
         </label>
       </div>
 
       <div class="stack gap-sm gap-top-md">
-        <button type="submit" class="btn-primary">アップロード</button>
-        <a href="/ui/plans/input_sets" role="button" class="secondary">キャンセル</a>
+        <button type="submit" class="btn-primary">Upload</button>
+        <a href="/ui/plans/input_sets" role="button" class="secondary">Cancel</a>
       </div>
     </form>
   </div>

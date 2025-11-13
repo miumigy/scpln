@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
@@ -126,3 +127,11 @@ def format_metric(value: Any, key: str | None = None) -> str:
     if key and _looks_percent_key(key):
         return format_percent(value)
     return format_number(value)
+
+
+def to_json(value: Any, *, indent: int = 2) -> str:
+    """Dump a value as pretty JSON for templates."""
+    try:
+        return json.dumps(value, ensure_ascii=False, indent=indent, default=str)
+    except Exception:
+        return json.dumps(str(value), ensure_ascii=False)
