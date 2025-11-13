@@ -241,7 +241,9 @@ def _load_cached_diff(cache_path: Path) -> tuple[dict | None, int | None]:
         INPUT_SET_DIFF_CACHE_HITS_TOTAL.inc()
         return payload, timestamp
     except Exception:
-        logging.exception("input_set_diff_cache_invalid", extra={"path": str(cache_path)})
+        logging.exception(
+            "input_set_diff_cache_invalid", extra={"path": str(cache_path)}
+        )
         INPUT_SET_DIFF_CACHE_STALE_TOTAL.inc()
         return None, None
 
@@ -251,7 +253,9 @@ def _prepare_delta_rows(rows: list[dict], *, limit: int | None = None) -> list[d
         return []
 
     def _sort_key(row: dict) -> tuple:
-        primary = row.get("period") or row.get("week") or row.get("time_bucket_key") or ""
+        primary = (
+            row.get("period") or row.get("week") or row.get("time_bucket_key") or ""
+        )
         secondary = row.get("family") or row.get("sku") or row.get("item_key") or ""
         return (natural_sort_key(primary), natural_sort_key(secondary))
 
@@ -366,8 +370,8 @@ async def ui_plans_execute_auto(plan_version_id: str, request: Request):
 
     form = await request.form()
     options = _extract_plan_options(form)
-    config_version_id = (
-        options.get("config_version_id") or version.get("config_version_id")
+    config_version_id = options.get("config_version_id") or version.get(
+        "config_version_id"
     )
     if not config_version_id:
         raise HTTPException(
@@ -375,11 +379,11 @@ async def ui_plans_execute_auto(plan_version_id: str, request: Request):
             detail="config_version_id is not available for this plan",
         )
     options["config_version_id"] = config_version_id
-    options["base_scenario_id"] = (
-        options.get("base_scenario_id") or version.get("base_scenario_id")
+    options["base_scenario_id"] = options.get("base_scenario_id") or version.get(
+        "base_scenario_id"
     )
-    options["input_set_label"] = (
-        options.get("input_set_label") or version.get("input_set_label")
+    options["input_set_label"] = options.get("input_set_label") or version.get(
+        "input_set_label"
     )
     if not options.get("version_id"):
         options["version_id"] = f"{version_id}-auto-{int(time.time())}"
@@ -485,7 +489,9 @@ def _list_sample_input_sets() -> list[dict[str, str]]:
                 }
             )
         except Exception:
-            logging.warning(f"Failed to parse meta.json for sample: {d.name}", exc_info=True)
+            logging.warning(
+                f"Failed to parse meta.json for sample: {d.name}", exc_info=True
+            )
     return sorted(samples, key=lambda x: x["name"])
 
 
@@ -495,18 +501,24 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
     error_url = "/ui/plans/input_sets?error="
     sample_dir = _BASE_DIR / "samples" / "planning_input_sets" / sample_name
     if not sample_dir.is_dir():
-        raise HTTPException(status_code=404, detail=f"Sample '{sample_name}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Sample '{sample_name}' not found."
+        )
 
     meta_path = sample_dir / "meta.json"
     if not meta_path.is_file():
-        raise HTTPException(status_code=404, detail=f"meta.json for sample '{sample_name}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"meta.json for sample '{sample_name}' not found."
+        )
 
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         label = meta.get("label")
         canonical_sample_name = meta.get("canonical_sample_name")
         if not label or not canonical_sample_name:
-            return RedirectResponse(url=error_url + "Invalid_meta_json", status_code=303)
+            return RedirectResponse(
+                url=error_url + "Invalid_meta_json", status_code=303
+            )
 
         # Locate and load the canonical config sample file
         canonical_config_path = _BASE_DIR / "samples" / "canonical" / canonical_sample_name
@@ -556,7 +568,9 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
             created_by="ui_load_sample",
         )
         if result.get("status") == "error":
-            return RedirectResponse(url=error_url + result.get("message", "Import_failed"), status_code=303)
+            return RedirectResponse(
+                url=error_url + result.get("message", "Import_failed"), status_code=303
+            )
 
         return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
 
@@ -572,7 +586,9 @@ def ui_list_input_sets(request: Request):
     status_filter = None if status_query == "all" else status_query
     input_sets = list_planning_input_sets(status=status_filter)
     for item in input_sets:
-        setattr(item, "created_at_str", format_datetime(getattr(item, "created_at", None)))
+        setattr(
+            item, "created_at_str", format_datetime(getattr(item, "created_at", None))
+        )
     sample_input_sets = _list_sample_input_sets()
     status_options = [
         ("all", "All"),
@@ -592,6 +608,7 @@ def ui_list_input_sets(request: Request):
         },
     )
 
+
 @router.get("/ui/plans/input_sets/upload", response_class=HTMLResponse)
 def ui_get_input_set_upload_form(request: Request):
     from app.config_api import _list_canonical_options
@@ -606,6 +623,7 @@ def ui_get_input_set_upload_form(request: Request):
         },
     )
 
+
 @router.post("/ui/plans/input_sets/upload", response_class=HTMLResponse)
 async def ui_post_input_set_upload(
     request: Request,
@@ -616,10 +634,14 @@ async def ui_post_input_set_upload(
     if not label or not label.strip():
         raise HTTPException(status_code=400, detail="Input Set Label is required.")
     if not config_version_id:
-        raise HTTPException(status_code=400, detail="Canonical Config Version is required.")
+        raise HTTPException(
+            status_code=400, detail="Canonical Config Version is required."
+        )
 
     if not files or all((not f.filename) for f in files):
-        raise HTTPException(status_code=400, detail="At least one CSV file is required.")
+        raise HTTPException(
+            status_code=400, detail="At least one CSV file is required."
+        )
 
     temp_dir = None
     try:
@@ -630,8 +652,10 @@ async def ui_post_input_set_upload(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             uploaded_file_paths.append(file_path)
-        
-        logging.info(f"Uploaded files for input set '{label}' (config_version_id: {config_version_id}) to: {temp_dir}")
+
+        logging.info(
+            f"Uploaded files for input set '{label}' (config_version_id: {config_version_id}) to: {temp_dir}"
+        )
         for p in uploaded_file_paths:
             logging.info(f" - {p}")
 
@@ -651,23 +675,32 @@ async def ui_post_input_set_upload(
             if result["status"] == "error":
                 raise HTTPException(status_code=400, detail=result["message"])
 
-            return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
+            return RedirectResponse(
+                url=f"/ui/plans/input_sets/{label}", status_code=303
+            )
         except HTTPException:
-            raise # re-raise HTTPException
+            raise  # re-raise HTTPException
         except Exception as e:
             logging.exception("Failed to import planning inputs.")
-            raise HTTPException(status_code=500, detail=f"Failed to import planning inputs: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to import planning inputs: {e}"
+            )
     finally:
         if temp_dir:
             shutil.rmtree(temp_dir)
+
 
 @router.get("/ui/plans/input_sets/{label}", response_class=HTMLResponse)
 def ui_get_input_set_detail(label: str, request: Request):
     try:
         input_set = get_planning_input_set(label=label, include_aggregates=True)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
-    events = list_planning_input_set_events(input_set.id, limit=100) if input_set.id else []
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
+    events = (
+        list_planning_input_set_events(input_set.id, limit=100) if input_set.id else []
+    )
 
     return templates.TemplateResponse(
         request,
@@ -691,10 +724,14 @@ async def ui_review_input_set(
     try:
         input_set = get_planning_input_set(label=label, include_aggregates=False)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     if input_set.status == "archived":
-        raise HTTPException(status_code=400, detail="Archived input sets cannot be reviewed.")
+        raise HTTPException(
+            status_code=400, detail="Archived input sets cannot be reviewed."
+        )
 
     reviewer_value = reviewer.strip() or "ui_reviewer"
     comment_value = review_comment.strip() or None
@@ -733,7 +770,9 @@ async def ui_review_input_set(
         else:
             raise HTTPException(status_code=400, detail="Unsupported review action.")
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     return RedirectResponse(url=f"/ui/plans/input_sets/{label}", status_code=303)
 
@@ -742,14 +781,19 @@ async def ui_review_input_set(
 def ui_plan_input_set_diff(
     label: str,
     request: Request,
-    against: str | None = Query(None, description="Label of the input set to compare against. Defaults to latest ready set."),
+    against: str | None = Query(
+        None,
+        description="Label of the input set to compare against. Defaults to latest ready set.",
+    ),
 ):
     background_tasks = BackgroundTasks()
 
     try:
         current_set = get_planning_input_set(label=label, include_aggregates=True)
     except PlanningInputSetNotFoundError:
-        raise HTTPException(status_code=404, detail=f"Input set with label '{label}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Input set with label '{label}' not found."
+        )
 
     other_label = against
     other_set = None
@@ -766,7 +810,9 @@ def ui_plan_input_set_diff(
 
     if other_label:
         try:
-            other_set = get_planning_input_set(label=other_label, include_aggregates=True)
+            other_set = get_planning_input_set(
+                label=other_label, include_aggregates=True
+            )
         except PlanningInputSetNotFoundError:
             other_set = None
 
@@ -794,9 +840,13 @@ def ui_plan_input_set_diff(
                 rows_added = section.get("added")
                 rows_removed = section.get("removed")
                 if rows_added is not None:
-                    section["added"] = _prepare_delta_rows(rows_added, limit=_DIFF_TABLE_LIMIT)
+                    section["added"] = _prepare_delta_rows(
+                        rows_added, limit=_DIFF_TABLE_LIMIT
+                    )
                 if rows_removed is not None:
-                    section["removed"] = _prepare_delta_rows(rows_removed, limit=_DIFF_TABLE_LIMIT)
+                    section["removed"] = _prepare_delta_rows(
+                        rows_removed, limit=_DIFF_TABLE_LIMIT
+                    )
 
     return templates.TemplateResponse(
         request,
@@ -962,7 +1012,9 @@ def ui_plan_state_advance(plan_version_id: str, to: str = Form(...)):
     return RedirectResponse(url=f"/ui/plans/{version_id}", status_code=303)
 
 
-@router.post("/ui/plans/{plan_version_id}/state/invalidate", response_class=HTMLResponse)
+@router.post(
+    "/ui/plans/{plan_version_id}/state/invalidate", response_class=HTMLResponse
+)
 def ui_plan_state_invalidate(plan_version_id: str, from_step: str = Form(...)):
     version_id = str(plan_version_id)
     version = db.get_plan_version(version_id)
