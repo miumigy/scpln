@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from fastapi.templating import Jinja2Templates
 
-from app.utils import format_datetime, format_metric, format_number, format_percent, to_json
+from app.utils import (
+    format_datetime,
+    format_metric,
+    format_number,
+    format_percent,
+    to_json,
+)
 
 
 def register_format_filters(templates: Jinja2Templates) -> None:

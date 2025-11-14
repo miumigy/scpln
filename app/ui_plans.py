@@ -521,10 +521,13 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
             )
 
         # Locate and load the canonical config sample file
-        canonical_config_path = _BASE_DIR / "samples" / "canonical" / canonical_sample_name
+        canonical_config_path = (
+            _BASE_DIR / "samples" / "canonical" / canonical_sample_name
+        )
         if not canonical_config_path.is_file():
             return RedirectResponse(
-                url=error_url + f"Canonical_sample_file_{canonical_sample_name}_not_found",
+                url=error_url
+                + f"Canonical_sample_file_{canonical_sample_name}_not_found",
                 status_code=303,
             )
 
@@ -536,14 +539,16 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
         except (json.JSONDecodeError, ValidationError) as exc:
             logging.exception("Failed to parse canonical sample JSON.", exc_info=exc)
             return RedirectResponse(
-                url=error_url + f"Canonical_sample_parse_failed_{canonical_sample_name}",
+                url=error_url
+                + f"Canonical_sample_parse_failed_{canonical_sample_name}",
                 status_code=303,
             )
 
         config_name = canonical_config.meta.name
         if not config_name:
             return RedirectResponse(
-                url=error_url + f"Canonical_sample_name_missing_{canonical_sample_name}",
+                url=error_url
+                + f"Canonical_sample_name_missing_{canonical_sample_name}",
                 status_code=303,
             )
 
@@ -916,11 +921,15 @@ def ui_plan_detail(plan_version_id: str, request: Request):
     weekly_summary = plan_final_payload.get("weekly_summary") or []
     boundary_summary = plan_final_payload.get("boundary_summary") or {}
     recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
-    recon_adj = db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
+    recon_adj = (
+        db.get_plan_artifact(version_id, "reconciliation_log_adjusted.json") or {}
+    )
     deltas = recon.get("deltas") or []
     deltas_adj = recon_adj.get("deltas") or []
     planning_summary = dict(plan_final_payload.get("inputs_summary") or {})
-    planning_summary.setdefault("schema_version", plan_final_payload.get("schema_version"))
+    planning_summary.setdefault(
+        "schema_version", plan_final_payload.get("schema_version")
+    )
     validate_context = {
         "tol_violations_before": recon.get("summary", {}).get("tol_violations"),
         "tol_violations_after": recon_adj.get("summary", {}).get("tol_violations"),
