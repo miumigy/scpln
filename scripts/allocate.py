@@ -250,6 +250,7 @@ def main() -> None:
                             "week": entry.week_code,
                             "demand": demand_parts[i],
                             "supply": supply_parts[i],
+                            "supply_plan": supply_parts[i],
                             "backlog": backlog_parts[i],
                         }
                     )
@@ -281,6 +282,7 @@ def main() -> None:
                         "week": entry.week_code,
                         "demand": d_parts[i],
                         "supply": s_parts[i],
+                        "supply_plan": s_parts[i],
                         "backlog": b_parts[i],
                     }
                 )

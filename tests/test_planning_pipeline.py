@@ -99,10 +99,16 @@ def test_allocate_mass_balance(tmp_path: Path):
     agg_dem = defaultdict(float)
     agg_sup = defaultdict(float)
     agg_bac = defaultdict(float)
+    agg_sup_plan = defaultdict(float)
     for r in rows:
+        assert "supply_plan" in r, "det rows must include supply_plan"
+        assert float(r["supply"]) == pytest.approx(
+            float(r["supply_plan"])
+        ), "supply_plan should mirror supply at disagg stage"
         key = (r["family"], r["period"])
         agg_dem[key] += float(r["demand"])  # 週・SKU合計
         agg_sup[key] += float(r["supply"])  # 週・SKU合計
+        agg_sup_plan[key] += float(r["supply_plan"])
         agg_bac[key] += float(r["backlog"])  # 週・SKU合計
 
     # 参照: aggregate
@@ -112,6 +118,7 @@ def test_allocate_mass_balance(tmp_path: Path):
         a = arows[key]
         assert abs(v - float(a["demand"])) < 1e-6
         assert abs(agg_sup[key] - float(a["supply"])) < 1e-6
+        assert abs(agg_sup_plan[key] - float(a["supply"])) < 1e-6
         assert abs(agg_bac[key] - float(a["backlog"])) < 1e-6
 
 
@@ -149,7 +156,7 @@ def test_allocate_round_int_outputs_integer(tmp_path: Path):
     rows = sdata.get("rows", [])
     assert rows, "allocate rows should not be empty"
     for r in rows:
-        for key in ("demand", "supply", "backlog"):
+        for key in ("demand", "supply", "supply_plan", "backlog"):
             val = float(r[key])
             assert (
                 abs(val - round(val)) < 1e-9
