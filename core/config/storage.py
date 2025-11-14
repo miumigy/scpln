@@ -280,6 +280,7 @@ def _row_to_planning_input_set_event(row: sqlite3.Row) -> PlanningInputSetEvent:
         created_at=row["created_at"],
     )
 
+
 def _normalize_input_set_source(source: str | None) -> str:
     """Normalize legacy sample source values."""
     if not source:
