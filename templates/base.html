@@ -368,21 +368,26 @@
     }
     .tab-content-header {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 0.4rem;
-    }
-    .tab-collapse-btn {
-      border: 0;
-      border-radius: 999px;
-      padding: 0.35rem 0.85rem;
-      background: #0f172a;
-      color: #ffffff;
-      font-weight: 600;
+      padding: 0.45rem 0.75rem;
+      border-radius: 10px;
+      background: #eef2f8;
       cursor: pointer;
-      transition: background 0.2s ease;
+      font-weight: 600;
+      border: 1px solid #d5dff2;
     }
-    .tab-collapse-btn:hover {
-      background: #1f2f53;
+    .tab-content-header:hover {
+      background: #e2e3ef;
+    }
+    .tab-content-title {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    .tab-content-indicator {
+      font-size: 0.85rem;
+      color: #475569;
     }
     .tab-collapsed-notice {
       display: none;
