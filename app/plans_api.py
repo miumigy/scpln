@@ -2235,13 +2235,13 @@ def get_plans(
             summary = plan.setdefault("summary", {})
             summary.setdefault("_input_set_label", artifact_label)
 
-        response = {
-            "plans": enriched_plans,
-            "pagination": pagination,
-            "includes": sorted(include_tokens - {"legacy"}),
-            "order": order_value,
-        }
-        return response
+    response = {
+        "plans": enriched_plans,
+        "pagination": pagination,
+        "includes": sorted(include_tokens - {"legacy"}),
+        "order": order_value,
+    }
+    return response
     except Exception as e:
         logging.exception(f"plans_api_get_plans_failed: {e}")
         return {
