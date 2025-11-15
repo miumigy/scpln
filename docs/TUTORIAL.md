@@ -30,6 +30,26 @@ Load predefined sample configurations into the database before starting.
    - Confirm the seeded configuration (e.g., `canonical-seed`) appears in the list.
    - Use this view to inspect configuration details or compare versions.
 
+### 0a. Register canonical configurations through the UI
+
+If you need to ingest or refresh a canonical version without the CLI:
+
+1. From `/ui/configs`, choose “Import canonical configuration”.
+2. Upload your canonical JSON (select one from `samples/canonical/*.json` or paste the raw JSON) and optionally pick a parent version to prefill metadata.
+3. Submit; the UI runs validation and, when successful, creates a new version that appears at the top of the list.
+4. Use the displayed `version_id` when linking input sets or creating plans.
+
+### 0b. Register planning input sets through the UI
+
+1. Navigate to `/ui/plans/input_sets/upload`.
+2. Set a unique label (for example `weekly_forecast_set_v1`) and choose the canonical `version_id` that this InputSet should bind to.
+3. Upload the required CSV files (`demand_family.csv`, `capacity.csv`, `mix_share.csv`, `inventory.csv`, `open_po.csv`) plus any optional tables or a calendar file.
+4. Submit the form; the newly created InputSet lands in `draft` status and redirects you to its detail page.
+5. Review the aggregates, diff, and history tabs before clicking “Review → Approve” to move the set to `ready`, ensuring plans see the approved data.
+6. Once approved, reference that label (`weekly_forecast_set_v1`) in plan creation forms instead of legacy `samples/planning`.
+
+The UI records the same events as the CLI path, so you can mix and match depending on your workflow. Continue with the optional CLI section below if automation is later preferred.
+
 ### Optional: manage planning inputs via CLI
 You can register or export planning inputs without going through the UI:
 

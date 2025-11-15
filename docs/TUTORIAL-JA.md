@@ -31,6 +31,26 @@
     - 先ほどロードした設定（例: `canonical-seed`）が一覧に表示されていることを確認します。
     - この画面から、設定の詳細を閲覧したり、バージョン間の差分を比較したりできます。
 
+### 0a. UI経由でCanonical設定を登録する
+
+CLIではなくUIでCanonical設定を差し替えたい場合、以下の手順で登録できます。
+
+1. `/ui/configs` から「Import canonical configuration」をクリックします。
+2. `samples/canonical/*.json` にあるJSONファイルをアップロードするか、JSONテキストを貼り付けます。既存バージョンを親に指定するとメタデータが自動で入力されます。
+3. フォームを送信するとバリデーションが実行され、問題なければ新しいバージョンが一覧に追加されます。
+4. 登録後の `version_id` を控え、後続でInputSetやPlanの作成時に参照します。
+
+### 0b. UI経由でPlanning Input Setを登録する
+
+1. `/ui/plans/input_sets/upload` にアクセスします。
+2. 一意のラベル（例: `weekly_forecast_set_v1`）と、Input Setが紐づくCanonical `version_id` を選択します。
+3. 必須のCSV（`demand_family.csv`、`capacity.csv`、`mix_share.csv`、`inventory.csv`、`open_po.csv`）と、任意のファイル（`item.csv`、`period_cost.csv`、`period_score.csv`、`planning_calendar.json` など）をアップロードします。
+4. 送信するとInput Setは `draft` 状態で生成され、詳細画面に遷移します。
+5. Aggregates/History/Diff タブで内容を確認し、「Review」から承認操作（Approve）を行って `ready` 状態に切り替えます。ステータスを `ready` にしないとPlan作成時に選択できません。
+6. 承認済みのInput Setラベルを `weekly_forecast_set_v1` 等としてPlan作成フォームから選ぶと、管理されたデータが利用されます。
+
+UIからの登録でもCLIと同様にアクションが記録されるため、双方を併用して運用できます。以降のCLI手順は自動化やバッチ実行が必要な場合にご活用ください。
+
 ### 補足: CLIでPlanning入力を管理
 UIとは別に、`planning_input_sets` テーブルを更新・エクスポートするCLIも用意しています。
 
