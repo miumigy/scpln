@@ -134,6 +134,9 @@ def import_planning_inputs(
     """
     payload = load_payload(directory)
     aggregates = payload_to_aggregates(payload)
+    metadata: Dict[str, Any] = {}
+    if payload.get("item"):
+        metadata["item"] = payload.get("item") or []
 
     calendar_spec = None
     if payload.get("planning_calendar"):
@@ -158,10 +161,13 @@ def import_planning_inputs(
 
     try:
         if existing:
+            merged_meta = dict(existing.metadata or {})
+            merged_meta.update(metadata)
             update_kwargs: Dict[str, Any] = {
                 "label": label,
                 "status": status,
                 "calendar_spec": calendar_spec,
+                "metadata": merged_meta,
                 "aggregates": aggregates,
                 "replace_mode": (apply_mode == "replace"),
             }
@@ -198,6 +204,7 @@ def import_planning_inputs(
                 approved_by=approved_by if status == "ready" else None,
                 approved_at=approval_timestamp if status == "ready" else None,
                 review_comment=review_comment,
+                metadata=metadata or None,
                 aggregates=aggregates,
                 calendar_spec=calendar_spec,
             )

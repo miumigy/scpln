@@ -119,6 +119,8 @@ def _load_planning_bundle_from_input_set(
         return None
 
     aggregates = input_set.aggregates
+    meta = input_set.metadata or {}
+    item_master_rows = meta.get("item") or attributes.get("item")
     aggregate = AggregatePlanInput(
         demand_family=[
             FamilyDemandRecord(
@@ -138,7 +140,7 @@ def _load_planning_bundle_from_input_set(
             MixShareRecord(family=row.family_code, sku=row.sku_code, share=row.share)
             for row in aggregates.mix_shares
         ],
-        item_master=_convert_item_master(attributes.get("item")),
+        item_master=_convert_item_master(item_master_rows),
         inventory=[
             InventoryRecord(item=row.item_code, loc=row.node_code, qty=row.initial_qty)
             for row in aggregates.inventory_snapshots
