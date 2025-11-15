@@ -551,6 +551,34 @@ class PlanRepository:
         finally:
             conn.close()
 
+    def replace_plan_kpis(
+        self, version_id: str, rows: Iterable[PlanKpiRow] | None
+    ) -> None:
+        """対象versionのKPIを差し替える。"""
+        now = _now_ms()
+        kpi_rows = [
+            self._normalize_kpi_row(version_id, row, now) for row in (rows or [])
+        ]
+        conn = self._conn_factory()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM plan_kpis WHERE version_id=?", (version_id,))
+            if kpi_rows:
+                conn.executemany(
+                    self._build_insert_sql("plan_kpis", _PLAN_KPI_COLUMNS), kpi_rows
+                )
+            conn.commit()
+        except sqlite3.Error as exc:
+            conn.rollback()
+            raise PlanRepositoryError(
+                f"plan KPI更新に失敗しました: {exc}"
+            ) from exc
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     # --- internal ---------------------------------------------------
     def _delete_plan(self, conn: sqlite3.Connection, version_id: str) -> None:
         conn.execute("DELETE FROM plan_series WHERE version_id=?", (version_id,))

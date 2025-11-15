@@ -32,6 +32,7 @@ from core.plan_repository_builders import (
     build_plan_series_from_weekly_summary,
     build_plan_series_from_mrp,
 )
+from app.plan_artifact_utils import apply_plan_final_receipts
 
 
 _STORAGE_CHOICES = {"db", "files", "both"}
@@ -59,6 +60,58 @@ def _update_detail_inventory_from_plan_final(
         return
     attach_inventory_to_detail_series(det_rows, plan_final_data)
     _PLAN_REPOSITORY.replace_plan_series_level(version_id, "det", det_rows)
+
+
+def _rewrite_aggregate_and_detail_from_plan_final(
+    version_id: str,
+    *,
+    plan_final_data: Dict[str, Any],
+    storage_mode: str,
+    default_location_key: str,
+    default_location_type: str,
+    artifact_dir: Path,
+) -> None:
+    if not plan_final_data:
+        return
+    detail_path = artifact_dir / "sku_week.json"
+    agg_path = artifact_dir / "aggregate.json"
+    detail_obj = None
+    aggregate_obj = None
+    try:
+        if detail_path.exists():
+            detail_obj = json.loads(detail_path.read_text(encoding="utf-8"))
+        if agg_path.exists():
+            aggregate_obj = json.loads(agg_path.read_text(encoding="utf-8"))
+    except Exception:
+        detail_obj = None
+        aggregate_obj = None
+    if not detail_obj and not aggregate_obj:
+        return
+    detail_obj, aggregate_obj = apply_plan_final_receipts(
+        detail_obj,
+        aggregate_obj,
+        plan_final_data,
+    )
+    if detail_obj:
+        det_series = build_plan_series_from_detail(
+            version_id,
+            detail_obj,
+            default_location_key=default_location_key,
+            default_location_type=default_location_type,
+        )
+        _PLAN_REPOSITORY.replace_plan_series_level(version_id, "det", det_series)
+    if aggregate_obj:
+        agg_series = build_plan_series_from_aggregate(
+            version_id,
+            aggregate_obj,
+            default_location_key=default_location_key,
+            default_location_type=default_location_type,
+        )
+        _PLAN_REPOSITORY.replace_plan_series_level(
+            version_id, "aggregate", agg_series
+        )
+        kpi_rows = build_plan_kpis_from_aggregate(version_id, aggregate_obj)
+        _PLAN_REPOSITORY.replace_plan_kpis(version_id, kpi_rows)
 
 
 def resolve_storage_mode(value: Optional[str] = None) -> str:
@@ -285,6 +338,14 @@ def write_plan_final_result(
             storage_mode=storage_mode,
         )
         _update_detail_inventory_from_plan_final(version_id, plan_final_data)
+        _rewrite_aggregate_and_detail_from_plan_final(
+            version_id,
+            plan_final_data=plan_final_data,
+            storage_mode=storage_mode,
+            default_location_key=default_location_key,
+            default_location_type=default_location_type,
+            artifact_dir=output_path.parent,
+        )
     except PlanRepositoryError:
         raise
     return bool(detail_series or weekly_series)
