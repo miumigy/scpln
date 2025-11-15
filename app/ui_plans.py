@@ -960,6 +960,59 @@ def ui_plan_detail(plan_version_id: str, request: Request):
         payload["rows"] = rows
         return payload, rows
 
+    def _prepare_schedule_rows(
+        rows_obj: object, *, final: bool = False, limit: int = 200
+    ) -> tuple[list[dict[str, object]], int]:
+        """mrp系成果物の行をUI表示用に正規化。"""
+        if not rows_obj:
+            return [], 0
+        if isinstance(rows_obj, list):
+            rows_src = rows_obj
+        else:
+            try:
+                rows_src = list(rows_obj)
+            except TypeError:
+                return [], 0
+        total = len(rows_src)
+        prepared: list[dict[str, object]] = []
+
+        def _alias(entry: dict[str, object], target: str, candidates: tuple[str, ...]):
+            if entry.get(target) is not None:
+                return
+            for key in candidates:
+                if key not in entry:
+                    continue
+                val = entry.get(key)
+                if val is not None:
+                    entry[target] = val
+                    return
+
+        for row in rows_src[:limit]:
+            if not isinstance(row, dict):
+                continue
+            entry = dict(row)
+            if entry.get("sku") is None and entry.get("item") is not None:
+                entry["sku"] = entry.get("item")
+            _alias(entry, "planned_receipt", ("planned_order_receipt", "supply"))
+            _alias(entry, "planned_release", ("planned_order_release",))
+            if final:
+                _alias(
+                    entry,
+                    "planned_receipt_adj",
+                    ("planned_order_receipt_adj", "planned_order_receipt", "planned_receipt"),
+                )
+                _alias(
+                    entry,
+                    "planned_release_adj",
+                    (
+                        "planned_order_release_adj",
+                        "planned_order_release",
+                        "planned_release",
+                    ),
+                )
+            prepared.append(entry)
+        return prepared, total
+
     aggregate_payload, aggregate_rows = _load_artifact_payload(
         "aggregate.json",
         lambda: fetch_aggregate_rows(repo, version_id),
@@ -971,14 +1024,19 @@ def ui_plan_detail(plan_version_id: str, request: Request):
         prefer_fallback=True,
     )
     mrp_payload = db.get_plan_artifact(version_id, "mrp.json") or {}
-    schedule_rows_mrp = mrp_payload.get("rows") or []
+    schedule_rows_mrp, schedule_rows_mrp_total = _prepare_schedule_rows(
+        mrp_payload.get("rows") or []
+    )
     plan_final_payload = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_final_rows = plan_final_payload.get("rows") or []
     planning_inputs_payload = (
         db.get_plan_artifact(version_id, "planning_inputs.json") or {}
     )
     mrp_adj_payload = db.get_plan_artifact(version_id, "mrp_adjusted.json") or {}
-    schedule_rows_mrp_final = mrp_adj_payload.get("rows") or plan_final_rows
+    schedule_rows_mrp_final, schedule_rows_mrp_final_total = _prepare_schedule_rows(
+        mrp_adj_payload.get("rows") or plan_final_rows,
+        final=True,
+    )
     weekly_summary = plan_final_payload.get("weekly_summary") or []
     boundary_summary = plan_final_payload.get("boundary_summary") or {}
     recon = db.get_plan_artifact(version_id, "reconciliation_log.json") or {}
@@ -1120,8 +1178,8 @@ def ui_plan_detail(plan_version_id: str, request: Request):
     validate_context = {
         "tol_violations_before": recon.get("summary", {}).get("tol_violations"),
         "tol_violations_after": recon_adj.get("summary", {}).get("tol_violations"),
-        "mrp_total_rows": len(schedule_rows_mrp),
-        "mrp_final_rows": len(schedule_rows_mrp_final),
+        "mrp_total_rows": schedule_rows_mrp_total,
+        "mrp_final_rows": schedule_rows_mrp_final_total,
         "neg_inventory_rows": None,
         "fractional_receipts_rows": None,
     }
@@ -1144,9 +1202,9 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             "disagg_rows": disagg_rows,
             "disagg_total": len(disagg_rows),
             "schedule_rows_mrp": schedule_rows_mrp,
-            "schedule_rows_mrp_total": len(schedule_rows_mrp),
+            "schedule_rows_mrp_total": schedule_rows_mrp_total,
             "schedule_rows_mrp_final": schedule_rows_mrp_final,
-            "schedule_rows_mrp_final_total": len(schedule_rows_mrp_final),
+            "schedule_rows_mrp_final_total": schedule_rows_mrp_final_total,
             "validate": validate_context,
             "recon": recon,
             "recon_adj": recon_adj,

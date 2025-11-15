@@ -207,6 +207,96 @@ def test_disagg_tab_prefers_plan_repository_rows(db_setup, monkeypatch):
     assert disagg_rows[0]["supply_plan"] == 20
 
 
+def test_schedule_tab_exposes_planned_fields(db_setup, monkeypatch):
+    from app.ui_plans import ui_plan_detail
+
+    monkeypatch.setenv("REGISTRY_BACKEND", "db")
+    monkeypatch.setenv("AUTH_MODE", "none")
+    version_id = f"ui-schedule-{int(time.time())}"
+    db.create_plan_version(version_id, status="active", config_version_id=100)
+
+    aggregate = {
+        "rows": [
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "demand": 25,
+                "supply": 5,
+                "backlog": 0,
+            }
+        ]
+    }
+    detail = {
+        "rows": [
+            {
+                "family": "F1",
+                "period": "2025-01",
+                "sku": "SKU1",
+                "week": "2025-01-W1",
+                "demand": 25,
+                "supply": 5,
+                "backlog": 0,
+            }
+        ]
+    }
+    plan_final = {
+        "rows": [
+            {
+                "item": "SKU1",
+                "week": "2025-01-W1",
+                "gross_req": 25,
+                "scheduled_receipts": 0,
+                "on_hand_start": 12.5,
+                "net_req": 5,
+                "planned_order_receipt": 20,
+                "planned_order_release": 18,
+                "planned_order_receipt_adj": 20,
+                "planned_order_release_adj": 18,
+                "on_hand_end": 7.5,
+                "lt_weeks": 2,
+                "lot": 1,
+                "moq": 0,
+            }
+        ]
+    }
+
+    repo = PlanRepository(db._conn)
+    series_rows = build_plan_series(version_id, aggregate=aggregate, detail=detail)
+    attach_inventory_to_detail_series(series_rows, plan_final)
+    series_rows.extend(build_plan_series_from_plan_final(version_id, plan_final))
+    repo.write_plan(version_id, series=series_rows, kpis=[])
+
+    db.upsert_plan_artifact(
+        version_id,
+        "aggregate.json",
+        json.dumps(aggregate, ensure_ascii=False),
+    )
+    db.upsert_plan_artifact(
+        version_id,
+        "sku_week.json",
+        json.dumps({"rows": detail["rows"]}, ensure_ascii=False),
+    )
+    db.upsert_plan_artifact(
+        version_id,
+        "plan_final.json",
+        json.dumps(plan_final, ensure_ascii=False),
+    )
+    db.upsert_plan_artifact(
+        version_id,
+        "mrp.json",
+        json.dumps({"rows": plan_final["rows"]}, ensure_ascii=False),
+    )
+
+    request = Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+    response = ui_plan_detail(version_id, request)
+    schedule_rows = response.context["schedule_rows_mrp"]
+    assert schedule_rows and schedule_rows[0]["planned_receipt"] == 20
+    assert schedule_rows[0]["planned_release"] == 18
+    final_rows = response.context["schedule_rows_mrp_final"]
+    assert final_rows and final_rows[0]["planned_receipt_adj"] == 20
+    assert final_rows[0]["planned_release_adj"] == 18
+
+
 def test_plan_detail_shows_planning_input_set_info(seed_canonical_data, monkeypatch):
     from app.ui_plans import ui_plan_detail
 
