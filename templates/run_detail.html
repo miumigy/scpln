@@ -558,8 +558,8 @@
       setActionButtonsDisabled(null);
     } catch (e) {
       console.warn('meta load failed', e);
-      setActionButtonsDisabled('Runメタ情報を取得できませんでした。マイグレーション適用後に再試行してください。');
-      banner('Runメタ情報を取得できませんでした。承認・ベースライン操作は無効化されています。', 'error');
+      setActionButtonsDisabled('Failed to load run metadata; retry after migrations complete.');
+      banner('Run metadata unavailable; approve/baseline actions are disabled.', 'error');
     }
   }
   function banner(msg, tone){
@@ -572,7 +572,7 @@
     (document.querySelector('article')||document.body).prepend(d);
     setTimeout(()=> d.remove(), 2000);
   }
-  setActionButtonsDisabled('Runメタ情報を取得中です…');
+  setActionButtonsDisabled('Loading run metadata…');
   loadMeta();
 
   function getHeaders(){

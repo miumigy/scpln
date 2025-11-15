@@ -647,7 +647,7 @@
   {% block scripts %}
   <script>
     function confirmDelete(versionId) {
-      if (confirm(`Configバージョン ${versionId} を削除してもよろしいですか？この操作は元に戻せません。`)) {
+      if (confirm(`Delete Config version ${versionId}? This cannot be undone.`)) {
         fetch(`/ui/configs/canonical/${versionId}/delete`, {
           method: 'POST',
           headers: {
@@ -657,11 +657,11 @@
           if (response.ok) {
             window.location.href = '/ui/configs';
           } else {
-            alert('Configの削除に失敗しました。');
+            alert('Failed to delete the Config.');
           }
         }).catch(error => {
           console.error('Error:', error);
-          alert('Configの削除中にエラーが発生しました。');
+          alert('An error occurred while deleting the Config.');
         });
       }
     }

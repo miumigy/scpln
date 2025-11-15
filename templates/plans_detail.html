@@ -1081,7 +1081,7 @@
           function valBool(name){ return fd.get(name) ? true : false; }
           const configVersionId = {{ config_version_id if config_version_id is not none else 'null' }};
           if (!configVersionId){
-            alert('config_version_id が未設定のPlanです。Plan & Runを実行するにはCanonical設定が必要です。');
+            alert('This plan lacks a config_version_id. Canonical configuration is required to run Plan & Run.');
             return false;
           }
           const body = {
@@ -1760,7 +1760,7 @@
       try { makeCapacity(); } catch(e){ /* ignore */ }
     };
     if (!Array.isArray(weekly) || weekly.length === 0){
-      // 初期描画で空データの案内を出す
+      // Show fallback message when initial data is empty
       const ctx1 = document.getElementById('chartSpillZonePlan')?.getContext('2d');
       const ctx2 = document.getElementById('chartCapacityPlan')?.getContext('2d');
       drawEmptyState(ctx1, 'chartSpillZoneNote', 'Visualization data is not available.');

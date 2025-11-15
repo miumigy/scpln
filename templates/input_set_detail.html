@@ -72,7 +72,7 @@
           <label for="approve_reviewer">Reviewer</label>
           <input type="text" id="approve_reviewer" name="reviewer" placeholder="e.g., ops_lead">
           <label for="approve_comment">Comment (optional)</label>
-          <textarea id="approve_comment" name="review_comment" rows="2" placeholder="承認メモ (任意)"></textarea>
+          <textarea id="approve_comment" name="review_comment" rows="2" placeholder="Approval note (optional)"></textarea>
           <button type="submit" class="btn-primary">Approve</button>
         </form>
       </div>
@@ -87,14 +87,14 @@
           <label for="revert_reviewer">Reviewer</label>
           <input type="text" id="revert_reviewer" name="reviewer" placeholder="e.g., ops_lead">
           <label for="revert_comment">Comment</label>
-          <textarea id="revert_comment" name="review_comment" rows="2" placeholder="差し戻し理由 (任意)"></textarea>
+          <textarea id="revert_comment" name="review_comment" rows="2" placeholder="Rejection reason (optional)"></textarea>
           <button type="submit" class="btn-secondary">Revert to Draft</button>
         </form>
       </div>
     </div>
     {% endif %}
   </div>
-  <p class="section-description">承認操作は即時に反映され、Plan作成フォームの選択肢も更新されます。</p>
+  <p class="section-description">Approval actions sync immediately and update the Plan creation dropdown.</p>
 </section>
 {% endif %}
 
