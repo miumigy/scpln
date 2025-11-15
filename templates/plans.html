@@ -214,7 +214,14 @@
                 <a href="/ui/configs/canonical/{{ p.config_version_id }}">{{ p.config_version_id }}</a>
               {% else %}-{% endif %}
             </td>
-            <td class="mono">{% if p.input_set_label %}{{ p.input_set_label }}{% else %}-{% endif %}</td>
+            {% set plan_input_set_label = p.input_set_label or (p.summary and (p.summary.get('_input_set_label') or p.summary.get('input_set_label'))) %}
+            <td class="mono">
+              {% if plan_input_set_label %}
+                <a href="/ui/plans/input_sets/{{ plan_input_set_label }}" class="truncate link-truncate">{{ plan_input_set_label }}</a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
             <td class="mono">{{ p.cutover_date or '' }}</td>
             <td class="mono numeric">{{ series_rows|fmt_number }}</td>
             <td class="mono numeric">{{ fill_rate|fmt_percent }}</td>
