@@ -183,9 +183,7 @@ def test_disagg_tab_prefers_plan_repository_rows(db_setup, monkeypatch):
     repo = PlanRepository(db._conn)
     series_rows = build_plan_series(version_id, aggregate=aggregate, detail=detail)
     attach_inventory_to_detail_series(series_rows, plan_final)
-    series_rows.extend(
-        build_plan_series_from_plan_final(version_id, plan_final)
-    )
+    series_rows.extend(build_plan_series_from_plan_final(version_id, plan_final))
     repo.write_plan(version_id, series=series_rows, kpis=[])
 
     db.upsert_plan_artifact(
