@@ -164,7 +164,7 @@
             {% for item in input_set.aggregates.family_demands %}
             <tr>
               <td class="mono">{{ item.period }}</td>
-              <td class="mono">{{ item.family }}</td>
+              <td class="mono">{{ item.family_code or '-' }}</td>
               <td class="mono numeric">{{ item.demand | fmt_number }}</td>
             </tr>
             {% endfor %}
@@ -226,8 +226,8 @@
           <tbody>
             {% for item in input_set.aggregates.mix_shares %}
             <tr>
-              <td class="mono">{{ item.family }}</td>
-              <td class="mono">{{ item.sku }}</td>
+              <td class="mono">{{ item.family_code or '-' }}</td>
+              <td class="mono">{{ item.sku_code or '-' }}</td>
               <td class="mono numeric">{{ item.share | fmt_percent }}</td>
               <td class="mono">{{ item.effective_from or '-' }}</td>
               <td class="mono">{{ item.effective_to or '-' }}</td>
@@ -250,23 +250,23 @@
         <table>
           <thead>
             <tr>
-              <th>Location</th>
+              <th>Node</th>
               <th>SKU</th>
-              <th>Date</th>
-              <th>On Hand</th>
+              <th>Initial Qty</th>
               <th>Reorder Point</th>
               <th>Order Up To</th>
+              <th>Safety Stock</th>
             </tr>
           </thead>
           <tbody>
             {% for item in input_set.aggregates.inventory_snapshots %}
             <tr>
-              <td class="mono">{{ item.location }}</td>
-              <td class="mono">{{ item.sku }}</td>
-              <td class="mono">{{ item.date }}</td>
-              <td class="mono numeric">{{ item.on_hand | fmt_number }}</td>
+              <td class="mono">{{ item.node_code or '-' }}</td>
+              <td class="mono">{{ item.item_code or '-' }}</td>
+              <td class="mono numeric">{{ item.initial_qty | fmt_number }}</td>
               <td class="mono numeric">{{ item.reorder_point | fmt_number }}</td>
               <td class="mono numeric">{{ item.order_up_to | fmt_number }}</td>
+              <td class="mono numeric">{{ item.safety_stock | fmt_number }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -286,22 +286,22 @@
           <thead>
             <tr>
               <th>Order ID</th>
-              <th>Source</th>
-              <th>Destination</th>
+              <th>Source Node</th>
+              <th>Destination Node</th>
               <th>SKU</th>
-              <th>Quantity</th>
-              <th>Arrival Date</th>
+              <th>Qty</th>
+              <th>Due Date</th>
             </tr>
           </thead>
           <tbody>
             {% for item in input_set.aggregates.inbound_orders %}
             <tr>
-              <td class="mono">{{ item.order_id }}</td>
-              <td class="mono">{{ item.source }}</td>
-              <td class="mono">{{ item.destination }}</td>
-              <td class="mono">{{ item.sku }}</td>
-              <td class="mono numeric">{{ item.quantity | fmt_number }}</td>
-              <td class="mono">{{ item.arrival_date }}</td>
+              <td class="mono">{{ item.po_id or '-' }}</td>
+              <td class="mono">{{ item.source_node or '-' }}</td>
+              <td class="mono">{{ item.dest_node or '-' }}</td>
+              <td class="mono">{{ item.item_code or '-' }}</td>
+              <td class="mono numeric">{{ item.qty | fmt_number }}</td>
+              <td class="mono">{{ item.due_date }}</td>
             </tr>
             {% endfor %}
           </tbody>
