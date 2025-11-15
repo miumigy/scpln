@@ -1,0 +1,5 @@
+{
+  "label": "weekly_forecast_set_v3",
+  "canonical_sample_name": "multi_node_sample_12Mths.json",
+  "description": "Weekly demand forecasting sample set derived from the 12-month multi-node canonical configuration with expanded SKU/node coverage."
+}
