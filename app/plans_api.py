@@ -2242,7 +2242,7 @@ def get_plans(
         "order": order_value,
     }
     return response
-    except Exception as e:
+except Exception as e:
         logging.exception(f"plans_api_get_plans_failed: {e}")
         return {
             "plans": [],
