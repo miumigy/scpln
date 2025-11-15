@@ -150,10 +150,7 @@
     <input type="radio" name="tabs" id="tab-family-demand" checked>
     <label for="tab-family-demand">Family Demand</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Family Demand</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.family_demands %}
       <div class="table-wrapper">
@@ -184,10 +181,7 @@
     <input type="radio" name="tabs" id="tab-capacity-buckets">
     <label for="tab-capacity-buckets">Capacity Buckets</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Capacity Buckets</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.capacity_buckets %}
       <div class="table-wrapper">
@@ -220,10 +214,7 @@
     <input type="radio" name="tabs" id="tab-mix-shares">
     <label for="tab-mix-shares">Mix Shares</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Mix Shares</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.mix_shares %}
       <div class="table-wrapper">
@@ -260,10 +251,7 @@
     <input type="radio" name="tabs" id="tab-inventory-snapshots">
     <label for="tab-inventory-snapshots">Inventory Snapshots</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Inventory Snapshots</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inventory_snapshots %}
       <div class="table-wrapper">
@@ -300,10 +288,7 @@
     <input type="radio" name="tabs" id="tab-inbound-orders">
     <label for="tab-inbound-orders">Inbound Orders</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Inbound Orders</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inbound_orders %}
       <div class="table-wrapper">
@@ -340,10 +325,7 @@
     <input type="radio" name="tabs" id="tab-period-metrics">
     <label for="tab-period-metrics">Period Metrics</label>
     <div class="tab-content">
-      <div class="tab-content-header" data-expanded-text="折りたたむ" data-collapsed-text="展開">
-        <span class="tab-content-title">Period Metrics</span>
-        <span class="tab-content-indicator">折りたたむ</span>
-      </div>
+      <p class="tab-toggle-hint"></p>
       <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.period_metrics %}
       <div class="table-wrapper">
@@ -399,17 +381,22 @@ document.addEventListener('DOMContentLoaded', function(){
     var txt = fmtJst(ms);
     if (txt) el.textContent = txt;
   });
-  document.querySelectorAll('.tab-content-header').forEach(function(header) {
-    var expandedText = header.dataset.expandedText || '折りたたむ';
-    var collapsedText = header.dataset.collapsedText || '展開';
-    var indicator = header.querySelector('.tab-content-indicator');
-    if (!indicator) return;
-    indicator.textContent = expandedText;
-    header.addEventListener('click', function() {
-      var content = header.closest('.tab-content');
-      if (!content) return;
+  document.querySelectorAll('.tab-content').forEach(function(content) {
+    var hint = content.querySelector('.tab-toggle-hint');
+    function updateHint(collapsed) {
+      if (!hint) return;
+      hint.textContent = collapsed ? 'クリックで展開' : 'クリックで折りたたむ';
+    }
+    updateHint(content.classList.contains('collapsed'));
+    content.addEventListener('click', function(event) {
+      if (
+        event.target.closest('table') ||
+        event.target.closest('a,button,input,textarea,select')
+      ) {
+        return;
+      }
       var collapsed = content.classList.toggle('collapsed');
-      indicator.textContent = collapsed ? collapsedText : expandedText;
+      updateHint(collapsed);
     });
   });
 });
