@@ -414,11 +414,6 @@
 <script>
 (function(){
   const runId = {{ run_id|tojson|safe }};
-  const btn = document.createElement('button');
-  btn.textContent = 'Refresh summary from API';
-  btn.type = 'button';
-  const header = document.querySelector('article header');
-  if (header) header.appendChild(btn);
   const badges = document.getElementById('meta-badges');
   const approveBtn = document.getElementById('approve-run');
   const promoteBtn = document.getElementById('promote-baseline');
@@ -445,19 +440,6 @@
     });
   }
 
-  async function refresh() {
-    try {
-      const res = await fetch(`/runs/${runId}?detail=false`, { headers: getHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const tbody = document.getElementById('summary-table').querySelector('tbody');
-      if (!tbody) return;
-      const s = data.summary || {};
-      tbody.innerHTML = Object.keys(s).map(k => `<tr><th class="mono">${k}</th><td>${s[k]}</td></tr>`).join('');
-    } catch (e) {
-      console.error(e); alert('Failed to refresh from API');
-    }
-  }
   btn.addEventListener('click', refresh);
   const delBtn = document.getElementById('delete-run');
   const noteEl = document.getElementById('approval-note');
