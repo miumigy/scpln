@@ -52,6 +52,7 @@
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Label</th>
               <th>Status</th>
               <th>Config Version</th>
@@ -63,6 +64,7 @@
           <tbody>
             {% for input_set in input_sets %}
               <tr>
+                <td><span class="mono">{{ input_set.id }}</span></td>
                 <td><a href="/ui/plans/input_sets/{{ input_set.label }}">{{ input_set.label }}</a></td>
                 <td><span class="pill">{{ input_set.status }}</span></td>
                 <td><a href="/ui/configs/canonical/{{ input_set.config_version_id }}">{{ input_set.config_version_id }}</a></td>
