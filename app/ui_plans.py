@@ -404,17 +404,22 @@ class PlanningRunForm(BaseModel):
 
 
 def _fetch_plan_rows(limit: int = 50, offset: int = 0):
-    plans = db.list_plan_versions(limit=limit, offset=offset)
-    total_count = db.count_table_rows("plan_versions")
-    pagination = {
-        "limit": limit,
-        "offset": offset,
-        "total_count": total_count,
-        "has_next": (offset + limit) < total_count,
-        "has_previous": offset > 0,
-        "next_offset": offset + limit,
-        "previous_offset": max(0, offset - limit),
-    }
+    # /plans APIのロジックと揃え、summary/jobs 付きで取得する
+    from app import plans_api as plans_api_module
+
+    result = plans_api_module.get_plans(
+        limit=limit,
+        offset=offset,
+        include="summary,jobs",
+    )
+    plans = result.get("plans") or []
+    pagination = result.get("pagination") or {}
+    # 後方互換: テンプレートが期待するキーを補完
+    pagination.setdefault("limit", limit)
+    pagination.setdefault("offset", offset)
+    pagination.setdefault("total", pagination.get("total_count") or 0)
+    pagination.setdefault("count", len(plans))
+    pagination.setdefault("next_offset", None)
     return plans, pagination
 
 
@@ -451,7 +456,7 @@ def ui_plans(request: Request, limit: int = 50, offset: int = 0):
     rows, pagination = [], {}
     if table_exists(db._conn(), "plan_versions"):
         rows, pagination = _fetch_plan_rows(limit=limit, offset=offset)
-        if rows:
+        if rows or (pagination.get("total") or 0) > 0:
             has_data = True
 
     # paginationがNoneになる可能性を考慮し、空の辞書をデフォルトとする
@@ -587,9 +592,49 @@ async def ui_post_load_sample_input_set(request: Request, sample_name: str = For
 @router.get("/ui/plans/input_sets", response_class=HTMLResponse)
 @router.get("/ui/input_sets", response_class=HTMLResponse)
 def ui_list_input_sets(request: Request):
+    def _query_int(name: str) -> int | None:
+        raw = request.query_params.get(name)
+        if raw is None or raw == "":
+            return None
+        try:
+            return int(raw)
+        except Exception:
+            return None
+
+    accept = (request.headers.get("accept") or "").lower()
+    wants_json = "application/json" in accept or request.query_params.get("format") == "json"
+    config_version_id = _query_int("config_version_id")
     status_query = (request.query_params.get("status") or "ready").lower()
     status_filter = None if status_query == "all" else status_query
-    input_sets = list_planning_input_sets(status=status_filter)
+
+    if wants_json:
+        if config_version_id is None:
+            return JSONResponse(
+                {"detail": "config_version_id is required for JSON response"},
+                status_code=400,
+            )
+        input_sets = list_planning_input_sets(
+            config_version_id=config_version_id, status=status_filter, limit=200, offset=0
+        )
+        payload = [
+            {
+                "id": item.id,
+                "label": item.label,
+                "status": item.status,
+                "source": item.source,
+                "config_version_id": item.config_version_id,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+                "approved_by": item.approved_by,
+                "approved_at": item.approved_at,
+            }
+            for item in input_sets
+        ]
+        return JSONResponse({"input_sets": payload})
+
+    input_sets = list_planning_input_sets(
+        config_version_id=config_version_id, status=status_filter
+    )
     for item in input_sets:
         setattr(
             item, "created_at_str", format_datetime(getattr(item, "created_at", None))

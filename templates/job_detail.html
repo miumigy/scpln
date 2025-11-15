@@ -7,11 +7,7 @@
 <article class="page-section">
   <header style="margin-bottom:1rem;"></header>
   {% set plan_vid = job.plan_version_id or (result.version_id if result else None) %}
-  {% if plan_vid %}
-  <p class="mono" data-test="job-plan-link">
-    <a href="/ui/plans/{{ plan_vid }}">Plan detail: {{ plan_vid }}</a>
-  </p>
-  {% endif %}
+  {% set is_job_done = job.finished_at or job.status in ['succeeded', 'failed', 'cancelled'] %}
   <section>
     <table>
       <tbody>
@@ -22,8 +18,10 @@
         <tr><th>finished_at</th><td class="ts-ms" data-ms="{{ job.finished_at or '' }}">{{ job.finished_at or '' }}</td></tr>
         <tr><th>plan_version_id</th>
           <td class="mono">
-            {% if plan_vid %}
+            {% if plan_vid and is_job_done %}
               <a href="/ui/plans/{{ plan_vid }}">{{ plan_vid }}</a>
+            {% elif plan_vid %}
+              {{ plan_vid }}
             {% else %}-{% endif %}
           </td>
         </tr>
