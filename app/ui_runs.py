@@ -160,6 +160,7 @@ def ui_run_detail(request: Request, run_id: str):
         summary.get("_plan_version_id") if isinstance(summary, dict) else None
     )
     plan_job_id = rec.get("plan_job_id")
+    plan_rec = None
 
     input_set_label: str | None = None
     if isinstance(summary, dict):
@@ -242,6 +243,7 @@ def ui_run_detail(request: Request, run_id: str):
     except Exception:
         pass
     matching_plans: list[dict] = []
+    effective_config_version_id = config_version_id
     if plan_version_id:
         plan_rec = db.get_plan_version(plan_version_id)
         if plan_rec:
@@ -254,11 +256,13 @@ def ui_run_detail(request: Request, run_id: str):
                     "created_at_str": ms_to_jst_str(created),
                 }
             )
-    elif config_version_id is not None:
+            if effective_config_version_id is None:
+                effective_config_version_id = plan_rec.get("config_version_id")
+    if (not plan_version_id) and (effective_config_version_id is not None):
         try:
             plans = db.list_plan_versions(limit=200)
             for p in plans:
-                if p.get("config_version_id") == config_version_id:
+                if p.get("config_version_id") == effective_config_version_id:
                     created = p.get("created_at")
                     matching_plans.append(
                         {
@@ -270,10 +274,60 @@ def ui_run_detail(request: Request, run_id: str):
                     )
         except Exception:
             matching_plans = []
+    if config_version_id is None and effective_config_version_id is not None:
+        config_version_id = effective_config_version_id
+
+    storage_input_set = None
+    missing_input_set = False
+    input_set_inferred = False
+
+    def _load_input_set_by_label(label: str):
+        query_kwargs = {"label": label, "include_aggregates": False}
+        if effective_config_version_id is not None:
+            query_kwargs["config_version_id"] = effective_config_version_id
+        return get_planning_input_set(**query_kwargs)
+
+    if input_set_label:
+        try:
+            storage_input_set = _load_input_set_by_label(input_set_label)
+        except PlanningInputSetNotFoundError:
+            missing_input_set = True
+        except Exception:
+            logging.exception(
+                "ui_run_detail_load_input_set_failed",
+                extra={"run_id": run_id, "label": input_set_label},
+            )
+    if storage_input_set is None and effective_config_version_id is not None:
+        need_infer = (not input_set_label) or missing_input_set
+        if need_infer:
+            for status_filter in ("ready", None):
+                try:
+                    kwargs = {
+                        "config_version_id": effective_config_version_id,
+                        "include_aggregates": False,
+                    }
+                    if status_filter:
+                        kwargs["status"] = status_filter
+                    storage_input_set = get_planning_input_set(**kwargs)
+                    input_set_label = storage_input_set.label
+                    input_set_inferred = True
+                    missing_input_set = False
+                    break
+                except PlanningInputSetNotFoundError:
+                    continue
+                except Exception:
+                    logging.exception(
+                        "ui_run_detail_infer_input_set_failed",
+                        extra={
+                            "run_id": run_id,
+                            "config_version_id": effective_config_version_id,
+                        },
+                    )
+                    break
 
     input_set_info = {
         "label": input_set_label,
-        "config_version_id": config_version_id,
+        "config_version_id": effective_config_version_id,
         "plan_version_id": plan_version_id,
         "status": None,
         "source": artifact_source,
@@ -284,36 +338,28 @@ def ui_run_detail(request: Request, run_id: str):
         "id": None,
         "legacy": False,
         "missing": False,
+        "inferred": input_set_inferred,
     }
-    if not input_set_label:
+    if storage_input_set:
+        updated_at = storage_input_set.updated_at
+        input_set_info.update(
+            {
+                "id": storage_input_set.id,
+                "status": storage_input_set.status,
+                "source": storage_input_set.source or artifact_source,
+                "updated_at": updated_at or input_set_info.get("updated_at"),
+                "updated_at_str": (
+                    ms_to_jst_str(updated_at)
+                    if updated_at
+                    else input_set_info.get("updated_at_str")
+                ),
+                "config_version_id": storage_input_set.config_version_id,
+            }
+        )
+    elif not input_set_label:
         input_set_info["legacy"] = True
-    else:
-        try:
-            query_kwargs = {"label": input_set_label, "include_aggregates": False}
-            if config_version_id is not None:
-                query_kwargs["config_version_id"] = config_version_id
-            storage_input_set = get_planning_input_set(**query_kwargs)
-            input_set_info.update(
-                {
-                    "id": storage_input_set.id,
-                    "status": storage_input_set.status,
-                    "source": storage_input_set.source or artifact_source,
-                    "updated_at": storage_input_set.updated_at,
-                    "updated_at_str": (
-                        ms_to_jst_str(storage_input_set.updated_at)
-                        if storage_input_set.updated_at
-                        else input_set_info.get("updated_at_str")
-                    ),
-                    "config_version_id": storage_input_set.config_version_id,
-                }
-            )
-        except PlanningInputSetNotFoundError:
-            input_set_info["missing"] = True
-        except Exception:
-            logging.exception(
-                "ui_run_detail_load_input_set_failed",
-                extra={"run_id": run_id, "label": input_set_label},
-            )
+    if missing_input_set and not input_set_inferred:
+        input_set_info["missing"] = True
 
     return templates.TemplateResponse(
         request,

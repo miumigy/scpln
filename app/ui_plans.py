@@ -895,14 +895,23 @@ def ui_plan_detail(plan_version_id: str, request: Request):
     def _load_artifact_payload(
         name: str,
         fallback: Callable[[], list[dict[str, object]]] | None = None,
+        *,
+        prefer_fallback: bool = False,
     ) -> tuple[dict[str, object], list[dict[str, object]]]:
         payload = db.get_plan_artifact(version_id, name) or {}
         rows = payload.get("rows") or []
-        if not rows and fallback:
+        fallback_rows: list[dict[str, object]] = []
+        if (prefer_fallback or not rows) and fallback:
             try:
-                rows = fallback()
+                fallback_rows = fallback()
             except Exception:
-                rows = []
+                logging.exception(
+                    "plan_detail_artifact_fallback_failed",
+                    extra={"artifact": name, "version_id": version_id},
+                )
+                fallback_rows = []
+        if fallback_rows:
+            rows = fallback_rows
         payload["rows"] = rows
         return payload, rows
 
@@ -910,12 +919,17 @@ def ui_plan_detail(plan_version_id: str, request: Request):
         "aggregate.json", lambda: fetch_aggregate_rows(repo, version_id)
     )
     disagg_payload, disagg_rows = _load_artifact_payload(
-        "sku_week.json", lambda: fetch_detail_rows(repo, version_id)
+        "sku_week.json",
+        lambda: fetch_detail_rows(repo, version_id),
+        prefer_fallback=True,
     )
     mrp_payload = db.get_plan_artifact(version_id, "mrp.json") or {}
     schedule_rows_mrp = mrp_payload.get("rows") or []
     plan_final_payload = db.get_plan_artifact(version_id, "plan_final.json") or {}
     plan_final_rows = plan_final_payload.get("rows") or []
+    planning_inputs_payload = (
+        db.get_plan_artifact(version_id, "planning_inputs.json") or {}
+    )
     mrp_adj_payload = db.get_plan_artifact(version_id, "mrp_adjusted.json") or {}
     schedule_rows_mrp_final = mrp_adj_payload.get("rows") or plan_final_rows
     weekly_summary = plan_final_payload.get("weekly_summary") or []
@@ -930,6 +944,127 @@ def ui_plan_detail(plan_version_id: str, request: Request):
     planning_summary.setdefault(
         "schema_version", plan_final_payload.get("schema_version")
     )
+    if planning_inputs_payload:
+        inputs_schema = planning_inputs_payload.get("schema_version")
+        if inputs_schema and not planning_summary.get("schema_version"):
+            planning_summary["schema_version"] = inputs_schema
+        for key in (
+            "demand_family",
+            "capacity",
+            "mix_share",
+            "item_master",
+            "inventory",
+            "open_po",
+        ):
+            rows = planning_inputs_payload.get(key)
+            if isinstance(rows, list):
+                planning_summary[key] = len(rows)
+    raw_input_set_label = version.get("input_set_label")
+    input_set_label = raw_input_set_label.strip() if isinstance(raw_input_set_label, str) else None
+    input_set_inferred = False
+    storage_input_set = None
+    input_set_artifact = db.get_plan_artifact(version_id, "planning_input_set.json")
+    artifact_source = None
+    artifact_updated_at: int | None = None
+    if isinstance(input_set_artifact, dict):
+        artifact_label = input_set_artifact.get("label") or input_set_artifact.get(
+            "input_set_label"
+        )
+        if not input_set_label and isinstance(artifact_label, str):
+            text = artifact_label.strip()
+            if text:
+                input_set_label = text
+        artifact_source = input_set_artifact.get("source") or None
+        try:
+            artifact_updated_at = (
+                int(input_set_artifact.get("updated_at"))
+                if input_set_artifact.get("updated_at") is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            artifact_updated_at = None
+
+    def _load_storage_by_label(label: str):
+        query_kwargs: dict[str, object] = {
+            "label": label,
+            "include_aggregates": False,
+        }
+        if context_config_version_id is not None:
+            query_kwargs["config_version_id"] = context_config_version_id
+        return get_planning_input_set(**query_kwargs)
+
+    missing_input_set = False
+    if input_set_label:
+        try:
+            storage_input_set = _load_storage_by_label(input_set_label)
+        except PlanningInputSetNotFoundError:
+            missing_input_set = True
+        except Exception:
+            logging.exception(
+                "ui_plan_detail_load_input_set_failed",
+                extra={"version_id": version_id, "label": input_set_label},
+            )
+
+    if (not input_set_label or missing_input_set) and storage_input_set is None:
+        # Fallback: infer from config_version_id (latest READY, then latest any)
+        if context_config_version_id is not None:
+            for status_filter in ("ready", None):
+                try:
+                    kwargs: dict[str, object] = {
+                        "config_version_id": context_config_version_id,
+                        "include_aggregates": False,
+                    }
+                    if status_filter:
+                        kwargs["status"] = status_filter
+                    storage_input_set = get_planning_input_set(**kwargs)
+                    input_set_label = storage_input_set.label
+                    input_set_inferred = True
+                    missing_input_set = False
+                    break
+                except PlanningInputSetNotFoundError:
+                    continue
+                except Exception:
+                    logging.exception(
+                        "ui_plan_detail_infer_input_set_failed",
+                        extra={"version_id": version_id, "config_version_id": context_config_version_id},
+                    )
+                    break
+
+    input_set_info = {
+        "label": input_set_label,
+        "config_version_id": context_config_version_id,
+        "plan_version_id": version_id,
+        "status": None,
+        "source": artifact_source,
+        "updated_at": artifact_updated_at,
+        "updated_at_str": (
+            ms_to_jst_str(artifact_updated_at) if artifact_updated_at else None
+        ),
+        "id": None,
+        "legacy": False,
+        "missing": False,
+        "inferred": input_set_inferred,
+    }
+    if storage_input_set:
+        updated_at = storage_input_set.updated_at
+        input_set_info.update(
+            {
+                "id": storage_input_set.id,
+                "status": storage_input_set.status,
+                "source": storage_input_set.source or artifact_source,
+                "updated_at": updated_at or input_set_info.get("updated_at"),
+                "updated_at_str": (
+                    ms_to_jst_str(updated_at)
+                    if updated_at
+                    else input_set_info.get("updated_at_str")
+                ),
+                "config_version_id": storage_input_set.config_version_id,
+            }
+        )
+    elif not input_set_label:
+        input_set_info["legacy"] = True
+    if missing_input_set and not input_set_inferred:
+        input_set_info["missing"] = True
     validate_context = {
         "tol_violations_before": recon.get("summary", {}).get("tol_violations"),
         "tol_violations_after": recon_adj.get("summary", {}).get("tol_violations"),
@@ -968,6 +1103,7 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             "weekly_summary": weekly_summary,
             "boundary_summary": boundary_summary,
             "planning_summary": planning_summary,
+            "input_set_info": input_set_info,
             "latest_runs": plan_runs,
             "latest_run_ids": plan_run_ids,
         },

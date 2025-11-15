@@ -212,6 +212,9 @@
       </h4>
       {% if isi.label %}
       <p>label: <span class="mono">{{ isi.label }}</span></p>
+      {% if isi.inferred %}
+      <p class="mono warn-text">Inferred from config_version_id (label not recorded on this run).</p>
+      {% endif %}
       {% endif %}
       <p>
         config_version_id:
