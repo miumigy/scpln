@@ -90,6 +90,7 @@ def _apply_plan_final_receipts(
         return detail_obj, aggregate_obj
 
     receipts: dict[tuple[str, str], float] = {}
+    sku_with_receipt: set[str] = set()
     for r in plan_final_obj.get("rows", []) or []:
         sku = r.get("sku") or r.get("item")
         week = r.get("week")
@@ -106,6 +107,8 @@ def _apply_plan_final_receipts(
             rec = 0.0
         key = (str(sku), str(week))
         receipts[key] = receipts.get(key, 0.0) + rec
+        if rec:
+            sku_with_receipt.add(str(sku))
 
     detail_rows = []
     agg_totals: dict[tuple[str, str], dict[str, float]] = {}
@@ -118,7 +121,11 @@ def _apply_plan_final_receipts(
         fam = row.get("family") or row.get("item")
         period = row.get("period")
         key = (str(sku), str(week))
-        supply = receipts.get(key, row.get("supply") or row.get("supply_plan") or 0.0)
+        has_receipt_data = sku and str(sku) in sku_with_receipt
+        supply = receipts.get(
+            key,
+            (0.0 if has_receipt_data else (row.get("supply") or row.get("supply_plan") or 0.0)),
+        )
         try:
             supply_f = float(supply or 0.0)
         except Exception:
