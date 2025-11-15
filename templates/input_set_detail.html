@@ -150,8 +150,6 @@
     <input type="radio" name="tabs" id="tab-family-demand" checked>
     <label for="tab-family-demand">Family Demand</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.family_demands %}
       <div class="table-wrapper">
         <table>
@@ -181,8 +179,6 @@
     <input type="radio" name="tabs" id="tab-capacity-buckets">
     <label for="tab-capacity-buckets">Capacity Buckets</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.capacity_buckets %}
       <div class="table-wrapper">
         <table>
@@ -214,8 +210,6 @@
     <input type="radio" name="tabs" id="tab-mix-shares">
     <label for="tab-mix-shares">Mix Shares</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.mix_shares %}
       <div class="table-wrapper">
         <table>
@@ -251,8 +245,6 @@
     <input type="radio" name="tabs" id="tab-inventory-snapshots">
     <label for="tab-inventory-snapshots">Inventory Snapshots</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inventory_snapshots %}
       <div class="table-wrapper">
         <table>
@@ -288,8 +280,6 @@
     <input type="radio" name="tabs" id="tab-inbound-orders">
     <label for="tab-inbound-orders">Inbound Orders</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inbound_orders %}
       <div class="table-wrapper">
         <table>
@@ -325,8 +315,6 @@
     <input type="radio" name="tabs" id="tab-period-metrics">
     <label for="tab-period-metrics">Period Metrics</label>
     <div class="tab-content">
-      <p class="tab-toggle-hint"></p>
-      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.period_metrics %}
       <div class="table-wrapper">
         <table>
@@ -382,12 +370,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (txt) el.textContent = txt;
   });
   document.querySelectorAll('.tab-content').forEach(function(content) {
-    var hint = content.querySelector('.tab-toggle-hint');
-    function updateHint(collapsed) {
-      if (!hint) return;
-      hint.textContent = collapsed ? 'クリックで展開' : 'クリックで折りたたむ';
-    }
-    updateHint(content.classList.contains('collapsed'));
     content.addEventListener('click', function(event) {
       if (
         event.target.closest('table') ||
@@ -395,8 +377,7 @@ document.addEventListener('DOMContentLoaded', function(){
       ) {
         return;
       }
-      var collapsed = content.classList.toggle('collapsed');
-      updateHint(collapsed);
+      content.classList.toggle('collapsed');
     });
   });
 });
