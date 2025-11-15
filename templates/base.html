@@ -366,6 +366,42 @@
       background: #ffffff;
       box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
     }
+    .tab-content-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 0.4rem;
+    }
+    .tab-collapse-btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .tab-collapse-btn:hover {
+      background: #1f2f53;
+    }
+    .tab-collapsed-notice {
+      display: none;
+      font-size: 0.9rem;
+      color: #475569;
+      margin-bottom: 1rem;
+    }
+    .tab-empty-message {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #475569;
+    }
+    .tab-content.collapsed .tab-collapsed-notice {
+      display: block;
+    }
+    .tab-content.collapsed .table-wrapper,
+    .tab-content.collapsed .tab-empty-message {
+      display: none;
+    }
     .tabs input[type="radio"]:checked + label + .tab-content {
       display: block;
     }

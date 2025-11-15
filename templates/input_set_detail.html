@@ -150,6 +150,10 @@
     <input type="radio" name="tabs" id="tab-family-demand" checked>
     <label for="tab-family-demand">Family Demand</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.family_demands %}
       <div class="table-wrapper">
         <table>
@@ -172,30 +176,34 @@
         </table>
       </div>
       {% else %}
-      <p>No family demand data.</p>
+      <p class="tab-empty-message">No family demand data.</p>
       {% endif %}
     </div>
 
     <input type="radio" name="tabs" id="tab-capacity-buckets">
     <label for="tab-capacity-buckets">Capacity Buckets</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.capacity_buckets %}
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th>Period</th>
+              <th>Resource</th>
               <th>Resource Type</th>
-              <th>Calendar Code</th>
+              <th>Period</th>
               <th>Capacity</th>
             </tr>
           </thead>
           <tbody>
             {% for item in input_set.aggregates.capacity_buckets %}
             <tr>
-              <td class="mono">{{ item.period }}</td>
+              <td class="mono">{{ item.resource_code }}</td>
               <td class="mono">{{ item.resource_type }}</td>
-              <td class="mono">{{ item.calendar_code }}</td>
+              <td class="mono">{{ item.period }}</td>
               <td class="mono numeric">{{ item.capacity | fmt_number }}</td>
             </tr>
             {% endfor %}
@@ -203,13 +211,17 @@
         </table>
       </div>
       {% else %}
-      <p>No capacity bucket data.</p>
+      <p class="tab-empty-message">No capacity bucket data.</p>
       {% endif %}
     </div>
 
     <input type="radio" name="tabs" id="tab-mix-shares">
     <label for="tab-mix-shares">Mix Shares</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.mix_shares %}
       <div class="table-wrapper">
         <table>
@@ -238,13 +250,17 @@
         </table>
       </div>
       {% else %}
-      <p>No mix share data.</p>
+      <p class="tab-empty-message">No mix share data.</p>
       {% endif %}
     </div>
 
     <input type="radio" name="tabs" id="tab-inventory-snapshots">
     <label for="tab-inventory-snapshots">Inventory Snapshots</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inventory_snapshots %}
       <div class="table-wrapper">
         <table>
@@ -273,13 +289,17 @@
         </table>
       </div>
       {% else %}
-      <p>No inventory snapshot data.</p>
+      <p class="tab-empty-message">No inventory snapshot data.</p>
       {% endif %}
     </div>
 
     <input type="radio" name="tabs" id="tab-inbound-orders">
     <label for="tab-inbound-orders">Inbound Orders</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.inbound_orders %}
       <div class="table-wrapper">
         <table>
@@ -308,13 +328,17 @@
         </table>
       </div>
       {% else %}
-      <p>No inbound order data.</p>
+      <p class="tab-empty-message">No inbound order data.</p>
       {% endif %}
     </div>
 
     <input type="radio" name="tabs" id="tab-period-metrics">
     <label for="tab-period-metrics">Period Metrics</label>
     <div class="tab-content">
+      <div class="tab-content-header">
+        <button type="button" class="tab-collapse-btn" data-expanded-text="折りたたむ" data-collapsed-text="展開">折りたたむ</button>
+      </div>
+      <div class="tab-collapsed-notice">このテーブルは折りたたまれています。再表示するには「展開」をクリックしてください。</div>
       {% if input_set.aggregates.period_metrics %}
       <div class="table-wrapper">
         <table>
@@ -341,7 +365,7 @@
         </table>
       </div>
       {% else %}
-      <p>No period metric data.</p>
+      <p class="tab-empty-message">No period metric data.</p>
       {% endif %}
     </div>
   </div>
@@ -368,6 +392,17 @@ document.addEventListener('DOMContentLoaded', function(){
     var ms = el.getAttribute('data-ms');
     var txt = fmtJst(ms);
     if (txt) el.textContent = txt;
+  });
+  document.querySelectorAll('.tab-collapse-btn').forEach(function(btn) {
+    var expandedText = btn.dataset.expandedText || '折りたたむ';
+    var collapsedText = btn.dataset.collapsedText || '展開';
+    btn.textContent = expandedText;
+    btn.addEventListener('click', function() {
+      var content = btn.closest('.tab-content');
+      if (!content) return;
+      var collapsed = content.classList.toggle('collapsed');
+      btn.textContent = collapsed ? collapsedText : expandedText;
+    });
   });
 });
 </script>
