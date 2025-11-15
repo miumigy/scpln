@@ -185,7 +185,15 @@
           {% else %}
             <span class="mono">-</span>
           {% endif %}
-          {% if isi.id %} | input_set_id=<span class="mono">{{ isi.id }}</span>{% endif %}
+          {% if isi.id %}
+            |
+            input_set_id=
+            {% if isi.label %}
+              <a class="mono" href="/ui/plans/input_sets/{{ isi.label }}">{{ isi.id }}</a>
+            {% else %}
+              <span class="mono">{{ isi.id }}</span>
+            {% endif %}
+          {% endif %}
         </p>
         <p>
           updated_at:
