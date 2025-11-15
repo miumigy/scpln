@@ -961,7 +961,9 @@ def ui_plan_detail(plan_version_id: str, request: Request):
         return payload, rows
 
     aggregate_payload, aggregate_rows = _load_artifact_payload(
-        "aggregate.json", lambda: fetch_aggregate_rows(repo, version_id)
+        "aggregate.json",
+        lambda: fetch_aggregate_rows(repo, version_id),
+        prefer_fallback=True,
     )
     disagg_payload, disagg_rows = _load_artifact_payload(
         "sku_week.json",
