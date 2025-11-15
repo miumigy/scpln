@@ -363,15 +363,28 @@ function fmtJst(ms){
   var s = String(t.getUTCSeconds()).padStart(2,'0');
   return y+'/'+mo+'/'+d+' '+h+':'+mi+':'+s+' JST';
 }
-document.addEventListener('DOMContentLoaded', function(){
-  document.querySelectorAll('.ts-ms').forEach(function(el){
-    var ms = el.getAttribute('data-ms');
-    var txt = fmtJst(ms);
-    if (txt) el.textContent = txt;
-  });
-  document.querySelectorAll('.tab-content').forEach(function(content) {
-    content.addEventListener('click', function(event) {
-      if (
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.ts-ms').forEach(function(el){
+      var ms = el.getAttribute('data-ms');
+      var txt = fmtJst(ms);
+      if (txt) el.textContent = txt;
+    });
+    document.querySelectorAll('.tabs label').forEach(function(label){
+      label.addEventListener('click', function(event){
+        var content = label.nextElementSibling;
+        var radio = document.getElementById(label.getAttribute('for'));
+        if (!content || !radio) return;
+        if (radio.checked) {
+          content.classList.toggle('collapsed');
+          event.preventDefault();
+        } else {
+          content.classList.remove('collapsed');
+        }
+      });
+    });
+    document.querySelectorAll('.tab-content').forEach(function(content) {
+      content.addEventListener('click', function(event) {
+        if (
         event.target.closest('table') ||
         event.target.closest('a,button,input,textarea,select')
       ) {
