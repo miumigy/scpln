@@ -2222,6 +2222,19 @@ def get_plans(
             }
             enriched_plans.append(plan)
 
+    for plan in enriched_plans:
+        vid = plan.get("version_id")
+        if not vid:
+            continue
+        if plan.get("input_set_label"):
+            continue
+        artifact = db.get_plan_artifact(vid, "planning_input_set.json") or {}
+        artifact_label = artifact.get("label") or artifact.get("input_set_label")
+        if artifact_label:
+            plan["input_set_label"] = artifact_label
+            summary = plan.setdefault("summary", {})
+            summary.setdefault("_input_set_label", artifact_label)
+
         response = {
             "plans": enriched_plans,
             "pagination": pagination,
