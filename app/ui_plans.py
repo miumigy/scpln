@@ -960,7 +960,9 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             if isinstance(rows, list):
                 planning_summary[key] = len(rows)
     raw_input_set_label = version.get("input_set_label")
-    input_set_label = raw_input_set_label.strip() if isinstance(raw_input_set_label, str) else None
+    input_set_label = (
+        raw_input_set_label.strip() if isinstance(raw_input_set_label, str) else None
+    )
     input_set_inferred = False
     storage_input_set = None
     input_set_artifact = db.get_plan_artifact(version_id, "planning_input_set.json")
@@ -1026,7 +1028,10 @@ def ui_plan_detail(plan_version_id: str, request: Request):
                 except Exception:
                     logging.exception(
                         "ui_plan_detail_infer_input_set_failed",
-                        extra={"version_id": version_id, "config_version_id": context_config_version_id},
+                        extra={
+                            "version_id": version_id,
+                            "config_version_id": context_config_version_id,
+                        },
                     )
                     break
 
