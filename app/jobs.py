@@ -40,6 +40,7 @@ from core.plan_repository_builders import (
     build_plan_series_from_weekly_summary,
     build_plan_series_from_mrp,
 )
+from app.plan_artifact_utils import apply_plan_final_receipts
 
 
 _STORAGE_CHOICES = {"db", "files", "both"}
@@ -653,6 +654,10 @@ class JobManager:
                 detail_obj = _load_json(out_dir / "sku_week.json")
                 mrp_obj = _load_json(out_dir / "mrp.json")
                 plan_final_obj = _load_json(out_dir / "plan_final.json")
+                if plan_final_obj:
+                    detail_obj, aggregate_obj = apply_plan_final_receipts(
+                        detail_obj, aggregate_obj, plan_final_obj
+                    )
                 plan_series_rows = build_plan_series(
                     version_id,
                     aggregate=aggregate_obj,

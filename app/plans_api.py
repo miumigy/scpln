@@ -42,6 +42,7 @@ from core.config.storage import (
 )
 from app.jobs import prepare_canonical_inputs
 from app.run_registry import record_canonical_run
+from app.plan_artifact_utils import apply_plan_final_receipts
 from scripts.plan_pipeline_io import _calendar_cli_args
 from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
@@ -78,98 +79,6 @@ _PLAN_ORDER_CHOICES = {
     "version_asc",
     "status",
 }
-
-
-def _apply_plan_final_receipts(
-    detail_obj: dict | None, aggregate_obj: dict | None, plan_final_obj: dict | None
-) -> tuple[dict | None, dict | None]:
-    """plan_finalの受入週(planned_order_receipt_adj)をDET/AGGに反映する。"""
-    if not detail_obj or not isinstance(detail_obj, dict):
-        return detail_obj, aggregate_obj
-    if not plan_final_obj or not isinstance(plan_final_obj, dict):
-        return detail_obj, aggregate_obj
-
-    receipts: dict[tuple[str, str], float] = {}
-    sku_with_receipt: set[str] = set()
-    for r in plan_final_obj.get("rows", []) or []:
-        sku = r.get("sku") or r.get("item")
-        week = r.get("week")
-        if not sku or not week:
-            continue
-        try:
-            rec = float(
-                r.get("planned_order_receipt_adj")
-                if r.get("planned_order_receipt_adj") is not None
-                else r.get("planned_order_receipt")
-                or 0
-            )
-        except Exception:
-            rec = 0.0
-        key = (str(sku), str(week))
-        receipts[key] = receipts.get(key, 0.0) + rec
-        if rec:
-            sku_with_receipt.add(str(sku))
-
-    detail_rows = []
-    agg_totals: dict[tuple[str, str], dict[str, float]] = {}
-    for row in detail_obj.get("rows", []) or []:
-        if not isinstance(row, dict):
-            continue
-        demand = float(row.get("demand") or 0.0)
-        sku = row.get("sku")
-        week = row.get("week")
-        fam = row.get("family") or row.get("item")
-        period = row.get("period")
-        key = (str(sku), str(week))
-        has_receipt_data = sku and str(sku) in sku_with_receipt
-        supply = receipts.get(
-            key,
-            (0.0 if has_receipt_data else (row.get("supply") or row.get("supply_plan") or 0.0)),
-        )
-        try:
-            supply_f = float(supply or 0.0)
-        except Exception:
-            supply_f = 0.0
-        backlog = max(0.0, demand - supply_f)
-        new_row = dict(row)
-        new_row["supply"] = supply_f
-        new_row["supply_plan"] = supply_f
-        new_row["backlog"] = backlog
-        detail_rows.append(new_row)
-        if fam and period:
-            agg_key = (str(fam), str(period))
-            bucket = agg_totals.setdefault(
-                agg_key, {"demand": 0.0, "supply": 0.0, "backlog": 0.0}
-            )
-            bucket["demand"] += demand
-            bucket["supply"] += supply_f
-            bucket["backlog"] += backlog
-
-    updated_detail = dict(detail_obj)
-    updated_detail["rows"] = detail_rows
-
-    if aggregate_obj and isinstance(aggregate_obj, dict):
-        agg_rows = []
-        for row in aggregate_obj.get("rows", []) or []:
-            if not isinstance(row, dict):
-                continue
-            fam = row.get("family")
-            per = row.get("period")
-            agg_row = dict(row)
-            totals = agg_totals.get((str(fam), str(per)))
-            if totals:
-                agg_row["demand"] = totals["demand"]
-                agg_row["supply"] = totals["supply"]
-                if "supply_plan" in agg_row:
-                    agg_row["supply_plan"] = totals["supply"]
-                agg_row["backlog"] = totals["backlog"]
-            agg_rows.append(agg_row)
-        updated_agg = dict(aggregate_obj)
-        updated_agg["rows"] = agg_rows
-    else:
-        updated_agg = aggregate_obj
-
-    return updated_detail, updated_agg
 
 
 def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
@@ -1131,7 +1040,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
             out_dir / "plan_final.json"
         )
         if plan_final_obj:
-            detail_obj, aggregate_obj = _apply_plan_final_receipts(
+            detail_obj, aggregate_obj = apply_plan_final_receipts(
                 detail_obj, aggregate_obj, plan_final_obj
             )
         plan_series_rows: list[Dict[str, Any]] = []

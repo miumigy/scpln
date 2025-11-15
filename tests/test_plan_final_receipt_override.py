@@ -1,4 +1,4 @@
-from app import plans_api
+from app.plan_artifact_utils import apply_plan_final_receipts
 
 
 def test_apply_plan_final_receipts_overrides_supply():
@@ -34,7 +34,7 @@ def test_apply_plan_final_receipts_overrides_supply():
         ]
     }
 
-    updated_detail, updated_agg = plans_api._apply_plan_final_receipts(
+    updated_detail, updated_agg = apply_plan_final_receipts(
         detail, aggregate, plan_final
     )
 
@@ -84,7 +84,7 @@ def test_apply_plan_final_receipts_sets_zero_when_receipt_missing_in_week():
         ]
     }
 
-    updated_detail, _ = plans_api._apply_plan_final_receipts(
+    updated_detail, _ = apply_plan_final_receipts(
         detail, aggregate, plan_final
     )
 
