@@ -15,7 +15,7 @@
       {% if error %}
       <p class="mono warn-text">{{ error }}</p>
       {% endif %}
-      <div class="form-grid">
+      <div class="form-grid required-fields">
         <label>
           <span class="label-title">Canonical Config Version</span>
           {% set selected_config = (form_defaults.config_version_id or '')|string %}
@@ -38,6 +38,10 @@
           </select>
           <small class="mono" id="input_set_hint">Select a canonical config to load ready input sets.</small>
         </label>
+      </div>
+      <div class="form-grid optional-fields">
+        <label>
+          <span class="label-title">Base Scenario</span>
         <label>
           <span class="label-title">Base Scenario</span>
           {% set selected_scenario = (form_defaults.base_scenario_id or '')|string %}
