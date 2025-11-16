@@ -6,38 +6,59 @@
 {% block content %}
 <section class="page-section">
   {% if rows %}
+  <div class="toolbar gap-bottom-sm align-start">
+    <input id="runsSearch" type="search" class="input-compact" placeholder="Search runs, plans, fill lines">
+  </div>
   <div class="toolbar gap-bottom-sm">
-    <input id="runsSearch" type="search" class="input-compact-md" placeholder="Search run IDs or info">
-    <label>Config ID
-      <input id="config-filter" class="input-compact-sm" type="number" min="1">
-    </label>
-    <label>Config Version
+    <label class="mono">
+      <span class="label-title label-title-inline">Config Ver</span>
       <input id="config-version-filter" class="input-compact-sm" type="number" min="1">
     </label>
-    <label>Input Set
+    <label class="mono">
+      <span class="label-title label-title-inline">Input Set</span>
       <input id="input-set-filter" class="input-compact-sm" type="text" placeholder="weekly_refresh">
     </label>
-    <label>Scenario ID
+    <label class="mono">
+      <span class="label-title label-title-inline">Scenario ID</span>
       <input id="scenario-filter" class="input-compact-sm" type="number" min="1">
     </label>
-    <div class="toolbar sort-controls">
-      <div class="sort-pair">
-        <label class="mono">
-          <span class="label-title label-title-inline">Primary Sort</span>
-          <select id="sort-select">
-            <option value="started_at">started_at</option>
-            <option value="duration_ms">duration_ms</option>
-            <option value="config_version_id">config_version_id</option>
-          </select>
-        </label>
-        <select id="order-select" class="sort-dir">
-          <option value="desc">desc</option>
-          <option value="asc">asc</option>
+  </div>
+  <div class="toolbar sort-controls">
+    <div class="sort-pair">
+      <label class="mono">
+        <span class="label-title label-title-inline">Primary Sort</span>
+        <select id="sortPKey">
+          <option value="started_at">started_at</option>
+          <option value="duration_ms">duration_ms</option>
+          <option value="config_version_id">config_version_id</option>
+          <option value="fill_rate">fill_rate</option>
+          <option value="profit_total">profit_total</option>
         </select>
-      </div>
-      <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>
-      <button id="clear-filter" type="button" class="secondary" aria-label="Clear filters">Clear</button>
+      </label>
+      <select id="sortPDir" class="sort-dir">
+        <option value="desc">desc</option>
+        <option value="asc">asc</option>
+      </select>
     </div>
+    <div class="sort-pair">
+      <label class="mono">
+        <span class="label-title label-title-inline">Secondary Sort</span>
+        <select id="sortSKey">
+          <option value="">(none)</option>
+          <option value="started_at">started_at</option>
+          <option value="duration_ms">duration_ms</option>
+          <option value="config_version_id">config_version_id</option>
+          <option value="fill_rate">fill_rate</option>
+          <option value="profit_total">profit_total</option>
+        </select>
+      </label>
+      <select id="sortSDir" class="sort-dir">
+        <option value="desc">desc</option>
+        <option value="asc">asc</option>
+      </select>
+    </div>
+    <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>
+    <button id="clear-filter" type="button" class="secondary" aria-label="Clear filters">Clear</button>
   </div>
   <div class="table-wrapper">
     <table role="grid">

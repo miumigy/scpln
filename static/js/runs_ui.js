@@ -10,13 +10,15 @@
   const lastBtn = document.getElementById('last-page');
   const limitSel = document.getElementById('limit-select');
   const pagerInfo = document.getElementById('pager-info');
-  const sortSel = document.getElementById('sort-select');
-  const orderSel = document.getElementById('order-select');
+  const sortPKey = document.getElementById('sortPKey');
+  const sortPDir = document.getElementById('sortPDir');
+  const sortSKey = document.getElementById('sortSKey');
+  const sortSDir = document.getElementById('sortSDir');
   const thSortStarted = document.getElementById('th-sort-started');
   const thSortDur = document.getElementById('th-sort-dur');
-  const configInput = document.getElementById('config-filter');
   const configVersionInput = document.getElementById('config-version-filter');
   const inputSetInput = document.getElementById('input-set-filter');
+  const scenarioInput = document.getElementById('scenario-filter');
   const applyBtn = document.getElementById('apply-filter');
   const clearBtn = document.getElementById('clear-filter');
   const searchInput = document.getElementById('runsSearch');
@@ -26,7 +28,19 @@
   const START_LABEL = 'started_at (JST)';
   const DUR_LABEL = 'dur(ms)';
 
-  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', config_id: '', config_version_id: '', scenario_id: '', input_set_label: '', search: '' };
+  let state = {
+    offset: 0,
+    limit: 20,
+    total: 0,
+    sort: 'started_at',
+    order: 'desc',
+    sort_secondary: '',
+    order_secondary: 'desc',
+    search: '',
+    config_version_id: '',
+    scenario_id: '',
+    input_set_label: '',
+  };
 
   function loadPrefs() {
     try {
@@ -37,8 +51,9 @@
         if (p.limit) state.limit = Number(p.limit) || state.limit;
         if (p.sort) state.sort = String(p.sort);
         if (p.order) state.order = String(p.order);
+        if (p.sort_secondary !== undefined) state.sort_secondary = String(p.sort_secondary || '');
+        if (p.order_secondary !== undefined) state.order_secondary = String(p.order_secondary || 'desc');
         if (p.search !== undefined) state.search = String(p.search || '');
-        if (p.config_id !== undefined) state.config_id = String(p.config_id || '');
         if (p.config_version_id !== undefined) state.config_version_id = String(p.config_version_id || '');
         if (p.scenario_id !== undefined) state.scenario_id = String(p.scenario_id || '');
         if (p.input_set_label !== undefined) state.input_set_label = String(p.input_set_label || '');
@@ -52,8 +67,9 @@
         limit: state.limit,
         sort: state.sort,
         order: state.order,
+        sort_secondary: state.sort_secondary,
+        order_secondary: state.order_secondary,
         search: state.search,
-        config_id: state.config_id,
         config_version_id: state.config_version_id,
         scenario_id: state.scenario_id,
         input_set_label: state.input_set_label,
@@ -68,13 +84,21 @@
     state.limit = Number(sp.get('limit') || state.limit) || state.limit;
     state.sort = sp.get('sort') || state.sort;
     state.order = sp.get('order') || state.order;
+    state.sort_secondary = sp.get('sort_secondary') || state.sort_secondary;
+    state.order_secondary = sp.get('order_secondary') || state.order_secondary;
     state.search = sp.get('search') || '';
-    state.config_id = sp.get('config_id') || '';
     state.config_version_id = sp.get('config_version_id') || '';
     state.scenario_id = sp.get('scenario_id') || '';
     state.input_set_label = sp.get('input_set_label') || '';
     // If URL params are missing, fall back to locally stored preferences
-    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('search') && !sp.has('config_id') && !sp.has('config_version_id') && !sp.has('input_set_label')) {
+    if (
+      !sp.has('limit') &&
+      !sp.has('sort') &&
+      !sp.has('order') &&
+      !sp.has('search') &&
+      !sp.has('config_version_id') &&
+      !sp.has('input_set_label')
+    ) {
       loadPrefs();
     }
   }
@@ -86,7 +110,8 @@
     if (state.sort) sp.set('sort', state.sort);
     if (state.order) sp.set('order', state.order);
     if (state.search) sp.set('search', state.search);
-    if (state.config_id) sp.set('config_id', state.config_id);
+    if (state.sort_secondary) sp.set('sort_secondary', state.sort_secondary);
+    if (state.order_secondary) sp.set('order_secondary', state.order_secondary);
     if (state.config_version_id) sp.set('config_version_id', state.config_version_id);
     if (state.scenario_id) sp.set('scenario_id', state.scenario_id);
     if (state.input_set_label) sp.set('input_set_label', state.input_set_label);
@@ -246,8 +271,6 @@
       const q = new URLSearchParams({ offset: String(state.offset), limit: String(state.limit) });
       if (state.sort) q.set('sort', state.sort);
       if (state.order) q.set('order', state.order);
-      if (state.schema_version) q.set('schema_version', state.schema_version);
-      if (state.config_id) q.set('config_id', state.config_id);
       if (state.config_version_id) q.set('config_version_id', state.config_version_id);
       if (state.scenario_id) q.set('scenario_id', state.scenario_id);
       if (state.input_set_label) q.set('input_set_label', state.input_set_label);
@@ -294,11 +317,12 @@
         // sync select without triggering change
         limitSel.value = String(state.limit);
       }
-      if (sortSel && state.sort !== sortSel.value) sortSel.value = state.sort;
-      if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
-      if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
+      if (sortPKey && state.sort !== sortPKey.value) sortPKey.value = state.sort;
+      if (sortPDir && state.order !== sortPDir.value) sortPDir.value = state.order;
+      if (sortSKey && state.sort_secondary !== sortSKey.value) sortSKey.value = state.sort_secondary || '';
+      if (sortSDir && state.order_secondary !== sortSDir.value) sortSDir.value = state.order_secondary;
+      if (searchInput && searchInput.value !== (state.search || '')) searchInput.value = state.search || '';
       if (configVersionInput && configVersionInput.value !== (state.config_version_id || '')) configVersionInput.value = state.config_version_id || '';
-      const scenarioInput = document.getElementById('scenario-filter');
       if (scenarioInput && scenarioInput.value !== (state.scenario_id || '')) scenarioInput.value = state.scenario_id || '';
       if (inputSetInput && inputSetInput.value !== (state.input_set_label || '')) inputSetInput.value = state.input_set_label || '';
       // Update the URL query string
@@ -368,8 +392,26 @@
     savePrefs();
     reloadRuns();
   });
-  if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
-  if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
+  if (sortPKey) sortPKey.addEventListener('change', () => {
+    state.sort = sortPKey.value;
+    state.offset = 0;
+    savePrefs();
+    reloadRuns();
+  });
+  if (sortPDir) sortPDir.addEventListener('change', () => {
+    state.order = sortPDir.value;
+    state.offset = 0;
+    savePrefs();
+    reloadRuns();
+  });
+  if (sortSKey) sortSKey.addEventListener('change', () => {
+    state.sort_secondary = sortSKey.value;
+    savePrefs();
+  });
+  if (sortSDir) sortSDir.addEventListener('change', () => {
+    state.order_secondary = sortSDir.value;
+    savePrefs();
+  });
   if (searchInput) {
     searchInput.addEventListener('input', () => {
       state.search = (searchInput.value || '').trim();
@@ -399,13 +441,11 @@
   });
   if (applyBtn) applyBtn.addEventListener('click', () => {
     const searchVal = (searchInput && searchInput.value || '').trim();
-    const cid = (configInput && configInput.value || '').trim();
     const cvid = (configVersionInput && configVersionInput.value || '').trim();
     const sidEl = document.getElementById('scenario-filter');
     const sid = (sidEl && sidEl.value || '').trim();
     const inputSetVal = (inputSetInput && inputSetInput.value || '').trim();
     state.search = searchVal;
-    state.config_id = cid;
     state.config_version_id = cvid;
     state.scenario_id = sid;
     state.input_set_label = inputSetVal;
@@ -415,10 +455,8 @@
   });
   if (clearBtn) clearBtn.addEventListener('click', () => {
     if (searchInput) searchInput.value = '';
-    if (configInput) configInput.value = '';
     if (configVersionInput) configVersionInput.value = '';
     state.search = '';
-    state.config_id = '';
     state.config_version_id = '';
     const sidEl = document.getElementById('scenario-filter'); if (sidEl) sidEl.value = '';
     state.scenario_id = '';
