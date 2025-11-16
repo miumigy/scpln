@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block page_header %}
   <h2>Plan & Run Charts</h2>
-  <p>Visualize KPIs and run trends for plan {{ version_id }}.</p>
+  <p>Visualize KPIs and run trends for plan {{ version_id }}{% if latest_run_id %} and run {{ latest_run_id }}{% endif %}.</p>
 {% endblock %}
 {% block content %}
 <section class="page-section">
