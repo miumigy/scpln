@@ -13,43 +13,49 @@
       <a role="button" href="/ui/plans/input_sets">Back to list</a>
     </div>
   </div>
-  <div class="card-grid">
-    <div class="card">
-      <div class="card-header">Label</div>
-      <div class="card-body mono">{{ input_set.label }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Config Version ID</div>
-      <div class="card-body mono">
-        {% if input_set.config_version_id %}
-          <a href="/ui/configs/canonical/{{ input_set.config_version_id }}">{{ input_set.config_version_id }}</a>
-        {% else %}-{% endif %}
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header">Status</div>
-      <div class="card-body mono">{{ input_set.status }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Source</div>
-      <div class="card-body mono">{{ input_set.source }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Created At</div>
-      <div class="card-body mono ts-ms" data-ms="{{ input_set.created_at }}">{{ input_set.created_at }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Updated At</div>
-      <div class="card-body mono ts-ms" data-ms="{{ input_set.updated_at }}">{{ input_set.updated_at }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Approved By</div>
-      <div class="card-body mono">{{ input_set.approved_by or '-' }}</div>
-    </div>
-    <div class="card">
-      <div class="card-header">Approved At</div>
-      <div class="card-body mono ts-ms" data-ms="{{ input_set.approved_at or '' }}">{{ input_set.approved_at or '-' }}</div>
-    </div>
+  <div class="table-wrapper">
+    <table>
+      <tbody>
+        <tr>
+          <th scope="row">Label</th>
+          <td class="mono">{{ input_set.label }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Config Version ID</th>
+          <td class="mono">
+            {% if input_set.config_version_id %}
+              <a href="/ui/configs/canonical/{{ input_set.config_version_id }}">{{ input_set.config_version_id }}</a>
+            {% else %}
+              -
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">Status</th>
+          <td class="mono">{{ input_set.status }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Source</th>
+          <td class="mono">{{ input_set.source }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Created At</th>
+          <td class="mono ts-ms" data-ms="{{ input_set.created_at }}">{{ input_set.created_at }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Updated At</th>
+          <td class="mono ts-ms" data-ms="{{ input_set.updated_at }}">{{ input_set.updated_at }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Approved By</th>
+          <td class="mono">{{ input_set.approved_by or '-' }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Approved At</th>
+          <td class="mono ts-ms" data-ms="{{ input_set.approved_at or '' }}">{{ input_set.approved_at or '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </section>
 
