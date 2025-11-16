@@ -46,7 +46,7 @@
     {% else %}
         <div class="stack gap-xs gap-bottom-md">
             <p class="help-text">
-                こちらのセットと別の準備済み Input Set を比較できます。
+                Compare this input set with another ready set.
             </p>
             {% if comparison_candidates %}
                 <form
@@ -76,7 +76,7 @@
                     <button type="submit" class="secondary">Reload</button>
                 </form>
             {% else %}
-                <p class="help-text">比較可能な Input Set がこの構成バージョンに存在しません。</p>
+                <p class="help-text">No comparable ready input set exists for this config version.</p>
             {% endif %}
         </div>
         <div class="diff-grid">
