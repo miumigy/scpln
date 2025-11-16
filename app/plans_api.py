@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import time
 import uuid
@@ -2746,80 +2748,207 @@ def get_plan_carryover_csv(version_id: str):
     )
 
 
+def _csv_rows_from_aggregates(aggregates, file_key: str):
+    match file_key:
+        case "demand_family":
+            rows = [
+                {"family": r.family_code, "period": r.period, "demand": r.demand}
+                for r in aggregates.family_demands
+            ]
+            headers = ["family", "period", "demand"]
+        case "capacity":
+            rows = [
+                {
+                    "workcenter": r.resource_code,
+                    "period": r.period,
+                    "capacity": r.capacity,
+                }
+                for r in aggregates.capacity_buckets
+            ]
+            headers = ["workcenter", "period", "capacity"]
+        case "mix_share":
+            rows = [
+                {"family": r.family_code, "sku": r.sku_code, "share": r.share}
+                for r in aggregates.mix_shares
+            ]
+            headers = ["family", "sku", "share"]
+        case "inventory":
+            rows = [
+                {"loc": r.node_code, "item": r.item_code, "qty": r.initial_qty}
+                for r in aggregates.inventory_snapshots
+            ]
+            headers = ["loc", "item", "qty"]
+        case "open_po":
+            rows = [
+                {"item": r.item_code, "due": r.due_date, "qty": r.qty}
+                for r in aggregates.inbound_orders
+            ]
+            headers = ["item", "due", "qty"]
+        case "period_cost":
+            rows = [
+                {"period": m.period, "cost": m.value}
+                for m in aggregates.period_metrics
+                if m.metric_code == "cost"
+            ]
+            headers = ["period", "cost"]
+        case "period_score":
+            rows = [
+                {"period": m.period, "score": m.value}
+                for m in aggregates.period_metrics
+                if m.metric_code == "score"
+            ]
+            headers = ["period", "score"]
+        case _:
+            raise KeyError("unknown csv file key")
+    return rows, headers
+
+
+def _csv_response(file_name: str, rows: list[dict[str, object]], headers: list[str]):
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=headers)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return PlainTextResponse(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
+
+
+def _json_response(file_name: str, payload: object):
+    return JSONResponse(
+        content=payload,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'},
+    )
+
+
 @app.get("/api/plans/input_sets/{label}/export")
 def export_planning_input_set(
     label: str,
     background_tasks: BackgroundTasks,
-    format: str = Query("zip", enum=["zip", "csv"]),
+    format: str = Query("zip", enum=["zip", "csv", "json"]),
+    file: str | None = Query(None),
 ):
-    """
-    指定されたラベルの PlanningInputSet をエクスポートする。
-    format=zip の場合、zipアーカイブを返す。
-    """
-    if format != "zip":
-        return JSONResponse(
-            status_code=400,
-            content={"detail": "Currently, only zip format is supported."},
+    if format == "zip":
+        temp_dir = tempfile.mkdtemp(prefix="plan-export-")
+        background_tasks.add_task(shutil.rmtree, temp_dir)
+
+        zip_path = Path(temp_dir) / f"planning_input_set_{label}.zip"
+        script_path = str(BASE_DIR / "scripts" / "export_planning_inputs.py")
+
+        args = [
+            sys.executable,
+            script_path,
+            "--label",
+            label,
+            "--output-dir",
+            str(temp_dir),
+            "--zip",
+            "--zip-name",
+            str(zip_path.name),
+        ]
+
+        env = os.environ.copy()
+        env.setdefault("PYTHONPATH", str(BASE_DIR))
+
+        try:
+            result = subprocess.run(
+                args,
+                cwd=str(BASE_DIR),
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logging.error(
+                "Export script failed",
+                extra={
+                    "label": label,
+                    "stdout": e.stdout,
+                    "stderr": e.stderr,
+                },
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to export input set. Stderr: {e.stderr}",
+            )
+        except Exception as e:
+            logging.exception("Export subprocess failed unexpectedly")
+            raise HTTPException(
+                status_code=500, detail=f"An unexpected error occurred: {e}"
+            )
+
+        if not zip_path.exists():
+            raise HTTPException(
+                status_code=500, detail="Export script ran but zip file was not created."
+            )
+
+        return FileResponse(
+            path=zip_path,
+            filename=zip_path.name,
+            media_type="application/zip",
         )
 
-    temp_dir = tempfile.mkdtemp(prefix="plan-export-")
-    background_tasks.add_task(shutil.rmtree, temp_dir)
-
-    zip_path = Path(temp_dir) / f"planning_input_set_{label}.zip"
-    script_path = str(BASE_DIR / "scripts" / "export_planning_inputs.py")
-
-    args = [
-        sys.executable,
-        script_path,
-        "--label",
-        label,
-        "--output-dir",
-        str(temp_dir),
-        "--zip",
-        "--zip-name",
-        str(zip_path.name),
-    ]
-
-    env = os.environ.copy()
-    env.setdefault("PYTHONPATH", str(BASE_DIR))
+    if not file:
+        raise HTTPException(
+            status_code=400,
+            detail="file query parameter is required for csv/json export.",
+        )
 
     try:
-        result = subprocess.run(
-            args,
-            cwd=str(BASE_DIR),
-            env=env,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        logging.error(
-            "Export script failed",
-            extra={
-                "label": label,
-                "stdout": e.stdout,
-                "stderr": e.stderr,
-            },
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to export input set. Stderr: {e.stderr}",
-        )
-    except Exception as e:
-        logging.exception("Export subprocess failed unexpectedly")
-        raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {e}"
-        )
+        input_set = get_planning_input_set(label=label, include_aggregates=True)
+    except PlanningInputSetNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Input set '{label}' not found.")
 
-    if not zip_path.exists():
-        raise HTTPException(
-            status_code=500, detail="Export script ran but zip file was not created."
-        )
+    aggregates = input_set.aggregates
 
-    return FileResponse(
-        path=zip_path,
-        filename=zip_path.name,
-        media_type="application/zip",
+    if format == "csv":
+        try:
+            rows, headers = _csv_rows_from_aggregates(aggregates, file)
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{file}' is not a supported CSV export target.",
+            )
+        return _csv_response(f"{file}.csv", rows, headers)
+
+    if format == "json":
+        match file:
+            case "planning_calendar":
+                payload = (
+                    input_set.calendar_spec.model_dump(mode="json")
+                    if input_set.calendar_spec
+                    else {}
+                )
+            case "planning_params":
+                payload = (
+                    input_set.planning_params.model_dump(mode="json")
+                    if input_set.planning_params
+                    else {}
+                )
+            case "input_set_meta":
+                payload = {
+                    "id": input_set.id,
+                    "label": input_set.label,
+                    "status": input_set.status,
+                    "config_version_id": input_set.config_version_id,
+                    "source": input_set.source,
+                    "created_at": input_set.created_at,
+                    "updated_at": input_set.updated_at,
+                }
+            case _:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{file}' is not a supported JSON export target.",
+                )
+        return _json_response(f"{file}.json", payload)
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unsupported format '{format}'.",
     )
 
 

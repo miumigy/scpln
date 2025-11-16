@@ -109,6 +109,28 @@
 </section>
 {% endif %}
 
+<section class="page-section">
+  <div class="section-header">
+    <h3>Download Input Set Files</h3>
+    <p class="help-text">
+      Export each aggregate table or metadata as the matching CSV/JSON file, or grab a bundled ZIP.
+    </p>
+  </div>
+  <div class="toolbar gap-sm flex-wrap">
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export" role="button">Download ZIP</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=demand_family">demand_family.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=capacity">capacity.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=mix_share">mix_share.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=inventory">inventory.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=open_po">open_po.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=period_cost">period_cost.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=csv&file=period_score">period_score.csv</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=json&file=planning_calendar">planning_calendar.json</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=json&file=planning_params">planning_params.json</a>
+    <a class="secondary" href="/api/plans/input_sets/{{ input_set.label }}/export?format=json&file=input_set_meta">input_set_meta.json</a>
+  </div>
+</section>
+
 {% if input_set_events %}
 <section class="page-section">
   <div class="section-header">
