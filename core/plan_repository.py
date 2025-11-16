@@ -570,9 +570,7 @@ class PlanRepository:
             conn.commit()
         except sqlite3.Error as exc:
             conn.rollback()
-            raise PlanRepositoryError(
-                f"plan KPI更新に失敗しました: {exc}"
-            ) from exc
+            raise PlanRepositoryError(f"plan KPI更新に失敗しました: {exc}") from exc
         except Exception:
             conn.rollback()
             raise

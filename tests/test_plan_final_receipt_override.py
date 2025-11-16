@@ -84,9 +84,7 @@ def test_apply_plan_final_receipts_sets_zero_when_receipt_missing_in_week():
         ]
     }
 
-    updated_detail, _ = apply_plan_final_receipts(
-        detail, aggregate, plan_final
-    )
+    updated_detail, _ = apply_plan_final_receipts(detail, aggregate, plan_final)
 
     w1 = updated_detail["rows"][0]
     w2 = updated_detail["rows"][1]
