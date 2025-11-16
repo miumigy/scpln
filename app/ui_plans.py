@@ -611,7 +611,9 @@ def ui_list_input_sets(request: Request):
             return None
 
     accept = (request.headers.get("accept") or "").lower()
-    wants_json = "application/json" in accept or request.query_params.get("format") == "json"
+    wants_json = (
+        "application/json" in accept or request.query_params.get("format") == "json"
+    )
     config_version_id = _query_int("config_version_id")
     status_query = (request.query_params.get("status") or "ready").lower()
     status_filter = None if status_query == "all" else status_query
@@ -623,7 +625,10 @@ def ui_list_input_sets(request: Request):
                 status_code=400,
             )
         input_sets = list_planning_input_sets(
-            config_version_id=config_version_id, status=status_filter, limit=200, offset=0
+            config_version_id=config_version_id,
+            status=status_filter,
+            limit=200,
+            offset=0,
         )
         payload = [
             {
@@ -1008,7 +1013,11 @@ def ui_plan_detail(plan_version_id: str, request: Request):
                 _alias(
                     entry,
                     "planned_receipt_adj",
-                    ("planned_order_receipt_adj", "planned_order_receipt", "planned_receipt"),
+                    (
+                        "planned_order_receipt_adj",
+                        "planned_order_receipt",
+                        "planned_receipt",
+                    ),
                 )
                 _alias(
                     entry,

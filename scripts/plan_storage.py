@@ -107,9 +107,7 @@ def _rewrite_aggregate_and_detail_from_plan_final(
             default_location_key=default_location_key,
             default_location_type=default_location_type,
         )
-        _PLAN_REPOSITORY.replace_plan_series_level(
-            version_id, "aggregate", agg_series
-        )
+        _PLAN_REPOSITORY.replace_plan_series_level(version_id, "aggregate", agg_series)
         kpi_rows = build_plan_kpis_from_aggregate(version_id, aggregate_obj)
         _PLAN_REPOSITORY.replace_plan_kpis(version_id, kpi_rows)
 

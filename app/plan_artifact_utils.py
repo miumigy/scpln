@@ -25,8 +25,7 @@ def apply_plan_final_receipts(
             rec = float(
                 row.get("planned_order_receipt_adj")
                 if row.get("planned_order_receipt_adj") is not None
-                else row.get("planned_order_receipt")
-                or 0.0
+                else row.get("planned_order_receipt") or 0.0
             )
         except Exception:
             rec = 0.0

@@ -2883,7 +2883,8 @@ def export_planning_input_set(
 
         if not zip_path.exists():
             raise HTTPException(
-                status_code=500, detail="Export script ran but zip file was not created."
+                status_code=500,
+                detail="Export script ran but zip file was not created.",
             )
 
         return FileResponse(
