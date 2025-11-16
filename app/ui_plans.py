@@ -434,6 +434,15 @@ def _render_plans_page(
     defaults = dict(form_defaults or {})
     canonical_options = _list_canonical_options()
     scenario_options: list[dict[str, str]] = []
+    try:
+        scenario_list = db.list_scenarios(limit=500)
+    except Exception:
+        scenario_list = []
+    for scenario in scenario_list:
+        sid = scenario.get("id")
+        name = scenario.get("name") or ""
+        label = f"{sid} · {name}" if name else str(sid)
+        scenario_options.append({"id": str(sid), "label": label})
     return templates.TemplateResponse(
         request,
         "plans.html",
