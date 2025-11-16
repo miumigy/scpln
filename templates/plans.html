@@ -125,39 +125,47 @@
     <input id="q" type="search" placeholder="Search by version, status, policy" aria-label="Search plan versions" />
     <small class="mono pill" id="meta"></small>
     <label class="mono">
+      <span class="label-title label-title-inline">Config Ver</span>
+      <input id="configVersionFilter" type="search" placeholder="ID" value="{{ config_version_filter or '' }}">
+    </label>
+    <label class="mono">
       <span class="label-title label-title-inline">Input Set</span>
       <input id="inputSetFilter" type="search" placeholder="Label" value="{{ input_set_filter or '' }}">
     </label>
-    <div class="toolbar">
-      <label class="mono">
-        <span class="label-title label-title-inline">Primary Sort</span>
-        <select id="sortPKey" aria-label="Primary sort key">
-          <option value="created_at">created_at</option>
-          <option value="status">status</option>
-          <option value="violations">violations</option>
-          <option value="policy">policy</option>
-          <option value="cutover">cutover</option>
+    <div class="toolbar sort-controls">
+      <div class="sort-pair">
+        <label class="mono">
+          <span class="label-title label-title-inline">Primary Sort</span>
+          <select id="sortPKey" aria-label="Primary sort key">
+            <option value="created_at">created_at</option>
+            <option value="status">status</option>
+            <option value="violations">violations</option>
+            <option value="policy">policy</option>
+            <option value="cutover">cutover</option>
+          </select>
+        </label>
+        <select id="sortPDir" class="sort-dir" aria-label="Primary sort direction">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
         </select>
-      </label>
-      <select id="sortPDir" aria-label="Primary sort direction">
-        <option value="desc">desc</option>
-        <option value="asc">asc</option>
-      </select>
-      <label class="mono">
-        <span class="label-title label-title-inline">Secondary Sort</span>
-        <select id="sortSKey" aria-label="Secondary sort key">
-          <option value="">(none)</option>
-          <option value="created_at">created_at</option>
-          <option value="status">status</option>
-          <option value="violations">violations</option>
-          <option value="policy">policy</option>
-          <option value="cutover">cutover</option>
+      </div>
+      <div class="sort-pair">
+        <label class="mono">
+          <span class="label-title label-title-inline">Secondary Sort</span>
+          <select id="sortSKey" aria-label="Secondary sort key">
+            <option value="">(none)</option>
+            <option value="created_at">created_at</option>
+            <option value="status">status</option>
+            <option value="violations">violations</option>
+            <option value="policy">policy</option>
+            <option value="cutover">cutover</option>
+          </select>
+        </label>
+        <select id="sortSDir" class="sort-dir" aria-label="Secondary sort direction">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
         </select>
-      </label>
-      <select id="sortSDir" aria-label="Secondary sort direction">
-        <option value="desc">desc</option>
-        <option value="asc">asc</option>
-      </select>
+      </div>
     </div>
     <small class="mono pill" id="sortBadge"></small>
   </div>
@@ -196,7 +204,7 @@
           {% set series_rows = p.summary.series_rows if p.summary and p.summary.series_rows is not none else None %}
           {% set fill_rate = p.summary.kpi.fill_rate if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else None %}
           {% set backlog_days = p.summary.kpi.backlog_days if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else None %}
-          <tr data-input-set="{{ (p.input_set_label or '')|lower }}">
+          <tr data-input-set="{{ (p.input_set_label or '')|lower }}" data-config-version="{{ (p.config_version_id or '')|lower }}">
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
             <td class="mono">
               {% if last_job and last_job.run_id %}
@@ -407,17 +415,21 @@ document.addEventListener('DOMContentLoaded', function(){
   var q = document.getElementById('q');
   var meta = document.getElementById('meta');
   var inputSetFilter = document.getElementById('inputSetFilter');
+  var configVersionFilter = document.getElementById('configVersionFilter');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
   var sortBadge = document.getElementById('sortBadge');
   var sortButtons = Array.from(document.querySelectorAll('button.sort-trigger[data-sort]'));
   // Persist search filter in localStorage
   var KEY_Q = 'ui_plans_query';
   var KEY_INPUT_SET = 'ui_plans_inputset';
+  var KEY_CONFIG_VERSION = 'ui_plans_config_version';
   try {
     var saved = localStorage.getItem(KEY_Q);
     if (q && saved && typeof saved === 'string') { q.value = saved; }
     var savedInput = localStorage.getItem(KEY_INPUT_SET);
     if (inputSetFilter && savedInput && typeof savedInput === 'string') { inputSetFilter.value = savedInput; }
+    var savedConfig = localStorage.getItem(KEY_CONFIG_VERSION);
+    if (configVersionFilter && savedConfig && typeof savedConfig === 'string') { configVersionFilter.value = savedConfig; }
   } catch(e) {}
   try {
     var qs = new URLSearchParams(window.location.search);
@@ -426,15 +438,22 @@ document.addEventListener('DOMContentLoaded', function(){
       inputSetFilter.value = qpInput;
       try { localStorage.setItem(KEY_INPUT_SET, qpInput); } catch(e) {}
     }
+    var qpConfig = qs.get('config_version_id');
+    if (qpConfig && configVersionFilter) {
+      configVersionFilter.value = qpConfig;
+      try { localStorage.setItem(KEY_CONFIG_VERSION, qpConfig); } catch(e) {}
+    }
   } catch(e) {}
   function apply(){
     var s = (q && q.value || '').toLowerCase().trim();
     var label = (inputSetFilter && inputSetFilter.value || '').toLowerCase().trim();
+    var configFilter = (configVersionFilter && configVersionFilter.value || '').toLowerCase().trim();
     var vis = 0;
     rows.forEach(function(tr){
       var txt = tr.textContent.toLowerCase();
       var rowLabel = (tr.getAttribute('data-input-set') || '').toLowerCase();
-      var ok = (!s || txt.indexOf(s) >= 0) && (!label || rowLabel.indexOf(label) >= 0);
+      var rowConfig = (tr.getAttribute('data-config-version') || '').toLowerCase();
+      var ok = (!s || txt.indexOf(s) >= 0) && (!label || rowLabel.indexOf(label) >= 0) && (!configFilter || rowConfig.indexOf(configFilter) >= 0);
       tr.style.display = ok ? '' : 'none';
       if (ok) vis++;
     });
@@ -442,6 +461,7 @@ document.addEventListener('DOMContentLoaded', function(){
     try {
       localStorage.setItem(KEY_Q, s);
       localStorage.setItem(KEY_INPUT_SET, label);
+      localStorage.setItem(KEY_CONFIG_VERSION, configFilter);
     } catch(e) {}
   }
   function triggerApply() { apply(); }
@@ -450,6 +470,9 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   if (inputSetFilter) {
     inputSetFilter.addEventListener('input', apply);
+  }
+  if (configVersionFilter) {
+    configVersionFilter.addEventListener('input', apply);
   }
   apply();
   // Quick sort for common columns (status/created_at/violations)

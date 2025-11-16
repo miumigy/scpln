@@ -150,6 +150,24 @@
     .toolbar > * {
       flex: 0 0 auto;
     }
+    .toolbar.sort-controls {
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+    .toolbar.sort-controls .sort-pair {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      flex-wrap: nowrap;
+    }
+    .toolbar.sort-controls .sort-pair label {
+      margin-bottom: 0;
+    }
+    .toolbar.sort-controls .sort-dir {
+      width: 192px;
+      min-width: 192px;
+      font-size: 0.95rem;
+    }
     .toolbar label {
       display: flex;
       flex-direction: column;
