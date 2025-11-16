@@ -220,27 +220,27 @@
     <div class="toolbar gap-xs">
       {% if total > 0 %}
         {% if offset > 0 %}
-          <a href="/ui/plans?limit={{ limit }}&offset=0" class="secondary" aria-label="Go to first page">First</a>
-          <a href="/ui/plans?limit={{ limit }}&offset={{ prev_offset }}" class="secondary" aria-label="Go to previous page">Prev</a>
+          <button type="button" class="secondary" onclick="location.href='/ui/plans?limit={{ limit }}&offset=0'">First</button>
+          <button type="button" class="secondary" onclick="location.href='/ui/plans?limit={{ limit }}&offset={{ prev_offset }}'">Prev</button>
         {% else %}
-          <span class="secondary disabled" aria-disabled="true">First</span>
-          <span class="secondary disabled" aria-disabled="true">Prev</span>
+          <button type="button" class="secondary" disabled aria-disabled="true">First</button>
+          <button type="button" class="secondary" disabled aria-disabled="true">Prev</button>
         {% endif %}
         {% if next_offset is not none %}
-          <a href="/ui/plans?limit={{ limit }}&offset={{ next_offset }}" class="secondary" aria-label="Go to next page">Next</a>
+          <button type="button" class="secondary" onclick="location.href='/ui/plans?limit={{ limit }}&offset={{ next_offset }}'">Next</button>
         {% else %}
-          <span class="secondary disabled" aria-disabled="true">Next</span>
+          <button type="button" class="secondary" disabled aria-disabled="true">Next</button>
         {% endif %}
         {% if total > limit and offset < last_offset %}
-          <a href="/ui/plans?limit={{ limit }}&offset={{ last_offset }}" class="secondary" aria-label="Go to last page">Last</a>
+          <button type="button" class="secondary" onclick="location.href='/ui/plans?limit={{ limit }}&offset={{ last_offset }}'">Last</button>
         {% else %}
-          <span class="secondary disabled" aria-disabled="true">Last</span>
+          <button type="button" class="secondary" disabled aria-disabled="true">Last</button>
         {% endif %}
       {% else %}
-        <span class="secondary disabled" aria-disabled="true">First</span>
-        <span class="secondary disabled" aria-disabled="true">Prev</span>
-        <span class="secondary disabled" aria-disabled="true">Next</span>
-        <span class="secondary disabled" aria-disabled="true">Last</span>
+        <button type="button" class="secondary" disabled aria-disabled="true">First</button>
+        <button type="button" class="secondary" disabled aria-disabled="true">Prev</button>
+        <button type="button" class="secondary" disabled aria-disabled="true">Next</button>
+        <button type="button" class="secondary" disabled aria-disabled="true">Last</button>
       {% endif %}
     </div>
     <span class="mono">Page {{ current_page }} / {{ page_count if page_count >= 1 else 1 }}</span>
