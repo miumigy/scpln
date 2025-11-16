@@ -98,6 +98,15 @@
 
   const formatLib = window.ScpFormat;
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function fallbackNumber(value, decimals = 2, stripTrailing = true) {
     const num = Number(value);
     if (!Number.isFinite(num)) return '';
@@ -197,7 +206,12 @@
     const runLink = `<a href="/ui/runs/${r.run_id}">${r.run_id}</a>`;
     const configVerLink = r.config_version_id ? `<a href="/ui/configs/canonical/${r.config_version_id}">${r.config_version_id}</a>` : '-';
     const inputSetLabel = r.input_set_label ?? r.summary?.['_input_set_label'] ?? '';
-    const inputSetCell = inputSetLabel ? `<span class="mono">${inputSetLabel}</span>` : '<span class="mono muted">-</span>';
+    let inputSetCell = '<span class="mono muted">-</span>';
+    if (inputSetLabel) {
+      const escapedLabel = escapeHtml(inputSetLabel);
+      const href = `/ui/plans/input_sets/${encodeURIComponent(inputSetLabel)}`;
+      inputSetCell = `<a class="truncate link-truncate mono" href="${href}" title="${escapedLabel}">${escapedLabel}</a>`;
+    }
     return `
       <tr>
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
