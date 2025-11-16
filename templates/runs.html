@@ -6,6 +6,39 @@
 {% block content %}
 <section class="page-section">
   {% if rows %}
+  <div class="toolbar gap-bottom-sm">
+    <input id="runsSearch" type="search" class="input-compact-md" placeholder="Search run IDs or info">
+    <label>Config ID
+      <input id="config-filter" class="input-compact-sm" type="number" min="1">
+    </label>
+    <label>Config Version
+      <input id="config-version-filter" class="input-compact-sm" type="number" min="1">
+    </label>
+    <label>Input Set
+      <input id="input-set-filter" class="input-compact-sm" type="text" placeholder="weekly_refresh">
+    </label>
+    <label>Scenario ID
+      <input id="scenario-filter" class="input-compact-sm" type="number" min="1">
+    </label>
+    <div class="toolbar sort-controls">
+      <div class="sort-pair">
+        <label class="mono">
+          <span class="label-title label-title-inline">Primary Sort</span>
+          <select id="sort-select">
+            <option value="started_at">started_at</option>
+            <option value="duration_ms">duration_ms</option>
+            <option value="config_version_id">config_version_id</option>
+          </select>
+        </label>
+        <select id="order-select" class="sort-dir">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
+        </select>
+      </div>
+      <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>
+      <button id="clear-filter" type="button" class="secondary" aria-label="Clear filters">Clear</button>
+    </div>
+  </div>
   <div class="table-wrapper">
     <table role="grid">
       <thead>
@@ -68,72 +101,7 @@
   <div id="bulk-actions" class="toolbar gap-top-sm">
     <button id="delete-selected" type="button" class="contrast" aria-label="Delete selected runs">Delete selected</button>
   </div>
-  <div id="filters" class="toolbar gap-top-sm">
-    <label>Sort
-      <select id="sort-select">
-        <option value="started_at" selected>started_at</option>
-        <option value="duration_ms">duration_ms</option>
-        <option value="schema_version">schema_version</option>
-      </select>
-    </label>
-    <label>Order
-      <select id="order-select">
-        <option value="desc" selected>desc</option>
-        <option value="asc">asc</option>
-      </select>
-    </label>
-    <label>Schema
-      <input id="schema-filter" class="input-compact-sm" type="text" placeholder="1.0" />
-    </label>
-    <label>Config ID
-      <input id="config-filter" class="input-compact-sm" type="number" min="1" />
-    </label>
-    <label>Config Version
-      <input id="config-version-filter" class="input-compact-sm" type="number" min="1" />
-    </label>
-    <label>Scenario ID
-      <input id="scenario-filter" class="input-compact-sm" type="number" min="1" />
-    </label>
-    <label>Input Set
-      <input id="input-set-filter" class="input-compact-sm" type="text" placeholder="weekly_refresh" />
-    </label>
-    <label><input id="hide-archived" type="checkbox" checked> Hide archived</label>
-    <button id="apply-filter" type="button" class="secondary" aria-label="Apply filters">Apply</button>
-    <button id="clear-filter" type="button" class="secondary" aria-label="Clear filters">Clear</button>
-  </div>
-  <div id="saved-views" class="toolbar gap-top-sm align-end">
-    <label>Saved views
-      <select id="views-select">
-        <option value="">(select)</option>
-      </select>
-    </label>
-    <button id="apply-view" type="button" class="secondary" aria-label="Apply saved view">Apply view</button>
-    <button id="delete-view" type="button" aria-label="Delete saved view">Delete view</button>
-    <label>Name
-      <input id="view-name" type="text" placeholder="Current S&OP focus" />
-    </label>
-    <button id="save-view" type="button" aria-label="Save current filters as view">Save current as view</button>
-    <button id="copy-link" type="button" class="secondary" aria-label="Copy permalink for current filters">Copy link</button>
-    <span class="mono">|</span>
-    <label>Server views
-      <select id="views-select-server">
-        <option value="">(select)</option>
-      </select>
-    </label>
-    <button id="apply-view-server" type="button" class="secondary" aria-label="Apply shared server view">Apply server view</button>
-    <label><input id="server-view-shared" type="checkbox"> shared</label>
-    <label>Scope
-      <select id="server-view-scope">
-        <option value="private" selected>private</option>
-        <option value="org">org</option>
-        <option value="public">public</option>
-      </select>
-    </label>
-    <label>Name
-      <input id="view-name-server" type="text" placeholder="Shared view name" />
-    </label>
-    <button id="save-view-server" type="button" aria-label="Save current filters to server">Save to server</button>
-  </div>
+  <div id="pager" class="toolbar gap-top-sm">
   {% else %}
   <p>No runs yet. Call <code>/simulation</code> to generate.</p>
   {% endif %}

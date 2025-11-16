@@ -14,19 +14,19 @@
   const orderSel = document.getElementById('order-select');
   const thSortStarted = document.getElementById('th-sort-started');
   const thSortDur = document.getElementById('th-sort-dur');
-  const schemaInput = document.getElementById('schema-filter');
   const configInput = document.getElementById('config-filter');
   const configVersionInput = document.getElementById('config-version-filter');
   const inputSetInput = document.getElementById('input-set-filter');
   const applyBtn = document.getElementById('apply-filter');
   const clearBtn = document.getElementById('clear-filter');
+  const searchInput = document.getElementById('runsSearch');
   const pageNumInput = document.getElementById('page-number');
   const pageTotalSpan = document.getElementById('page-total');
 
   const START_LABEL = 'started_at (JST)';
   const DUR_LABEL = 'dur(ms)';
 
-  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', config_version_id: '', scenario_id: '', input_set_label: '' };
+  let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', config_id: '', config_version_id: '', scenario_id: '', input_set_label: '', search: '' };
 
   function loadPrefs() {
     try {
@@ -37,7 +37,7 @@
         if (p.limit) state.limit = Number(p.limit) || state.limit;
         if (p.sort) state.sort = String(p.sort);
         if (p.order) state.order = String(p.order);
-        if (p.schema_version !== undefined) state.schema_version = String(p.schema_version || '');
+        if (p.search !== undefined) state.search = String(p.search || '');
         if (p.config_id !== undefined) state.config_id = String(p.config_id || '');
         if (p.config_version_id !== undefined) state.config_version_id = String(p.config_version_id || '');
         if (p.scenario_id !== undefined) state.scenario_id = String(p.scenario_id || '');
@@ -52,7 +52,7 @@
         limit: state.limit,
         sort: state.sort,
         order: state.order,
-        schema_version: state.schema_version,
+        search: state.search,
         config_id: state.config_id,
         config_version_id: state.config_version_id,
         scenario_id: state.scenario_id,
@@ -68,13 +68,13 @@
     state.limit = Number(sp.get('limit') || state.limit) || state.limit;
     state.sort = sp.get('sort') || state.sort;
     state.order = sp.get('order') || state.order;
-    state.schema_version = sp.get('schema_version') || '';
+    state.search = sp.get('search') || '';
     state.config_id = sp.get('config_id') || '';
     state.config_version_id = sp.get('config_version_id') || '';
     state.scenario_id = sp.get('scenario_id') || '';
     state.input_set_label = sp.get('input_set_label') || '';
     // If URL params are missing, fall back to locally stored preferences
-    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('schema_version') && !sp.has('config_id') && !sp.has('config_version_id') && !sp.has('input_set_label')) {
+    if (!sp.has('limit') && !sp.has('sort') && !sp.has('order') && !sp.has('search') && !sp.has('config_id') && !sp.has('config_version_id') && !sp.has('input_set_label')) {
       loadPrefs();
     }
   }
@@ -85,7 +85,7 @@
     sp.set('limit', String(state.limit));
     if (state.sort) sp.set('sort', state.sort);
     if (state.order) sp.set('order', state.order);
-    if (state.schema_version) sp.set('schema_version', state.schema_version);
+    if (state.search) sp.set('search', state.search);
     if (state.config_id) sp.set('config_id', state.config_id);
     if (state.config_version_id) sp.set('config_version_id', state.config_version_id);
     if (state.scenario_id) sp.set('scenario_id', state.scenario_id);
@@ -188,6 +188,19 @@
     });
   }
 
+  function applySearchFilter() {
+    if (!tbody) return;
+    const term = (state.search || '').toLowerCase().trim();
+    Array.from(tbody.querySelectorAll('tr')).forEach((row) => {
+      if (!term) {
+        row.style.display = '';
+        return;
+      }
+      const txt = row.textContent.toLowerCase();
+      row.style.display = txt.indexOf(term) >= 0 ? '' : 'none';
+    });
+  }
+
   function rowHtml(r) {
     const startedMsRaw = Number(r.started_at);
     const hasMs = Number.isFinite(startedMsRaw);
@@ -248,6 +261,7 @@
       if (tbody) {
         tbody.innerHTML = rows.map(rowHtml).join('');
         applyTimestampFormatting(tbody);
+        if (state.search) applySearchFilter();
         // Restore the most recently saved selections
         try {
           const saved = JSON.parse(localStorage.getItem('runs_selected') || '[]');
@@ -282,7 +296,6 @@
       }
       if (sortSel && state.sort !== sortSel.value) sortSel.value = state.sort;
       if (orderSel && state.order !== orderSel.value) orderSel.value = state.order;
-      if (schemaInput && schemaInput.value !== (state.schema_version || '')) schemaInput.value = state.schema_version || '';
       if (configInput && configInput.value !== (state.config_id || '')) configInput.value = state.config_id || '';
       if (configVersionInput && configVersionInput.value !== (state.config_version_id || '')) configVersionInput.value = state.config_version_id || '';
       const scenarioInput = document.getElementById('scenario-filter');
@@ -357,6 +370,12 @@
   });
   if (sortSel) sortSel.addEventListener('change', () => { state.sort = sortSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
   if (orderSel) orderSel.addEventListener('change', () => { state.order = orderSel.value; state.offset = 0; savePrefs(); reloadRuns(); });
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      state.search = (searchInput.value || '').trim();
+      applySearchFilter();
+    });
+  }
   function toggleSort(key){
     if (state.sort === key) {
       state.order = (state.order === 'asc') ? 'desc' : 'asc';
@@ -379,12 +398,13 @@
     reloadRuns();
   });
   if (applyBtn) applyBtn.addEventListener('click', () => {
-    state.schema_version = (schemaInput && schemaInput.value || '').trim();
+    const searchVal = (searchInput && searchInput.value || '').trim();
     const cid = (configInput && configInput.value || '').trim();
     const cvid = (configVersionInput && configVersionInput.value || '').trim();
     const sidEl = document.getElementById('scenario-filter');
     const sid = (sidEl && sidEl.value || '').trim();
     const inputSetVal = (inputSetInput && inputSetInput.value || '').trim();
+    state.search = searchVal;
     state.config_id = cid;
     state.config_version_id = cvid;
     state.scenario_id = sid;
@@ -394,10 +414,10 @@
     reloadRuns();
   });
   if (clearBtn) clearBtn.addEventListener('click', () => {
-    if (schemaInput) schemaInput.value = '';
+    if (searchInput) searchInput.value = '';
     if (configInput) configInput.value = '';
     if (configVersionInput) configVersionInput.value = '';
-    state.schema_version = '';
+    state.search = '';
     state.config_id = '';
     state.config_version_id = '';
     const sidEl = document.getElementById('scenario-filter'); if (sidEl) sidEl.value = '';
@@ -418,6 +438,12 @@
   }
   // expose for inline script to trigger initial load
   window.RunsUI = { reloadRuns, init, formatTimestamps: applyTimestampFormatting };
+
+  function getHeaders(){
+    const h = {};
+    try { const k = localStorage.getItem('api_key') || ''; if (k) h['X-API-Key'] = k; } catch {}
+    return h;
+  }
 
   function downloadCsv(ev) {
     ev.preventDefault();
