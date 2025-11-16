@@ -52,53 +52,8 @@
           {% endif %}
         </label>
         <label>
-          <span class="label-title">Lead Time Unit</span>
-          <select name="lt_unit">
-            {% set lt_unit = form_defaults.lt_unit or 'day' %}
-            <option value="day" {% if lt_unit == 'day' %}selected{% endif %}>Day</option>
-            <option value="week" {% if lt_unit == 'week' %}selected{% endif %}>Week</option>
-          </select>
-        </label>
-        <label>
           <span class="label-title">Cutover Date</span>
           <input type="date" name="cutover_date" value="{{ form_defaults.cutover_date or '' }}" />
-        </label>
-        <label>
-          <span class="label-title">Reconciliation Window (days)</span>
-          <input type="number" name="recon_window_days" min="0" value="{{ form_defaults.recon_window_days or '' }}" />
-        </label>
-        <label>
-          <span class="label-title">Anchor Policy</span>
-          <select name="anchor_policy">
-            {% set anchor_policy = form_defaults.anchor_policy or '' %}
-            <option value="" {% if anchor_policy == '' %}selected{% endif %}>Unspecified</option>
-            <option value="DET_near" {% if anchor_policy == 'DET_near' %}selected{% endif %}>DET_near</option>
-            <option value="AGG_far" {% if anchor_policy == 'AGG_far' %}selected{% endif %}>AGG_far</option>
-            <option value="blend" {% if anchor_policy == 'blend' %}selected{% endif %}>Blend</option>
-          </select>
-        </label>
-        <label>
-          <span class="label-title">Tol Abs</span>
-          <input type="number" step="0.000001" name="tol_abs" placeholder="default 1e-6" value="{{ form_defaults.tol_abs or '' }}" />
-        </label>
-        <label>
-          <span class="label-title">Tol Rel</span>
-          <input type="number" step="0.000001" name="tol_rel" placeholder="default 1e-6" value="{{ form_defaults.tol_rel or '' }}" />
-        </label>
-        <label>
-          <span class="label-title">Carryover Mode</span>
-          <select name="carryover">
-            {% set carryover = form_defaults.carryover or '' %}
-            <option value="" {% if carryover == '' %}selected{% endif %}>Unspecified</option>
-            <option value="auto" {% if carryover == 'auto' %}selected{% endif %}>Auto</option>
-            <option value="prev" {% if carryover == 'prev' %}selected{% endif %}>Use Previous</option>
-            <option value="next" {% if carryover == 'next' %}selected{% endif %}>Use Next</option>
-            <option value="both" {% if carryover == 'both' %}selected{% endif %}>Blend</option>
-          </select>
-        </label>
-        <label>
-          <span class="label-title">Carryover Split</span>
-          <input type="number" min="0" max="1" step="0.05" name="carryover_split" value="{{ form_defaults.carryover_split or '' }}" />
         </label>
         <label>
           <span class="label-title">Apply Adjusted Output</span>
