@@ -47,7 +47,11 @@ from core.sorting import natural_sort_key
 from core.config.importer import import_planning_inputs
 from core.plan_repository import PlanRepository
 from app.config_api import _list_canonical_options
-from core.plan_repository_views import fetch_aggregate_rows, fetch_detail_rows
+from core.plan_repository_views import (
+    fetch_aggregate_rows,
+    fetch_detail_rows,
+    build_plan_summaries,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -186,19 +190,62 @@ def _list_plan_runs(version_id: str, *, limit: int = 10):
             "SELECT run_id, summary, started_at FROM runs WHERE plan_version_id=? ORDER BY started_at DESC, run_id DESC LIMIT ?",
             (version_id, limit),
         ).fetchall()
+    def _safe_float(value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     for row in rows:
         summary: dict[str, str | int | float | None] = {}
         try:
             summary = json.loads(row["summary"] or "{}")
         except Exception:
             summary = {}
+        avg_on_hand = summary.get("avg_on_hand_by_type")
+        inventory_total = None
+        if isinstance(avg_on_hand, dict):
+            total_val = 0.0
+            has_value = False
+            for val in avg_on_hand.values():
+                val_f = _safe_float(val)
+                if val_f is None:
+                    continue
+                total_val += val_f
+                has_value = True
+            if has_value:
+                inventory_total = total_val
+        started_at_raw = row["started_at"]
+        started_at_ts: int | None = None
+        if started_at_raw is not None:
+            try:
+                started_at_ts = int(started_at_raw)
+            except (ValueError, TypeError):
+                try:
+                    started_at_ts = int(float(started_at_raw))
+                except (ValueError, TypeError):
+                    started_at_ts = None
+
+        started_at_str = (
+            ms_to_jst_str(started_at_ts) if started_at_ts is not None else None
+        )
+
         plan_runs.append(
             {
                 "run_id": row["run_id"],
-                "started_at": row["started_at"],
-                "started_at_str": ms_to_jst_str(row["started_at"]),
-                "fill_rate": summary.get("fill_rate"),
-                "profit_total": summary.get("profit_total"),
+                "started_at": started_at_ts,
+                "started_at_str": started_at_str or row["started_at"],
+                "started_at_ts": started_at_ts,
+                "fill_rate": _safe_float(summary.get("fill_rate")),
+                "profit_total": _safe_float(summary.get("profit_total")),
+                "demand_total": _safe_float(summary.get("store_demand_total")),
+                "supply_total": _safe_float(summary.get("store_sales_total")),
+                "backlog_total": _safe_float(summary.get("customer_shortage_total")),
+                "revenue_total": _safe_float(summary.get("revenue_total")),
+                "cost_total": _safe_float(summary.get("cost_total")),
+                "inventory_avg": inventory_total,
             }
         )
         plan_run_ids.append(row["run_id"])
@@ -1234,6 +1281,388 @@ def ui_plan_detail(plan_version_id: str, request: Request):
             "input_set_info": input_set_info,
             "latest_runs": plan_runs,
             "latest_run_ids": plan_run_ids,
+        },
+    )
+
+
+@router.get("/ui/plans/{plan_version_id}/charts", response_class=HTMLResponse)
+def ui_plan_run_charts(plan_version_id: str, request: Request):
+    version_id = str(plan_version_id)
+    version = db.get_plan_version(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Plan version not found")
+
+    repo = _get_plan_repository()
+    summary: dict[str, object] = {}
+    try:
+        summaries = build_plan_summaries(repo, [version_id], include_kpi=True)
+        summary = dict(summaries.get(version_id) or {})
+    except Exception:
+        logging.exception(
+            "ui_plan_charts_summary_failed", extra={"version_id": version_id}
+        )
+        summary = {}
+
+    plan_runs, _ = _list_plan_runs(version_id, limit=20)
+
+    latest_run_id = next(
+        (r.get("run_id") for r in plan_runs if r.get("run_id")), None
+    )
+    run_daily_results: list[dict] = []
+    run_daily_profit_loss: list[dict] = []
+    if latest_run_id:
+        try:
+            with db._conn() as conn:
+                row = conn.execute(
+                    "SELECT results, daily_profit_loss FROM runs WHERE run_id=?",
+                    (latest_run_id,),
+                ).fetchone()
+            if row:
+                run_daily_results = json.loads(row["results"] or "[]")
+                run_daily_profit_loss = json.loads(row["daily_profit_loss"] or "[]")
+        except Exception:
+            logging.exception(
+                "ui_plan_charts_run_load_failed", extra={"run_id": latest_run_id}
+            )
+
+    def _to_float(value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _merge_totals(stats: dict[str, object] | None, fallback: dict[str, float]):
+        totals = {
+            "demand": _to_float((stats or {}).get("demand_total")),
+            "supply": _to_float((stats or {}).get("supply_total")),
+            "backlog": _to_float((stats or {}).get("backlog_total")),
+        }
+        for key, fb_val in fallback.items():
+            if totals.get(key) is None:
+                totals[key] = fb_val if fb_val is not None else 0.0
+        return totals
+
+    def _calc_fill_rate(demand: float | None, supply: float | None):
+        if demand is None or demand <= 0:
+            return None
+        if supply is None:
+            return None
+        return supply / demand if demand else None
+
+    aggregate_stats = {}
+    disagg_stats = {}
+    series_meta = summary.get("series")
+    if isinstance(series_meta, dict):
+        aggregate_stats = dict(series_meta.get("aggregate") or {})
+        disagg_stats = dict(series_meta.get("det") or {})
+
+    try:
+        aggregate_rows = fetch_aggregate_rows(repo, version_id)
+    except Exception:
+        logging.exception(
+            "ui_plan_charts_fetch_aggregate_failed", extra={"version_id": version_id}
+        )
+        aggregate_rows = []
+
+    try:
+        detail_rows = fetch_detail_rows(repo, version_id)
+    except Exception:
+        logging.exception(
+            "ui_plan_charts_fetch_detail_failed", extra={"version_id": version_id}
+        )
+        detail_rows = []
+
+    def _accumulate_series(bucket: dict[str, dict[str, float]], key: str):
+        norm_key = str(key)
+        if norm_key not in bucket:
+            bucket[norm_key] = {"demand": 0.0, "supply": 0.0, "backlog": 0.0}
+        return bucket[norm_key]
+
+    agg_series_map: dict[str, dict[str, float]] = {}
+    for row in aggregate_rows:
+        period = row.get("period")
+        if not period:
+            continue
+        entry = _accumulate_series(agg_series_map, period)
+        for field_src, field_dst in (
+            ("demand", "demand"),
+            ("supply", "supply"),
+            ("backlog", "backlog"),
+        ):
+            val = _to_float(row.get(field_src))
+            if val is not None:
+                entry[field_dst] += val
+
+    agg_inventory_map: dict[str, float] = {}
+    disagg_series_map: dict[str, dict[str, float]] = {}
+    disagg_inventory_map: dict[str, float] = {}
+    for row in detail_rows:
+        week_key = row.get("week") or row.get("period")
+        period_key = row.get("period") or week_key
+        demand = _to_float(row.get("demand"))
+        supply = _to_float(row.get("supply_plan"))
+        backlog = _to_float(row.get("backlog"))
+        inv = _to_float(row.get("on_hand_end"))
+        if inv is None:
+            inv = _to_float(row.get("on_hand_start"))
+        if period_key and inv is not None:
+            agg_inventory_map[period_key] = agg_inventory_map.get(period_key, 0.0) + inv
+        if week_key:
+            entry = _accumulate_series(disagg_series_map, week_key)
+            if demand is not None:
+                entry["demand"] += demand
+            if supply is not None:
+                entry["supply"] += supply
+            if backlog is not None:
+                entry["backlog"] += backlog
+            if inv is not None:
+                disagg_inventory_map[week_key] = (
+                    disagg_inventory_map.get(week_key, 0.0) + inv
+                )
+
+    def _series_totals(series_map: dict[str, dict[str, float]]):
+        totals = {"demand": 0.0, "supply": 0.0, "backlog": 0.0}
+        for entry in series_map.values():
+            for key in totals:
+                totals[key] += entry.get(key, 0.0)
+        return totals
+
+    agg_totals_fallback = _series_totals(agg_series_map)
+    det_totals_fallback = _series_totals(disagg_series_map)
+
+    agg_totals = _merge_totals(aggregate_stats, agg_totals_fallback)
+    det_totals = _merge_totals(disagg_stats, det_totals_fallback)
+
+    latest_run = plan_runs[0] if plan_runs else None
+    run_totals = {
+        "demand": latest_run.get("demand_total") if latest_run else None,
+        "supply": latest_run.get("supply_total") if latest_run else None,
+        "backlog": latest_run.get("backlog_total") if latest_run else None,
+    }
+    run_fill = latest_run.get("fill_rate") if latest_run else None
+
+    fill_rate_gauges = [
+        {
+            "label": "Plan-Agg",
+            "value": aggregate_stats.get("fill_rate")
+            if aggregate_stats.get("fill_rate") is not None
+            else _calc_fill_rate(agg_totals["demand"], agg_totals["supply"]),
+        },
+        {
+            "label": "Plan-Disagg",
+            "value": disagg_stats.get("fill_rate")
+            if disagg_stats.get("fill_rate") is not None
+            else _calc_fill_rate(det_totals["demand"], det_totals["supply"]),
+        },
+        {
+            "label": "Run",
+            "value": run_fill,
+        },
+    ]
+
+    totals_chart = {
+        "labels": ["Plan-Agg", "Plan-Disagg", "Run"],
+        "datasets": [
+            {
+                "label": "Demand",
+                "data": [
+                    agg_totals["demand"] or 0.0,
+                    det_totals["demand"] or 0.0,
+                    run_totals["demand"] or 0.0,
+                ],
+            },
+            {
+                "label": "Supply",
+                "data": [
+                    agg_totals["supply"] or 0.0,
+                    det_totals["supply"] or 0.0,
+                    run_totals["supply"] or 0.0,
+                ],
+            },
+            {
+                "label": "Backlog",
+                "data": [
+                    agg_totals["backlog"] or 0.0,
+                    det_totals["backlog"] or 0.0,
+                    run_totals["backlog"] or 0.0,
+                ],
+            },
+        ],
+    }
+
+    def _sorted_series(series_map: dict[str, dict[str, float]]):
+        return [
+            {"label": label, **series_map[label]}
+            for label in sorted(series_map.keys(), key=natural_sort_key)
+        ]
+
+    agg_dsb_series = _sorted_series(agg_series_map)
+    det_dsb_series = _sorted_series(disagg_series_map)
+
+    def _sorted_inventory(inv_map: dict[str, float]):
+        return [
+            {"label": label, "value": inv_map[label]}
+            for label in sorted(inv_map.keys(), key=natural_sort_key)
+        ]
+
+    agg_inventory_series = _sorted_inventory(agg_inventory_map)
+    det_inventory_series = _sorted_inventory(disagg_inventory_map)
+
+    def _normalize_day(raw: object, idx: int) -> int:
+        if raw is None:
+            return idx + 1
+        try:
+            day_val = int(raw)
+        except (TypeError, ValueError):
+            try:
+                day_val = int(float(raw))
+            except (TypeError, ValueError):
+                day_val = idx + 1
+        if day_val <= 0:
+            day_val = idx + 1
+        return day_val
+
+    def _aggregate_run_results(rows: list[dict]):
+        dsb_series: list[dict[str, object]] = []
+        inventory_series: list[dict[str, object]] = []
+        for idx, entry in enumerate(rows or []):
+            if not isinstance(entry, dict):
+                continue
+            day_num = _normalize_day(entry.get("day"), idx)
+            label = f"Day {day_num}"
+            demand_total = 0.0
+            supply_total = 0.0
+            backlog_total = 0.0
+            inventory_total = 0.0
+            inventory_has_value = False
+
+            nodes = entry.get("nodes")
+            if isinstance(nodes, dict) and nodes:
+                for node_data in nodes.values():
+                    if not isinstance(node_data, dict):
+                        continue
+                    for item_data in node_data.values():
+                        if not isinstance(item_data, dict):
+                            continue
+                        demand_val = _to_float(item_data.get("demand"))
+                        if demand_val is None and (
+                            item_data.get("sales") is not None
+                            or item_data.get("shortage") is not None
+                        ):
+                            sales_val = _to_float(item_data.get("sales"))
+                            shortage_val = _to_float(item_data.get("shortage"))
+                            demand_val = (sales_val or 0.0) + (shortage_val or 0.0)
+                        if demand_val is not None:
+                            demand_total += demand_val
+                        supply_val = _to_float(
+                            item_data.get("sales") or item_data.get("consumption")
+                        )
+                        if supply_val is not None:
+                            supply_total += supply_val
+                        backlog_val = _to_float(
+                            item_data.get("shortage")
+                            or item_data.get("backorder_balance")
+                        )
+                        if backlog_val is not None:
+                            backlog_total += backlog_val
+                        inv_val = _to_float(
+                            item_data.get("end_stock")
+                            or item_data.get("on_hand_end")
+                            or item_data.get("inventory")
+                        )
+                        if inv_val is not None:
+                            inventory_total += inv_val
+                            inventory_has_value = True
+            else:
+                demand_val = _to_float(entry.get("demand"))
+                supply_val = _to_float(entry.get("sales") or entry.get("supply"))
+                backlog_val = _to_float(entry.get("shortage") or entry.get("backlog"))
+                inv_val = _to_float(
+                    entry.get("inventory")
+                    or entry.get("on_hand")
+                    or entry.get("end_stock")
+                )
+                if demand_val is not None:
+                    demand_total += demand_val
+                if supply_val is not None:
+                    supply_total += supply_val
+                if backlog_val is not None:
+                    backlog_total += backlog_val
+                if inv_val is not None:
+                    inventory_total += inv_val
+                    inventory_has_value = True
+
+            dsb_series.append(
+                {
+                    "label": label,
+                    "demand": demand_total,
+                    "supply": supply_total,
+                    "backlog": backlog_total,
+                    "timestamp": day_num,
+                }
+            )
+            inventory_series.append(
+                {
+                    "label": label,
+                    "value": inventory_total if inventory_has_value else None,
+                    "timestamp": day_num,
+                }
+            )
+
+        dsb_series.sort(key=lambda r: r.get("timestamp") or 0)
+        inventory_series.sort(key=lambda r: r.get("timestamp") or 0)
+        return dsb_series, inventory_series
+
+    def _aggregate_run_financial(rows: list[dict]):
+        series: list[dict[str, object]] = []
+        for idx, entry in enumerate(rows or []):
+            if not isinstance(entry, dict):
+                continue
+            day_num = _normalize_day(entry.get("day"), idx)
+            label = f"Day {day_num}"
+            revenue = _to_float(entry.get("revenue"))
+            cost = _to_float(entry.get("total_cost") or entry.get("cost"))
+            profit = _to_float(entry.get("profit_loss") or entry.get("profit"))
+            series.append(
+                {
+                    "label": label,
+                    "revenue": revenue,
+                    "cost": cost,
+                    "profit": profit,
+                    "timestamp": day_num,
+                }
+            )
+        series.sort(key=lambda r: r.get("timestamp") or 0)
+        return series
+
+    run_dsb_series, run_inventory_series = _aggregate_run_results(run_daily_results)
+    run_financial_series = _aggregate_run_financial(run_daily_profit_loss)
+
+    chart_payload = {
+        "fill_rate_gauges": fill_rate_gauges,
+        "totals_chart": totals_chart,
+        "plan_agg_series": agg_dsb_series,
+        "plan_det_series": det_dsb_series,
+        "run_series": run_dsb_series,
+        "plan_agg_inventory": agg_inventory_series,
+        "plan_det_inventory": det_inventory_series,
+        "run_inventory": run_inventory_series,
+        "run_financial": run_financial_series,
+    }
+
+    return templates.TemplateResponse(
+        request,
+        "plan_run_charts.html",
+        {
+            "subtitle": "Plan & Run Charts",
+            "version": version,
+            "version_id": version_id,
+            "plan_summary": summary,
+            "plan_runs": plan_runs,
+            "chart_payload": chart_payload,
+            "latest_run_id": latest_run_id,
         },
     )
 

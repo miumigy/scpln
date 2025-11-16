@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block page_header %}
+  <h2>Plan & Run Charts</h2>
+  <p>Visualize KPIs and run trends for plan {{ version_id }}.</p>
+{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="section-header row">
+    <div>
+      <h3>Plan Overview</h3>
+      <p>Inspect plan context with quick fill-rate and D/S/B comparisons.</p>
+    </div>
+    <div class="stack gap-sm nowrap">
+      <a href="/ui/plans/{{ version_id }}" role="button" class="secondary">Plan Detail</a>
+      {% if plan_runs and plan_runs[0].run_id %}
+      <a href="/ui/runs/{{ plan_runs[0].run_id }}" role="button" class="secondary">Run Detail</a>
+      {% endif %}
+      <a href="/ui/plans" role="button" class="secondary">Plan List</a>
+    </div>
+  </div>
+  <div class="gap-top-sm">
+    <h4>Fill Rate Gauges</h4>
+    {% if chart_payload.fill_rate_gauges %}
+    <div class="stack gap-sm" style="flex-wrap:wrap; align-items:flex-start;">
+      {% for gauge in chart_payload.fill_rate_gauges %}
+      <div style="flex:0 0 340px; text-align:center;">
+        <canvas id="fillGauge{{ loop.index0 }}" width="340" height="238" aria-label="{{ gauge.label }} fill rate gauge" style="display:block;margin:0 auto;"></canvas>
+        <p class="mono" style="margin-top:0.25rem;">{{ gauge.label }}: {% if gauge.value is not none %}{{ gauge.value|fmt_percent(1) }}{% else %}n/a{% endif %}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="mono">Fill rate data is not available.</p>
+    {% endif %}
+  </div>
+  <div class="gap-top-sm">
+    <h4>Total Demand / Supply / Backlog</h4>
+    <div style="min-height:160px; width:100%;">
+      <canvas id="totalsComparisonChart" height="90" aria-label="Totals comparison chart"></canvas>
+    </div>
+  </div>
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Demand / Supply / Backlog Trends</h3>
+    <p>Line charts for Plan-Agg, Plan-Disagg, and Run timelines.</p>
+  </div>
+  <div class="grid-form grid-2">
+    <div>
+      <h4>Plan-Agg</h4>
+      <div style="min-height:280px;">
+        <canvas id="planAggDsbChart" height="160" aria-label="Plan aggregate DSB chart"></canvas>
+      </div>
+    </div>
+    <div>
+      <h4>Plan-Disagg</h4>
+      <div style="min-height:280px;">
+        <canvas id="planDetDsbChart" height="160" aria-label="Plan disaggregate DSB chart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="gap-top-sm">
+    <h4>Run</h4>
+    {% if chart_payload.run_series %}
+      <div style="min-height:180px;">
+        <canvas id="runDsbChart" height="90" aria-label="Run DSB chart"></canvas>
+      </div>
+    {% else %}
+      <p class="mono">No run time-series data available.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="page-section">
+  <div class="section-header">
+    <h3>Inventory & Financial Trends</h3>
+    <p>Compare inventories and daily revenue/cost/profit trajectories.</p>
+  </div>
+  <div class="grid-form grid-2">
+    <div>
+      <h4>Plan-Agg Inventory</h4>
+      <div style="min-height:260px;">
+        <canvas id="planAggInventoryChart" height="140" aria-label="Plan aggregate inventory chart"></canvas>
+      </div>
+    </div>
+    <div>
+      <h4>Plan-Disagg Inventory</h4>
+      <div style="min-height:260px;">
+        <canvas id="planDetInventoryChart" height="140" aria-label="Plan disaggregate inventory chart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="gap-top-sm">
+    <h4>Run Inventory</h4>
+    {% if chart_payload.run_inventory %}
+      <div style="min-height:180px; width:100%;">
+        <canvas id="runInventoryChart" height="90" aria-label="Run inventory chart"></canvas>
+      </div>
+    {% else %}
+      <p class="mono">Run inventory data is not available.</p>
+    {% endif %}
+  </div>
+  <div class="gap-top-sm">
+    <h4>Run Sales / Cost / Profit</h4>
+    {% if chart_payload.run_financial %}
+      <div style="min-height:180px; width:100%;">
+        <canvas id="runFinancialChart" height="90" aria-label="Run financial chart"></canvas>
+      </div>
+    {% else %}
+      <p class="mono">No financial data available.</p>
+    {% endif %}
+  </div>
+  {% if plan_runs %}
+    <details class="gap-top-sm">
+      <summary>Run List</summary>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>run_id</th>
+              <th>started_at</th>
+              <th class="numeric">fill_rate</th>
+              <th class="numeric">profit_total</th>
+              <th>link</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in plan_runs %}
+            <tr>
+              <td class="mono">{{ r.run_id }}</td>
+              <td class="mono ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
+              <td class="mono numeric">{{ r.fill_rate|fmt_percent }}</td>
+              <td class="mono numeric">{{ r.profit_total|fmt_number }}</td>
+              <td>
+                {% if r.run_id %}
+                  <a href="/ui/runs/{{ r.run_id }}" target="_blank" rel="noopener" class="secondary">open</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+  (function(){
+    const payload = {{ chart_payload | tojson }};
+    const colors = {
+      demand: '#60a5fa',
+      supply: '#34d399',
+      backlog: '#fbbf24',
+      inventory: '#a855f7',
+      runInventory: '#f97316',
+      revenue: '#0ea5e9',
+      cost: '#ef4444',
+      profit: '#10b981'
+    };
+
+    function sortRows(rows){
+      const arr = (rows || []).slice();
+      const hasTimestamp = arr.some(function(r){
+        return r && typeof r.timestamp === 'number';
+      });
+      if (!hasTimestamp) {
+        return arr;
+      }
+      return arr.sort(function(a, b){
+        const ta = (a && typeof a.timestamp === 'number') ? a.timestamp : Number.POSITIVE_INFINITY;
+        const tb = (b && typeof b.timestamp === 'number') ? b.timestamp : Number.POSITIVE_INFINITY;
+        return ta - tb;
+      });
+    }
+
+    function buildGaugeCharts(){
+      const gauges = payload.fill_rate_gauges || [];
+      gauges.forEach((gauge, idx) => {
+        const ctx = document.getElementById(`fillGauge${idx}`);
+        if (!ctx) return;
+        const pct = gauge.value != null ? Math.max(0, Math.min(1, gauge.value)) * 100 : 0;
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['fill', 'rest'],
+            datasets: [{
+              data: [pct, Math.max(0, 100 - pct)],
+              backgroundColor: ['#22c55e', '#e5e7eb'],
+              borderWidth: 0,
+            }]
+          },
+          options: {
+            responsive: true,
+            cutout: '70%',
+            circumference: 180,
+            rotation: 270,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+          }
+        });
+      });
+    }
+
+    function buildTotalsChart(){
+      const cfg = payload.totals_chart;
+      const ctx = document.getElementById('totalsComparisonChart');
+      if (!ctx || !cfg) return;
+      const colorMap = {
+        Demand: colors.demand,
+        Supply: colors.supply,
+        Backlog: colors.backlog,
+      };
+      const datasets = (cfg.datasets || []).map((series) => ({
+        label: series.label,
+        data: series.data || [],
+        backgroundColor: colorMap[series.label] || '#94a3b8',
+        borderRadius: 6
+      }));
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: cfg.labels || [],
+          datasets: datasets,
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildDSBChart(canvasId, rows){
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      const sorted = sortRows(rows);
+      if (!sorted || sorted.length === 0) return;
+      const labels = sorted.map(r => r.label);
+      const demand = sorted.map(r => r.demand ?? null);
+      const supply = sorted.map(r => r.supply ?? null);
+      const backlog = sorted.map(r => r.backlog ?? null);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Demand', data: demand, borderColor: colors.demand, fill: false, tension: 0.25 },
+            { label: 'Supply', data: supply, borderColor: colors.supply, fill: false, tension: 0.25 },
+            { label: 'Backlog', data: backlog, borderColor: colors.backlog, fill: false, tension: 0.25 },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildInventoryChart(canvasId, rows, color){
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+      const sorted = sortRows(rows);
+      if (!sorted || sorted.length === 0) return;
+      const labels = sorted.map(r => r.label);
+      const values = sorted.map(r => r.value ?? null);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'inventory',
+            data: values,
+            borderColor: color,
+            backgroundColor: color + '33',
+            fill: false,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildRunFinancialChart(){
+      const ctx = document.getElementById('runFinancialChart');
+      const rows = sortRows(payload.run_financial);
+      if (!ctx || !rows || rows.length === 0) return;
+      const labels = rows.map(r => r.label);
+      const revenue = rows.map(r => r.revenue ?? null);
+      const cost = rows.map(r => r.cost ?? null);
+      const profit = rows.map(r => r.profit ?? null);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Revenue', data: revenue, borderColor: colors.revenue, fill: false, tension: 0.25 },
+            { label: 'Cost', data: cost, borderColor: colors.cost, fill: false, tension: 0.25 },
+            { label: 'Profit', data: profit, borderColor: colors.profit, fill: false, tension: 0.25 },
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: false }
+          }
+        }
+      });
+    }
+
+    buildGaugeCharts();
+    buildTotalsChart();
+    buildDSBChart('planAggDsbChart', payload.plan_agg_series);
+    buildDSBChart('planDetDsbChart', payload.plan_det_series);
+    buildDSBChart('runDsbChart', payload.run_series);
+    buildInventoryChart('planAggInventoryChart', payload.plan_agg_inventory, colors.inventory);
+    buildInventoryChart('planDetInventoryChart', payload.plan_det_inventory, '#ec4899');
+    buildInventoryChart('runInventoryChart', payload.run_inventory, colors.runInventory);
+    buildRunFinancialChart();
+  })();
+  </script>
+{% endblock %}

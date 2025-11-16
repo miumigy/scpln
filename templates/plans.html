@@ -193,7 +193,8 @@
             <td class="mono numeric">{{ backlog_days|fmt_number }}</td>
             <td class="mono ts-ms" data-ms="{{ p.created_at }}">{{ p.created_at }}</td>
             <td class="mono">{{ last_job.status if last_job else '' }}</td>
-            <td>
+            <td class="table-actions">
+              <a role="button" class="secondary" href="/ui/plans/{{ p.version_id }}/charts" aria-label="View charts for plan {{ p.version_id }}">Charts</a>
               <form method="post" action="/ui/plans/{{ p.version_id }}/delete" onsubmit="return confirm('Delete plan {{ p.version_id }}?');">
                 <button type="submit" class="contrast" aria-label="Delete plan {{ p.version_id }}">Delete</button>
               </form>
