@@ -98,7 +98,6 @@
             <option value="status">status</option>
             <option value="violations">violations</option>
             <option value="policy">policy</option>
-            <option value="cutover">cutover</option>
           </select>
         </label>
         <select id="sortPDir" class="sort-dir" aria-label="Primary sort direction">
@@ -115,7 +114,6 @@
             <option value="status">status</option>
             <option value="violations">violations</option>
             <option value="policy">policy</option>
-            <option value="cutover">cutover</option>
           </select>
         </label>
         <select id="sortSDir" class="sort-dir" aria-label="Secondary sort direction">
@@ -142,9 +140,6 @@
               <button type="button" class="link sort-trigger" data-sort="config_version" data-label="Config Ver" title="Sort by config version" aria-label="Sort by config version">Config Ver</button>
             </th>
             <th scope="col">Input Set</th>
-            <th scope="col">
-              <button type="button" class="link sort-trigger" data-sort="cutover" data-label="Cutover" title="Sort by cutover" aria-label="Sort by cutover">Cutover</button>
-            </th>
             <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="db_rows" data-label="DB Rows">DB Rows</button></th>
             <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="fill_rate" data-label="Fill Rate">Fill Rate</button></th>
             <th scope="col" class="numeric"><button type="button" class="link sort-trigger" data-sort="backlog_days" data-label="Backlog Days">Backlog Days</button></th>
@@ -187,7 +182,6 @@
                 -
               {% endif %}
             </td>
-            <td class="mono">{{ p.cutover_date or '' }}</td>
             <td class="mono numeric">{{ series_rows|fmt_number }}</td>
             <td class="mono numeric">{{ fill_rate|fmt_percent }}</td>
             <td class="mono numeric">{{ backlog_days|fmt_number }}</td>
@@ -438,7 +432,6 @@ document.addEventListener('DOMContentLoaded', function(){
   var SORT_LABELS = {
     status: 'Status',
     config_version: 'Config Ver',
-    cutover: 'Cutover',
     created_at: 'Created',
     db_rows: 'DB Rows',
     fill_rate: 'Fill Rate',
@@ -458,12 +451,11 @@ document.addEventListener('DOMContentLoaded', function(){
   var COL_INDEX = {
     status:3,
     config_version:4,
-    cutover:5,
     db_rows: 6,
     fill_rate: 7,
-    backlog_days: 9,
-    created_at:10,
-    last_job: 11,
+    backlog_days: 8,
+    created_at: 9,
+    last_job: 10,
   };
   function normalizeMs(n){
     if (!Number.isFinite(n)) return null;
@@ -480,12 +472,6 @@ document.addEventListener('DOMContentLoaded', function(){
         var n = normalizeMs(Number(attr));
         if (n !== null) return {text: cell.textContent.trim(), num: n};
       }
-    }
-    if (key === 'cutover'){
-      var raw = cell.textContent.trim();
-      var ts = Date.parse(raw.replace(/\//g,'-'));
-      if (Number.isFinite(ts)) return {text: raw, num: ts};
-      return {text: raw, num: null};
     }
     var txt = cell.textContent.trim();
     var num = toNum(txt);

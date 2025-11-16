@@ -14,7 +14,6 @@
   const orderSel = document.getElementById('order-select');
   const thSortStarted = document.getElementById('th-sort-started');
   const thSortDur = document.getElementById('th-sort-dur');
-  const thSortSchema = document.getElementById('th-sort-schema');
   const schemaInput = document.getElementById('schema-filter');
   const configInput = document.getElementById('config-filter');
   const configVersionInput = document.getElementById('config-version-filter');
@@ -26,7 +25,6 @@
 
   const START_LABEL = 'started_at (JST)';
   const DUR_LABEL = 'dur(ms)';
-  const SCHEMA_LABEL = 'schema';
 
   let state = { offset: 0, limit: 20, total: 0, sort: 'started_at', order: 'desc', schema_version: '', config_id: '', config_version_id: '', scenario_id: '', input_set_label: '' };
 
@@ -136,7 +134,7 @@
   function updateSortIndicators() {
     const arrow = state.order === 'asc' ? '↑' : '↓';
     // reset classes
-    [thSortStarted, thSortDur, thSortSchema].forEach(el => { if (el) el.classList.remove('active-sort'); });
+    [thSortStarted, thSortDur].forEach(el => { if (el) el.classList.remove('active-sort'); });
     if (thSortStarted) {
       thSortStarted.textContent = START_LABEL + (state.sort === 'started_at' ? ' ' + arrow : '');
       if (state.sort === 'started_at') thSortStarted.classList.add('active-sort');
@@ -144,10 +142,6 @@
     if (thSortDur) {
       thSortDur.textContent = DUR_LABEL + (state.sort === 'duration_ms' ? ' ' + arrow : '');
       if (state.sort === 'duration_ms') thSortDur.classList.add('active-sort');
-    }
-    if (thSortSchema) {
-      thSortSchema.textContent = SCHEMA_LABEL + (state.sort === 'schema_version' ? ' ' + arrow : '');
-      if (state.sort === 'schema_version') thSortSchema.classList.add('active-sort');
     }
   }
 
@@ -218,7 +212,6 @@
         <td class="mono truncate" title="${r.run_id}">${runLink}</td>
         <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
         <td class="numeric">${fmtNumber(r.duration_ms, 2)}</td>
-        <td>${r.schema_version ?? ''}</td>
         <td class="mono">${configVerLink}</td>
         <td class="mono" data-input-set="${inputSetLabel || ''}">${inputSetCell}</td>
         <td class="mono">${planLink}</td>
@@ -377,7 +370,6 @@
   }
   if (thSortStarted) thSortStarted.addEventListener('click', () => toggleSort('started_at'));
   if (thSortDur) thSortDur.addEventListener('click', () => toggleSort('duration_ms'));
-  if (thSortSchema) thSortSchema.addEventListener('click', () => toggleSort('schema_version'));
   if (pageNumInput) pageNumInput.addEventListener('change', () => {
     const v = Number(pageNumInput.value);
     const pages = state.limit > 0 ? Math.ceil((state.total || 0) / state.limit) : 1;
