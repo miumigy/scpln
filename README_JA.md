@@ -12,6 +12,7 @@
 
 - **多粒度整合**: 集約→詳細への按分と、詳細→集約へのロールアップを同一バージョン上で管理。編集やロックを尊重した双方向同期を自動化。
 - **Planning Hub UI**: Planの作成・プレビュー・再整合・実行までをタブで横断。Diff、KPI、CSVエクスポートにより意思決定を支援。
+- **Plan & Run Charts**: `/ui/plans/{version}/charts` でFill Rateのゲージ、Plan-Agg/Plan-Disagg/Runの需要・供給・バックログ推移、在庫ライン、Runの売上/コスト/利益をまとめて可視化。
 - **Canonical設定管理**: `/ui/configs` からCanonical設定のバージョン一覧、差分比較、JSON/Plan成果物インポート、整合チェックを一元提供。詳細な統合ロードマップは `docs/config_integration_plan.md` を参照。
 - **シミュレーション & RunRegistry**: BOM・能力・サービスレベルを考慮した日次シミュレーションを実行し、Run履歴をDBに永続化して比較・再利用。
 - **自動化とAPI**: `/runs` を通じたジョブ投入、再整合API、CSVエクスポート、メトリクスを公開。CLI/CIからスクリプト連携が可能で、Planning Hub UI（`execute_auto`/`create_and_execute`）から発生したPlanも `plans_created_total` へカウントされて `/metrics` に追記され、API計測と揃います。
@@ -24,6 +25,7 @@
 - Planのバージョン管理・閲覧・ロールアップ/分配編集・ロック管理を提供。
 - PSI編集は比例配分・ロック遵守で双方向同期。差分ログ、Carryover、Schedule、Compare をタブで確認。
 - プラン詳細では `/ui/plans/{version_id}/delete` へのPOSTを通じて PlanRepository/アーティファクト/Run参照を一括削除し、`/ui/plans` へ戻る削除フローを提供。
+- 各Plan詳細から **Plan & Run Charts**（`/ui/plans/{version}/charts`）へ遷移でき、Plan-Agg / Plan-Disagg / Run のD/S/Bライン、在庫推移、Run財務のトレンドを最新Runと一緒に確認可能。
 - `docs/TUTORIAL-JA.md` にUI操作ハンズオンを用意。
 
 ### 2. Canonical設定管理 (/ui/configs)
