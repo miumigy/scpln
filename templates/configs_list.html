@@ -65,7 +65,9 @@
         {% for row in canonical_rows %}
         <tr>
           <td class="mono numeric">{{ row.meta.version_id }}</td>
-          <td class="mono truncate">{{ row.meta.name }}</td>
+          <td class="mono truncate">
+            <a class="link truncate" href="/ui/configs/canonical/{{ row.meta.version_id }}">{{ row.meta.name }}</a>
+          </td>
           <td>{{ row.meta.status }}</td>
           <td class="mono">{{ row.meta.updated_at_str or '-' }}</td>
           <td>
