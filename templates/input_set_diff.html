@@ -44,6 +44,41 @@
     {% if not current_set %}
         <article><mark>Error</mark><p>Current input set not found.</p></article>
     {% else %}
+        <div class="stack gap-xs gap-bottom-md">
+            <p class="help-text">
+                こちらのセットと別の準備済み Input Set を比較できます。
+            </p>
+            {% if comparison_candidates %}
+                <form
+                    action="/ui/plans/input_sets/{{ current_set.label }}/diff"
+                    method="get"
+                    class="stack gap-xs nowrap"
+                >
+                    <label for="compare-against" class="sr-only">Compare against</label>
+                    <select id="compare-against" name="against">
+                        <option value="" {% if not selected_against %}selected{% endif %}>
+                            Latest ready set (auto)
+                        </option>
+                        {% for candidate in comparison_candidates %}
+                            <option
+                                value="{{ candidate.label }}"
+                                {% if candidate.label == selected_against %}selected{% endif %}
+                            >
+                                {{ candidate.label }} / {{ candidate.updated_at | format_datetime }}
+                            </option>
+                        {% endfor %}
+                        {% if selected_against and comparison_candidates | selectattr("label", "equalto", selected_against) | list | length == 0 %}
+                            <option value="{{ selected_against }}" selected>
+                                Manual: {{ selected_against }}
+                            </option>
+                        {% endif %}
+                    </select>
+                    <button type="submit" class="secondary">Reload</button>
+                </form>
+            {% else %}
+                <p class="help-text">比較可能な Input Set がこの構成バージョンに存在しません。</p>
+            {% endif %}
+        </div>
         <div class="diff-grid">
             <article>
                 <header><strong>Current</strong></header>

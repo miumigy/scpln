@@ -859,18 +859,16 @@ def ui_plan_input_set_diff(
             status_code=404, detail=f"Input set with label '{label}' not found."
         )
 
-    other_label = against
+    ready_summaries = list_planning_input_sets(
+        config_version_id=current_set.config_version_id,
+        status="ready",
+        limit=20,
+    )
+    comparison_candidates = [s for s in ready_summaries if s.label != label]
+    other_label = against or (
+        comparison_candidates[0].label if comparison_candidates else None
+    )
     other_set = None
-    if not other_label:
-        summaries = list_planning_input_sets(
-            config_version_id=current_set.config_version_id,
-            status="ready",
-            limit=10,
-        )
-        for s in sorted(summaries, key=lambda x: x.updated_at or 0, reverse=True):
-            if s.label != label:
-                other_label = s.label
-                break
 
     if other_label:
         try:
@@ -922,6 +920,8 @@ def ui_plan_input_set_diff(
             "diff_report": diff_report,
             "diff_generating": diff_generating,
             "diff_generated_at": diff_generated_at,
+            "comparison_candidates": comparison_candidates,
+            "selected_against": other_label,
         },
         background=background_tasks,
     )
