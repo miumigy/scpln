@@ -89,6 +89,10 @@
       <span class="label-title label-title-inline">Input Set</span>
       <input id="inputSetFilter" type="search" placeholder="Label" value="{{ input_set_filter or '' }}">
     </label>
+    <label class="mono">
+      <span class="label-title label-title-inline">Scenario</span>
+      <input id="scenarioFilter" type="search" placeholder="ID" value="{{ request.query_params.get('scenario_id','') }}">
+    </label>
     <div class="toolbar sort-controls">
       <div class="sort-pair">
         <label class="mono">
@@ -156,7 +160,7 @@
           {% set series_rows = p.summary.series_rows if p.summary and p.summary.series_rows is not none else None %}
           {% set fill_rate = p.summary.kpi.fill_rate if p.summary and p.summary.kpi and 'fill_rate' in p.summary.kpi and p.summary.kpi.fill_rate is not none else None %}
           {% set backlog_days = p.summary.kpi.backlog_days if p.summary and p.summary.kpi and 'backlog_days' in p.summary.kpi and p.summary.kpi.backlog_days is not none else None %}
-          <tr data-input-set="{{ (p.input_set_label or '')|lower }}" data-config-version="{{ (p.config_version_id or '')|lower }}">
+          <tr data-input-set="{{ (p.input_set_label or '')|lower }}" data-config-version="{{ (p.config_version_id or '')|lower }}" data-scenario="{{ (p.base_scenario_id or '')|lower }}">
             <td class="mono"><a class="truncate link-truncate" href="/ui/plans/{{ p.version_id }}" title="{{ p.version_id }}">{{ p.version_id }}</a></td>
             <td class="mono">
               {% if last_job and last_job.run_id %}
@@ -412,6 +416,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var meta = document.getElementById('meta');
   var inputSetFilter = document.getElementById('inputSetFilter');
   var configVersionFilter = document.getElementById('configVersionFilter');
+  var scenarioFilter = document.getElementById('scenarioFilter');
   var rows = Array.from(document.querySelectorAll('tbody tr'));
   var sortBadge = document.getElementById('sortBadge');
   var sortButtons = Array.from(document.querySelectorAll('button.sort-trigger[data-sort]'));
@@ -419,6 +424,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var KEY_Q = 'ui_plans_query';
   var KEY_INPUT_SET = 'ui_plans_inputset';
   var KEY_CONFIG_VERSION = 'ui_plans_config_version';
+  var KEY_SCENARIO = 'ui_plans_scenario';
   try {
     var saved = localStorage.getItem(KEY_Q);
     if (q && saved && typeof saved === 'string') { q.value = saved; }
@@ -426,6 +432,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (inputSetFilter && savedInput && typeof savedInput === 'string') { inputSetFilter.value = savedInput; }
     var savedConfig = localStorage.getItem(KEY_CONFIG_VERSION);
     if (configVersionFilter && savedConfig && typeof savedConfig === 'string') { configVersionFilter.value = savedConfig; }
+    var savedScenario = localStorage.getItem(KEY_SCENARIO);
+    if (scenarioFilter && savedScenario && typeof savedScenario === 'string') { scenarioFilter.value = savedScenario; }
   } catch(e) {}
   try {
     var qs = new URLSearchParams(window.location.search);
@@ -439,17 +447,27 @@ document.addEventListener('DOMContentLoaded', function(){
       configVersionFilter.value = qpConfig;
       try { localStorage.setItem(KEY_CONFIG_VERSION, qpConfig); } catch(e) {}
     }
+    var qpScenario = qs.get('scenario_id');
+    if (qpScenario && scenarioFilter) {
+      scenarioFilter.value = qpScenario;
+      try { localStorage.setItem(KEY_SCENARIO, qpScenario); } catch(e) {}
+    }
   } catch(e) {}
   function apply(){
     var s = (q && q.value || '').toLowerCase().trim();
     var label = (inputSetFilter && inputSetFilter.value || '').toLowerCase().trim();
     var configFilter = (configVersionFilter && configVersionFilter.value || '').toLowerCase().trim();
+    var scenario = (scenarioFilter && scenarioFilter.value || '').toLowerCase().trim();
     var vis = 0;
     rows.forEach(function(tr){
       var txt = tr.textContent.toLowerCase();
       var rowLabel = (tr.getAttribute('data-input-set') || '').toLowerCase();
       var rowConfig = (tr.getAttribute('data-config-version') || '').toLowerCase();
-      var ok = (!s || txt.indexOf(s) >= 0) && (!label || rowLabel.indexOf(label) >= 0) && (!configFilter || rowConfig.indexOf(configFilter) >= 0);
+      var rowScenario = (tr.getAttribute('data-scenario') || '').toLowerCase();
+      var ok = (!s || txt.indexOf(s) >= 0)
+        && (!label || rowLabel.indexOf(label) >= 0)
+        && (!configFilter || rowConfig.indexOf(configFilter) >= 0)
+        && (!scenario || rowScenario.indexOf(scenario) >= 0);
       tr.style.display = ok ? '' : 'none';
       if (ok) vis++;
     });
@@ -458,6 +476,7 @@ document.addEventListener('DOMContentLoaded', function(){
       localStorage.setItem(KEY_Q, s);
       localStorage.setItem(KEY_INPUT_SET, label);
       localStorage.setItem(KEY_CONFIG_VERSION, configFilter);
+      localStorage.setItem(KEY_SCENARIO, scenario);
     } catch(e) {}
   }
   function triggerApply() { apply(); }
@@ -466,6 +485,9 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   if (inputSetFilter) {
     inputSetFilter.addEventListener('input', apply);
+  }
+  if (scenarioFilter) {
+    scenarioFilter.addEventListener('input', apply);
   }
   if (configVersionFilter) {
     configVersionFilter.addEventListener('input', apply);
