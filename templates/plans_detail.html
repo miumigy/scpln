@@ -129,10 +129,33 @@
         padding: 0 0.75rem 0.75rem;
       }
     }
+    .page-header__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .page-header__row h2 {
+      margin: 0;
+    }
+    .page-header__row a[role="button"] {
+      flex: 0 0 auto;
+    }
   </style>
 {% endblock %}
 {% block page_header %}
-  <h2>Plan Detail</h2>
+  <div class="page-header__row">
+    <h2>Plan Detail</h2>
+    <a
+      role="button"
+      class="secondary"
+      href="/ui/plans/{{ version_id }}/charts"
+      aria-label="View Plan & Run Charts for plan {{ version_id }}"
+    >
+      Plan &amp; Run Charts
+    </a>
+  </div>
   <p>Inspect reconciliation outputs, edit PSI tables, and execute follow-up actions.</p>
 {% endblock %}
 {% block content %}

@@ -139,6 +139,19 @@
       background-color: #f97316;
       color: #ffffff;
     }
+    .page-header__row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .page-header__row h2 {
+      margin: 0;
+    }
+    .page-header__row a[role="button"] {
+      flex: 0 0 auto;
+    }
     @media (max-width: 768px) {
       .run-detail__header {
         flex-direction: column;
@@ -183,7 +196,20 @@
   </style>
 {% endblock %}
 {% block page_header %}
-  <h2>Run Detail</h2>
+  {% set charts_plan_version = plan_version_id if plan_version_id else (input_set_info.plan_version_id if input_set_info is defined else None) %}
+  <div class="page-header__row">
+    <h2>Run Detail</h2>
+    {% if charts_plan_version %}
+      <a
+        role="button"
+        class="secondary"
+        href="/ui/plans/{{ charts_plan_version }}/charts"
+        aria-label="View Plan & Run Charts for plan {{ charts_plan_version }}"
+      >
+        Plan &amp; Run Charts
+      </a>
+    {% endif %}
+  </div>
   <p class="mono">{{ run_id }}</p>
 {% endblock %}
 {% block content %}
