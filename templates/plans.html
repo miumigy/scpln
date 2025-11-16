@@ -197,21 +197,66 @@
         </tbody>
     </table>
   </div>
-  {% if pagination and pagination.total is defined and pagination.limit is defined and pagination.total > pagination.limit %}
-  <div class="pagination-footer">
-    <small>Showing {{ pagination.count|fmt_number }} of {{ pagination.total|fmt_number }} plans</small>
-    <div class="pagination-nav">
-      {% if pagination.offset > 0 %}
-        {% set prev_offset = pagination.offset - pagination.limit %}
-        {% if prev_offset < 0 %}{% set prev_offset = 0 %}{% endif %}
-        <a href="/ui/plans?limit={{ pagination.limit }}&offset={{ prev_offset }}" class="btn">Previous</a>
-      {% endif %}
-      {% if pagination.next_offset %}
-        <a href="/ui/plans?limit={{ pagination.limit }}&offset={{ pagination.next_offset }}" class="btn">Next</a>
+  {% set total = (pagination.total if pagination and pagination.total is not none else 0) %}
+  {% set limit = (pagination.limit if pagination and pagination.limit is not none else 50) %}
+  {% set offset = (pagination.offset if pagination and pagination.offset is not none else 0) %}
+  {% set page_count = (total // limit + (1 if total % limit else 0)) if limit else 1 %}
+  {% set current_page = (offset // limit) + 1 if limit else 1 %}
+  {% set first_offset = 0 %}
+  {% set prev_offset = offset - limit %}
+  {% if prev_offset < 0 %}{% set prev_offset = 0 %}{% endif %}
+  {% if pagination and pagination.next_offset is not none %}
+    {% set next_offset = pagination.next_offset %}
+  {% else %}
+    {% set tentative_next = offset + limit %}
+    {% if tentative_next < total %}
+      {% set next_offset = tentative_next %}
+    {% else %}
+      {% set next_offset = None %}
+    {% endif %}
+  {% endif %}
+  {% set last_offset = ((page_count - 1) * limit) if page_count > 0 else 0 %}
+  <div class="toolbar gap-top-sm align-start">
+    <div class="toolbar gap-xs">
+      {% if total > 0 %}
+        {% if offset > 0 %}
+          <a href="/ui/plans?limit={{ limit }}&offset=0" class="secondary" aria-label="Go to first page">First</a>
+          <a href="/ui/plans?limit={{ limit }}&offset={{ prev_offset }}" class="secondary" aria-label="Go to previous page">Prev</a>
+        {% else %}
+          <span class="secondary disabled" aria-disabled="true">First</span>
+          <span class="secondary disabled" aria-disabled="true">Prev</span>
+        {% endif %}
+        {% if next_offset is not none %}
+          <a href="/ui/plans?limit={{ limit }}&offset={{ next_offset }}" class="secondary" aria-label="Go to next page">Next</a>
+        {% else %}
+          <span class="secondary disabled" aria-disabled="true">Next</span>
+        {% endif %}
+        {% if total > limit and offset < last_offset %}
+          <a href="/ui/plans?limit={{ limit }}&offset={{ last_offset }}" class="secondary" aria-label="Go to last page">Last</a>
+        {% else %}
+          <span class="secondary disabled" aria-disabled="true">Last</span>
+        {% endif %}
+      {% else %}
+        <span class="secondary disabled" aria-disabled="true">First</span>
+        <span class="secondary disabled" aria-disabled="true">Prev</span>
+        <span class="secondary disabled" aria-disabled="true">Next</span>
+        <span class="secondary disabled" aria-disabled="true">Last</span>
       {% endif %}
     </div>
+    <span class="mono">Page {{ current_page }} / {{ max(page_count, 1) }}</span>
+    <form action="/ui/plans" method="get" class="stack gap-xs nowrap" aria-label="Change page limit">
+      <input type="hidden" name="offset" value="0" />
+      <label class="mono">
+        Limit
+        <select name="limit" onchange="this.form.submit()">
+          {% for option in [10, 20, 50, 100] %}
+            <option value="{{ option }}" {% if option == limit %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+    <span class="mono">Showing {{ pagination.count|fmt_number if pagination and pagination.count is not none else 0 }} of {{ total|fmt_number }} plans</span>
   </div>
-  {% endif %}
   {% else %}
   <p class="section-description">No initial data. Please <a href="/ui/configs">import samples</a>.</p>
   {% endif %}
