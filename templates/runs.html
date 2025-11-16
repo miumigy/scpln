@@ -64,6 +64,7 @@
         <tr>
           <th scope="col">Select</th>
           <th scope="col">run_id</th>
+          <th scope="col">plan_version_id</th>
           <th scope="col"><button type="button" class="link" id="th-sort-started" title="Sort by started_at" aria-label="Sort by start time">started_at (JST)</button></th>
           <th scope="col" class="numeric"><button type="button" class="link" id="th-sort-dur" title="Sort by duration_ms" aria-label="Sort by duration">dur(ms)</button></th>
           <th scope="col">config_version_id</th>
@@ -79,6 +80,7 @@
         <tr>
           <td><input class="pick" type="checkbox" value="{{ r.run_id }}" data-sid="{{ r.scenario_id or '' }}" /></td>
           <td class="mono truncate" title="{{ r.run_id }}"><a href="/ui/runs/{{ r.run_id }}">{{ r.run_id }}</a></td>
+          <td class="mono">{% if r.plan_version_id %}<a href="/ui/plans/{{ r.plan_version_id }}">{{ r.plan_version_id }}</a>{% else %}-{% endif %}</td>
           <td class="ts-ms" data-ms="{{ r.started_at }}">{{ r.started_at_str or r.started_at }}</td>
           <td class="numeric">{{ r.duration_ms|fmt_number }}</td>
           <td>{{ r.schema_version }}</td>
