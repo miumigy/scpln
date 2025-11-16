@@ -60,6 +60,7 @@ class PlanningInputSetSummary:
     source: str
     created_at: Optional[int]
     updated_at: Optional[int]
+    created_by: Optional[str] = None
     approved_by: Optional[str] = None
     approved_at: Optional[int] = None
     review_comment: Optional[str] = None
@@ -1663,7 +1664,7 @@ def list_planning_input_sets(
     where_clause = " AND ".join(conditions) if conditions else "1=1"
     query = (
         "SELECT id, config_version_id, label, status, source, created_at, updated_at, "
-        "approved_by, approved_at, review_comment "
+        "created_by, approved_by, approved_at, review_comment "
         "FROM planning_input_sets WHERE "
         + where_clause
         + " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
@@ -1681,6 +1682,7 @@ def list_planning_input_sets(
                 source=row["source"],
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
+                created_by=row["created_by"],
                 approved_by=row["approved_by"],
                 approved_at=row["approved_at"],
                 review_comment=row["review_comment"],
