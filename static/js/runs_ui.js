@@ -248,11 +248,11 @@
       <tr>
         <td><input class="pick" type="checkbox" value="${r.run_id}" data-sid="${r.scenario_id ?? ''}" /></td>
         <td class="mono truncate" title="${r.run_id}">${runLink}</td>
+        <td class="mono">${planLink}</td>
         <td class="mono ts-ms" data-ms="${dataMs}">${startedDisplay}</td>
         <td class="numeric">${fmtNumber(r.duration_ms, 2)}</td>
         <td class="mono">${configVerLink}</td>
         <td class="mono" data-input-set="${inputSetLabel || ''}">${inputSetCell}</td>
-        <td class="mono">${planLink}</td>
         <td class="mono">${scenarioLink}</td>
         <td class="numeric">${fmtPercent(r.summary?.fill_rate)}</td>
         <td class="numeric">${fmtNumber(r.summary?.profit_total, 2)}</td>
