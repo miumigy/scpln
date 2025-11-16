@@ -1,5 +1,5 @@
 {
   "label": "weekly_forecast_set_v1",
   "canonical_sample_name": "multi_node_sample_3Mths.json",
-  "description": "Weekly demand forecasting sample set for a multi-node configuration over a 3-month span."
+  "description": "3 months"
 }
