@@ -190,6 +190,7 @@ def _list_plan_runs(version_id: str, *, limit: int = 10):
             "SELECT run_id, summary, started_at FROM runs WHERE plan_version_id=? ORDER BY started_at DESC, run_id DESC LIMIT ?",
             (version_id, limit),
         ).fetchall()
+
     def _safe_float(value):
         if value is None:
             return None
@@ -1305,9 +1306,7 @@ def ui_plan_run_charts(plan_version_id: str, request: Request):
 
     plan_runs, _ = _list_plan_runs(version_id, limit=20)
 
-    latest_run_id = next(
-        (r.get("run_id") for r in plan_runs if r.get("run_id")), None
-    )
+    latest_run_id = next((r.get("run_id") for r in plan_runs if r.get("run_id")), None)
     run_daily_results: list[dict] = []
     run_daily_profit_loss: list[dict] = []
     if latest_run_id:
@@ -1446,15 +1445,19 @@ def ui_plan_run_charts(plan_version_id: str, request: Request):
     fill_rate_gauges = [
         {
             "label": "Plan-Agg",
-            "value": aggregate_stats.get("fill_rate")
-            if aggregate_stats.get("fill_rate") is not None
-            else _calc_fill_rate(agg_totals["demand"], agg_totals["supply"]),
+            "value": (
+                aggregate_stats.get("fill_rate")
+                if aggregate_stats.get("fill_rate") is not None
+                else _calc_fill_rate(agg_totals["demand"], agg_totals["supply"])
+            ),
         },
         {
             "label": "Plan-Disagg",
-            "value": disagg_stats.get("fill_rate")
-            if disagg_stats.get("fill_rate") is not None
-            else _calc_fill_rate(det_totals["demand"], det_totals["supply"]),
+            "value": (
+                disagg_stats.get("fill_rate")
+                if disagg_stats.get("fill_rate") is not None
+                else _calc_fill_rate(det_totals["demand"], det_totals["supply"])
+            ),
         },
         {
             "label": "Run",
