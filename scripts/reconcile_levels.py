@@ -12,6 +12,7 @@
     -o out/reconciliation_log.json \
     --version v1 --tol-abs 1e-6 --tol-rel 1e-6
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,7 +32,6 @@ from scripts.calendar_utils import (
     resolve_period_for_week,
     PlanningCalendarLookup,
 )
-
 
 _CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
 
