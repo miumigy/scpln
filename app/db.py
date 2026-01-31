@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 
 from app.metrics import PLAN_ARTIFACT_WRITE_ERROR_TOTAL
 
-
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
 _current_db_path: str | None = None
