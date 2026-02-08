@@ -62,7 +62,6 @@ from core.plan_repository_views import (
 )
 import subprocess
 
-
 BASE_DIR = Path(__file__).resolve().parents[1]
 _PLAN_REPOSITORY = PlanRepository(
     db._conn,
