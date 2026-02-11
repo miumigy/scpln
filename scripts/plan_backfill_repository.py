@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """plan_artifacts から PlanRepository テーブルへデータをバックフィルするスクリプト。"""
+
 from __future__ import annotations
 
 import argparse
@@ -244,8 +245,7 @@ def build_plan_payload(
 
 
 def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS plan_backfill_runs (
             run_id TEXT PRIMARY KEY,
             started_at INTEGER NOT NULL,
@@ -261,14 +261,11 @@ def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
             state_file TEXT,
             message TEXT
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_plan_backfill_runs_started
         ON plan_backfill_runs(started_at DESC)
-        """
-    )
+        """)
 
 
 def _insert_backfill_run(
