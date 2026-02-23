@@ -9,6 +9,7 @@ Spill分布スモークチェック
 使い方:
   PYTHONPATH=. python3 scripts/spill_smoke.py -i out/plan_final.json
 """
+
 from __future__ import annotations
 
 import argparse
