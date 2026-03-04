@@ -13,6 +13,7 @@ MRPライト（PR4）: SKU×週の要求から、LT/ロット/MOQを考慮した
 使い方:
   python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4
 """
+
 from __future__ import annotations
 
 import argparse
