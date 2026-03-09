@@ -6,7 +6,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-
 revision = "0004_canonical_config"
 down_revision = "0003_runs_scenario_id"
 branch_labels = None
