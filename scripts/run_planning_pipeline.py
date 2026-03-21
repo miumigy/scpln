@@ -18,7 +18,6 @@ from typing import List
 
 from scripts.plan_pipeline_io import _calendar_cli_args
 
-
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
 
