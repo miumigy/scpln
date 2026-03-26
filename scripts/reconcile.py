@@ -11,6 +11,7 @@
 使い方:
   python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4 --round int
 """
+
 from __future__ import annotations
 
 import argparse
