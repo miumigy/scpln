@@ -34,7 +34,6 @@ from core.plan_repository_builders import (
 )
 from app.plan_artifact_utils import apply_plan_final_receipts
 
-
 _STORAGE_CHOICES = {"db", "files", "both"}
 
 _PLAN_REPOSITORY = PlanRepository(
