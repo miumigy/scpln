@@ -6,6 +6,7 @@
   python scripts/allocate.py -i out/aggregate.json -o out/sku_week.json \
     -I samples/planning --weeks 4 --round int
 """
+
 from __future__ import annotations
 
 import argparse
