@@ -7,7 +7,6 @@ import json
 import time
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = "36858d371b14"
 down_revision = "f63a4c8f02c3"
@@ -204,15 +203,13 @@ def _migrate_planning_payload() -> None:
         label = f"default_v{row.id}"
         calendar_spec = payload.get("planning_calendar")
         insert_result = conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_input_sets(
                     config_version_id, label, status, source, created_by,
                     created_at, updated_at, metadata_json, calendar_spec_json,
                     planning_params_json
                 ) VALUES(:vid, :label, :status, :source, NULL, :created, :updated, :meta, :calendar, :params)
-                """
-            ),
+                """),
             {
                 "vid": row.id,
                 "label": label,
@@ -254,14 +251,10 @@ def _migrate_planning_payload() -> None:
 def _restore_planning_payload() -> None:
     conn = op.get_bind()
     processed = set()
-    rows = conn.execute(
-        sa.text(
-            """
+    rows = conn.execute(sa.text("""
             SELECT * FROM planning_input_sets
             ORDER BY updated_at DESC
-            """
-        )
-    ).fetchall()
+            """)).fetchall()
     for row in rows:
         vid = row.config_version_id
         if vid in processed:
@@ -328,13 +321,11 @@ def _bulk_insert_family_demands(conn, input_set_id, rows):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_family_demands(
                     input_set_id, family_code, period, demand
                 ) VALUES(:input_set_id, :family_code, :period, :demand)
-                """
-            ),
+                """),
             items,
         )
 
@@ -361,13 +352,11 @@ def _bulk_insert_capacity(conn, input_set_id, rows):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_capacity_buckets(
                     input_set_id, resource_code, resource_type, period, capacity
                 ) VALUES(:input_set_id, :resource_code, :resource_type, :period, :capacity)
-                """
-            ),
+                """),
             items,
         )
 
@@ -396,14 +385,12 @@ def _bulk_insert_mix(conn, input_set_id, rows):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_mix_shares(
                     input_set_id, family_code, sku_code, share, effective_from,
                     effective_to, weight_source
                 ) VALUES(:input_set_id, :family_code, :sku_code, :share, :effective_from, :effective_to, :weight_source)
-                """
-            ),
+                """),
             items,
         )
 
@@ -429,13 +416,11 @@ def _bulk_insert_inventory(conn, input_set_id, rows):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_inventory_snapshots(
                     input_set_id, node_code, item_code, initial_qty
                 ) VALUES(:input_set_id, :node_code, :item_code, :initial_qty)
-                """
-            ),
+                """),
             items,
         )
 
@@ -462,13 +447,11 @@ def _bulk_insert_open_po(conn, input_set_id, rows):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_inbound_orders(
                     input_set_id, po_id, item_code, due_date, qty
                 ) VALUES(:input_set_id, :po_id, :item_code, :due_date, :qty)
-                """
-            ),
+                """),
             items,
         )
 
@@ -497,25 +480,21 @@ def _bulk_insert_period_metric(conn, input_set_id, rows, metric_code):
         )
     if items:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO planning_period_metrics(
                     input_set_id, metric_code, period, value
                 ) VALUES(:input_set_id, :metric_code, :period, :value)
-                """
-            ),
+                """),
             items,
         )
 
 
 def _fetch_metric_rows(conn, input_set_id, metric_code):
     result = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT period, value FROM planning_period_metrics
             WHERE input_set_id = :id AND metric_code = :metric
-            """
-        ),
+            """),
         {"id": input_set_id, "metric": metric_code},
     ).fetchall()
     column = "cost" if metric_code == "cost" else "score"
@@ -524,14 +503,12 @@ def _fetch_metric_rows(conn, input_set_id, metric_code):
 
 def _fetch_family_for_payload(conn, input_set_id):
     rows = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT family_code, period, demand
             FROM planning_family_demands
             WHERE input_set_id = :id
             ORDER BY family_code, period
-            """
-        ),
+            """),
         {"id": input_set_id},
     ).fetchall()
     return [
@@ -542,14 +519,12 @@ def _fetch_family_for_payload(conn, input_set_id):
 
 def _fetch_capacity_for_payload(conn, input_set_id):
     rows = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT resource_code, period, capacity
             FROM planning_capacity_buckets
             WHERE input_set_id = :id
             ORDER BY resource_code, period
-            """
-        ),
+            """),
         {"id": input_set_id},
     ).fetchall()
     return [
@@ -564,14 +539,12 @@ def _fetch_capacity_for_payload(conn, input_set_id):
 
 def _fetch_mix_for_payload(conn, input_set_id):
     rows = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT family_code, sku_code, share
             FROM planning_mix_shares
             WHERE input_set_id = :id
             ORDER BY family_code, sku_code
-            """
-        ),
+            """),
         {"id": input_set_id},
     ).fetchall()
     return [
@@ -582,14 +555,12 @@ def _fetch_mix_for_payload(conn, input_set_id):
 
 def _fetch_inventory_for_payload(conn, input_set_id):
     rows = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT node_code, item_code, initial_qty
             FROM planning_inventory_snapshots
             WHERE input_set_id = :id
             ORDER BY node_code, item_code
-            """
-        ),
+            """),
         {"id": input_set_id},
     ).fetchall()
     return [
@@ -600,14 +571,12 @@ def _fetch_inventory_for_payload(conn, input_set_id):
 
 def _fetch_open_po_for_payload(conn, input_set_id):
     rows = conn.execute(
-        sa.text(
-            """
+        sa.text("""
             SELECT item_code, due_date, qty
             FROM planning_inbound_orders
             WHERE input_set_id = :id
             ORDER BY due_date, item_code
-            """
-        ),
+            """),
         {"id": input_set_id},
     ).fetchall()
     return [
