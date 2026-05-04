@@ -10,6 +10,7 @@ KPI/レポート出力（PR6）
 使い方:
   python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv
 """
+
 from __future__ import annotations
 
 import argparse
