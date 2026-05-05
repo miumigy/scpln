@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from .models import CanonicalArc, CanonicalBom, CanonicalConfig, CanonicalNode
 
-
 Severity = Literal["error", "warning"]
 
 
