@@ -5,7 +5,6 @@ from __future__ import annotations
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = "f63a4c8f02c3"
 down_revision = "7749869ca939"
