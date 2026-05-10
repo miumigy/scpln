@@ -21,7 +21,6 @@ from core.config.storage import (
     PlanningInputSetNotFoundError,
 )
 
-
 _PLAN_REPOSITORY = PlanRepository(
     db._conn,
     PLAN_DB_WRITE_LATENCY,
