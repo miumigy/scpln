@@ -44,7 +44,6 @@ from .storage import (
     PlanningInputSetNotFoundError,
 )
 
-
 DEFAULT_PLANNING_HORIZON = 100
 
 
