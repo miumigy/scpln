@@ -5,6 +5,7 @@ PlanのVisualizationで使用するweekly_summaryデータを点検するユー�
 Usage:
   PYTHONPATH=. .venv/bin/python scripts/inspect_plan_visualization.py <version_id>
 """
+
 from __future__ import annotations
 
 import argparse
