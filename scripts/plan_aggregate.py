@@ -11,6 +11,7 @@ PR2の範囲: periodごとの総需要に対し、能力が不足する場合は
   python scripts/plan_aggregate.py --demand samples/planning/demand_family.csv \
       --capacity samples/planning/capacity.csv --mix samples/planning/mix_share.csv -o out/aggregate.json
 """
+
 from __future__ import annotations
 
 import argparse
