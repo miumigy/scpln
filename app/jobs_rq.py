@@ -10,7 +10,6 @@ from engine.simulator import SupplyChainSimulator
 from engine.aggregation import aggregate_by_time, rollup_axis
 import logging
 
-
 _BACKEND = os.getenv("JOBS_BACKEND", "memory").lower()
 
 
