@@ -15,6 +15,7 @@ Anchor調整（v2最小）: anchor=DET_near 用の簡易再配分
 - 本スクリプトはv2ステップ2のオフライン検証用。MRP/reconcileは再計算しない。
 - 期待形式の週キー: "YYYY-MM-WkX"。cutover月は '--cutover-date YYYY-MM-DD' から月部分を抽出する。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,7 +30,6 @@ from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_anchor_adjust_payload,
 )
-
 
 _CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
 _WEEK_SEQUENCE: Dict[str, int] = {}
