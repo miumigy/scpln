@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from domain.models import SimulationInput
 
 
 def run_stub(
     payload: SimulationInput, *, include_trace: bool = False
-) -> Tuple[
-    Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]
+) -> tuple[
+    dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]
 ]:
     """軽量サマリを生成するスタブ版シミュレーション。
 
@@ -73,7 +73,7 @@ def run_stub(
     profit_total = revenue_total - cost_total
     profit_per_day_avg = profit_total / horizon if horizon else profit_total
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "fill_rate": fill_rate,
         "revenue_total": revenue_total,
         "cost_total": cost_total,
@@ -87,9 +87,9 @@ def run_stub(
     }
 
     item_name = getattr(products[0], "name", "item") if products else "item"
-    results: List[Dict[str, Any]] = []
-    daily_profit_loss: List[Dict[str, Any]] = []
-    cost_trace: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    daily_profit_loss: list[dict[str, Any]] = []
+    cost_trace: list[dict[str, Any]] = []
     for day in range(horizon):
         demand_today = daily_demand[day]
         sales_today = demand_today * fill_rate

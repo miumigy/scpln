@@ -20,12 +20,12 @@ Usage:
 
 from __future__ import annotations
 
-import sys
 import argparse
 import os
 import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 try:
     import requests  # type: ignore
@@ -36,8 +36,8 @@ except Exception:
 
 def seed_test_data(db_path: str):
     """テスト用の canonical config (id=100) をDBに直接挿入する。"""
-    import sqlite3
     import json
+    import sqlite3
 
     conn = None
     try:
@@ -376,31 +376,31 @@ def seed_test_data(db_path: str):
             conn.close()
 
 
-def get_json(session: requests.Session, url: str) -> Dict[str, Any]:
+def get_json(session: requests.Session, url: str) -> dict[str, Any]:
     r = session.get(url, timeout=30)
     r.raise_for_status()
     return r.json()
 
 
 def post_form(
-    session: requests.Session, url: str, data: Dict[str, Any]
+    session: requests.Session, url: str, data: dict[str, Any]
 ) -> requests.Response:
     return session.post(url, data=data, timeout=60, allow_redirects=False)
 
 
 def post_json(
-    session: requests.Session, url: str, data: Dict[str, Any]
-) -> Dict[str, Any]:
+    session: requests.Session, url: str, data: dict[str, Any]
+) -> dict[str, Any]:
     r = session.post(url, json=data, timeout=120)
     r.raise_for_status()
     return r.json()
 
 
-def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
+def fetch_metrics(session: requests.Session, url: str) -> dict[str, int]:
     r = session.get(url, timeout=15)
     r.raise_for_status()
     text = r.text
-    out: Dict[str, int] = {}
+    out: dict[str, int] = {}
     for line in text.splitlines():
         if line.startswith("#"):
             continue
@@ -416,7 +416,7 @@ def fetch_metrics(session: requests.Session, url: str) -> Dict[str, int]:
     return out
 
 
-def latest_plan_id(session: requests.Session, base: str) -> Optional[str]:
+def latest_plan_id(session: requests.Session, base: str) -> str | None:
     try:
         data = get_json(session, f"{base}/plans")
         plans = data.get("plans") or []
@@ -495,7 +495,7 @@ def main() -> int:
         ng("AT-02 Home リダイレクト", str(e))
 
     # AT-01: Plan 作成 (UI経由・非同期)
-    plan_id: Optional[str] = None
+    plan_id: str | None = None
     try:
         form = {
             "config_version_id": "100",
@@ -525,8 +525,8 @@ def main() -> int:
         ok("AT-01 Plan作成→ジョブ投入・リダイレクト")
 
         # 2. ジョブの完了をポーリング
-        import time
         import re
+        import time
 
         vid = None
         for i in range(60):  # タイムアウト: 60 * 2s = 120s
@@ -629,7 +629,7 @@ def main() -> int:
         ng("AT-03 /runs 非同期", str(e))
 
     # AT-04: Plan & Execute（自動補完）
-    new_plan_id: Optional[str] = None
+    new_plan_id: str | None = None
     try:
         if plan_id:
             form = {
