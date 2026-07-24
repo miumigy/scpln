@@ -1,8 +1,9 @@
-from typing import Any, Dict
 import json
 import time
+from typing import Any
 
 from fastapi import Body, HTTPException, Query, Request
+
 from app.api import app
 from app.jobs import JOB_MANAGER
 
@@ -10,13 +11,14 @@ try:
     from app import jobs_rq
 except Exception:
     jobs_rq = None  # type: ignore
-from app import db
 import csv
 import io
 
+from app import db
+
 
 @app.post("/jobs/simulation")
-def post_job_simulation(request: Request, body: Dict[str, Any] = Body(...)):
+def post_job_simulation(request: Request, body: dict[str, Any] = Body(...)):
     import os
 
     if os.getenv("RBAC_ENABLED", "0") == "1":
@@ -58,7 +60,7 @@ def list_jobs(
 
 @app.post("/jobs/{job_id}/retry")
 def post_job_retry(
-    request: Request, job_id: str, body: Dict[str, Any] | None = Body(None)
+    request: Request, job_id: str, body: dict[str, Any] | None = Body(None)
 ):
     import os
 
@@ -126,7 +128,7 @@ def post_job_cancel(request: Request, job_id: str):
 
 
 @app.post("/jobs/aggregate")
-def post_job_aggregate(request: Request, body: Dict[str, Any] = Body(...)):
+def post_job_aggregate(request: Request, body: dict[str, Any] = Body(...)):
     import os
 
     if os.getenv("RBAC_ENABLED", "0") == "1":
