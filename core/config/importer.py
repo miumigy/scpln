@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from core.config.loader import read_planning_dir
 from core.config.models import (
+    PlanningCalendarSpec,
     PlanningCapacityBucket,
     PlanningFamilyDemand,
     PlanningInboundOrder,
@@ -13,24 +14,23 @@ from core.config.models import (
     PlanningInventorySnapshot,
     PlanningMixShare,
     PlanningPeriodMetric,
-    PlanningCalendarSpec,
 )
 from core.config.storage import (
     PlanningInputSetConflictError,
-    create_planning_input_set,
-    update_planning_input_set,
-    get_planning_input_set,
     PlanningInputSetNotFoundError,
+    create_planning_input_set,
+    get_planning_input_set,
     log_planning_input_set_event,
+    update_planning_input_set,
 )
 
 
-def load_payload(directory: Path) -> Dict[str, Any]:
+def load_payload(directory: Path) -> dict[str, Any]:
     payload = read_planning_dir(directory)
     return payload
 
 
-def payload_to_aggregates(payload: Dict[str, Any]) -> PlanningInputAggregates:
+def payload_to_aggregates(payload: dict[str, Any]) -> PlanningInputAggregates:
     def _float_safe(value: Any) -> float:
         try:
             return float(value)
@@ -124,17 +124,17 @@ def import_planning_inputs(
     *,
     status: str = "ready",
     source: str = "csv",
-    created_by: Optional[str] = None,
-    approved_by: Optional[str] = None,
-    approved_at: Optional[int] = None,
-    review_comment: Optional[str] = None,
-) -> Dict[str, Any]:
+    created_by: str | None = None,
+    approved_by: str | None = None,
+    approved_at: int | None = None,
+    review_comment: str | None = None,
+) -> dict[str, Any]:
     """
     指定されたディレクトリから計画入力を読み込み、PlanningInputSetとしてDBにインポートします。
     """
     payload = load_payload(directory)
     aggregates = payload_to_aggregates(payload)
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     if payload.get("item"):
         metadata["item"] = payload.get("item") or []
 
@@ -142,7 +142,7 @@ def import_planning_inputs(
     if payload.get("planning_calendar"):
         calendar_spec = PlanningCalendarSpec(**payload["planning_calendar"])
 
-    result: Dict[str, Any] = {"status": "ok"}
+    result: dict[str, Any] = {"status": "ok"}
 
     if validate_only:
         result["message"] = "validation_only"
@@ -163,7 +163,7 @@ def import_planning_inputs(
         if existing:
             merged_meta = dict(existing.metadata or {})
             merged_meta.update(metadata)
-            update_kwargs: Dict[str, Any] = {
+            update_kwargs: dict[str, Any] = {
                 "label": label,
                 "status": status,
                 "calendar_spec": calendar_spec,
