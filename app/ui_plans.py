@@ -5,9 +5,9 @@ import subprocess
 import sys
 import tempfile
 import time
-from pathlib import Path
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -19,39 +19,39 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
 
 from app import db
-from app.run_registry_db import table_exists
+from app.config_api import _list_canonical_options
 from app.metrics import (
     INPUT_SET_DIFF_CACHE_HITS_TOTAL,
     INPUT_SET_DIFF_CACHE_STALE_TOTAL,
     INPUT_SET_DIFF_JOBS_TOTAL,
 )
+from app.run_registry_db import table_exists
 from app.template_filters import register_format_filters
 from app.utils import format_datetime, ms_to_jst_str
+from core.config.importer import import_planning_inputs
 from core.config.models import CanonicalConfig
 from core.config.storage import (
+    PlanningInputSetNotFoundError,
     get_planning_input_set,
     list_canonical_versions,
     list_planning_input_set_events,
     list_planning_input_sets,
     log_planning_input_set_event,
-    PlanningInputSetNotFoundError,
     save_canonical_config,
     update_planning_input_set,
 )
-from core.sorting import natural_sort_key
-from core.config.importer import import_planning_inputs
 from core.plan_repository import PlanRepository
-from app.config_api import _list_canonical_options
 from core.plan_repository_views import (
+    build_plan_summaries,
     fetch_aggregate_rows,
     fetch_detail_rows,
-    build_plan_summaries,
 )
+from core.sorting import natural_sort_key
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -698,9 +698,7 @@ def ui_list_input_sets(request: Request):
         config_version_id=config_version_id, status=status_filter
     )
     for item in input_sets:
-        setattr(
-            item, "created_at_str", format_datetime(getattr(item, "created_at", None))
-        )
+        item.created_at_str = format_datetime(getattr(item, "created_at", None))
     sample_input_sets = _list_sample_input_sets()
     status_options = [
         ("all", "All"),

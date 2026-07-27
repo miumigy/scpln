@@ -6,7 +6,7 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -39,10 +39,10 @@ def load_canonical_config(
     name: str,
     psi_input_path: Path,
     planning_dir: Path | str | None = None,
-    product_hierarchy_path: Optional[Path] = None,
-    location_hierarchy_path: Optional[Path] = None,
+    product_hierarchy_path: Path | None = None,
+    location_hierarchy_path: Path | None = None,
     include_validation: bool = True,
-) -> Tuple[CanonicalConfig, Optional[ValidationResult]]:
+) -> tuple[CanonicalConfig, ValidationResult | None]:
     """レガシーJSON/CSVソースからCanonical設定を構築する。"""
 
     psi_data = _read_json(psi_input_path)
@@ -55,9 +55,9 @@ def load_canonical_config(
         _read_json(location_hierarchy_path) if location_hierarchy_path else {}
     )
 
-    item_records: Dict[str, Dict] = {}
-    node_records: Dict[str, Dict] = {}
-    bom_pairs: Dict[Tuple[str, str], Dict] = {}
+    item_records: dict[str, dict] = {}
+    node_records: dict[str, dict] = {}
+    bom_pairs: dict[tuple[str, str], dict] = {}
 
     _ingest_psi_products(psi_data, item_records, bom_pairs)
     _ingest_psi_nodes(psi_data, item_records, node_records)
@@ -113,14 +113,14 @@ def load_canonical_config(
         hierarchies=hierarchies,
     )
 
-    validation: Optional[ValidationResult] = None
+    validation: ValidationResult | None = None
     if include_validation:
         validation = validate_canonical_config(config)
 
     return config, validation
 
 
-def _read_json(path: Path | None) -> Dict:
+def _read_json(path: Path | None) -> dict:
     if not path:
         return {}
     if not path.exists():
@@ -129,7 +129,7 @@ def _read_json(path: Path | None) -> Dict:
         return json.load(fp)
 
 
-def _read_csv(path: Path) -> List[Dict[str, str]]:
+def _read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8", newline="") as fp:
@@ -137,7 +137,7 @@ def _read_csv(path: Path) -> List[Dict[str, str]]:
         return [dict(row) for row in reader]
 
 
-def read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
+def read_planning_dir(directory: Path) -> dict[str, list[dict[str, str]]]:
     if not directory.exists():
         raise CanonicalLoaderError(f"Planningディレクトリが見つかりません: {directory}")
     payload = {
@@ -162,7 +162,7 @@ def read_planning_dir(directory: Path) -> Dict[str, List[Dict[str, str]]]:
 _read_planning_dir = read_planning_dir
 
 
-def _read_planning_calendar(path: Path) -> Optional[Dict[str, Any]]:
+def _read_planning_calendar(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -183,9 +183,9 @@ def _read_planning_calendar(path: Path) -> Optional[Dict[str, Any]]:
 
 
 def _ingest_psi_products(
-    psi_data: Dict,
-    item_records: Dict[str, Dict],
-    bom_pairs: Dict[Tuple[str, str], Dict],
+    psi_data: dict,
+    item_records: dict[str, dict],
+    bom_pairs: dict[tuple[str, str], dict],
 ) -> None:
     for prod in psi_data.get("products", []):
         code = prod.get("name")
@@ -224,7 +224,7 @@ def _ingest_psi_products(
 
 
 def _ingest_psi_nodes(
-    psi_data: Dict, item_records: Dict[str, Dict], node_records: Dict[str, Dict]
+    psi_data: dict, item_records: dict[str, dict], node_records: dict[str, dict]
 ) -> None:
     for raw in psi_data.get("nodes", []) or []:
         code = raw.get("name")
@@ -336,8 +336,8 @@ def _ingest_psi_nodes(
             }
 
 
-def _ingest_psi_arcs(psi_data: Dict) -> List[CanonicalArc]:
-    arcs: List[CanonicalArc] = []
+def _ingest_psi_arcs(psi_data: dict) -> list[CanonicalArc]:
+    arcs: list[CanonicalArc] = []
     for raw in psi_data.get("network", []) or []:
         arcs.append(
             CanonicalArc(
@@ -373,8 +373,8 @@ def _ingest_psi_arcs(psi_data: Dict) -> List[CanonicalArc]:
     return arcs
 
 
-def _ingest_psi_demands(psi_data: Dict) -> List[DemandProfile]:
-    demands: List[DemandProfile] = []
+def _ingest_psi_demands(psi_data: dict) -> list[DemandProfile]:
+    demands: list[DemandProfile] = []
     for row in psi_data.get("customer_demand", []) or []:
         node = row.get("store_name")
         item = row.get("product_name")
@@ -395,8 +395,8 @@ def _ingest_psi_demands(psi_data: Dict) -> List[DemandProfile]:
 
 
 def _ingest_planning_items(
-    planning_payload: Dict[str, List[Dict[str, str]]],
-    item_records: Dict[str, Dict],
+    planning_payload: dict[str, list[dict[str, str]]],
+    item_records: dict[str, dict],
 ) -> None:
     for row in planning_payload.get("item", []):
         code = row.get("item")
@@ -422,8 +422,8 @@ def _ingest_planning_items(
 
 
 def _ingest_planning_inventory(
-    planning_payload: Dict[str, List[Dict[str, str]]],
-    node_records: Dict[str, Dict],
+    planning_payload: dict[str, list[dict[str, str]]],
+    node_records: dict[str, dict],
 ) -> None:
     for row in planning_payload.get("inventory", []):
         loc = row.get("loc")
@@ -470,8 +470,8 @@ def _ingest_planning_inventory(
 
 
 def _ingest_planning_bom(
-    planning_payload: Dict[str, List[Dict[str, str]]],
-    bom_pairs: Dict[Tuple[str, str], Dict],
+    planning_payload: dict[str, list[dict[str, str]]],
+    bom_pairs: dict[tuple[str, str], dict],
 ) -> None:
     for row in planning_payload.get("bom", []):
         parent = row.get("parent")
@@ -495,9 +495,9 @@ def _ingest_planning_bom(
 
 
 def _ingest_planning_capacity(
-    planning_payload: Dict[str, List[Dict[str, str]]],
-) -> List[CapacityProfile]:
-    capacities: List[CapacityProfile] = []
+    planning_payload: dict[str, list[dict[str, str]]],
+) -> list[CapacityProfile]:
+    capacities: list[CapacityProfile] = []
     for row in planning_payload.get("capacity", []):
         resource = row.get("workcenter")
         period = row.get("period")
@@ -515,9 +515,9 @@ def _ingest_planning_capacity(
 
 
 def _build_hierarchies(
-    product_hierarchy: Dict, location_hierarchy: Dict
-) -> List[HierarchyEntry]:
-    entries: List[HierarchyEntry] = []
+    product_hierarchy: dict, location_hierarchy: dict
+) -> list[HierarchyEntry]:
+    entries: list[HierarchyEntry] = []
     for key, payload in (product_hierarchy or {}).items():
         entries.append(
             HierarchyEntry(
@@ -548,9 +548,9 @@ def _build_hierarchies(
 
 
 def _build_calendars(
-    payload: Dict[str, List[Dict[str, str]]],
-) -> List[CalendarDefinition]:
-    calendars: List[CalendarDefinition] = []
+    payload: dict[str, list[dict[str, str]]],
+) -> list[CalendarDefinition]:
+    calendars: list[CalendarDefinition] = []
 
     planning_calendar = payload.get("planning_calendar")
     if planning_calendar:
@@ -579,13 +579,13 @@ def _build_calendars(
     return calendars
 
 
-def _build_item(data: Dict) -> CanonicalItem:
+def _build_item(data: dict) -> CanonicalItem:
     return CanonicalItem(
         **{k: v for k, v in data.items() if k in CanonicalItem.model_fields}
     )
 
 
-def _build_node(data: Dict) -> CanonicalNode:
+def _build_node(data: dict) -> CanonicalNode:
     inventory = [
         NodeInventoryPolicy(**inv) for inv in data.get("inventory", {}).values()
     ]
@@ -598,13 +598,13 @@ def _build_node(data: Dict) -> CanonicalNode:
     return CanonicalNode(**node_kwargs)
 
 
-def _build_bom(data: Dict) -> CanonicalBom:
+def _build_bom(data: dict) -> CanonicalBom:
     return CanonicalBom(
         **{k: v for k, v in data.items() if k in CanonicalBom.model_fields}
     )
 
 
-def _map_node_type(raw_type: Optional[str]) -> str:
+def _map_node_type(raw_type: str | None) -> str:
     if not raw_type:
         return "warehouse"
     if raw_type == "material":
@@ -614,7 +614,7 @@ def _map_node_type(raw_type: Optional[str]) -> str:
     return "warehouse"
 
 
-def _as_float(value, *, default: Optional[float] = None) -> Optional[float]:
+def _as_float(value, *, default: float | None = None) -> float | None:
     if value is None or value == "":
         return default
     try:
@@ -623,7 +623,7 @@ def _as_float(value, *, default: Optional[float] = None) -> Optional[float]:
         return default
 
 
-def _as_int(value, *, default: Optional[int] = None) -> Optional[int]:
+def _as_int(value, *, default: int | None = None) -> int | None:
     if value is None or value == "":
         return default
     try:
