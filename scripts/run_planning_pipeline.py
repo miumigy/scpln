@@ -14,10 +14,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List
 
 from scripts.plan_pipeline_io import _calendar_cli_args
-
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPTS_DIR.parent
@@ -28,7 +26,7 @@ def _script(name: str) -> str:
 
 
 def _extend_storage(
-    cmd: List[str], storage: str | None, version_id: str | None
+    cmd: list[str], storage: str | None, version_id: str | None
 ) -> None:
     if storage:
         cmd.extend(["--storage", storage])
@@ -36,7 +34,7 @@ def _extend_storage(
         cmd.extend(["--version-id", version_id])
 
 
-def _run_stage(step: int, total: int, label: str, cmd: List[str], env: dict) -> None:
+def _run_stage(step: int, total: int, label: str, cmd: list[str], env: dict) -> None:
     print(f"[{step}/{total}] {label}")
     subprocess.run(cmd, check=True, env=env)
 
@@ -133,7 +131,7 @@ def main() -> None:
 
     calendar_args = _calendar_cli_args(input_dir=input_dir, fallback_weeks=args.weeks)
 
-    steps: List[tuple[str, List[str]]] = []
+    steps: list[tuple[str, list[str]]] = []
 
     agg_json = output_dir / "aggregate.json"
     sku_json = output_dir / "sku_week.json"
