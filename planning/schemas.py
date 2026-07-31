@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -43,12 +42,12 @@ class OpenPORecord(BaseModel):
 
 class AggregatePlanInput(BaseModel):
     schema_version: str = Field(default="agg-1.0")
-    demand_family: List[FamilyDemandRecord] = Field(default_factory=list)
-    capacity: List[CapacityRecord] = Field(default_factory=list)
-    mix_share: List[MixShareRecord] = Field(default_factory=list)
-    item_master: List[ItemMasterRecord] = Field(default_factory=list)
-    inventory: List[InventoryRecord] = Field(default_factory=list)
-    open_po: List[OpenPORecord] = Field(default_factory=list)
+    demand_family: list[FamilyDemandRecord] = Field(default_factory=list)
+    capacity: list[CapacityRecord] = Field(default_factory=list)
+    mix_share: list[MixShareRecord] = Field(default_factory=list)
+    item_master: list[ItemMasterRecord] = Field(default_factory=list)
+    inventory: list[InventoryRecord] = Field(default_factory=list)
+    open_po: list[OpenPORecord] = Field(default_factory=list)
 
 
 class AggregatePlanRow(BaseModel):
@@ -61,5 +60,5 @@ class AggregatePlanRow(BaseModel):
 
 class AggregatePlanOutput(BaseModel):
     schema_version: str = Field(default="agg-1.0")
-    rows: List[AggregatePlanRow] = Field(default_factory=list)
-    note: Optional[str] = None
+    rows: list[AggregatePlanRow] = Field(default_factory=list)
+    note: str | None = None

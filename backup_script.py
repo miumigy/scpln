@@ -1,6 +1,6 @@
 import datetime
-import shutil
 import os
+import shutil
 
 # Generate timestamp
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
