@@ -5,14 +5,14 @@ from fastapi.testclient import TestClient
 
 from app.api import app
 from domain.models import (
-    SimulationInput,
-    Product,
-    MaterialNode,
-    FactoryNode,
-    WarehouseNode,
-    StoreNode,
-    NetworkLink,
     CustomerDemand,
+    FactoryNode,
+    MaterialNode,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
 )
 
 # /simulation と /compare のAPIを副作用importで登録
