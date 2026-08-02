@@ -1,5 +1,6 @@
 import unittest
-from main import SupplyChainSimulator, SimulationInput
+
+from main import SimulationInput, SupplyChainSimulator
 
 
 class TestDailySnapshotIdentities(unittest.TestCase):
