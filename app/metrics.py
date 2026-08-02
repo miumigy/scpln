@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
+
 from fastapi.responses import Response
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    REGISTRY,
     Counter,
     Gauge,
     Histogram,
-    CONTENT_TYPE_LATEST,
-    REGISTRY,
     generate_latest,
     start_http_server,
 )
