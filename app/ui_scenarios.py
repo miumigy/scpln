@@ -1,10 +1,12 @@
-from app.api import app
-from fastapi import Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-from app import db
 import logging
+from pathlib import Path
+
+from fastapi import Form, Request
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from app import db
+from app.api import app
 from app.template_filters import register_format_filters
 
 _BASE_DIR = Path(__file__).resolve().parents[1]

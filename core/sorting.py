@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Tuple
+from typing import Any
 
 _TOKEN_PATTERN = re.compile(r"(\d+)")
 
 
-def natural_sort_key(value: Any) -> Tuple[Tuple[int, object], ...]:
+def natural_sort_key(value: Any) -> tuple[tuple[int, object], ...]:
     """文字列中の数値を数値として扱うソートキーを生成する。"""
     if value is None:
         return ((2, ""),)
@@ -20,7 +20,7 @@ def natural_sort_key(value: Any) -> Tuple[Tuple[int, object], ...]:
         return ((1, value),)
 
     text = str(value)
-    tokens: list[Tuple[int, object]] = []
+    tokens: list[tuple[int, object]] = []
     for part in _TOKEN_PATTERN.split(text):
         if not part:
             continue
