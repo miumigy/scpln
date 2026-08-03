@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from core.config import build_planning_inputs, load_canonical_config
 from app import jobs
+from core.config import build_planning_inputs, load_canonical_config
 
 
 def test_materialize_planning_inputs_creates_required_files(tmp_path):
