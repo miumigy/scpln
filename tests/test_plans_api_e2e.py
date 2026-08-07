@@ -6,12 +6,12 @@ from fastapi.testclient import TestClient
 
 from app import db
 from app.metrics import (
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
     PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
 )
-from core.plan_repository import PlanRepository
 from app.run_registry_db import RunRegistryDB
+from core.plan_repository import PlanRepository
 
 pytestmark = pytest.mark.slow
 

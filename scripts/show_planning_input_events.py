@@ -10,9 +10,9 @@ import json
 import sys
 
 from core.config.storage import (
+    PlanningInputSetNotFoundError,
     get_planning_input_set,
     list_planning_input_set_events,
-    PlanningInputSetNotFoundError,
 )
 
 
