@@ -10,6 +10,7 @@ KPI/レポート出力（PR6）
 使い方:
   python scripts/report.py -i out/plan_final.json -I samples/planning -o out/report.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,8 +18,9 @@ import csv
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Any, List, DefaultDict
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
@@ -27,12 +29,12 @@ from scripts.plan_pipeline_io import (
 )
 
 
-def _read_csv(path: str) -> List[Dict[str, Any]]:
+def _read_csv(path: str) -> list[dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def _load_fg_skus(input_dir: str | None, mix_path: str | None) -> List[str]:
+def _load_fg_skus(input_dir: str | None, mix_path: str | None) -> list[str]:
     path = mix_path or (os.path.join(input_dir, "mix_share.csv") if input_dir else None)
     if not path or not os.path.exists(path):
         return []
@@ -102,7 +104,7 @@ def main() -> None:
 
     # serviceセクション（FGのみ集計）
     svc_rows = []
-    by_week: DefaultDict[str, Dict[str, float]] = __import__("collections").defaultdict(
+    by_week: defaultdict[str, dict[str, float]] = __import__("collections").defaultdict(
         lambda: {"demand": 0.0, "supply": 0.0}
     )
     for r in rows:

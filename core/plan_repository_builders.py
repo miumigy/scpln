@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections import defaultdict
-from typing import Any, List
+from typing import Any
 
 from .plan_repository import PlanKpiRow, PlanSeriesRow
 
@@ -30,7 +30,7 @@ def build_plan_series(
     detail: dict[str, Any] | None = None,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     rows: list[PlanSeriesRow] = []
     rows.extend(
         build_plan_series_from_aggregate(
@@ -57,7 +57,7 @@ def build_plan_series_from_aggregate(
     *,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not aggregate:
         return []
 
@@ -102,7 +102,7 @@ def build_plan_series_from_detail(
     default_location_key: str = "global",
     default_location_type: str = "global",
     level: str = "det",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not sku_week:
         return []
 
@@ -180,7 +180,7 @@ def build_plan_series_from_detail(
 def build_plan_kpis_from_aggregate(
     version_id: str,
     aggregate: dict[str, Any] | None,
-) -> List[PlanKpiRow]:
+) -> list[PlanKpiRow]:
     if not aggregate:
         return []
 
@@ -307,7 +307,7 @@ def build_plan_series_from_plan_final(
     *,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not plan_final:
         return []
 
@@ -358,7 +358,7 @@ def build_plan_series_from_plan_final(
 
 
 def attach_inventory_to_detail_series(
-    series_rows: List[PlanSeriesRow],
+    series_rows: list[PlanSeriesRow],
     plan_final: dict[str, Any] | None,
 ) -> None:
     """detレベルのPlanSeriesへplan_finalの在庫を付与する。"""
@@ -411,7 +411,7 @@ def build_plan_series_from_weekly_summary(
     *,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not plan_final:
         return []
 
@@ -462,7 +462,7 @@ def build_plan_series_from_mrp(
     *,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not mrp_data:
         return []
 
@@ -512,7 +512,7 @@ def build_plan_series_from_daily(
     default_location_key: str = "global",
     default_location_type: str = "global",
     level: str = "daily_det",
-) -> List[PlanSeriesRow]:
+) -> list[PlanSeriesRow]:
     if not daily_data:
         return []
 
