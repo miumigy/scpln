@@ -1,26 +1,25 @@
 # ... 既存のインポート ...
 
-from app.api import app
-import os
-from domain.models import SimulationInput
-from engine.simulator import SupplyChainSimulator
 import logging
 import math
-from collections import defaultdict
-from typing import Optional
+import os
 import time as _time
+from collections import defaultdict
+
+from app.api import app
 from app.run_registry import REGISTRY as _REGISTRY
+from domain.models import SimulationInput
+from engine.simulator import SupplyChainSimulator
 
 try:
     from app import metrics as _metrics  # noqa: F401  # /metrics を副作用で登録
 except Exception:
     pass
 
-__all__ = ["app", "SimulationInput", "SupplyChainSimulator"]
-
-from fastapi.responses import RedirectResponse
+__all__ = ["SimulationInput", "SupplyChainSimulator", "app"]
 
 from fastapi import Query, Request
+from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
 
 
@@ -62,7 +61,7 @@ if not globals().get("_SIM_LOADED", False):
     def _fallback_post_simulation(
         payload: SimulationInput,
         include_trace: bool = Query(False),
-        config_id: Optional[int] = Query(None),
+        config_id: int | None = Query(None),
         request: Request = None,
     ):
         rid = str(__import__("uuid").uuid4())
