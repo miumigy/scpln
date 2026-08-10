@@ -12,28 +12,28 @@
     -o out/reconciliation_log.json \
     --version v1 --tol-abs 1e-6 --tol-rel 1e-6
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, DefaultDict, Optional
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
+from scripts.calendar_utils import (
+    PlanningCalendarLookup,
+    build_calendar_lookup,
+    load_planning_calendar,
+    resolve_period_for_week,
+)
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_reconcile_log_payload,
 )
-from scripts.calendar_utils import (
-    build_calendar_lookup,
-    load_planning_calendar,
-    resolve_period_for_week,
-    PlanningCalendarLookup,
-)
 
-
-_CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
+_CAL_LOOKUP: PlanningCalendarLookup | None = None
 
 
 def _period_from_week(week_key: str) -> str:
@@ -64,7 +64,7 @@ def _period_from_week(week_key: str) -> str:
     return s
 
 
-def _load_inputs(paths: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def _load_inputs(paths: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
     if len(paths) != 2:
         raise ValueError(
             "-i/--inputs には2ファイルを指定してください（aggregate と sku_week）"
@@ -75,7 +75,7 @@ def _load_inputs(paths: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         a1 = json.load(f)
 
     # 判定: sku/week があれば DET とみなす
-    def looks_det(a: Dict[str, Any]) -> bool:
+    def looks_det(a: dict[str, Any]) -> bool:
         rows = a.get("rows", [])
         if not rows:
             return False
@@ -97,7 +97,7 @@ def _load_inputs(paths: List[str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     return agg, det
 
 
-def _sum3(d: Dict[str, float]) -> float:
+def _sum3(d: dict[str, float]) -> float:
     return (
         float(d.get("demand", 0) or 0)
         + float(d.get("supply", 0) or 0)
@@ -113,10 +113,10 @@ def _round6(x: float) -> float:
 
 
 def _resolve_calendar_lookup(
-    calendar_path: Optional[str], input_dir: Optional[str]
-) -> Optional[PlanningCalendarLookup]:
+    calendar_path: str | None, input_dir: str | None
+) -> PlanningCalendarLookup | None:
     spec = None
-    err: Optional[Exception] = None
+    err: Exception | None = None
     if calendar_path:
         try:
             spec = load_planning_calendar(calendar_path)
@@ -218,11 +218,11 @@ def main() -> None:
         print(warning, file=sys.stderr)
 
     agg, det = _load_inputs(args.inputs)
-    agg_rows: List[Dict[str, Any]] = agg.get("rows", [])
-    det_rows: List[Dict[str, Any]] = det.get("rows", [])
+    agg_rows: list[dict[str, Any]] = agg.get("rows", [])
+    det_rows: list[dict[str, Any]] = det.get("rows", [])
 
     # AGG: (family, period) -> 指標
-    agg_map: Dict[Tuple[str, str], Dict[str, float]] = {}
+    agg_map: dict[tuple[str, str], dict[str, float]] = {}
     families: set[str] = set()
     periods: set[str] = set()
     for r in agg_rows:
@@ -239,7 +239,7 @@ def main() -> None:
     # DETロールアップ: (family, period) -> 指標合計
     from collections import defaultdict as _dd
 
-    det_map: DefaultDict[Tuple[str, str], Dict[str, float]] = _dd(
+    det_map: _dd[tuple[str, str], dict[str, float]] = _dd(
         lambda: {"demand": 0.0, "supply": 0.0, "backlog": 0.0}
     )
     for r in det_rows:
@@ -269,9 +269,9 @@ def main() -> None:
 
     # 差分算出
     metrics = ("demand", "supply", "backlog")
-    deltas: List[Dict[str, Any]] = []
+    deltas: list[dict[str, Any]] = []
     tol_violations = 0
-    max_abs_delta: Dict[str, float] = {m: 0.0 for m in metrics}
+    max_abs_delta: dict[str, float] = {m: 0.0 for m in metrics}
     # cutover 月（YYYY-MM）を抽出（簡易タグ用）
     cutover_month = None
     cutover_iso = None
@@ -297,7 +297,7 @@ def main() -> None:
         a = agg_map.get(fam_per, {m: 0.0 for m in metrics})
         d = det_map.get(fam_per, {m: 0.0 for m in metrics})
 
-        row: Dict[str, Any] = {"family": fam, "period": per}
+        row: dict[str, Any] = {"family": fam, "period": per}
         ok_all = True
         for m in metrics:
             av = float(a.get(m, 0) or 0)
@@ -325,7 +325,7 @@ def main() -> None:
     # 境界違反の要約（v2ステップ1）
     boundary_rows = [r for r in deltas if r.get("boundary_period")]
     boundary_violations = [r for r in boundary_rows if not r.get("ok")]
-    boundary_max_abs: Dict[str, float] = {m: 0.0 for m in metrics}
+    boundary_max_abs: dict[str, float] = {m: 0.0 for m in metrics}
     for r in boundary_rows:
         for m in metrics:
             boundary_max_abs[m] = max(
@@ -333,7 +333,7 @@ def main() -> None:
             )
 
     # 重要差分（上位10件）: |Δ| の最大値でソート
-    def _key_absmax(row: Dict[str, Any]) -> float:
+    def _key_absmax(row: dict[str, Any]) -> float:
         return max(
             abs(float(row.get("delta_demand", 0) or 0)),
             abs(float(row.get("delta_supply", 0) or 0)),
