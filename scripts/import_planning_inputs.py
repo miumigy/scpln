@@ -9,7 +9,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from core.config.importer import import_planning_inputs
 
@@ -40,7 +40,7 @@ def run() -> int:
     return 0
 
 
-def _emit_result(result: Dict[str, Any], args: argparse.Namespace) -> None:
+def _emit_result(result: dict[str, Any], args: argparse.Namespace) -> None:
     if args.json:
         print(json.dumps(result))
     report_path = Path(args.report_path)
