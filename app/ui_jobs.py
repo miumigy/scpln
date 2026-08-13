@@ -1,10 +1,12 @@
-from app.api import app
-from fastapi import Request, HTTPException
+import json
+from pathlib import Path
+
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
+
 from app import db
-import json
+from app.api import app
 from app.template_filters import register_format_filters
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
