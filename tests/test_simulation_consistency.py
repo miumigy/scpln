@@ -1,6 +1,6 @@
-import unittest
 import math
 import random
+import unittest
 
 from main import SimulationInput, SupplyChainSimulator
 
