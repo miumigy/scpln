@@ -6,6 +6,7 @@
   python scripts/allocate.py -i out/aggregate.json -o out/sku_week.json \
     -I samples/planning --weeks 4 --round int
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,35 +15,35 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
+from scripts.calendar_utils import (
+    PlanningCalendarLookup,
+    build_calendar_lookup,
+    get_week_distribution,
+    load_planning_calendar,
+)
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_allocate_payload,
 )
-from scripts.calendar_utils import (
-    build_calendar_lookup,
-    get_week_distribution,
-    load_planning_calendar,
-    PlanningCalendarLookup,
-)
-from scripts.rounding_utils import round_quantity, distribute_int
+from scripts.rounding_utils import distribute_int, round_quantity
 
 
-def _read_csv(path: str) -> List[Dict[str, Any]]:
+def _read_csv(path: str) -> list[dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
 def _load_mix(
     input_dir: str | None, mix_path: str | None, *, normalize: bool = True
-) -> Dict[str, List[Tuple[str, float]]]:
+) -> dict[str, list[tuple[str, float]]]:
     path = mix_path or (os.path.join(input_dir, "mix_share.csv") if input_dir else None)
-    mix: Dict[str, List[Tuple[str, float]]] = {}
+    mix: dict[str, list[tuple[str, float]]] = {}
     if path and os.path.exists(path):
         rows = _read_csv(path)
-        tmp: Dict[str, List[Tuple[str, float]]] = {}
+        tmp: dict[str, list[tuple[str, float]]] = {}
         for r in rows:
             fam = str(r.get("family"))
             sku = str(r.get("sku"))
@@ -63,12 +64,12 @@ def _load_mix(
 
 
 def _resolve_calendar_lookup(
-    calendar_path: Optional[str], input_dir: Optional[str]
-) -> Optional[PlanningCalendarLookup]:
+    calendar_path: str | None, input_dir: str | None
+) -> PlanningCalendarLookup | None:
     """カレンダーファイルを探索してLookUpを構築する。"""
 
     spec = None
-    err: Optional[Exception] = None
+    err: Exception | None = None
     if calendar_path:
         try:
             spec = load_planning_calendar(calendar_path)
@@ -92,7 +93,7 @@ def _resolve_calendar_lookup(
     return build_calendar_lookup(spec)
 
 
-def _round_series(values: List[float], *, mode: str = "none") -> List[float]:
+def _round_series(values: list[float], *, mode: str = "none") -> list[float]:
     if mode == "none":
         return values
     if mode == "int":
@@ -107,7 +108,7 @@ def _round_series(values: List[float], *, mode: str = "none") -> List[float]:
     return values
 
 
-def _absorb_delta(original_total: float, parts: List[float]) -> List[float]:
+def _absorb_delta(original_total: float, parts: list[float]) -> list[float]:
     # 和のズレを最後の要素に吸収
     cur = sum(parts)
     delta = original_total - cur
@@ -116,7 +117,7 @@ def _absorb_delta(original_total: float, parts: List[float]) -> List[float]:
     return parts
 
 
-def _week_ratio_weights(entries: List[Any]) -> List[float]:
+def _week_ratio_weights(entries: list[Any]) -> list[float]:
     if not entries:
         return []
     ratios = [max(0.0, getattr(entry, "ratio", 0.0)) for entry in entries]
@@ -128,10 +129,10 @@ def _week_ratio_weights(entries: List[Any]) -> List[float]:
 
 def _distribute_by_ratios(
     total: int,
-    ratios: List[float],
+    ratios: list[float],
     *,
-    caps: Optional[List[int]] = None,
-) -> List[int]:
+    caps: list[int] | None = None,
+) -> list[int]:
     n = len(ratios)
     if n == 0:
         return []
@@ -188,9 +189,9 @@ def main() -> None:
         agg = json.load(f)
     mix = _load_mix(args.input_dir, args.mix, normalize=True)
 
-    rows_in: List[Dict[str, Any]] = agg.get("rows", [])
+    rows_in: list[dict[str, Any]] = agg.get("rows", [])
     weeks = max(1, int(args.weeks or 4))
-    out_rows: List[Dict[str, Any]] = []
+    out_rows: list[dict[str, Any]] = []
 
     lookup = _resolve_calendar_lookup(args.calendar, args.input_dir)
     calendar_mode = "fallback_weeks"
