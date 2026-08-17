@@ -5,8 +5,9 @@ Revises: e759344
 Create Date: 2025-09-26 12:00:00
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0afb1234plan"
 down_revision = "b7218ec6eb99"
