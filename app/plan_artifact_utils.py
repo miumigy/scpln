@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 
 def apply_plan_final_receipts(
-    detail_obj: Dict[str, Any] | None,
-    aggregate_obj: Dict[str, Any] | None,
-    plan_final_obj: Dict[str, Any] | None,
-) -> Tuple[Dict[str, Any] | None, Dict[str, Any] | None]:
+    detail_obj: dict[str, Any] | None,
+    aggregate_obj: dict[str, Any] | None,
+    plan_final_obj: dict[str, Any] | None,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """plan_finalに含まれる受領量 (planned_order_receipt_adj) をDET/AGGへ反映する。"""
     if not detail_obj or not isinstance(detail_obj, dict):
         return detail_obj, aggregate_obj
