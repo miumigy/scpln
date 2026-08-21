@@ -7,8 +7,9 @@ import math
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 from domain.models import (
     BomItem,
@@ -40,10 +41,9 @@ from .models import (
     DemandProfile,
 )
 from .storage import (
-    get_planning_input_set,
     PlanningInputSetNotFoundError,
+    get_planning_input_set,
 )
-
 
 DEFAULT_PLANNING_HORIZON = 100
 
@@ -53,16 +53,16 @@ class PlanningDataBundle:
     """Planningパイプライン向けデータ一式。"""
 
     aggregate_input: AggregatePlanInput
-    period_cost: List[Dict[str, Any]] = field(default_factory=list)
-    period_score: List[Dict[str, Any]] = field(default_factory=list)
-    planning_calendar: Optional[Dict[str, Any]] = None
+    period_cost: list[dict[str, Any]] = field(default_factory=list)
+    period_score: list[dict[str, Any]] = field(default_factory=list)
+    planning_calendar: dict[str, Any] | None = None
 
 
 def build_simulation_input(
     config: CanonicalConfig,
     *,
-    planning_horizon: Optional[int] = None,
-    random_seed: Optional[int] = None,
+    planning_horizon: int | None = None,
+    random_seed: int | None = None,
 ) -> SimulationInput:
     """Canonical設定からPSIシミュレーション入力を構築する。"""
 
@@ -99,7 +99,7 @@ def build_planning_inputs(config: CanonicalConfig) -> PlanningDataBundle:
 
 def _load_planning_bundle_from_input_set(
     config: CanonicalConfig,
-) -> Optional[PlanningDataBundle]:
+) -> PlanningDataBundle | None:
     version_id = config.meta.version_id
     if version_id is None:
         return None
@@ -186,7 +186,7 @@ def _load_planning_bundle_from_input_set(
     return _limit_planning_bundle_to_demand_horizon(bundle, config)
 
 
-def _resolve_planning_horizon(config: CanonicalConfig, override: Optional[int]) -> int:
+def _resolve_planning_horizon(config: CanonicalConfig, override: int | None) -> int:
     if override is not None:
         return max(1, int(override))
     attr = (config.meta.attributes or {}).get("planning_horizon")
@@ -202,14 +202,14 @@ def _resolve_planning_horizon(config: CanonicalConfig, override: Optional[int]) 
 
 def _build_products(
     items: Iterable[CanonicalItem], bom_rows: Iterable[CanonicalBom]
-) -> List[Product]:
-    bom_map: Dict[str, List[BomItem]] = defaultdict(list)
+) -> list[Product]:
+    bom_map: dict[str, list[BomItem]] = defaultdict(list)
     for row in bom_rows:
         bom_map[row.parent_item].append(
             BomItem(item_name=row.child_item, quantity_per=row.quantity)
         )
 
-    products: List[Product] = []
+    products: list[Product] = []
     for item in items:
         if item.item_type != "product":
             continue
@@ -228,13 +228,13 @@ def _build_products(
     return products
 
 
-def _build_node(node: CanonicalNode, items_by_code: Dict[str, CanonicalItem]):
-    initial_stock: Dict[str, float] = {}
-    moq_map: Dict[str, float] = {}
-    order_multiple_map: Dict[str, float] = {}
-    storage_cost_variable: Dict[str, float] = {}
-    reorder_point: Dict[str, float] = {}
-    order_up_to: Dict[str, float] = {}
+def _build_node(node: CanonicalNode, items_by_code: dict[str, CanonicalItem]):
+    initial_stock: dict[str, float] = {}
+    moq_map: dict[str, float] = {}
+    order_multiple_map: dict[str, float] = {}
+    storage_cost_variable: dict[str, float] = {}
+    reorder_point: dict[str, float] = {}
+    order_up_to: dict[str, float] = {}
     stockout_cost = _to_float(node.attributes.get("stockout_cost_per_unit"))
     backorder_cost = _to_float(node.attributes.get("backorder_cost_per_unit_per_day"))
 
@@ -303,7 +303,7 @@ def _build_node(node: CanonicalNode, items_by_code: Dict[str, CanonicalItem]):
         )
 
     if node.node_type in {"material", "supplier"}:
-        material_cost: Dict[str, float] = {}
+        material_cost: dict[str, float] = {}
         raw_costs = node.attributes.get("material_cost")
         if isinstance(raw_costs, dict):
             material_cost = {
@@ -350,7 +350,7 @@ def _build_node(node: CanonicalNode, items_by_code: Dict[str, CanonicalItem]):
         _to_float(general_policy.over_capacity_variable_cost) if general_policy else 0.0
     )
 
-    producible_products: List[str] = []
+    producible_products: list[str] = []
     for policy in production_policies:
         if policy.item_code:
             producible_products.append(policy.item_code)
@@ -419,12 +419,12 @@ def _build_network_link(arc: CanonicalArc) -> NetworkLink:
 
 def _build_customer_demands(
     profiles: Iterable[DemandProfile], horizon: int
-) -> List[CustomerDemand]:
-    grouped: Dict[tuple[str, str], List[DemandProfile]] = defaultdict(list)
+) -> list[CustomerDemand]:
+    grouped: dict[tuple[str, str], list[DemandProfile]] = defaultdict(list)
     for row in profiles:
         grouped[(row.node_code, row.item_code)].append(row)
 
-    demands: List[CustomerDemand] = []
+    demands: list[CustomerDemand] = []
     for (node_code, item_code), rows in grouped.items():
         if _should_distribute_demands(rows):
             demands.extend(_expand_demand_group(rows, horizon))
@@ -446,7 +446,7 @@ def _build_customer_demands(
 _BUCKET_SKIP = {"default", "baseline"}
 
 
-def _should_distribute_demands(rows: List[DemandProfile]) -> bool:
+def _should_distribute_demands(rows: list[DemandProfile]) -> bool:
     if not rows:
         return False
     return all(_is_period_bucket(row.bucket) for row in rows)
@@ -458,7 +458,7 @@ _ISO_WEEK = re.compile(r"^(\d{4})-W(\d{2})$", re.IGNORECASE)
 _ISO_DAY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
-def _is_period_bucket(bucket: Optional[str]) -> bool:
+def _is_period_bucket(bucket: str | None) -> bool:
     if not bucket:
         return False
     lowered = bucket.lower()
@@ -493,8 +493,8 @@ def _bucket_sort_key(row: DemandProfile):
 
 
 def _expand_demand_group(
-    rows: List[DemandProfile], horizon: int
-) -> List[CustomerDemand]:
+    rows: list[DemandProfile], horizon: int
+) -> list[CustomerDemand]:
     sorted_rows = sorted(rows, key=_bucket_sort_key)
     total_periods = len(sorted_rows)
     if total_periods == 0:
@@ -506,7 +506,7 @@ def _expand_demand_group(
     base_len = horizon // total_periods
     remainder = horizon - (base_len * total_periods)
     day_cursor = 1
-    distributed: List[CustomerDemand] = []
+    distributed: list[CustomerDemand] = []
 
     for idx, row in enumerate(sorted_rows):
         if day_cursor > horizon:
@@ -544,9 +544,9 @@ def _expand_demand_group(
 
 
 def _convert_demand_family(
-    rows: Optional[Iterable[Dict[str, Any]]],
-) -> List[FamilyDemandRecord]:
-    records: List[FamilyDemandRecord] = []
+    rows: Iterable[dict[str, Any]] | None,
+) -> list[FamilyDemandRecord]:
+    records: list[FamilyDemandRecord] = []
     for row in rows or []:
         family = row.get("family")
         period = row.get("period")
@@ -559,8 +559,8 @@ def _convert_demand_family(
     return records
 
 
-def _convert_capacity(rows: Optional[Iterable[Dict[str, Any]]]) -> List[CapacityRecord]:
-    records: List[CapacityRecord] = []
+def _convert_capacity(rows: Iterable[dict[str, Any]] | None) -> list[CapacityRecord]:
+    records: list[CapacityRecord] = []
     for row in rows or []:
         workcenter = row.get("workcenter")
         period = row.get("period")
@@ -576,9 +576,9 @@ def _convert_capacity(rows: Optional[Iterable[Dict[str, Any]]]) -> List[Capacity
 
 
 def _convert_mix_share(
-    rows: Optional[Iterable[Dict[str, Any]]],
-) -> List[MixShareRecord]:
-    records: List[MixShareRecord] = []
+    rows: Iterable[dict[str, Any]] | None,
+) -> list[MixShareRecord]:
+    records: list[MixShareRecord] = []
     for row in rows or []:
         family = row.get("family")
         sku = row.get("sku")
@@ -590,9 +590,9 @@ def _convert_mix_share(
 
 
 def _convert_item_master(
-    rows: Optional[Iterable[Dict[str, Any]]],
-) -> List[ItemMasterRecord]:
-    records: List[ItemMasterRecord] = []
+    rows: Iterable[dict[str, Any]] | None,
+) -> list[ItemMasterRecord]:
+    records: list[ItemMasterRecord] = []
     for row in rows or []:
         item = row.get("item")
         if not item:
@@ -605,9 +605,9 @@ def _convert_item_master(
 
 
 def _convert_inventory(
-    rows: Optional[Iterable[Dict[str, Any]]],
-) -> List[InventoryRecord]:
-    records: List[InventoryRecord] = []
+    rows: Iterable[dict[str, Any]] | None,
+) -> list[InventoryRecord]:
+    records: list[InventoryRecord] = []
     for row in rows or []:
         item = row.get("item")
         loc = row.get("loc")
@@ -618,8 +618,8 @@ def _convert_inventory(
     return records
 
 
-def _convert_open_po(rows: Optional[Iterable[Dict[str, Any]]]) -> List[OpenPORecord]:
-    records: List[OpenPORecord] = []
+def _convert_open_po(rows: Iterable[dict[str, Any]] | None) -> list[OpenPORecord]:
+    records: list[OpenPORecord] = []
     for row in rows or []:
         item = row.get("item")
         due = row.get("due")
@@ -631,9 +631,9 @@ def _convert_open_po(rows: Optional[Iterable[Dict[str, Any]]]) -> List[OpenPORec
 
 
 def _normalize_period_entries(
-    rows: Optional[Iterable[Dict[str, Any]]], *, value_key: str
-) -> List[Dict[str, Any]]:
-    normalized: List[Dict[str, Any]] = []
+    rows: Iterable[dict[str, Any]] | None, *, value_key: str
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
     for row in rows or []:
         period = row.get("period")
         if not period:
@@ -694,7 +694,7 @@ def _build_planning_bundle_from_canonical(
         for item in config.items
     ]
 
-    inventory_records: List[InventoryRecord] = []
+    inventory_records: list[InventoryRecord] = []
     for node in config.nodes:
         for policy in node.inventory_policies:
             qty = (policy.initial_inventory or 0.0) * inventory_scale
@@ -720,10 +720,10 @@ def _build_planning_bundle_from_canonical(
         for family in families:
             mix_share.append(MixShareRecord(family=family, sku=family, share=1.0))
 
-    open_po: List[OpenPORecord] = []
+    open_po: list[OpenPORecord] = []
 
-    period_cost: List[Dict[str, Any]] = []
-    period_score: List[Dict[str, Any]] = []
+    period_cost: list[dict[str, Any]] = []
+    period_score: list[dict[str, Any]] = []
     for calendar in config.calendars:
         definition = calendar.definition or {}
         period_cost.extend(
@@ -750,9 +750,7 @@ def _build_planning_bundle_from_canonical(
             planning_calendar is None
             and attrs.get("calendar_kind") == "planning"
             and definition
-        ):
-            planning_calendar = definition
-        elif (
+        ) or (
             planning_calendar is None
             and "periods" in definition
             and isinstance(definition["periods"], list)
@@ -825,8 +823,8 @@ def _limit_planning_bundle_to_demand_horizon(
     if target_days >= total_days:
         return bundle
 
-    trimmed_periods: List[Dict[str, Any]] = []
-    allowed_periods: List[str] = []
+    trimmed_periods: list[dict[str, Any]] = []
+    allowed_periods: list[str] = []
     cumulative = 0.0
     week_sequence = 1
 
@@ -867,8 +865,8 @@ def _limit_planning_bundle_to_demand_horizon(
 
     aggregate_dict = bundle.aggregate_input.dict()
 
-    def _filter_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        filtered: List[Dict[str, Any]] = []
+    def _filter_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        filtered: list[dict[str, Any]] = []
         for record in records or []:
             period = str(record.get("period", ""))
             if period and period in allowed_period_set:
@@ -883,7 +881,7 @@ def _limit_planning_bundle_to_demand_horizon(
     aggregate_dict["capacity"] = _filter_records(aggregate_dict.get("capacity", []))
     aggregate = AggregatePlanInput(**aggregate_dict)
 
-    def _filter_period_entries(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _filter_period_entries(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         filtered = [
             dict(row)
             for row in rows or []
@@ -904,7 +902,7 @@ def _limit_planning_bundle_to_demand_horizon(
     )
 
 
-def _calendar_total_days(periods: List[Dict[str, Any]]) -> float:
+def _calendar_total_days(periods: list[dict[str, Any]]) -> float:
     total = 0.0
     for entry in periods:
         if not isinstance(entry, dict):
@@ -939,6 +937,6 @@ def _to_int(value: Any, *, default: int = 0) -> int:
 
 __all__ = [
     "PlanningDataBundle",
-    "build_simulation_input",
     "build_planning_inputs",
+    "build_simulation_input",
 ]
