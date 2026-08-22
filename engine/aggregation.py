@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict, List, Sequence, Tuple, Any, Optional
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 
 try:
     from zoneinfo import ZoneInfo  # py3.9+
@@ -30,20 +31,20 @@ def _period_of_day(
 
 
 def aggregate_by_time(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     bucket: TimeBucket,
     day_field: str = "day",
     *,
-    sum_fields: Optional[Sequence[str]] = None,
-    group_keys: Optional[Sequence[str]] = None,
+    sum_fields: Sequence[str] | None = None,
+    group_keys: Sequence[str] | None = None,
     # calendar strict options (date-based)
-    date_field: Optional[str] = None,
-    tz: Optional[str] = None,
-    calendar_mode: Optional[str] = None,  # 'iso_week'|'month'
+    date_field: str | None = None,
+    tz: str | None = None,
+    calendar_mode: str | None = None,  # 'iso_week'|'month'
     # relaxed options (day-based)
     week_start_offset: int = 0,
     month_len: int = 30,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """日次レコード（dayフィールドを持つ）を time bucket で集計する。
     - sum_fields が None の場合は数値型のフィールドを自動検出して合計
     - group_keys でキー（node/itemなど）単位に分割集計
@@ -63,11 +64,11 @@ def aggregate_by_time(
         ]
     gkeys = list(group_keys or [])
 
-    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(
+    agg: dict[tuple[Any, ...], dict[str, float]] = defaultdict(
         lambda: defaultdict(float)
     )
 
-    def compute_period(r: Dict[str, Any]) -> Any:
+    def compute_period(r: dict[str, Any]) -> Any:
         if date_field and r.get(date_field) is not None:
             raw = r.get(date_field)
             # accept 'YYYY-MM-DD' or ISO datetime
@@ -113,7 +114,7 @@ def aggregate_by_time(
             v = r.get(f)
             if isinstance(v, (int, float)):
                 agg[key_tuple][f] += float(v)
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for key, sums in sorted(agg.items(), key=lambda kv: kv[0]):
         period = key[0]
         row = {"period": period}
@@ -125,17 +126,17 @@ def aggregate_by_time(
 
 
 def rollup_axis(
-    records: Sequence[Dict[str, Any]],
+    records: Sequence[dict[str, Any]],
     *,
     product_key: str = "item",
-    product_map: Optional[Dict[str, Dict[str, str]]] = None,
-    product_level: Optional[str] = None,
+    product_map: dict[str, dict[str, str]] | None = None,
+    product_level: str | None = None,
     location_key: str = "node",
-    location_map: Optional[Dict[str, Dict[str, str]]] = None,
-    location_level: Optional[str] = None,
-    sum_fields: Optional[Sequence[str]] = None,
-    keep_fields: Optional[Sequence[str]] = None,
-) -> List[Dict[str, Any]]:
+    location_map: dict[str, dict[str, str]] | None = None,
+    location_level: str | None = None,
+    sum_fields: Sequence[str] | None = None,
+    keep_fields: Sequence[str] | None = None,
+) -> list[dict[str, Any]]:
     """商品・場所の多段階ロールアップを行う汎用集約。
     - product_map: 例 {"SKU1": {"item":"I1","category":"C1","department":"D1"}, ...}
     - product_level: 例 "category"（None なら元キーを保持）
@@ -165,7 +166,7 @@ def rollup_axis(
             return (location_map.get(val) or {}).get(location_level, val)
         return val
 
-    agg: Dict[Tuple[Any, ...], Dict[str, float]] = defaultdict(
+    agg: dict[tuple[Any, ...], dict[str, float]] = defaultdict(
         lambda: defaultdict(float)
     )
     keep = list(keep_fields or [])
@@ -177,7 +178,7 @@ def rollup_axis(
             v = r.get(f)
             if isinstance(v, (int, float)):
                 agg[key_tuple][f] += float(v)
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for key, sums in sorted(agg.items(), key=lambda kv: kv[0]):
         idx = 0
         row = {product_key if not product_level else product_level: key[idx]}
