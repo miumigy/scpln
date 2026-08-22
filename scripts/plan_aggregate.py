@@ -11,32 +11,34 @@ PR2の範囲: periodごとの総需要に対し、能力が不足する場合は
   python scripts/plan_aggregate.py --demand samples/planning/demand_family.csv \
       --capacity samples/planning/capacity.csv --mix samples/planning/mix_share.csv -o out/aggregate.json
 """
+
 from __future__ import annotations
 
 import argparse
 import csv
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, DefaultDict
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
     resolve_storage_config,
     store_aggregate_payload,
 )
-from scripts.rounding_utils import round_quantity, distribute_int
+from scripts.rounding_utils import distribute_int, round_quantity
 
 # 注意: PR1 のスタブは外部依存を避けるため、pydantic等の導入は行わない
 # 将来PRで planning.schemas を参照し厳格化する
 
 
-def _read_csv(path: str) -> List[Dict[str, Any]]:
+def _read_csv(path: str) -> list[dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def _coerce_float(row: Dict[str, Any], key: str, default: float = 0.0) -> float:
+def _coerce_float(row: dict[str, Any], key: str, default: float = 0.0) -> float:
     v = row.get(key)
     try:
         return float(v)
@@ -45,12 +47,12 @@ def _coerce_float(row: Dict[str, Any], key: str, default: float = 0.0) -> float:
 
 
 def _finalize_period_rows(
-    rows_by_period: Dict[str, List[Dict[str, Any]]],
-    cap_by_period: Dict[str, float],
+    rows_by_period: dict[str, list[dict[str, Any]]],
+    cap_by_period: dict[str, float],
     *,
     round_mode: str,
-) -> List[Dict[str, Any]]:
-    finalized: List[Dict[str, Any]] = []
+) -> list[dict[str, Any]]:
+    finalized: list[dict[str, Any]] = []
     for per in sorted(rows_by_period.keys()):
         period_rows = rows_by_period[per]
         cap_val = round_quantity(cap_by_period.get(per, 0.0), mode=round_mode)
@@ -100,7 +102,7 @@ def load_inputs(
     demand_file: str | None,
     capacity_file: str | None,
     mix_file: str | None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     def p(rel: str | None) -> str | None:
         if rel is None:
             return None
@@ -108,9 +110,9 @@ def load_inputs(
             return rel
         return os.path.join(base_dir, rel)
 
-    demand_rows: List[Dict[str, Any]] = []
-    capacity_rows: List[Dict[str, Any]] = []
-    mix_rows: List[Dict[str, Any]] = []
+    demand_rows: list[dict[str, Any]] = []
+    capacity_rows: list[dict[str, Any]] = []
+    mix_rows: list[dict[str, Any]] = []
 
     if demand_file or base_dir:
         demand_rows = _read_csv(p(demand_file or "demand_family.csv"))
@@ -144,13 +146,13 @@ def load_inputs(
 
 
 def _aggregate_plan(
-    demand_rows: List[Dict[str, Any]],
-    capacity_rows: List[Dict[str, Any]],
+    demand_rows: list[dict[str, Any]],
+    capacity_rows: list[dict[str, Any]],
     *,
     round_mode: str = "int",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     # period別の総能力
-    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(
+    cap_by_period: defaultdict[str, float] = __import__("collections").defaultdict(
         float
     )
     for r in capacity_rows:
@@ -158,10 +160,10 @@ def _aggregate_plan(
         cap_by_period[p] += _coerce_float(r, "capacity")
 
     # (family, period)別の需要と period総需要
-    dem_by_fp: DefaultDict[Tuple[str, str], float] = __import__(
+    dem_by_fp: defaultdict[tuple[str, str], float] = __import__(
         "collections"
     ).defaultdict(float)
-    dem_sum_by_p: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    dem_sum_by_p: defaultdict[str, float] = __import__("collections").defaultdict(float)
     families: set[str] = set()
     periods: set[str] = set()
     for r in demand_rows:
@@ -174,7 +176,7 @@ def _aggregate_plan(
         periods.add(per)
 
     # 供給（不足時は比例配分）
-    rows_by_period: DefaultDict[str, List[Dict[str, Any]]] = __import__(
+    rows_by_period: defaultdict[str, list[dict[str, Any]]] = __import__(
         "collections"
     ).defaultdict(list)
     for fam, per in sorted(dem_by_fp.keys()):
