@@ -1,13 +1,14 @@
-from typing import Dict, Any
-from fastapi import HTTPException, Request
-from fastapi import Body
-from app.api import app
-from app import db
+import json
 import logging
 import os
 import threading
-import json
+from typing import Any
+
 import requests
+from fastapi import Body, HTTPException, Request
+
+from app import db
+from app.api import app
 
 
 def _ensure_run_exists(run_id: str) -> None:
@@ -82,8 +83,8 @@ def _notify(event: str, payload: dict) -> None:
     secret = os.getenv("NOTIFY_WEBHOOK_SECRET", "")
     if secret:
         try:
-            import hmac
             import hashlib
+            import hmac
 
             sig = hmac.new(secret.encode("utf-8"), data, hashlib.sha256).hexdigest()
             headers["X-Scpln-Signature"] = f"sha256={sig}"
@@ -109,14 +110,14 @@ def _notify(event: str, payload: dict) -> None:
 
 
 @app.get("/runs/{run_id}/meta")
-def get_run_meta(run_id: str) -> Dict[str, Any]:
+def get_run_meta(run_id: str) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     meta = db.get_run_meta(run_id)
     return meta
 
 
 @app.get("/runs/meta")
-def get_runs_meta(run_ids: str) -> Dict[str, Dict[str, Any]]:
+def get_runs_meta(run_ids: str) -> dict[str, dict[str, Any]]:
     ids = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
@@ -124,7 +125,7 @@ def get_runs_meta(run_ids: str) -> Dict[str, Dict[str, Any]]:
 
 
 @app.post("/runs/{run_id}/approve")
-def post_approve(run_id: str, request: Request) -> Dict[str, Any]:
+def post_approve(run_id: str, request: Request) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="approve")
     user = request.headers.get("X-User") or request.headers.get("X-Email") or ""
@@ -137,7 +138,7 @@ def post_approve(run_id: str, request: Request) -> Dict[str, Any]:
 
 
 @app.post("/runs/{run_id}/promote-baseline")
-def post_promote_baseline(run_id: str, request: Request) -> Dict[str, Any]:
+def post_promote_baseline(run_id: str, request: Request) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="promote")
     db.set_baseline(run_id)
@@ -150,7 +151,7 @@ def post_promote_baseline(run_id: str, request: Request) -> Dict[str, Any]:
 
 
 @app.post("/runs/{run_id}/archive")
-def post_archive(run_id: str, request: Request) -> Dict[str, Any]:
+def post_archive(run_id: str, request: Request) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="archive")
     db.set_archived(run_id, True)
@@ -160,7 +161,7 @@ def post_archive(run_id: str, request: Request) -> Dict[str, Any]:
 
 
 @app.post("/runs/{run_id}/unarchive")
-def post_unarchive(run_id: str, request: Request) -> Dict[str, Any]:
+def post_unarchive(run_id: str, request: Request) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="archive")
     db.set_archived(run_id, False)
@@ -171,8 +172,8 @@ def post_unarchive(run_id: str, request: Request) -> Dict[str, Any]:
 
 @app.post("/runs/{run_id}/note")
 def post_note(
-    run_id: str, request: Request, body: Dict[str, Any] = Body(...)
-) -> Dict[str, Any]:
+    run_id: str, request: Request, body: dict[str, Any] = Body(...)
+) -> dict[str, Any]:
     _ensure_run_exists(run_id)
     _require_role(request, action="note")
     note = (body.get("note") or "").strip()
@@ -182,7 +183,7 @@ def post_note(
 
 
 @app.get("/runs/baseline")
-def get_baseline(scenario_id: int) -> Dict[str, Any]:
+def get_baseline(scenario_id: int) -> dict[str, Any]:
     # DBからbaseline取得
     rid = db.get_baseline_run_id(int(scenario_id))
     return {"run_id": rid}
