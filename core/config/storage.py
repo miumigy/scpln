@@ -7,12 +7,12 @@ import os
 import sqlite3
 import time
 from collections import defaultdict
+from collections.abc import Iterable
 from contextlib import closing
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 from app.db import _conn
-
 from core.sorting import natural_sort_key
 
 from .models import (
@@ -28,6 +28,7 @@ from .models import (
     HierarchyEntry,
     NodeInventoryPolicy,
     NodeProductionPolicy,
+    PlanningCalendarSpec,
     PlanningCapacityBucket,
     PlanningFamilyDemand,
     PlanningInboundOrder,
@@ -36,9 +37,8 @@ from .models import (
     PlanningInputSetEvent,
     PlanningInventorySnapshot,
     PlanningMixShare,
-    PlanningPeriodMetric,
-    PlanningCalendarSpec,
     PlanningParams,
+    PlanningPeriodMetric,
 )
 from .validators import ValidationResult, validate_canonical_config
 
@@ -58,12 +58,12 @@ class PlanningInputSetSummary:
     label: str
     status: str
     source: str
-    created_at: Optional[int]
-    updated_at: Optional[int]
-    created_by: Optional[str] = None
-    approved_by: Optional[str] = None
-    approved_at: Optional[int] = None
-    review_comment: Optional[str] = None
+    created_at: int | None
+    updated_at: int | None
+    created_by: str | None = None
+    approved_by: str | None = None
+    approved_at: int | None = None
+    review_comment: str | None = None
 
 
 _UNSET = object()
@@ -120,8 +120,8 @@ def _row_to_item(row: sqlite3.Row) -> CanonicalItem:
 
 def _row_to_node(
     row: sqlite3.Row,
-    inventory_map: Dict[str, List[NodeInventoryPolicy]],
-    production_map: Dict[str, List[NodeProductionPolicy]],
+    inventory_map: dict[str, list[NodeInventoryPolicy]],
+    production_map: dict[str, list[NodeProductionPolicy]],
 ) -> CanonicalNode:
     node_code = row["node_code"]
     return CanonicalNode(
@@ -223,7 +223,7 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value or {}, ensure_ascii=False)
 
 
-def _json_loads(value: Optional[str]) -> Dict[str, Any]:
+def _json_loads(value: str | None) -> dict[str, Any]:
     if not value:
         return {}
     try:
@@ -306,7 +306,7 @@ def _load_planning_input_aggregates(
 
 def _load_family_demands(
     cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningFamilyDemand]:
+) -> list[PlanningFamilyDemand]:
     rows = cur.execute(
         """
         SELECT family_code, period, demand, source_type, tolerance_abs, attributes_json
@@ -331,7 +331,7 @@ def _load_family_demands(
 
 def _load_capacity_buckets(
     cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningCapacityBucket]:
+) -> list[PlanningCapacityBucket]:
     rows = cur.execute(
         """
         SELECT resource_code, resource_type, period, capacity, calendar_code, attributes_json
@@ -354,7 +354,7 @@ def _load_capacity_buckets(
     ]
 
 
-def _load_mix_shares(cur: sqlite3.Cursor, input_set_id: int) -> List[PlanningMixShare]:
+def _load_mix_shares(cur: sqlite3.Cursor, input_set_id: int) -> list[PlanningMixShare]:
     rows = cur.execute(
         """
         SELECT family_code, sku_code, share, effective_from, effective_to,
@@ -381,7 +381,7 @@ def _load_mix_shares(cur: sqlite3.Cursor, input_set_id: int) -> List[PlanningMix
 
 def _load_inventory_snapshots(
     cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningInventorySnapshot]:
+) -> list[PlanningInventorySnapshot]:
     rows = cur.execute(
         """
         SELECT node_code, item_code, initial_qty, reorder_point, order_up_to,
@@ -408,7 +408,7 @@ def _load_inventory_snapshots(
 
 def _load_inbound_orders(
     cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningInboundOrder]:
+) -> list[PlanningInboundOrder]:
     rows = cur.execute(
         """
         SELECT po_id, item_code, source_node, dest_node, due_date, qty, attributes_json
@@ -434,7 +434,7 @@ def _load_inbound_orders(
 
 def _load_period_metrics(
     cur: sqlite3.Cursor, input_set_id: int
-) -> List[PlanningPeriodMetric]:
+) -> list[PlanningPeriodMetric]:
     rows = cur.execute(
         """
         SELECT metric_code, period, value, unit, source, attributes_json
@@ -612,7 +612,7 @@ def _replace_planning_aggregates(
         )
 
 
-def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPolicy]]:
+def _group_inventory(rows: list[sqlite3.Row]) -> dict[str, list[NodeInventoryPolicy]]:
     grouped = defaultdict(list)
     for row in rows:
         grouped[row["node_code"]].append(
@@ -636,7 +636,7 @@ def _group_inventory(rows: List[sqlite3.Row]) -> Dict[str, List[NodeInventoryPol
     return grouped
 
 
-def _group_production(rows: List[sqlite3.Row]) -> Dict[str, List[NodeProductionPolicy]]:
+def _group_production(rows: list[sqlite3.Row]) -> dict[str, list[NodeProductionPolicy]]:
     grouped = defaultdict(list)
     for row in rows:
         grouped[row["node_code"]].append(
@@ -661,7 +661,7 @@ class CanonicalVersionSummary:
     """Canonical設定のメタ情報と件数サマリ。"""
 
     meta: ConfigMeta
-    counts: Dict[str, int]
+    counts: dict[str, int]
 
 
 class CanonicalConfigNotFoundError(RuntimeError):
@@ -669,8 +669,8 @@ class CanonicalConfigNotFoundError(RuntimeError):
 
 
 def list_canonical_versions(
-    *, limit: int = 50, db_path: Optional[str] = None, include_deleted: bool = False
-) -> List[ConfigMeta]:
+    *, limit: int = 50, db_path: str | None = None, include_deleted: bool = False
+) -> list[ConfigMeta]:
     """保存済みCanonical設定のメタ情報を取得する。"""
     path = _resolve_db_path(db_path)
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
@@ -689,7 +689,7 @@ def list_canonical_versions(
 
         """
 
-        params: List[Any] = []
+        params: list[Any] = []
 
         if not include_deleted:
 
@@ -701,7 +701,7 @@ def list_canonical_versions(
 
         rows = cur.execute(query, params).fetchall()
 
-    metas: List[ConfigMeta] = []
+    metas: list[ConfigMeta] = []
 
     for row in rows:
 
@@ -711,8 +711,8 @@ def list_canonical_versions(
 
 
 def list_canonical_version_summaries(
-    *, limit: int = 50, db_path: Optional[str] = None, include_deleted: bool = False
-) -> List[CanonicalVersionSummary]:
+    *, limit: int = 50, db_path: str | None = None, include_deleted: bool = False
+) -> list[CanonicalVersionSummary]:
     """メタ情報に加えて主要テーブル件数を含むサマリを取得する。"""
 
     metas = list_canonical_versions(
@@ -728,8 +728,8 @@ def list_canonical_version_summaries(
         ]
 
     path = _resolve_db_path(db_path)
-    counts_map: Dict[int, Dict[str, int]] = {}
-    missing_ids: List[int] = []
+    counts_map: dict[int, dict[str, int]] = {}
+    missing_ids: list[int] = []
     for meta in metas:
         vid = meta.version_id
         if vid is None:
@@ -746,7 +746,7 @@ def list_canonical_version_summaries(
             counts_map[vid] = counts
         _update_counts_metadata(path, metas, fetched)
 
-    summaries: List[CanonicalVersionSummary] = []
+    summaries: list[CanonicalVersionSummary] = []
     for meta in metas:
         vid = meta.version_id or -1
         summaries.append(
@@ -759,7 +759,7 @@ def list_canonical_version_summaries(
 
 
 def get_canonical_config(
-    version_id: int, *, db_path: Optional[str] = None
+    version_id: int, *, db_path: str | None = None
 ) -> CanonicalConfig:
     """指定IDのCanonical設定を復元する。"""
 
@@ -936,13 +936,13 @@ def get_canonical_config(
 def load_canonical_config_from_db(
     version_id: int,
     *,
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
     validate: bool = False,
-) -> tuple[CanonicalConfig, Optional[ValidationResult]]:
+) -> tuple[CanonicalConfig, ValidationResult | None]:
     """DBから設定を読み込み、任意で整合チェックを実施する。"""
 
     config = get_canonical_config(version_id, db_path=db_path)
-    validation: Optional[ValidationResult] = None
+    validation: ValidationResult | None = None
     if validate:
         validation = validate_canonical_config(config)
     return config, validation
@@ -951,7 +951,7 @@ def load_canonical_config_from_db(
 def save_canonical_config(
     config: CanonicalConfig,
     *,
-    db_path: Optional[str] = None,
+    db_path: str | None = None,
 ) -> int:
     """Canonical設定をDBへ保存し、新しいversion_idを返す。"""
 
@@ -1328,7 +1328,7 @@ def _insert_calendars(
     )
 
 
-def delete_canonical_config(version_id: int, *, db_path: Optional[str] = None) -> None:
+def delete_canonical_config(version_id: int, *, db_path: str | None = None) -> None:
     """指定されたversion_idのCanonical設定を論理削除する。"""
     path = _resolve_db_path(db_path)
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
@@ -1341,28 +1341,29 @@ def delete_canonical_config(version_id: int, *, db_path: Optional[str] = None) -
 
 __all__ = [
     "CanonicalConfigNotFoundError",
-    "list_canonical_versions",
-    "list_canonical_version_summaries",
-    "get_canonical_config",
-    "load_canonical_config_from_db",
-    "save_canonical_config",
-    "delete_canonical_config",
     "CanonicalVersionSummary",
-    "create_planning_input_set",
-    "update_planning_input_set",
-    "get_planning_input_set",
-    "list_planning_input_sets",
-    "list_planning_input_set_events",
-    "log_planning_input_set_event",
-    "delete_planning_input_set",
-    "PlanningInputSetSummary",
-    "PlanningInputSetNotFoundError",
     "PlanningInputSetConflictError",
+    "PlanningInputSetNotFoundError",
+    "PlanningInputSetSummary",
+    "create_planning_input_set",
+    "delete_canonical_config",
+    "delete_planning_input_set",
+    "get_canonical_config",
+    "get_planning_input_set",
+    "list_canonical_version_summaries",
+    "list_canonical_versions",
+    "list_planning_input_set_events",
+    "list_planning_input_sets",
+    "load_canonical_config_from_db",
+    "log_planning_input_set_event",
+    "save_canonical_config",
+    "update_planning_input_set",
 ]
 
 
-def _resolve_db_path(db_path: Optional[str]) -> str:
+def _resolve_db_path(db_path: str | None) -> str:
     import os
+
     from app.db import _DEFAULT_DB, _current_db_path  # ここで遅延インポート
 
     if _current_db_path:
@@ -1377,7 +1378,7 @@ def _resolve_db_path(db_path: Optional[str]) -> str:
 
 def _collect_counts(
     version_ids: Iterable[int], db_path: str
-) -> Dict[int, Dict[str, int]]:
+) -> dict[int, dict[str, int]]:
     ids = [vid for vid in version_ids if vid is not None]
     if not ids:
         return {}
@@ -1392,9 +1393,7 @@ def _collect_counts(
         "calendars": "canonical_calendars",
         "hierarchies": "canonical_hierarchies",
     }
-    counts: Dict[int, Dict[str, int]] = {
-        vid: {key: 0 for key in tables.keys()} for vid in ids
-    }
+    counts: dict[int, dict[str, int]] = {vid: {key: 0 for key in tables} for vid in ids}
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
         for key, table in tables.items():
             rows = cur.execute(
@@ -1414,7 +1413,7 @@ def _is_valid_counts(value: Any) -> bool:
     return expected.issubset(value.keys())
 
 
-def _default_counts() -> Dict[str, int]:
+def _default_counts() -> dict[str, int]:
     return {
         "items": 0,
         "nodes": 0,
@@ -1427,7 +1426,7 @@ def _default_counts() -> Dict[str, int]:
     }
 
 
-def _build_counts(config: CanonicalConfig) -> Dict[str, int]:
+def _build_counts(config: CanonicalConfig) -> dict[str, int]:
     return {
         "items": len(config.items),
         "nodes": len(config.nodes),
@@ -1443,7 +1442,7 @@ def _build_counts(config: CanonicalConfig) -> Dict[str, int]:
 def _update_counts_metadata(
     db_path: str,
     metas: Iterable[ConfigMeta],
-    counts_map: Dict[int, Dict[str, int]],
+    counts_map: dict[int, dict[str, int]],
 ) -> None:
     if not counts_map:
         return
@@ -1472,14 +1471,14 @@ def create_planning_input_set(
     label: str,
     status: str = "draft",
     source: str = "csv",
-    created_by: Optional[str] = None,
-    approved_by: Optional[str] = None,
-    approved_at: Optional[int] = None,
-    review_comment: Optional[str] = None,
-    calendar_spec: Optional[PlanningCalendarSpec] = None,
-    planning_params: Optional[PlanningParams] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    aggregates: Optional[PlanningInputAggregates] = None,
+    created_by: str | None = None,
+    approved_by: str | None = None,
+    approved_at: int | None = None,
+    review_comment: str | None = None,
+    calendar_spec: PlanningCalendarSpec | None = None,
+    planning_params: PlanningParams | None = None,
+    metadata: dict[str, Any] | None = None,
+    aggregates: PlanningInputAggregates | None = None,
 ) -> PlanningInputSet:
     now = int(time.time() * 1000)
     aggregates = aggregates or PlanningInputAggregates()
@@ -1532,19 +1531,19 @@ def create_planning_input_set(
 def update_planning_input_set(
     input_set_id: int,
     *,
-    label: Optional[str] = None,
-    status: Optional[str] = None,
+    label: str | None = None,
+    status: str | None = None,
     approved_by: Any = _UNSET,
     approved_at: Any = _UNSET,
     review_comment: Any = _UNSET,
-    calendar_spec: Optional[PlanningCalendarSpec] = None,
-    planning_params: Optional[PlanningParams] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    aggregates: Optional[PlanningInputAggregates] = None,
+    calendar_spec: PlanningCalendarSpec | None = None,
+    planning_params: PlanningParams | None = None,
+    metadata: dict[str, Any] | None = None,
+    aggregates: PlanningInputAggregates | None = None,
     replace_mode: bool = False,
 ) -> PlanningInputSet:
-    fields: List[str] = []
-    params: List[Any] = []
+    fields: list[str] = []
+    params: list[Any] = []
     now = int(time.time() * 1000)
 
     if label is not None:
@@ -1606,14 +1605,14 @@ def update_planning_input_set(
 
 def get_planning_input_set(
     *,
-    input_set_id: Optional[int] = None,
-    label: Optional[str] = None,
-    config_version_id: Optional[int] = None,
-    status: Optional[str] = None,
+    input_set_id: int | None = None,
+    label: str | None = None,
+    config_version_id: int | None = None,
+    status: str | None = None,
     include_aggregates: bool = True,
 ) -> PlanningInputSet:
-    conditions: List[str] = []
-    params: List[Any] = []
+    conditions: list[str] = []
+    params: list[Any] = []
     if input_set_id is not None:
         conditions.append("id = ?")
         params.append(input_set_id)
@@ -1647,13 +1646,13 @@ def get_planning_input_set(
 
 def list_planning_input_sets(
     *,
-    config_version_id: Optional[int] = None,
-    status: Optional[str] = None,
+    config_version_id: int | None = None,
+    status: str | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> List[PlanningInputSetSummary]:
-    conditions: List[str] = []
-    params: List[Any] = []
+) -> list[PlanningInputSetSummary]:
+    conditions: list[str] = []
+    params: list[Any] = []
     if config_version_id is not None:
         conditions.append("config_version_id = ?")
         params.append(config_version_id)
@@ -1693,7 +1692,7 @@ def list_planning_input_sets(
 
 def list_planning_input_set_events(
     input_set_id: int, *, limit: int = 100
-) -> List[PlanningInputSetEvent]:
+) -> list[PlanningInputSetEvent]:
     query = (
         "SELECT id, input_set_id, action, actor, comment, metadata_json, created_at "
         "FROM planning_input_set_events "
@@ -1710,9 +1709,9 @@ def log_planning_input_set_event(
     input_set_id: int,
     *,
     action: str,
-    actor: Optional[str] = None,
-    comment: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    actor: str | None = None,
+    comment: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> PlanningInputSetEvent:
     now = int(time.time() * 1000)
     with closing(_conn()) as conn, closing(conn.cursor()) as cur:
