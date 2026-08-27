@@ -1,5 +1,5 @@
-import re
 import importlib
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,14 +7,14 @@ from fastapi.testclient import TestClient
 from app.api import app
 from app.run_registry import REGISTRY
 from domain.models import (
-    SimulationInput,
-    Product,
-    MaterialNode,
-    FactoryNode,
-    WarehouseNode,
-    StoreNode,
-    NetworkLink,
     CustomerDemand,
+    FactoryNode,
+    MaterialNode,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
 )
 
 # /simulation を有効化
