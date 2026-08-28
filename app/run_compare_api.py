@@ -1,25 +1,27 @@
-from typing import List, Dict, Any
-from fastapi import Body, HTTPException, Query, Request
 import os
 import time
+from typing import Any
+
+from fastapi import Body, HTTPException, Query, Request
+
 from app import db
 from app.api import app
 from app.metrics import (
+    COMPARE_DURATION,
+    COMPARE_REQUESTS,
     RUNS_LIST_REQUESTS,
     RUNS_LIST_RETURNED,
-    COMPARE_REQUESTS,
-    COMPARE_DURATION,
 )
 
 
 def _get_registry():
     # 動的取得（テスト環境での再ロード・環境切替に対応）
-    from app.run_registry import REGISTRY, _BACKEND  # type: ignore
+    from app.run_registry import _BACKEND, REGISTRY  # type: ignore
 
     return REGISTRY, _BACKEND
 
 
-def _resolve_input_set_label(entry: Dict[str, Any]) -> str | None:
+def _resolve_input_set_label(entry: dict[str, Any]) -> str | None:
     label = entry.get("input_set_label")
     if isinstance(label, str):
         label = label.strip()
@@ -35,7 +37,7 @@ def _resolve_input_set_label(entry: Dict[str, Any]) -> str | None:
     return None
 
 
-def _matches_input_set(entry: Dict[str, Any], label: str | None) -> bool:
+def _matches_input_set(entry: dict[str, Any], label: str | None) -> bool:
     if label is None or label == "":
         return True
     actual = _resolve_input_set_label(entry)
@@ -56,7 +58,7 @@ COMPARE_KEYS = [
 ]
 
 
-def _pick(summary: Dict[str, Any], keys: List[str] | None = None) -> Dict[str, float]:
+def _pick(summary: dict[str, Any], keys: list[str] | None = None) -> dict[str, float]:
     out = {}
     use = keys or COMPARE_KEYS
     for k in use:
@@ -269,7 +271,7 @@ def list_runs(
     elif hasattr(REGISTRY, "list_ids"):
         # 後方互換: DBでも config_id / scenario_id 指定時は全件からアプリ側でフィルタ（config_json を用いた推定を含む）
         ids2 = REGISTRY.list_ids()
-        rows2: List[Dict[str, Any]] = []
+        rows2: list[dict[str, Any]] = []
         for rid in ids2:
             rec = REGISTRY.get(rid) or {}
             row = {
@@ -351,14 +353,14 @@ def get_run(run_id: str, detail: bool = Query(False)):
 
 @app.post("/compare")
 def compare_runs(
-    body: Dict[str, Any] = Body(...),
+    body: dict[str, Any] = Body(...),
     threshold: float | None = Query(None),
     base_id: str | None = Query(None),
     keys: str | None = Query(None),
 ):
     _t0 = time.monotonic()
     REGISTRY, _ = _get_registry()
-    ids: List[str] = body.get("run_ids") or []
+    ids: list[str] = body.get("run_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="run_ids required")
     if base_id and base_id in ids:
@@ -384,7 +386,7 @@ def compare_runs(
     if len(rows) >= 2:
         base = rows[0]
         for other in rows[1:]:
-            diff_row: Dict[str, Any] = {
+            diff_row: dict[str, Any] = {
                 "base": base["run_id"],
                 "target": other["run_id"],
             }
@@ -398,7 +400,7 @@ def compare_runs(
                     hit = abs(pct) >= threshold
                 diff_row[k] = {"abs": diff, "pct": pct, "hit": hit}
             diffs.append(diff_row)
-    resp: Dict[str, Any] = {"metrics": rows, "diffs": diffs}
+    resp: dict[str, Any] = {"metrics": rows, "diffs": diffs}
     if threshold is not None:
         resp["threshold"] = threshold
     if base_id:
@@ -444,7 +446,7 @@ def delete_run(run_id: str, request: Request):
 
 
 def _filter_and_sort(
-    rows: List[Dict[str, Any]],
+    rows: list[dict[str, Any]],
     sort: str,
     order: str,
     schema_version: str | None,
@@ -454,8 +456,8 @@ def _filter_and_sort(
     plan_version_id: str | None,
     scenario_name_ids: set[int] | None,
     input_set_label: str | None,
-) -> List[Dict[str, Any]]:
-    def f(x: Dict[str, Any]) -> bool:
+) -> list[dict[str, Any]]:
+    def f(x: dict[str, Any]) -> bool:
         if schema_version is not None and x.get("schema_version") != schema_version:
             return False
         if config_id is not None and x.get("config_id") != config_id:
