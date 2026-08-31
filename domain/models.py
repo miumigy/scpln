@@ -1,5 +1,5 @@
-from typing import List, Dict, Literal, Annotated, Union, Optional
 import sys
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,7 +14,7 @@ class Product(BaseModel):
     sales_price: float = Field(default=0, ge=0)
     unit_cost: float = Field(default=0, ge=0)
     sgna_cost_per_unit: float = Field(default=0, ge=0)
-    assembly_bom: List[BomItem] = Field(default_factory=list)
+    assembly_bom: list[BomItem] = Field(default_factory=list)
 
 
 class NetworkLink(BaseModel):
@@ -27,16 +27,16 @@ class NetworkLink(BaseModel):
     allow_over_capacity: bool = Field(default=True)
     over_capacity_fixed_cost: float = Field(default=0, ge=0)
     over_capacity_variable_cost: float = Field(default=0, ge=0)
-    moq: Dict[str, float] = Field(default_factory=dict)
-    order_multiple: Dict[str, float] = Field(default_factory=dict)
+    moq: dict[str, float] = Field(default_factory=dict)
+    order_multiple: dict[str, float] = Field(default_factory=dict)
 
 
 class BaseNode(BaseModel):
     name: str
-    initial_stock: Dict[str, float] = Field(default_factory=dict)
+    initial_stock: dict[str, float] = Field(default_factory=dict)
     lead_time: int = Field(default=1, ge=0)
     storage_cost_fixed: float = Field(default=0, ge=0)
-    storage_cost_variable: Dict[str, float] = Field(default_factory=dict)
+    storage_cost_variable: dict[str, float] = Field(default_factory=dict)
     backorder_enabled: bool = Field(default=True)
     # 欠品時の販売逸失モード（true の場合はバックオーダーを保持しない）
     lost_sales: bool = Field(default=False)
@@ -55,25 +55,25 @@ class StoreNode(BaseNode):
     node_type: Literal["store"] = "store"
     service_level: float = Field(default=0.95, ge=0, le=1)
     backorder_enabled: bool = Field(default=True)
-    moq: Dict[str, float] = Field(default_factory=dict)
-    order_multiple: Dict[str, float] = Field(default_factory=dict)
+    moq: dict[str, float] = Field(default_factory=dict)
+    order_multiple: dict[str, float] = Field(default_factory=dict)
 
 
 class WarehouseNode(BaseNode):
     node_type: Literal["warehouse"] = "warehouse"
     service_level: float = Field(default=0.95, ge=0, le=1)
-    moq: Dict[str, float] = Field(default_factory=dict)
-    order_multiple: Dict[str, float] = Field(default_factory=dict)
+    moq: dict[str, float] = Field(default_factory=dict)
+    order_multiple: dict[str, float] = Field(default_factory=dict)
 
 
 class MaterialNode(BaseNode):
     node_type: Literal["material"] = "material"
-    material_cost: Dict[str, float] = Field(default_factory=dict)
+    material_cost: dict[str, float] = Field(default_factory=dict)
 
 
 class FactoryNode(BaseNode):
     node_type: Literal["factory"] = "factory"
-    producible_products: List[str]
+    producible_products: list[str]
     service_level: float = Field(default=0.95, ge=0, le=1)
     production_capacity: float = Field(default=sys.float_info.max, gt=0)
     production_cost_fixed: float = Field(default=0, ge=0)
@@ -81,14 +81,14 @@ class FactoryNode(BaseNode):
     allow_production_over_capacity: bool = Field(default=True)
     production_over_capacity_fixed_cost: float = Field(default=0, ge=0)
     production_over_capacity_variable_cost: float = Field(default=0, ge=0)
-    reorder_point: Dict[str, float] = Field(default_factory=dict)
-    order_up_to_level: Dict[str, float] = Field(default_factory=dict)
-    moq: Dict[str, float] = Field(default_factory=dict)
-    order_multiple: Dict[str, float] = Field(default_factory=dict)
+    reorder_point: dict[str, float] = Field(default_factory=dict)
+    order_up_to_level: dict[str, float] = Field(default_factory=dict)
+    moq: dict[str, float] = Field(default_factory=dict)
+    order_multiple: dict[str, float] = Field(default_factory=dict)
 
 
 AnyNode = Annotated[
-    Union[StoreNode, WarehouseNode, MaterialNode, FactoryNode],
+    StoreNode | WarehouseNode | MaterialNode | FactoryNode,
     Field(discriminator="node_type"),
 ]
 
@@ -98,15 +98,15 @@ class CustomerDemand(BaseModel):
     product_name: str
     demand_mean: float = Field(ge=0)
     demand_std_dev: float = Field(ge=0)
-    bucket: Optional[str] = Field(
+    bucket: str | None = Field(
         default=None, description="元の需要バケットキー（例:M1や2025-01）"
     )
-    start_day: Optional[int] = Field(
+    start_day: int | None = Field(
         default=None,
         ge=1,
         description="需要が適用される開始日(1-indexed)。未指定で全期間。",
     )
-    end_day: Optional[int] = Field(
+    end_day: int | None = Field(
         default=None,
         ge=1,
         description="需要が適用される終了日(1-indexed)。未指定で全期間。",
@@ -116,8 +116,8 @@ class CustomerDemand(BaseModel):
 class SimulationInput(BaseModel):
     schema_version: str = Field(default="1.0")
     planning_horizon: int = Field(gt=0)
-    products: List[Product]
-    nodes: List[AnyNode]
-    network: List[NetworkLink]
-    customer_demand: List[CustomerDemand]
-    random_seed: Optional[int] = None
+    products: list[Product]
+    nodes: list[AnyNode]
+    network: list[NetworkLink]
+    customer_demand: list[CustomerDemand]
+    random_seed: int | None = None
