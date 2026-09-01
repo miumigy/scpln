@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
-import os
 
 from core.config import CanonicalLoaderError, load_canonical_config
 from core.config.storage import save_canonical_config
