@@ -9,18 +9,20 @@ import csv
 import io
 import json
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 from app import db
-from core.plan_repository import PlanRepository, PlanRepositoryError
 from app.metrics import (
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
     PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
-    PLAN_DB_CAPACITY_TRIM_TOTAL,
-    PLAN_DB_LAST_TRIM_TIMESTAMP,
 )
+from app.plan_artifact_utils import apply_plan_final_receipts
+from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
     PlanKpiRow,
     PlanSeriesRow,
@@ -28,12 +30,10 @@ from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
     build_plan_series_from_aggregate,
     build_plan_series_from_detail,
+    build_plan_series_from_mrp,
     build_plan_series_from_plan_final,
     build_plan_series_from_weekly_summary,
-    build_plan_series_from_mrp,
 )
-from app.plan_artifact_utils import apply_plan_final_receipts
-
 
 _STORAGE_CHOICES = {"db", "files", "both"}
 
@@ -48,7 +48,7 @@ _PLAN_REPOSITORY = PlanRepository(
 
 
 def _update_detail_inventory_from_plan_final(
-    version_id: str, plan_final_data: Dict[str, Any]
+    version_id: str, plan_final_data: dict[str, Any]
 ) -> None:
     if not plan_final_data:
         return
@@ -65,7 +65,7 @@ def _update_detail_inventory_from_plan_final(
 def _rewrite_aggregate_and_detail_from_plan_final(
     version_id: str,
     *,
-    plan_final_data: Dict[str, Any],
+    plan_final_data: dict[str, Any],
     storage_mode: str,
     default_location_key: str,
     default_location_type: str,
@@ -112,7 +112,7 @@ def _rewrite_aggregate_and_detail_from_plan_final(
         _PLAN_REPOSITORY.replace_plan_kpis(version_id, kpi_rows)
 
 
-def resolve_storage_mode(value: Optional[str] = None) -> str:
+def resolve_storage_mode(value: str | None = None) -> str:
     if value:
         mode = str(value).lower()
         if mode in _STORAGE_CHOICES:
@@ -150,10 +150,10 @@ def write_plan_repository(
 
 
 def write_plan_artifacts(
-    version_id: Optional[str],
+    version_id: str | None,
     *,
     storage_mode: str,
-    artifacts: Dict[str, Path],
+    artifacts: dict[str, Path],
 ) -> None:
     if not (version_id and should_use_db(storage_mode)):
         return
@@ -164,7 +164,7 @@ def write_plan_artifacts(
 
 
 def write_json_artifact(
-    version_id: Optional[str], name: str, data: dict, *, storage_mode: str
+    version_id: str | None, name: str, data: dict, *, storage_mode: str
 ) -> bool:
     if not (version_id and should_use_db(storage_mode)):
         return False
@@ -184,23 +184,23 @@ def write_json_output(path: Path, data: dict, *, storage_mode: str) -> None:
 
 
 def build_aggregate_series(
-    version_id: str, data: Dict[str, Any]
-) -> List[PlanSeriesRow]:
+    version_id: str, data: dict[str, Any]
+) -> list[PlanSeriesRow]:
     return build_plan_series_from_aggregate(version_id, data)
 
 
-def build_aggregate_kpis(version_id: str, data: Dict[str, Any]) -> List[PlanKpiRow]:
+def build_aggregate_kpis(version_id: str, data: dict[str, Any]) -> list[PlanKpiRow]:
     return build_plan_kpis_from_aggregate(version_id, data)
 
 
 def write_aggregate_result(
     *,
-    version_id: Optional[str],
-    data: Dict[str, Any],
+    version_id: str | None,
+    data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
 ) -> bool:
-    rows: List[Dict[str, Any]] = list(data.get("rows") or [])
+    rows: list[dict[str, Any]] = list(data.get("rows") or [])
     write_json_output(output_path, data, storage_mode=storage_mode)
     if version_id and should_use_db(storage_mode) and rows:
         series = build_aggregate_series(version_id, data)
@@ -217,15 +217,15 @@ def write_aggregate_result(
 
 def write_allocate_result(
     *,
-    version_id: Optional[str],
-    aggregate_data: Dict[str, Any] | None,
-    detail_data: Dict[str, Any],
+    version_id: str | None,
+    aggregate_data: dict[str, Any] | None,
+    detail_data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
     default_location_key: str = "global",
     default_location_type: str = "global",
 ) -> bool:
-    detail_rows: List[Dict[str, Any]] = list(detail_data.get("rows") or [])
+    detail_rows: list[dict[str, Any]] = list(detail_data.get("rows") or [])
     write_json_output(output_path, detail_data, storage_mode=storage_mode)
     if not version_id or not should_use_db(storage_mode):
         return False
@@ -235,7 +235,7 @@ def write_allocate_result(
     if not has_detail and not has_aggregate:
         return False
 
-    series: List[PlanSeriesRow] = []
+    series: list[PlanSeriesRow] = []
     if has_aggregate:
         series.extend(
             build_plan_series_from_aggregate(
@@ -255,7 +255,7 @@ def write_allocate_result(
             )
         )
 
-    kpis: List[PlanKpiRow] = []
+    kpis: list[PlanKpiRow] = []
     if has_aggregate:
         kpis = build_plan_kpis_from_aggregate(version_id, aggregate_data)
 
@@ -270,8 +270,8 @@ def write_allocate_result(
 
 def write_mrp_result(
     *,
-    version_id: Optional[str],
-    mrp_data: Dict[str, Any],
+    version_id: str | None,
+    mrp_data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
     default_location_key: str = "global",
@@ -298,8 +298,8 @@ def write_mrp_result(
 
 def write_plan_final_result(
     *,
-    version_id: Optional[str],
-    plan_final_data: Dict[str, Any],
+    version_id: str | None,
+    plan_final_data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
     default_location_key: str = "global",
@@ -351,8 +351,8 @@ def write_plan_final_result(
 
 def write_anchor_adjust_result(
     *,
-    version_id: Optional[str],
-    adjusted_data: Dict[str, Any],
+    version_id: str | None,
+    adjusted_data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
     default_location_key: str = "global",
@@ -378,8 +378,8 @@ def write_anchor_adjust_result(
 
 def write_reconcile_log_result(
     *,
-    version_id: Optional[str],
-    log_data: Dict[str, Any],
+    version_id: str | None,
+    log_data: dict[str, Any],
     output_path: Path,
     storage_mode: str,
     artifact_name: str,
@@ -395,9 +395,9 @@ def write_reconcile_log_result(
 
 def write_report_csv_result(
     *,
-    version_id: Optional[str],
-    rows: List[Dict[str, Any]],
-    fieldnames: List[str],
+    version_id: str | None,
+    rows: list[dict[str, Any]],
+    fieldnames: list[str],
     output_path: Path,
     storage_mode: str,
     artifact_name: str,
