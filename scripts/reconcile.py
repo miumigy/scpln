@@ -11,6 +11,7 @@
 使い方:
   python scripts/reconcile.py -i out/sku_week.json out/mrp.json -I samples/planning -o out/plan_final.json --weeks 4 --round int
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,32 +20,33 @@ import json
 import math
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, Any, List, Tuple, Optional
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
-from scripts.plan_pipeline_io import (
-    resolve_storage_config,
-    store_plan_final_payload,
-)
 from scripts.calendar_utils import (
+    PlanningCalendarLookup,
     build_calendar_lookup,
     get_week_distribution,
     load_planning_calendar,
     ordered_weeks,
     resolve_period_for_week,
-    PlanningCalendarLookup,
+)
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_plan_final_payload,
 )
 
 
-def _read_csv(path: str) -> List[Dict[str, Any]]:
+def _read_csv(path: str) -> list[dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def _load_mix(input_dir: str | None, mix_path: str | None) -> List[str]:
+def _load_mix(input_dir: str | None, mix_path: str | None) -> list[str]:
     path = mix_path or (os.path.join(input_dir, "mix_share.csv") if input_dir else None)
-    skus: List[str] = []
+    skus: list[str] = []
     if path and os.path.exists(path):
         rows = _read_csv(path)
         for r in rows:
@@ -55,12 +57,12 @@ def _load_mix(input_dir: str | None, mix_path: str | None) -> List[str]:
 
 
 def _resolve_calendar_lookup(
-    calendar_path: Optional[str], input_dir: Optional[str]
-) -> Optional[PlanningCalendarLookup]:
+    calendar_path: str | None, input_dir: str | None
+) -> PlanningCalendarLookup | None:
     """planning_calendar.json を探索して LookUp を返す。"""
 
     spec = None
-    err: Optional[Exception] = None
+    err: Exception | None = None
     if calendar_path:
         try:
             spec = load_planning_calendar(calendar_path)
@@ -104,10 +106,10 @@ def _round_quantity(value: Any, *, mode: str = "int") -> float | int:
 
 
 def _weeks_from(
-    alloc: Dict[str, Any],
-    mrp: Dict[str, Any],
-    lookup: Optional[PlanningCalendarLookup],
-) -> List[str]:
+    alloc: dict[str, Any],
+    mrp: dict[str, Any],
+    lookup: PlanningCalendarLookup | None,
+) -> list[str]:
     seen = []
     for rec in alloc.get("rows", []):
         w = str(rec.get("week"))
@@ -125,13 +127,13 @@ def _weekly_capacity(
     capacity_path: str | None,
     *,
     weeks_per_period: int,
-    weeks: List[str],
-    lookup: Optional[PlanningCalendarLookup],
-) -> Dict[str, float]:
+    weeks: list[str],
+    lookup: PlanningCalendarLookup | None,
+) -> dict[str, float]:
     path = capacity_path or (
         os.path.join(input_dir, "capacity.csv") if input_dir else None
     )
-    cap_by_period: DefaultDict[str, float] = __import__("collections").defaultdict(
+    cap_by_period: defaultdict[str, float] = __import__("collections").defaultdict(
         float
     )
     if path and os.path.exists(path):
@@ -143,7 +145,7 @@ def _weekly_capacity(
                 c = 0.0
             cap_by_period[per] += c  # 複数WCは合算
     # 週へ展開（カレンダー準拠。未定義は等分）
-    out: Dict[str, float] = {}
+    out: dict[str, float] = {}
     fallback_weeks = max(1, weeks_per_period)
     for period, monthly in cap_by_period.items():
         dist = get_week_distribution(period, lookup, fallback_weeks)
@@ -163,10 +165,10 @@ def _weekly_capacity(
 
 
 def _adjust_by_capacity(
-    weeks: List[str], load_by_week: Dict[str, float], cap_by_week: Dict[str, float]
-) -> Tuple[Dict[str, float], List[Dict[str, Any]]]:
-    adj: Dict[str, float] = {}
-    report: List[Dict[str, Any]] = []
+    weeks: list[str], load_by_week: dict[str, float], cap_by_week: dict[str, float]
+) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    adj: dict[str, float] = {}
+    report: list[dict[str, Any]] = []
     slack_carry = 0.0
     spill_next = 0.0
     for w in weeks:
@@ -198,14 +200,14 @@ def _adjust_by_capacity(
 
 
 def _adjust_segment(
-    weeks: List[str],
-    load_by_week: Dict[str, float],
-    cap_by_week: Dict[str, float],
+    weeks: list[str],
+    load_by_week: dict[str, float],
+    cap_by_week: dict[str, float],
     *,
     start_slack: float = 0.0,
     start_spill: float = 0.0,
     mode: str = "forward",
-) -> Tuple[Dict[str, float], List[Dict[str, Any]], float, float]:
+) -> tuple[dict[str, float], list[dict[str, Any]], float, float]:
     """区間調整: 週リストを与えて能力調整を行う。
 
     mode:
@@ -216,8 +218,8 @@ def _adjust_segment(
     戻り値:
       (adj_by_week, report, end_slack, end_spill)
     """
-    adj: Dict[str, float] = {}
-    report: List[Dict[str, Any]] = []
+    adj: dict[str, float] = {}
+    report: list[dict[str, Any]] = []
     slack_carry = float(start_slack or 0.0)
     spill_next = float(start_spill or 0.0)
     spill_out_segment = 0.0
@@ -370,7 +372,7 @@ def main() -> None:
     )
 
     # 週別のFG解放ロード
-    load_by_week: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+    load_by_week: defaultdict[str, float] = __import__("collections").defaultdict(float)
     for r in mrp.get("rows", []):
         it = str(r.get("item"))
         if it not in fg_skus:
@@ -385,14 +387,14 @@ def main() -> None:
         "DET-NEAR",
     )
     # 週配列を pre / at / post に分割
-    adj_by_week: Dict[str, float] = {}
-    week_report: List[Dict[str, Any]] = []
+    adj_by_week: dict[str, float] = {}
+    week_report: list[dict[str, Any]] = []
     cutover_month = None
     if args.cutover_date:
         s = str(args.cutover_date)
         if len(s) >= 7 and s[4] == "-":
             cutover_month = s[:7]
-    period_by_week: Dict[str, str] = {}
+    period_by_week: dict[str, str] = {}
     for w in weeks:
         per = resolve_period_for_week(w, lookup)
         if not per:
@@ -614,11 +616,11 @@ def main() -> None:
                 row["zone"] = "post"
 
     # 週別係数を用いてFGの解放をスケーリング + 受入の再配分（lt_weeksでシフト）
-    rows_out: List[Dict[str, Any]] = []
-    receipt_adj: DefaultDict[Tuple[str, str], float] = __import__(
+    rows_out: list[dict[str, Any]] = []
+    receipt_adj: defaultdict[tuple[str, str], float] = __import__(
         "collections"
     ).defaultdict(float)
-    fg_adj_totals: DefaultDict[str, float] = __import__("collections").defaultdict(
+    fg_adj_totals: defaultdict[str, float] = __import__("collections").defaultdict(
         float
     )
     for r in mrp.get("rows", []):
@@ -651,8 +653,8 @@ def main() -> None:
             r2["planned_order_receipt_adj"] = round(receipt_adj.get((it, w), 0.0), 6)
         rows_out.append(r2)
 
-    rounded_original: Dict[str, float | int] = {}
-    rounded_adjusted: Dict[str, float | int] = {}
+    rounded_original: dict[str, float | int] = {}
+    rounded_adjusted: dict[str, float | int] = {}
     for w in weeks:
         rounded_original[w] = _round_quantity(
             load_by_week.get(w, 0.0), mode=args.round_mode
