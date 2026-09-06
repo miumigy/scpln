@@ -1,9 +1,10 @@
-import os
-import pytest
 import importlib
+import os
 from pathlib import Path
 
+import pytest
 from alembic.config import Config
+
 from alembic import command
 
 pytestmark = pytest.mark.slow
@@ -36,7 +37,7 @@ def db_setup_jobs_fixture(tmp_path: Path):
 def test_ui_jobs_route_returns_200(db_setup_jobs):
     # UI ルートは認証免除
     os.environ["AUTH_MODE"] = "none"
-    from main import app  # noqa
+    from main import app
 
     try:
         from fastapi.testclient import TestClient
