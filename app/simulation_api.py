@@ -1,22 +1,23 @@
 from __future__ import annotations
-from pydantic import BaseModel, field_validator
-from uuid import uuid4
-import logging
-from fastapi import APIRouter, HTTPException, Query, Request
-from domain.models import SimulationInput
-from engine.simulator import SupplyChainSimulator
-from engine.simulation_stub import run_stub as run_stub_simulation
-import time
-import os
-from typing import Optional
 
-from app.metrics import RUNS_TOTAL, SIM_DURATION
+import logging
+import os
+import time
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, field_validator
+
 from app import run_latest as _run_latest
+from app.metrics import RUNS_TOTAL, SIM_DURATION
 from core.config import build_simulation_input
 from core.config.storage import (
     CanonicalConfigNotFoundError,
     load_canonical_config_from_db,
 )
+from domain.models import SimulationInput
+from engine.simulation_stub import run_stub as run_stub_simulation
+from engine.simulator import SupplyChainSimulator
 
 _metrics_path = os.path.join(os.path.dirname(__file__), "metrics.py")
 if os.path.exists(_metrics_path):
@@ -65,7 +66,7 @@ class PlanningRunParams(BaseModel):
 
 
 def _get_registry():
-    from app.run_registry import REGISTRY, _BACKEND, _DB_MAX_ROWS  # type: ignore
+    from app.run_registry import _BACKEND, _DB_MAX_ROWS, REGISTRY  # type: ignore
 
     return REGISTRY, _BACKEND, _DB_MAX_ROWS
 
@@ -82,7 +83,7 @@ def post_simulation(
     ),
     request: Request = None,
 ):
-    canonical_version_id: Optional[int] = config_version_id
+    canonical_version_id: int | None = config_version_id
     canonical_config = None
     canonical_validation = None
 
