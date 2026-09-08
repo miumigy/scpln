@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import argparse
 import csv
 import json
-from typing import Any, Dict
+from typing import Any
 
 """
 carryoverログCSVエクスポート
@@ -20,7 +21,7 @@ def main() -> None:
     args = ap.parse_args()
 
     with open(args.input, encoding="utf-8") as f:
-        data: Dict[str, Any] = json.load(f)
+        data: dict[str, Any] = json.load(f)
     rows = data.get("carryover") or []
 
     with open(args.output, "w", newline="", encoding="utf-8") as f:
