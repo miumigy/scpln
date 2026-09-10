@@ -1,11 +1,14 @@
-import io
 import csv
+import io
 import json
-from typing import Any, Dict, Iterable, List, Set
+from collections.abc import Iterable
+from typing import Any
+
 from fastapi import HTTPException, Response
 from starlette.responses import StreamingResponse
-from app.api import app
+
 from app import db as _db
+from app.api import app
 
 
 def _get_registry():
@@ -86,8 +89,8 @@ def get_trace_csv(run_id: str):
     )
 
 
-def _flatten(d: Dict[str, Any], parent: str = "", sep: str = ".") -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
+def _flatten(d: dict[str, Any], parent: str = "", sep: str = ".") -> dict[str, Any]:
+    out: dict[str, Any] = {}
     for k, v in (d or {}).items():
         key = f"{parent}{sep}{k}" if parent else str(k)
         if isinstance(v, dict):
@@ -99,8 +102,8 @@ def _flatten(d: Dict[str, Any], parent: str = "", sep: str = ".") -> Dict[str, A
     return out
 
 
-def _collect_fieldnames(rows: Iterable[Dict[str, Any]]) -> List[str]:
-    fields: Set[str] = set()
+def _collect_fieldnames(rows: Iterable[dict[str, Any]]) -> list[str]:
+    fields: set[str] = set()
     for r in rows:
         fields.update(r.keys())
     return ["run_id", *sorted([f for f in fields if f != "run_id"])]
@@ -113,7 +116,7 @@ def get_results_csv(run_id: str):
         raise HTTPException(status_code=404, detail="run not found")
     results = rec.get("results") or []
     # 1st pass: collect header
-    field_set: Set[str] = set()
+    field_set: set[str] = set()
     for r in results:
         flat = (
             _flatten(r)
@@ -155,7 +158,7 @@ def get_pl_csv(run_id: str):
         raise HTTPException(status_code=404, detail="run not found")
     pl = rec.get("daily_profit_loss") or []
     # 1st pass: collect header
-    field_set: Set[str] = set()
+    field_set: set[str] = set()
     for r in pl:
         flat = (
             _flatten(r)
