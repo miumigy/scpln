@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 from .plan_repository import PlanRepository
 
 
-def _load_extra(row: Dict[str, Any]) -> Dict[str, Any]:
+def _load_extra(row: dict[str, Any]) -> dict[str, Any]:
     data = row.get("extra_json")
     if not data:
         return {}
@@ -21,9 +22,9 @@ def _load_extra(row: Dict[str, Any]) -> Dict[str, Any]:
         return {}
 
 
-def fetch_aggregate_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, Any]]:
+def fetch_aggregate_rows(repo: PlanRepository, version_id: str) -> list[dict[str, Any]]:
     rows = repo.fetch_plan_series(version_id, "aggregate")
-    result: list[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         extra = _load_extra(row)
         result.append(
@@ -41,7 +42,7 @@ def fetch_aggregate_rows(repo: PlanRepository, version_id: str) -> List[Dict[str
     return result
 
 
-def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, Any]]:
+def fetch_detail_rows(repo: PlanRepository, version_id: str) -> list[dict[str, Any]]:
     rows = repo.fetch_plan_series(version_id, "det")
     try:
         inv_rows = repo.fetch_plan_series(version_id, "mrp_final")
@@ -73,7 +74,7 @@ def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, A
             "planned_receipt_adj": extra_inv.get("planned_order_receipt_adj"),
             "scheduled_receipts": extra_inv.get("scheduled_receipts"),
         }
-    result: list[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         extra = _load_extra(row)
         key = (str(row.get("time_bucket_key")), str(row.get("item_key")))
@@ -108,9 +109,9 @@ def fetch_detail_rows(repo: PlanRepository, version_id: str) -> List[Dict[str, A
 
 def fetch_overrides_by_level(
     repo: PlanRepository, version_id: str, level: str
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     rows = repo.fetch_plan_overrides(version_id, level)
-    result: list[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         payload_raw = row.get("payload_json")
         if isinstance(payload_raw, str):
@@ -140,9 +141,9 @@ def fetch_overrides_by_level(
 
 def fetch_override_events(
     repo: PlanRepository, version_id: str, level: str | None = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     rows = repo.fetch_plan_override_events(version_id)
-    result: list[Dict[str, Any]] = []
+    result: list[dict[str, Any]] = []
     for row in rows:
         if level and row.get("level") != level:
             continue
@@ -173,7 +174,7 @@ def fetch_override_events(
     return result
 
 
-def _to_timestamp_fields(ts_raw: Any) -> tuple[Optional[int], Optional[str]]:
+def _to_timestamp_fields(ts_raw: Any) -> tuple[int | None, str | None]:
     if ts_raw is None:
         return None, None
     try:
@@ -188,7 +189,7 @@ def _to_timestamp_fields(ts_raw: Any) -> tuple[Optional[int], Optional[str]]:
     return ts_int, display
 
 
-def _payload_to_dict(payload: Any) -> Dict[str, Any]:
+def _payload_to_dict(payload: Any) -> dict[str, Any]:
     if isinstance(payload, dict):
         return payload
     if isinstance(payload, str):
@@ -200,7 +201,7 @@ def _payload_to_dict(payload: Any) -> Dict[str, Any]:
     return {}
 
 
-def _payload_preview(payload: Dict[str, Any], *, limit: int = 160) -> str:
+def _payload_preview(payload: dict[str, Any], *, limit: int = 160) -> str:
     if not payload:
         return ""
     try:
@@ -212,7 +213,7 @@ def _payload_preview(payload: Dict[str, Any], *, limit: int = 160) -> str:
     return text[: limit - 3] + "..."
 
 
-def _derive_key(level: Optional[str], payload: Dict[str, Any], key_hash: Any) -> str:
+def _derive_key(level: str | None, payload: dict[str, Any], key_hash: Any) -> str:
     if level == "aggregate":
         period = payload.get("period")
         family = payload.get("family")
@@ -226,8 +227,8 @@ def _derive_key(level: Optional[str], payload: Dict[str, Any], key_hash: Any) ->
     return str(key_hash or "")
 
 
-def summarize_audit_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    summarized: list[Dict[str, Any]] = []
+def summarize_audit_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    summarized: list[dict[str, Any]] = []
     label_map = {
         "edit": "edit",
         "lock": "lock",
@@ -269,7 +270,7 @@ def summarize_audit_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]
     return summarized
 
 
-def latest_state_from_events(events: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+def latest_state_from_events(events: list[dict[str, Any]]) -> dict[str, Any] | None:
     sorted_events = sorted(
         events,
         key=lambda e: (int(e.get("event_ts") or 0), e.get("event_id") or 0),

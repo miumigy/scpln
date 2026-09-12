@@ -1,8 +1,8 @@
 from domain.models import (
-    SimulationInput,
-    Product,
-    StoreNode,
     CustomerDemand,
+    Product,
+    SimulationInput,
+    StoreNode,
 )
 from engine.simulator import SupplyChainSimulator
 

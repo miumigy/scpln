@@ -1,12 +1,13 @@
-from app.api import app
-from fastapi import Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from typing import List
-from pathlib import Path
 import csv
 import io
+from pathlib import Path
+
+from fastapi import Form, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
 from app import db as _db
+from app.api import app
 from app.template_filters import register_format_filters
 
 
@@ -54,7 +55,7 @@ def ui_compare(
     threshold: str | None = Form(None),
     keys: str | None = Form(None),
 ):
-    ids: List[str] = [x.strip() for x in run_ids.split(",") if x.strip()]
+    ids: list[str] = [x.strip() for x in run_ids.split(",") if x.strip()]
     if len(ids) < 2:
         raise HTTPException(status_code=400, detail="Need 2 or more run_ids")
 
@@ -137,12 +138,12 @@ def ui_compare(
 
 
 def _latest_runs_by_scenarios(
-    base_scenario: int, target_scenarios: List[int], limit: int = 1
-) -> List[str]:
-    out: List[str] = []
+    base_scenario: int, target_scenarios: list[int], limit: int = 1
+) -> list[str]:
+    out: list[str] = []
     limit = max(1, int(limit or 1))
 
-    def _latest_for_many(sid: int, n: int) -> List[str]:
+    def _latest_for_many(sid: int, n: int) -> list[str]:
         try:
             REGISTRY = _get_registry()
             if hasattr(REGISTRY, "list_page"):
@@ -161,7 +162,7 @@ def _latest_runs_by_scenarios(
                 return [r.get("run_id") for r in runs if r.get("run_id")]
             else:
                 # メモリ実装: list_ids は新しい順を返す想定
-                ids = getattr(REGISTRY, "list_ids", lambda: [])()
+                ids = getattr(REGISTRY, "list_ids", list)()
                 matched = []
                 for rid in ids:
                     rec = _get_rec(rid) or {}
@@ -207,7 +208,7 @@ def ui_compare_preset(
     # REGISTRY からシナリオごとの最新Runを厳密に取得（メモリ/DBのいずれでも動作）
     REGISTRY = _get_registry()
     want = [int(base_scenario), *targets]
-    ids: List[str] = []
+    ids: list[str] = []
 
     # まず最新マップ（run_latest）から引く（各シナリオの直近Run）
     try:
@@ -221,16 +222,16 @@ def ui_compare_preset(
         pass
 
     # 近傍のRunを広く集めてから、シナリオごとの最新を選ぶ（順序は新しい→古い）
-    recent: List[dict] = []
+    recent: list[dict] = []
     try:
         # 1) REGISTRY.list()（メモリ/DB双方で有用）
-        recent.extend(getattr(REGISTRY, "list", lambda: [])() or [])
+        recent.extend(getattr(REGISTRY, "list", list)() or [])
     except Exception:
         pass
     try:
         # 1.5) メモリREGISTRYの内部（_runs）を直接参照（順序は started_at で後段整列）
         if hasattr(REGISTRY, "_runs"):
-            vals = list(getattr(REGISTRY, "_runs").values())
+            vals = list(REGISTRY._runs.values())
             recent.extend(vals)
     except Exception:
         pass
@@ -272,7 +273,7 @@ def ui_compare_preset(
         pass
     # 重複除去（最新優先）
     seen = set()
-    dedup: List[dict] = []
+    dedup: list[dict] = []
     # started_at の降順に整列（欠損は後回し）
     recent_sorted = sorted(
         (recent or []),
@@ -366,7 +367,7 @@ def ui_compare_preset(
 
 @app.get("/ui/compare/metrics.csv")
 def ui_compare_metrics_csv(request: Request, run_ids: str, base_id: str | None = None):
-    ids: List[str] = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
+    ids: list[str] = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
     if len(ids) < 1:
         raise HTTPException(status_code=400, detail="run_ids required")
     if base_id and base_id in ids:
@@ -424,7 +425,7 @@ def ui_compare_diffs_csv(
     base_id: str | None = None,
     threshold: float | None = None,
 ):
-    ids: List[str] = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
+    ids: list[str] = [x.strip() for x in (run_ids or "").split(",") if x.strip()]
     if len(ids) < 2:
         raise HTTPException(status_code=400, detail="Need 2 or more run_ids")
     if base_id and base_id in ids:
