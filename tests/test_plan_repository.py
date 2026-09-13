@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import time
-
 import logging
-
+import time
 
 from app import db
 from core.plan_repository import PlanRepository

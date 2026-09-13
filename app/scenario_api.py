@@ -1,7 +1,9 @@
-from typing import Any, Dict
+from typing import Any
+
 from fastapi import Body, HTTPException
-from app.api import app
+
 from app import db
+from app.api import app
 
 
 @app.get("/scenarios")
@@ -18,7 +20,7 @@ def get_scenario(sid: int):
 
 
 @app.post("/scenarios")
-def post_scenario(body: Dict[str, Any] = Body(...)):
+def post_scenario(body: dict[str, Any] = Body(...)):
     sid = db.create_scenario(
         name=body.get("name") or "(no name)",
         parent_id=body.get("parent_id"),
@@ -30,7 +32,7 @@ def post_scenario(body: Dict[str, Any] = Body(...)):
 
 
 @app.put("/scenarios/{sid}")
-def put_scenario(sid: int, body: Dict[str, Any] = Body(...)):
+def put_scenario(sid: int, body: dict[str, Any] = Body(...)):
     if not db.get_scenario(sid):
         raise HTTPException(status_code=404, detail="scenario not found")
     db.update_scenario(sid, **body)

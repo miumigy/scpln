@@ -13,37 +13,39 @@ MRPライト（PR4）: SKU×週の要求から、LT/ロット/MOQを考慮した
 使い方:
   python scripts/mrp.py -i out/sku_week.json -I samples/planning -o out/mrp.json --lt-unit day --weeks 4
 """
+
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import sys
-import csv
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, DefaultDict, Optional
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
-from scripts.plan_pipeline_io import (
-    resolve_storage_config,
-    store_mrp_payload,
-)
 from scripts.calendar_utils import (
+    PlanningCalendarLookup,
     build_calendar_lookup,
     load_planning_calendar,
     map_due_to_week,
     ordered_weeks,
-    PlanningCalendarLookup,
+)
+from scripts.plan_pipeline_io import (
+    resolve_storage_config,
+    store_mrp_payload,
 )
 
 
-def _read_csv(path: str) -> List[Dict[str, Any]]:
+def _read_csv(path: str) -> list[dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def _load_items(path: str | None) -> Dict[str, Dict[str, float]]:
-    d: Dict[str, Dict[str, float]] = {}
+def _load_items(path: str | None) -> dict[str, dict[str, float]]:
+    d: dict[str, dict[str, float]] = {}
     if path and os.path.exists(path):
         for r in _read_csv(path):
             it = str(r.get("item"))
@@ -59,8 +61,8 @@ def _load_items(path: str | None) -> Dict[str, Dict[str, float]]:
     return d
 
 
-def _load_inventory(path: str | None) -> Dict[str, float]:
-    inv: DefaultDict[str, float] = __import__("collections").defaultdict(float)
+def _load_inventory(path: str | None) -> dict[str, float]:
+    inv: defaultdict[str, float] = __import__("collections").defaultdict(float)
     if path and os.path.exists(path):
         for r in _read_csv(path):
             it = str(r.get("item"))
@@ -74,12 +76,12 @@ def _load_inventory(path: str | None) -> Dict[str, float]:
 
 
 def _resolve_calendar_lookup(
-    calendar_path: Optional[str], input_dir: Optional[str]
-) -> Optional[PlanningCalendarLookup]:
+    calendar_path: str | None, input_dir: str | None
+) -> PlanningCalendarLookup | None:
     """カレンダーファイルを探索し LookUp を返す。"""
 
     spec = None
-    err: Optional[Exception] = None
+    err: Exception | None = None
     if calendar_path:
         try:
             spec = load_planning_calendar(calendar_path)
@@ -104,9 +106,9 @@ def _resolve_calendar_lookup(
 
 
 def _weeks_from_alloc(
-    alloc: Dict[str, Any], lookup: Optional[PlanningCalendarLookup]
-) -> List[str]:
-    seen: List[str] = []
+    alloc: dict[str, Any], lookup: PlanningCalendarLookup | None
+) -> list[str]:
+    seen: list[str] = []
     for r in alloc.get("rows", []):
         w = str(r.get("week"))
         if w and w not in seen:
@@ -117,11 +119,11 @@ def _weeks_from_alloc(
 def _load_open_po(
     path: str | None,
     *,
-    weeks: List[str],
-    lookup: Optional[PlanningCalendarLookup],
+    weeks: list[str],
+    lookup: PlanningCalendarLookup | None,
     fallback_weeks: int,
-) -> Dict[Tuple[str, str], float]:
-    rec: DefaultDict[Tuple[str, str], float] = __import__("collections").defaultdict(
+) -> dict[tuple[str, str], float]:
+    rec: defaultdict[tuple[str, str], float] = __import__("collections").defaultdict(
         float
     )
     if not path or not os.path.exists(path):
@@ -139,8 +141,8 @@ def _load_open_po(
     return dict(rec)
 
 
-def _load_bom(path: str | None) -> List[Tuple[str, str, float]]:
-    bom: List[Tuple[str, str, float]] = []
+def _load_bom(path: str | None) -> list[tuple[str, str, float]]:
+    bom: list[tuple[str, str, float]] = []
     if path and os.path.exists(path):
         for r in _read_csv(path):
             parent = str(r.get("parent"))
@@ -162,7 +164,7 @@ def _lt_weeks(lt_val: float, *, lt_unit: str, week_days: int) -> int:
     return int(max(0, int(w)))
 
 
-def _roll_weeks(weeks: List[str], idx: int, offset: int) -> int:
+def _roll_weeks(weeks: list[str], idx: int, offset: int) -> int:
     j = idx - offset  # 解放は受入よりLTだけ前
     return max(0, j)
 
@@ -258,7 +260,7 @@ def main() -> None:
     bom = _load_bom(bom_path)
 
     # SKU週の要求を集約（gross: demand, backlogは無視 or 参考。ここでは demand を採用）
-    gross_by_item_week: DefaultDict[Tuple[str, str], float] = __import__(
+    gross_by_item_week: defaultdict[tuple[str, str], float] = __import__(
         "collections"
     ).defaultdict(float)
     for r in alloc.get("rows", []):
@@ -283,8 +285,8 @@ def main() -> None:
         except Exception:
             return default
 
-    rows_out: List[Dict[str, Any]] = []
-    on_hand_by_item: Dict[str, float] = {
+    rows_out: list[dict[str, Any]] = []
+    on_hand_by_item: dict[str, float] = {
         it: inv.get(it, 0.0)
         for it in set(k[0] for k in gross_by_item_week.keys()) | set(inv.keys())
     }
@@ -300,10 +302,10 @@ def main() -> None:
         lot = max(1.0, get(it, "lot", 1.0))
         moq = max(0.0, get(it, "moq", 0.0))
         on_hand = on_hand_by_item.get(it, 0.0)
-        planned_receipts: Dict[str, float] = {}
-        planned_releases: Dict[str, float] = {}
-        row_by_week: Dict[str, Dict[str, Any]] = {}
-        pending_release: Dict[str, float] = {}
+        planned_receipts: dict[str, float] = {}
+        planned_releases: dict[str, float] = {}
+        row_by_week: dict[str, dict[str, Any]] = {}
+        pending_release: dict[str, float] = {}
 
         for wi, w in enumerate(weeks):
             gross = gross_by_item_week.get((it, w), 0.0)
