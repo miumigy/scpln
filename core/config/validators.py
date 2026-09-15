@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, List, Literal, Set
+from collections.abc import Iterable
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from .models import CanonicalArc, CanonicalBom, CanonicalConfig, CanonicalNode
-
 
 Severity = Literal["error", "warning"]
 
@@ -19,13 +19,13 @@ class ValidationIssue(BaseModel):
     severity: Severity
     code: str
     message: str
-    context: Dict[str, str] = Field(default_factory=dict)
+    context: dict[str, str] = Field(default_factory=dict)
 
 
 class ValidationResult(BaseModel):
     """検証結果の集約。"""
 
-    issues: List[ValidationIssue] = Field(default_factory=list)
+    issues: list[ValidationIssue] = Field(default_factory=list)
 
     @property
     def has_errors(self) -> bool:
@@ -37,7 +37,7 @@ class ValidationResult(BaseModel):
         severity: Severity,
         code: str,
         message: str,
-        context: Dict[str, str] | None = None,
+        context: dict[str, str] | None = None,
     ) -> None:
         self.issues.append(
             ValidationIssue(
@@ -49,12 +49,12 @@ class ValidationResult(BaseModel):
         )
 
     def add_error(
-        self, code: str, message: str, context: Dict[str, str] | None = None
+        self, code: str, message: str, context: dict[str, str] | None = None
     ) -> None:
         self.add_issue(severity="error", code=code, message=message, context=context)
 
     def add_warning(
-        self, code: str, message: str, context: Dict[str, str] | None = None
+        self, code: str, message: str, context: dict[str, str] | None = None
     ) -> None:
         self.add_issue(severity="warning", code=code, message=message, context=context)
 
@@ -78,8 +78,8 @@ def validate_canonical_config(config: CanonicalConfig) -> ValidationResult:
 
 def _validate_nodes(
     nodes: Iterable[CanonicalNode], result: ValidationResult
-) -> Set[str]:
-    codes: Set[str] = set()
+) -> set[str]:
+    codes: set[str] = set()
     for node in nodes:
         if node.code in codes:
             result.add_error(
@@ -94,11 +94,11 @@ def _validate_nodes(
 
 def _validate_node_items(
     nodes: Iterable[CanonicalNode],
-    item_codes: Set[str],
+    item_codes: set[str],
     result: ValidationResult,
 ) -> None:
     for node in nodes:
-        seen: Set[str] = set()
+        seen: set[str] = set()
         for policy in node.inventory_policies:
             if policy.item_code not in item_codes:
                 result.add_error(
@@ -114,7 +114,7 @@ def _validate_node_items(
                 )
             else:
                 seen.add(policy.item_code)
-        capacity_seen: Set[str] = set()
+        capacity_seen: set[str] = set()
         for policy in node.production_policies:
             base_key = policy.item_code or "__any__"
             if base_key in capacity_seen:
@@ -132,10 +132,10 @@ def _validate_node_items(
 
 def _validate_arcs(
     arcs: Iterable[CanonicalArc],
-    node_codes: Set[str],
+    node_codes: set[str],
     result: ValidationResult,
 ) -> None:
-    seen_pairs: Set[tuple[str, str, str]] = set()
+    seen_pairs: set[tuple[str, str, str]] = set()
     for arc in arcs:
         pair = (arc.from_node, arc.to_node, arc.arc_type)
         if pair in seen_pairs:
@@ -169,10 +169,10 @@ def _validate_arcs(
 
 def _validate_bom(
     bom_rows: Iterable[CanonicalBom],
-    item_codes: Set[str],
+    item_codes: set[str],
     result: ValidationResult,
 ) -> None:
-    graph: Dict[str, Set[str]] = defaultdict(set)
+    graph: dict[str, set[str]] = defaultdict(set)
 
     for row in bom_rows:
         if row.parent_item not in item_codes:
@@ -197,9 +197,9 @@ def _validate_bom(
         )
 
 
-def _has_cycle(graph: Dict[str, Set[str]]) -> bool:
-    visited: Set[str] = set()
-    stack: Set[str] = set()
+def _has_cycle(graph: dict[str, set[str]]) -> bool:
+    visited: set[str] = set()
+    stack: set[str] = set()
 
     def dfs(node: str) -> bool:
         if node in stack:
@@ -214,14 +214,14 @@ def _has_cycle(graph: Dict[str, Set[str]]) -> bool:
         visited.add(node)
         return False
 
-    for root in graph.keys():
+    for root in graph:
         if dfs(root):
             return True
     return False
 
 
 def _validate_demands(
-    demands, node_codes: Set[str], item_codes: Set[str], result: ValidationResult
+    demands, node_codes: set[str], item_codes: set[str], result: ValidationResult
 ) -> None:
     for row in demands:
         if row.node_code not in node_codes:
@@ -239,7 +239,7 @@ def _validate_demands(
 
 
 def _validate_capacities(
-    capacities, node_codes: Set[str], result: ValidationResult
+    capacities, node_codes: set[str], result: ValidationResult
 ) -> None:
     for row in capacities:
         if row.resource_type == "node" and row.resource_code not in node_codes:
@@ -251,7 +251,7 @@ def _validate_capacities(
 
 
 def _validate_hierarchies(hierarchies, result: ValidationResult) -> None:
-    seen: Set[tuple[str, str]] = set()
+    seen: set[tuple[str, str]] = set()
     for row in hierarchies:
         key = (row.hierarchy_type, row.node_key)
         if key in seen:

@@ -15,6 +15,7 @@ Anchor調整（v2最小）: anchor=DET_near 用の簡易再配分
 - 本スクリプトはv2ステップ2のオフライン検証用。MRP/reconcileは再計算しない。
 - 期待形式の週キー: "YYYY-MM-WkX"。cutover月は '--cutover-date YYYY-MM-DD' から月部分を抽出する。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,7 +23,7 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, DefaultDict, Optional
+from typing import Any
 
 from core.plan_repository import PlanRepositoryError
 from scripts.plan_pipeline_io import (
@@ -30,15 +31,14 @@ from scripts.plan_pipeline_io import (
     store_anchor_adjust_payload,
 )
 
-
-_CAL_LOOKUP: Optional[PlanningCalendarLookup] = None
-_WEEK_SEQUENCE: Dict[str, int] = {}
+_CAL_LOOKUP: PlanningCalendarLookup | None = None
+_WEEK_SEQUENCE: dict[str, int] = {}
 from scripts.calendar_utils import (
+    PlanningCalendarLookup,
     build_calendar_lookup,
     load_planning_calendar,
     map_due_to_week,
     resolve_period_for_week,
-    PlanningCalendarLookup,
 )
 
 
@@ -54,7 +54,7 @@ def _period_from_week(week_key: str) -> str:
     return s
 
 
-def _load_json(path: str) -> Dict[str, Any]:
+def _load_json(path: str) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -67,10 +67,10 @@ def _round6(x: float) -> float:
 
 
 def _resolve_calendar_lookup(
-    calendar_path: Optional[str], input_dir: Optional[str]
-) -> Optional[PlanningCalendarLookup]:
+    calendar_path: str | None, input_dir: str | None
+) -> PlanningCalendarLookup | None:
     spec = None
-    err: Optional[Exception] = None
+    err: Exception | None = None
     if calendar_path:
         try:
             spec = load_planning_calendar(calendar_path)
@@ -283,8 +283,8 @@ def main() -> None:
 
     agg = _load_json(args.inputs[0])
     det = _load_json(args.inputs[1])
-    agg_rows: List[Dict[str, Any]] = agg.get("rows", [])
-    det_rows: List[Dict[str, Any]] = det.get("rows", [])
+    agg_rows: list[dict[str, Any]] = agg.get("rows", [])
+    det_rows: list[dict[str, Any]] = det.get("rows", [])
 
     if not det_rows:
         # no-op
@@ -307,7 +307,7 @@ def main() -> None:
     cutover_month = s[:7] if len(s) >= 7 and s[4] == "-" else s
 
     # AGG map: (family, period) -> metrics
-    agg_map: Dict[Tuple[str, str], Dict[str, float]] = {}
+    agg_map: dict[tuple[str, str], dict[str, float]] = {}
     for r in agg_rows:
         fam = str(r.get("family"))
         per = str(r.get("period"))
@@ -320,8 +320,8 @@ def main() -> None:
     # DET grouping for target/all periods
     from collections import defaultdict as _dd
 
-    by_fp_weeks: DefaultDict[Tuple[str, str], List[Dict[str, Any]]] = _dd(list)
-    by_fp_all: DefaultDict[Tuple[str, str], List[Dict[str, Any]]] = _dd(list)
+    by_fp_weeks: _dd[tuple[str, str], list[dict[str, Any]]] = _dd(list)
+    by_fp_all: _dd[tuple[str, str], list[dict[str, Any]]] = _dd(list)
     for r in det_rows:
         fam = str(r.get("family") or r.get("item") or "")
         wk = str(r.get("week") or "")
@@ -359,8 +359,8 @@ def main() -> None:
         except Exception:
             return None
 
-    def _indices_for_rows(rows_in: List[Dict[str, Any]]) -> List[int]:
-        idxs: List[int] = []
+    def _indices_for_rows(rows_in: list[dict[str, Any]]) -> list[int]:
+        idxs: list[int] = []
         for rr in rows_in:
             try:
                 i = det_rows_out.index(rr)
@@ -384,10 +384,10 @@ def main() -> None:
                 idxs.append(i)
         return idxs
 
-    def _sum_metrics(rows_in: List[Dict[str, Any]]) -> Dict[str, float]:
+    def _sum_metrics(rows_in: list[dict[str, Any]]) -> dict[str, float]:
         s = {"demand": 0.0, "supply": 0.0, "backlog": 0.0}
         for r in rows_in:
-            for m in s.keys():
+            for m in s:
                 try:
                     s[m] += float(r.get(m, 0) or 0)
                 except Exception:
@@ -397,8 +397,8 @@ def main() -> None:
     # capacity.csv のperiod容量（総量）を取得（任意）
     def _load_capacity_map(
         input_dir: str | None, path: str | None
-    ) -> Tuple[Dict[str, float], float]:
-        cap: Dict[str, float] = {}
+    ) -> tuple[dict[str, float], float]:
+        cap: dict[str, float] = {}
         maxcap = 0.0
         p = path or (f"{input_dir}/capacity.csv" if input_dir else None)
         if p:
@@ -423,8 +423,8 @@ def main() -> None:
     # open_po.csv 入荷量（期別合算）をロード
     def _load_inbound_map(
         input_dir: str | None, path: str | None
-    ) -> Tuple[Dict[str, float], float]:
-        inbound: Dict[str, float] = {}
+    ) -> tuple[dict[str, float], float]:
+        inbound: dict[str, float] = {}
         maxin = 0.0
         p = path or (f"{input_dir}/open_po.csv" if input_dir else None)
         if p:
@@ -453,8 +453,8 @@ def main() -> None:
     # periodスコア/コストの読み込み（任意）
     def _load_period_value_map(
         path: str | None, input_dir: str | None, fname: str, col: str
-    ) -> Tuple[Dict[str, float], float]:
-        m: Dict[str, float] = {}
+    ) -> tuple[dict[str, float], float]:
+        m: dict[str, float] = {}
         mx = 0.0
         p = path or (f"{input_dir}/{fname}" if input_dir else None)
         if p:
@@ -489,7 +489,7 @@ def main() -> None:
             pass
         return 0.0
 
-    def _headroom_for_period(fam: str, per: str, resid_map: Dict[str, float]) -> float:
+    def _headroom_for_period(fam: str, per: str, resid_map: dict[str, float]) -> float:
         # 近傍periodの(目標-target vs 現状-cur)から、residの符号に沿った吸収余地の総量を推定
         try:
             target = agg_map.get((fam, per)) or {
@@ -552,9 +552,9 @@ def main() -> None:
             return 0.0
 
     # Adjust per (family, period)
-    adjusted_rows: List[Dict[str, Any]] = []
-    det_rows_out: List[Dict[str, Any]] = []
-    carryover_logs: List[Dict[str, Any]] = []
+    adjusted_rows: list[dict[str, Any]] = []
+    det_rows_out: list[dict[str, Any]] = []
+    carryover_logs: list[dict[str, Any]] = []
     metrics = ("demand", "supply", "backlog")
     for r in det_rows:
         det_rows_out.append(dict(r))
@@ -665,7 +665,7 @@ def main() -> None:
         desc = list(reversed(asc))  # n..1
         tri = [min(i + 1, n - i) for i in range(n)]  # 1..2..mid..2..1
 
-        weights: List[int]
+        weights: list[int]
         if policy == "DET_NEAR":
             # 後半週で吸収（近接DETを守る）
             weights = asc
@@ -696,8 +696,8 @@ def main() -> None:
             wsum = float(n)
         # apply per metric（2パス: 重み按分 → ガードによる不足分をヘッドルームに再配分）
         # 初回適用の加算量を記録
-        applied: Dict[str, List[float]] = {m: [0.0] * n for m in metrics}
-        limits: Dict[str, List[float]] = {m: [float("inf")] * n for m in metrics}
+        applied: dict[str, list[float]] = {m: [0.0] * n for m in metrics}
+        limits: dict[str, list[float]] = {m: [float("inf")] * n for m in metrics}
         for j, i in enumerate(idxs_sorted):
             w = weights[j] / wsum
             rec = det_rows_out[i]
@@ -715,7 +715,7 @@ def main() -> None:
                 limits[m][j] = lim
             adjusted_rows.append(rec)
         # 2パス目: 残差再配分
-        residual_after_period: Dict[str, float] = {}
+        residual_after_period: dict[str, float] = {}
         for m in metrics:
             # 現在の合計加算
             cur_add_sum = sum(applied[m])
@@ -781,9 +781,9 @@ def main() -> None:
             dir_choice = args.carryover.lower()
 
             def apply_to_neighbor(
-                per2: str | None, resid_map: Dict[str, float]
-            ) -> Dict[str, float]:
-                applied_map: Dict[str, float] = {m: 0.0 for m in metrics}
+                per2: str | None, resid_map: dict[str, float]
+            ) -> dict[str, float]:
+                applied_map: dict[str, float] = {m: 0.0 for m in metrics}
                 if not per2 or (fam, per2) not in by_fp_all:
                     return applied_map
                 rows2 = by_fp_all[(fam, per2)]
@@ -794,7 +794,7 @@ def main() -> None:
                 weights2 = [1] * n2
                 wsum2 = float(sum(weights2))
                 for m in metrics:
-                    resid2 = float((resid_map.get(m) or 0.0))
+                    resid2 = float(resid_map.get(m) or 0.0)
                     if abs(resid2) <= 1e-9:
                         continue
                     applied2 = [0.0] * n2
