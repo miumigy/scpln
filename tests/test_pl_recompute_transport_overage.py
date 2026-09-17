@@ -1,10 +1,10 @@
 from domain.models import (
-    SimulationInput,
-    Product,
-    WarehouseNode,
-    StoreNode,
-    NetworkLink,
     CustomerDemand,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
 )
 from engine.simulator import SupplyChainSimulator
 
