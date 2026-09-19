@@ -2,12 +2,13 @@ import logging
 import math
 import random
 from collections import defaultdict
+
 from domain.models import (
+    FactoryNode,
+    MaterialNode,
     SimulationInput,
     StoreNode,
     WarehouseNode,
-    MaterialNode,
-    FactoryNode,
 )
 
 try:
@@ -1471,10 +1472,10 @@ class SupplyChainSimulator:
             total_flow = float(sum((pl.get("flow_costs", {}) or {}).values()))
             total_stock = float(sum((pl.get("stock_costs", {}) or {}).values()))
             penalty_stockout = float(
-                ((pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0)
+                (pl.get("penalty_costs", {}) or {}).get("stockout", 0) or 0
             )
             penalty_backorder = float(
-                ((pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0)
+                (pl.get("penalty_costs", {}) or {}).get("backorder", 0) or 0
             )
             material_cost = float(pl.get("material_cost", 0) or 0)
             sgna_cost = float(pl.get("sgna_cost", 0) or 0)
