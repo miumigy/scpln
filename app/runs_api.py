@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Dict
 import logging
 import time
+from typing import Any
 from uuid import uuid4
+
 from fastapi import Body
 from fastapi.responses import JSONResponse
 
 from app.api import app
-from app.metrics import RUNS_QUEUED, LEGACY_MODE_RUNS_TOTAL
+from app.metrics import LEGACY_MODE_RUNS_TOTAL, RUNS_QUEUED
 
 
 @app.post("/runs")
-def post_runs(body: Dict[str, Any] = Body(...)):
+def post_runs(body: dict[str, Any] = Body(...)):
     """Run API アダプタ（P-16 一時実装）
     - pipeline='integrated' を既存の plans/integrated/run or planning job に委譲
     - async=true の場合はジョブ投入、false（既定）は同期実行
@@ -22,7 +23,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
     """
     pipeline = (body.get("pipeline") or "integrated").lower()
     is_async = bool(body.get("async") or False)
-    options_raw: Dict[str, Any] = body.get("options") or {}
+    options_raw: dict[str, Any] = body.get("options") or {}
 
     # 軽量バリデーション/型補正（エラーは400）
     def _as_int(x, default=None):
@@ -62,7 +63,7 @@ def post_runs(body: Dict[str, Any] = Body(...)):
         return default
 
     # 正規化
-    options: Dict[str, Any] = {}
+    options: dict[str, Any] = {}
     options["out_dir"] = options_raw.get("out_dir")
     options["weeks"] = _as_int(options_raw.get("weeks") or 4)
     options["round_mode"] = _as_str(options_raw.get("round_mode") or "int")
