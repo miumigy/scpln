@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, List, Union
+from typing import Any
 
 from scripts.plan_storage import (
     resolve_storage_mode,
     should_use_db,
     should_use_files,
-    write_allocate_result,
     write_aggregate_result,
+    write_allocate_result,
+    write_anchor_adjust_result,
     write_mrp_result,
     write_plan_final_result,
-    write_anchor_adjust_result,
     write_reconcile_log_result,
     write_report_csv_result,
 )
@@ -25,7 +25,7 @@ class PlanStorageConfig:
     """CLI経由でのPlan保存設定を保持するデータクラス。"""
 
     storage_mode: str
-    version_id: Optional[str]
+    version_id: str | None
     default_location_key: str = "global"
     default_location_type: str = "global"
 
@@ -39,17 +39,17 @@ class PlanStorageConfig:
 
 
 def resolve_storage_config(
-    storage_option: Optional[str],
-    version_id: Optional[str],
+    storage_option: str | None,
+    version_id: str | None,
     *,
     cli_label: str,
     default_location_key: str = "global",
     default_location_type: str = "global",
-) -> Tuple[PlanStorageConfig, Optional[str]]:
+) -> tuple[PlanStorageConfig, str | None]:
     """CLI引数から保存設定を生成し、必要なら警告メッセージを返す。"""
 
     storage_mode = resolve_storage_mode(storage_option)
-    warning: Optional[str] = None
+    warning: str | None = None
     final_version = version_id
     if should_use_db(storage_mode) and not version_id:
         warning = (
@@ -69,7 +69,7 @@ def resolve_storage_config(
 
 
 def store_aggregate_payload(
-    config: PlanStorageConfig, *, data: Dict[str, Any], output_path: Path
+    config: PlanStorageConfig, *, data: dict[str, Any], output_path: Path
 ) -> bool:
     """plan_aggregateの出力を保存する。戻り値はDBへ書いたか否か。"""
 
@@ -84,8 +84,8 @@ def store_aggregate_payload(
 def store_allocate_payload(
     config: PlanStorageConfig,
     *,
-    aggregate_data: Dict[str, Any] | None,
-    detail_data: Dict[str, Any],
+    aggregate_data: dict[str, Any] | None,
+    detail_data: dict[str, Any],
     output_path: Path,
 ) -> bool:
     """allocateの出力と既存aggregateデータを保存する。"""
@@ -104,7 +104,7 @@ def store_allocate_payload(
 def store_mrp_payload(
     config: PlanStorageConfig,
     *,
-    mrp_data: Dict[str, Any],
+    mrp_data: dict[str, Any],
     output_path: Path,
 ) -> bool:
     return write_mrp_result(
@@ -120,7 +120,7 @@ def store_mrp_payload(
 def store_plan_final_payload(
     config: PlanStorageConfig,
     *,
-    plan_final: Dict[str, Any],
+    plan_final: dict[str, Any],
     output_path: Path,
 ) -> bool:
     return write_plan_final_result(
@@ -136,7 +136,7 @@ def store_plan_final_payload(
 def store_anchor_adjust_payload(
     config: PlanStorageConfig,
     *,
-    adjusted_data: Dict[str, Any],
+    adjusted_data: dict[str, Any],
     output_path: Path,
 ) -> bool:
     return write_anchor_adjust_result(
@@ -152,7 +152,7 @@ def store_anchor_adjust_payload(
 def store_reconcile_log_payload(
     config: PlanStorageConfig,
     *,
-    log_data: Dict[str, Any],
+    log_data: dict[str, Any],
     output_path: Path,
     artifact_name: str,
 ) -> bool:
@@ -168,8 +168,8 @@ def store_reconcile_log_payload(
 def store_report_csv_payload(
     config: PlanStorageConfig,
     *,
-    rows: List[Dict[str, Any]],
-    fieldnames: List[str],
+    rows: list[dict[str, Any]],
+    fieldnames: list[str],
     output_path: Path,
     artifact_name: str,
 ) -> bool:
@@ -185,11 +185,11 @@ def store_report_csv_payload(
 
 def _calendar_cli_args(
     *,
-    calendar_path: Optional[Union[str, Path]] = None,
-    input_dir: Optional[Union[str, Path]] = None,
-    fallback_weeks: Optional[int] = None,
+    calendar_path: str | Path | None = None,
+    input_dir: str | Path | None = None,
+    fallback_weeks: int | None = None,
     supports_calendar: bool = True,
-) -> List[str]:
+) -> list[str]:
     """planning_calendar.json を探索し、CLIへ渡す引数を構築する。
 
     supports_calendar が True の場合はカレンダーファイルが見つかれば --calendar を返す。
@@ -197,7 +197,7 @@ def _calendar_cli_args(
     --weeks を返し、週等分フォールバックを継続する。
     """
 
-    path: Optional[Path] = None
+    path: Path | None = None
     if calendar_path:
         candidate = Path(calendar_path)
         if candidate.exists():

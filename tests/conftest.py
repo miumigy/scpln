@@ -1,11 +1,12 @@
+import json
 import os
 import shutil
-import sys
-import pytest
-from pathlib import Path
-from alembic.config import main as alembic_main
-import json
 import sqlite3
+import sys
+from pathlib import Path
+
+import pytest
+from alembic.config import main as alembic_main
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
