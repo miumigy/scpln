@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any, Dict, List
 import logging
+from pathlib import Path
+from typing import Any
 
 logging.info("ui_configs module loaded.")
 
@@ -22,12 +22,12 @@ from core.config import (
     CanonicalConfig,
     CanonicalConfigNotFoundError,
     CanonicalVersionSummary,
+    delete_canonical_config,
     diff_canonical_configs,
     list_canonical_version_summaries,
     load_canonical_config_from_db,
     save_canonical_config,
     validate_canonical_config,
-    delete_canonical_config,
 )
 
 router = APIRouter(prefix="/configs")
@@ -35,9 +35,7 @@ router = APIRouter(prefix="/configs")
 _BASE_DIR = Path(__file__).resolve().parents[1]
 
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
-logging.info(
-    f"Jinja2Templates initialized with directory: {str(_BASE_DIR / 'templates')}"
-)
+logging.info(f"Jinja2Templates initialized with directory: {_BASE_DIR / 'templates'!s}")
 register_format_filters(templates)
 
 
@@ -48,7 +46,7 @@ def _format_time(value: Any) -> str:
         return ""
 
 
-def _summarize_counts(config: CanonicalConfig) -> Dict[str, int]:
+def _summarize_counts(config: CanonicalConfig) -> dict[str, int]:
     keys = (
         "items",
         "nodes",
@@ -62,7 +60,7 @@ def _summarize_counts(config: CanonicalConfig) -> Dict[str, int]:
     return {key: len(getattr(config, key)) for key in keys}
 
 
-def _sample_records(records: List[Any], limit: int = 8) -> List[Dict[str, Any]]:
+def _sample_records(records: list[Any], limit: int = 8) -> list[dict[str, Any]]:
     sample = []
     for obj in records[:limit]:
         if hasattr(obj, "model_dump"):
@@ -72,7 +70,7 @@ def _sample_records(records: List[Any], limit: int = 8) -> List[Dict[str, Any]]:
     return sample
 
 
-def _group_validation(result) -> Dict[str, List[Dict[str, Any]]]:
+def _group_validation(result) -> dict[str, list[dict[str, Any]]]:
     grouped = {"errors": [], "warnings": []}
     if not result:
         return grouped
@@ -96,7 +94,7 @@ def _render_import_template(
     warning: str | None = None,
     json_text: str = "",
     plan_version_id: str = "",
-    validation_messages: Dict[str, List[Dict[str, Any]]] | None = None,
+    validation_messages: dict[str, list[dict[str, Any]]] | None = None,
     status_code: int = 200,
 ):
     plan_versions = [
@@ -131,7 +129,7 @@ def ui_configs_list(request: Request, error: str | None = Query(None)):
     sample_files = [f.name for f in sample_files_dir.glob("*.json") if f.is_file()]
 
     try:
-        canonical_summaries: List[CanonicalVersionSummary] = (
+        canonical_summaries: list[CanonicalVersionSummary] = (
             list_canonical_version_summaries(limit=30, include_deleted=False)
         )
     except Exception as e:
@@ -140,7 +138,7 @@ def ui_configs_list(request: Request, error: str | None = Query(None)):
 
     logging.info(f"Canonical summaries: {canonical_summaries}")
 
-    canonical_rows: List[Dict[str, Any]] = []
+    canonical_rows: list[dict[str, Any]] = []
     for summary in canonical_summaries:
         meta_dict = summary.meta.model_dump()
         meta_dict["created_at_str"] = _format_time(meta_dict.get("created_at"))
