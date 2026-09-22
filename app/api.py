@@ -17,23 +17,23 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-from app.ui_plans import router as ui_plans_router  # noqa: E402
-from app.ui_configs import router as ui_configs_router  # Import ui_configs router
-from app import simulation_api as _simulation_api
+from app import config_api as _config_api
+from app import jobs_api as _jobs_api
+from app import plans_api as _plans_api
 from app import run_compare_api as _run_compare_api
 from app import run_list_api as _run_list_api
-from app import trace_export_api as _trace_export_api
-from app import ui_runs as _ui_runs
-from app import ui_compare as _ui_compare
-from app import jobs_api as _jobs_api
-from app import ui_jobs as _ui_jobs
-from app import config_api as _config_api
-from app import scenario_api as _scenario_api
-from app import ui_scenarios as _ui_scenarios
-from app import ui_planning as _ui_planning
-from app import plans_api as _plans_api
-from app import runs_api as _runs_api
 from app import run_meta_api as _run_meta_api
+from app import runs_api as _runs_api
+from app import scenario_api as _scenario_api
+from app import simulation_api as _simulation_api
+from app import trace_export_api as _trace_export_api
+from app import ui_compare as _ui_compare
+from app import ui_jobs as _ui_jobs
+from app import ui_planning as _ui_planning
+from app import ui_runs as _ui_runs
+from app import ui_scenarios as _ui_scenarios
+from app.ui_configs import router as ui_configs_router  # Import ui_configs router
+from app.ui_plans import router as ui_plans_router
 
 
 def _include_module_router(target, *, prefix: str | None = None) -> None:
