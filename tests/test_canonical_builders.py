@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict, Optional
 
 import pytest
 
@@ -14,6 +13,7 @@ from core.config import (
     load_canonical_config,
 )
 from core.config.models import (
+    PlanningCalendarSpec,
     PlanningCapacityBucket,
     PlanningFamilyDemand,
     PlanningInboundOrder,
@@ -22,12 +22,11 @@ from core.config.models import (
     PlanningInventorySnapshot,
     PlanningMixShare,
     PlanningPeriodMetric,
-    PlanningCalendarSpec,
 )
 from core.config.storage import PlanningInputSetNotFoundError
 
 
-def _payload_to_input_set(config: CanonicalConfig) -> Optional[PlanningInputSet]:
+def _payload_to_input_set(config: CanonicalConfig) -> PlanningInputSet | None:
     attrs = dict(config.meta.attributes or {})
     payload = dict(attrs.get("planning_payload") or {})
     if not payload:
@@ -286,7 +285,7 @@ def test_build_planning_inputs_prefers_label(monkeypatch):
     attrs["planning_input_label"] = "custom_label"
     config.meta.attributes = attrs
 
-    captured: Dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
     def _fake_get_planning_input_set(**kwargs):
         captured["label"] = kwargs.get("label")
