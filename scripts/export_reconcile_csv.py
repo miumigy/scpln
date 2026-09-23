@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from app import db
 from core.plan_repository import PlanRepositoryError
@@ -30,13 +31,13 @@ from scripts.plan_pipeline_io import (
 """
 
 
-def _load(path: str) -> Dict[str, Any]:
+def _load(path: str) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def _rows(payload: Dict[str, Any], label: str) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+def _rows(payload: dict[str, Any], label: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     for r in payload.get("deltas", []) or []:
         out.append(
             {
@@ -103,7 +104,7 @@ def main() -> None:
     if warning:
         print(warning, file=sys.stderr)
 
-    def _load_source(raw_path: str) -> Dict[str, Any]:
+    def _load_source(raw_path: str) -> dict[str, Any]:
         path = Path(raw_path)
         if path.exists():
             return _load(str(path))
