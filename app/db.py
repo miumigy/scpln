@@ -1,14 +1,13 @@
-import os
 import json
-import sqlite3
-import time
 import logging
+import os
+import sqlite3
 import threading
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.metrics import PLAN_ARTIFACT_WRITE_ERROR_TOTAL
-
 
 _BASE_DIR = Path(__file__).resolve().parents[1]
 _DEFAULT_DB = _BASE_DIR / "data" / "scpln.db"
@@ -73,6 +72,7 @@ def init_db(force: bool = False) -> None:
 
         try:
             from alembic.config import Config
+
             from alembic import command
         except Exception as exc:  # pragma: no cover - alembic未導入の異常系
             _logger.error("alembicの読み込みに失敗しました: %s", exc)
@@ -157,13 +157,13 @@ def update_job_params(job_id: str, params_json: str) -> None:
         c.execute("UPDATE jobs SET params_json=? WHERE job_id=?", (params_json, job_id))
 
 
-def get_job(job_id: str) -> Dict[str, Any] | None:
+def get_job(job_id: str) -> dict[str, Any] | None:
     with _conn() as c:
         row = c.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
         return dict(row) if row else None
 
 
-def list_jobs(status: str | None, offset: int, limit: int) -> Dict[str, Any]:
+def list_jobs(status: str | None, offset: int, limit: int) -> dict[str, Any]:
     with _conn() as c:
         where = []
         params: list = []
@@ -191,7 +191,7 @@ def set_job_result(job_id: str, result_json: str) -> None:
         c.execute("UPDATE jobs SET result_json=? WHERE job_id=?", (result_json, job_id))
 
 
-def set_product_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
+def set_product_hierarchy(mapping: dict[str, dict[str, str]]) -> None:
     with _conn() as c:
         c.execute("DELETE FROM product_hierarchy")
         for k, v in (mapping or {}).items():
@@ -201,12 +201,12 @@ def set_product_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
             )
 
 
-def get_product_hierarchy() -> Dict[str, Dict[str, str]]:
+def get_product_hierarchy() -> dict[str, dict[str, str]]:
     with _conn() as c:
         rows = c.execute(
             "SELECT key, item, category, department FROM product_hierarchy"
         ).fetchall()
-        out: Dict[str, Dict[str, str]] = {}
+        out: dict[str, dict[str, str]] = {}
         for r in rows:
             out[r["key"]] = {
                 "item": r["item"],
@@ -216,7 +216,7 @@ def get_product_hierarchy() -> Dict[str, Dict[str, str]]:
         return out
 
 
-def set_location_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
+def set_location_hierarchy(mapping: dict[str, dict[str, str]]) -> None:
     with _conn() as c:
         c.execute("DELETE FROM location_hierarchy")
         for k, v in (mapping or {}).items():
@@ -226,12 +226,12 @@ def set_location_hierarchy(mapping: Dict[str, Dict[str, str]]) -> None:
             )
 
 
-def get_location_hierarchy() -> Dict[str, Dict[str, str]]:
+def get_location_hierarchy() -> dict[str, dict[str, str]]:
     with _conn() as c:
         rows = c.execute(
             "SELECT key, region, country FROM location_hierarchy"
         ).fetchall()
-        out: Dict[str, Dict[str, str]] = {}
+        out: dict[str, dict[str, str]] = {}
         for r in rows:
             out[r["key"]] = {
                 "region": r["region"],
@@ -241,7 +241,7 @@ def get_location_hierarchy() -> Dict[str, Dict[str, str]]:
 
 
 # --- Scenarios (phase2 foundation) ---
-def list_scenarios(limit: int = 200) -> List[Dict[str, Any]]:
+def list_scenarios(limit: int = 200) -> list[dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
             "SELECT id, name, parent_id, tag, locked, updated_at, created_at FROM scenarios ORDER BY id DESC LIMIT ?",
@@ -250,7 +250,7 @@ def list_scenarios(limit: int = 200) -> List[Dict[str, Any]]:
         return [dict(r) for r in rows]
 
 
-def get_scenario(sid: int) -> Optional[Dict[str, Any]]:
+def get_scenario(sid: int) -> dict[str, Any] | None:
     with _conn() as c:
         row = c.execute("SELECT * FROM scenarios WHERE id=?", (sid,)).fetchone()
         return dict(row) if row else None
@@ -258,9 +258,9 @@ def get_scenario(sid: int) -> Optional[Dict[str, Any]]:
 
 def create_scenario(
     name: str,
-    parent_id: Optional[int],
-    tag: Optional[str],
-    description: Optional[str],
+    parent_id: int | None,
+    tag: str | None,
+    description: str | None,
     locked: bool = False,
 ) -> int:
     now = int(time.time() * 1000)
@@ -276,7 +276,7 @@ def update_scenario(sid: int, **fields: Any) -> None:
     if not fields:
         return
     allowed = {"name", "parent_id", "tag", "description", "locked"}
-    keys = [k for k in fields.keys() if k in allowed]
+    keys = [k for k in fields if k in allowed]
     if not keys:
         return
     sets = []
@@ -363,7 +363,7 @@ def upsert_plan_artifact(version_id: str, name: str, json_text: str) -> None:
         raise
 
 
-def get_plan_artifact(version_id: str, name: str) -> Dict[str, Any] | None:
+def get_plan_artifact(version_id: str, name: str) -> dict[str, Any] | None:
     with _conn() as c:
         row = c.execute(
             "SELECT json_text FROM plan_artifacts WHERE version_id=? AND name=?",
@@ -374,7 +374,7 @@ def get_plan_artifact(version_id: str, name: str) -> Dict[str, Any] | None:
         return json.loads(row["json_text"]) if row["json_text"] else None
 
 
-def get_plan_version(version_id: str) -> Dict[str, Any] | None:
+def get_plan_version(version_id: str) -> dict[str, Any] | None:
     with _conn() as c:
         row = c.execute(
             "SELECT * FROM plan_versions WHERE version_id=?", (version_id,)
@@ -386,7 +386,7 @@ def list_plan_versions(
     limit: int = 100,
     offset: int = 0,
     order: str = "created_desc",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     order_map = {
         "created_desc": "created_at DESC",
         "created_asc": "created_at ASC",
@@ -418,7 +418,7 @@ def count_plan_versions() -> int:
 
 def list_plan_versions_by_base(
     base_scenario_id: int, limit: int = 5
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     with _conn() as c:
         rows = c.execute(
             "SELECT version_id, status, cutover_date, recon_window_days, config_version_id, created_at, input_set_label FROM plan_versions WHERE base_scenario_id=? ORDER BY created_at DESC LIMIT ?",
@@ -440,7 +440,7 @@ def update_plan_version(version_id: str, **fields: Any) -> None:
         "config_version_id",
         "input_set_label",
     }
-    keys = [k for k in fields.keys() if k in allowed]
+    keys = [k for k in fields if k in allowed]
     if not keys:
         return
     sets = []
@@ -493,7 +493,7 @@ def clear_plan_version_from_runs(version_id: str) -> None:
 
 
 # --- Run meta (approve/baseline/archive) ---
-def get_run_meta(run_id: str) -> Dict[str, Any]:
+def get_run_meta(run_id: str) -> dict[str, Any]:
     with _conn() as c:
         row = c.execute("SELECT * FROM runs_meta WHERE run_id=?", (run_id,)).fetchone()
         return dict(row) if row else {"run_id": run_id, "baseline": 0, "archived": 0}
@@ -513,7 +513,7 @@ def upsert_run_meta(run_id: str, **fields: Any) -> None:
             )
         # build update
         allowed = {"approved_at", "approved_by", "baseline", "archived", "note"}
-        keys = [k for k in fields.keys() if k in allowed]
+        keys = [k for k in fields if k in allowed]
         if not keys:
             return
         sets = []
@@ -567,7 +567,7 @@ def set_baseline(run_id: str) -> None:
         c.execute("UPDATE runs_meta SET baseline=1 WHERE run_id=?", (run_id,))
 
 
-def get_runs_meta_bulk(run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+def get_runs_meta_bulk(run_ids: list[str]) -> dict[str, dict[str, Any]]:
     if not run_ids:
         return {}
     with _conn() as c:
@@ -588,7 +588,7 @@ def get_runs_meta_bulk(run_ids: List[str]) -> Dict[str, Dict[str, Any]]:
 # --- Run views (server-side saved views) ---
 def list_run_views(
     owner: str | None = None, *, org: str | None = None
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     with _conn() as c:
         # 可視性: 自分のもの、public、同一orgかつscope=org
         cond = ["(owner = ?)"] if owner else ["0"]
@@ -605,7 +605,7 @@ def list_run_views(
             f"SELECT id, name, owner, filters, shared, scope, created_at, updated_at FROM run_views{where_sql} ORDER BY updated_at DESC, id DESC",
             tuple(params),
         ).fetchall()
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         for r in rows:
             out.append(
                 {
@@ -624,7 +624,7 @@ def list_run_views(
 
 def create_run_view(
     name: str,
-    filters: Dict[str, Any],
+    filters: dict[str, Any],
     owner: str | None,
     shared: bool,
     scope: str = "private",
@@ -646,7 +646,7 @@ def create_run_view(
         return int(cur.lastrowid)
 
 
-def get_run_view(view_id: int) -> Dict[str, Any] | None:
+def get_run_view(view_id: int) -> dict[str, Any] | None:
     with _conn() as c:
         r = c.execute(
             "SELECT id, name, owner, filters, shared, scope, created_at, updated_at FROM run_views WHERE id=?",
