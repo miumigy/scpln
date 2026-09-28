@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from pydantic import ValidationError
 
@@ -27,14 +27,14 @@ class PlanningCalendarLookup:
     """Planningカレンダーの検索用インデックス。"""
 
     spec: PlanningCalendarSpec
-    distributions: Dict[str, List[WeekDistribution]]
-    week_order: List[str]
-    week_ranges: List[Tuple[date, date, str]]
-    period_last_week: Dict[str, str]
-    week_to_period: Dict[str, str]
+    distributions: dict[str, list[WeekDistribution]]
+    week_order: list[str]
+    week_ranges: list[tuple[date, date, str]]
+    period_last_week: dict[str, str]
+    week_to_period: dict[str, str]
 
 
-def load_planning_calendar(path: Optional[str]) -> Optional[PlanningCalendarSpec]:
+def load_planning_calendar(path: str | None) -> PlanningCalendarSpec | None:
     """パスを指定してPlanningカレンダーを読み込む。"""
 
     if not path:
@@ -50,19 +50,19 @@ def load_planning_calendar(path: Optional[str]) -> Optional[PlanningCalendarSpec
 
 
 def build_calendar_lookup(
-    spec: Optional[PlanningCalendarSpec],
-) -> Optional[PlanningCalendarLookup]:
+    spec: PlanningCalendarSpec | None,
+) -> PlanningCalendarLookup | None:
     """Planningカレンダー仕様からLookUpを構築する。"""
 
     if not spec:
         return None
 
-    distributions: Dict[str, List[WeekDistribution]] = {}
-    week_order: List[str] = []
-    week_ranges: List[Tuple[date, date, str]] = []
-    period_last_week: Dict[str, str] = {}
-    seen: Set[str] = set()
-    week_to_period: Dict[str, str] = {}
+    distributions: dict[str, list[WeekDistribution]] = {}
+    week_order: list[str] = []
+    week_ranges: list[tuple[date, date, str]] = []
+    period_last_week: dict[str, str] = {}
+    seen: set[str] = set()
+    week_to_period: dict[str, str] = {}
 
     for period in spec.periods:
         weeks = sorted(
@@ -81,7 +81,7 @@ def build_calendar_lookup(
         else:
             ratios = []
 
-        entries: List[WeekDistribution] = []
+        entries: list[WeekDistribution] = []
         for idx, week in enumerate(weeks):
             ratio = ratios[idx] if idx < len(ratios) else 0.0
             entry = WeekDistribution(
@@ -113,9 +113,9 @@ def build_calendar_lookup(
 
 def get_week_distribution(
     period: str,
-    lookup: Optional[PlanningCalendarLookup],
+    lookup: PlanningCalendarLookup | None,
     fallback_weeks: int,
-) -> List[WeekDistribution]:
+) -> list[WeekDistribution]:
     """期間コードに対する週配分リストを取得（フォールバックは等分）。"""
 
     if lookup and period in lookup.distributions:
@@ -136,12 +136,12 @@ def get_week_distribution(
 
 def ordered_weeks(
     week_codes: Iterable[str],
-    lookup: Optional[PlanningCalendarLookup],
-) -> List[str]:
+    lookup: PlanningCalendarLookup | None,
+) -> list[str]:
     """週コード集合をPlanningカレンダー順で整列する。"""
 
-    unique: List[str] = []
-    seen: Set[str] = set()
+    unique: list[str] = []
+    seen: set[str] = set()
     for code in week_codes:
         if code and code not in seen:
             unique.append(code)
@@ -150,7 +150,7 @@ def ordered_weeks(
     if not lookup:
         return sorted(unique)
 
-    ordered: List[str] = []
+    ordered: list[str] = []
     for code in lookup.week_order:
         if code in seen and code not in ordered:
             ordered.append(code)
@@ -171,7 +171,7 @@ def _weeks_in_calendar_month(year: int, month: int) -> int:
     else:
         next_month = date(year, month + 1, 1)
     cur = first_day
-    weeks: Set[Tuple[int, int]] = set()
+    weeks: set[tuple[int, int]] = set()
     while cur < next_month:
         iso_year, iso_week, _ = cur.isocalendar()
         weeks.add((iso_year, iso_week))
@@ -229,7 +229,7 @@ def _infer_weeks_for_period(period: str, fallback_weeks: int) -> int:
 
 def resolve_period_for_week(
     week_code: str,
-    lookup: Optional[PlanningCalendarLookup],
+    lookup: PlanningCalendarLookup | None,
 ) -> str:
     """週コードから期間コードを推定する。"""
 
@@ -258,9 +258,9 @@ def resolve_period_for_week(
 
 def map_due_to_week(
     due: str,
-    lookup: Optional[PlanningCalendarLookup],
+    lookup: PlanningCalendarLookup | None,
     fallback_weeks: int,
-) -> Optional[str]:
+) -> str | None:
     """入荷予定日などを週コードへマップする。"""
 
     if not due:
@@ -299,12 +299,12 @@ def map_due_to_week(
 
 
 __all__ = [
-    "WeekDistribution",
     "PlanningCalendarLookup",
-    "load_planning_calendar",
+    "WeekDistribution",
     "build_calendar_lookup",
     "get_week_distribution",
+    "load_planning_calendar",
+    "map_due_to_week",
     "ordered_weeks",
     "resolve_period_for_week",
-    "map_due_to_week",
 ]
