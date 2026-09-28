@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any
 
 from .models import CanonicalConfig, ConfigMeta
 
@@ -15,9 +16,9 @@ class EntityDiff:
     name: str
     base_count: int
     compare_count: int
-    added: List[str] = field(default_factory=list)
-    removed: List[str] = field(default_factory=list)
-    changed: List[str] = field(default_factory=list)
+    added: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
+    changed: list[str] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -30,7 +31,7 @@ class EntityDiff:
 
 def diff_canonical_configs(
     base: CanonicalConfig, compare: CanonicalConfig
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """2つのCanonical設定を比較し、差分サマリを返す。"""
 
     meta_diff = _diff_meta(base.meta, compare.meta)
@@ -92,7 +93,7 @@ def diff_canonical_configs(
     }
 
 
-def _diff_meta(base: ConfigMeta, compare: ConfigMeta) -> Dict[str, Any]:
+def _diff_meta(base: ConfigMeta, compare: ConfigMeta) -> dict[str, Any]:
     fields = [
         "name",
         "schema_version",
@@ -100,7 +101,7 @@ def _diff_meta(base: ConfigMeta, compare: ConfigMeta) -> Dict[str, Any]:
         "status",
         "description",
     ]
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "field_changes": {},
         "attribute_changes": {},
     }
@@ -153,13 +154,13 @@ def _to_dict(value: Any) -> Any:
     return value
 
 
-def _diff_dict(base: Dict[str, Any], compare: Dict[str, Any]) -> Dict[str, Any]:
+def _diff_dict(base: dict[str, Any], compare: dict[str, Any]) -> dict[str, Any]:
     base_keys = set(base.keys())
     compare_keys = set(compare.keys())
     added_keys = sorted(compare_keys - base_keys)
     removed_keys = sorted(base_keys - compare_keys)
-    changed_keys: List[str] = []
-    changes: Dict[str, Any] = {}
+    changed_keys: list[str] = []
+    changes: dict[str, Any] = {}
     for key in sorted(base_keys & compare_keys):
         if base[key] != compare[key]:
             changed_keys.append(key)

@@ -2,7 +2,7 @@ import json
 import os
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .db import _conn
 
@@ -23,7 +23,7 @@ def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
 
 
 class RunRegistryDB:
-    def put(self, run_id: str, payload: Dict[str, Any]) -> None:
+    def put(self, run_id: str, payload: dict[str, Any]) -> None:
         now = int(time.time() * 1000)
         with _conn() as c:
             row = c.execute(
@@ -133,7 +133,7 @@ class RunRegistryDB:
         except Exception:
             pass
 
-    def get(self, run_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, run_id: str) -> dict[str, Any] | None:
         with _conn() as c:
             row = c.execute(
                 "SELECT * FROM runs WHERE run_id=?",
@@ -143,14 +143,14 @@ class RunRegistryDB:
             # DB実装でも {} を返して同等に扱えるようにする
             return self._row_to_rec(row) if row else {}
 
-    def list_ids(self) -> List[str]:
+    def list_ids(self) -> list[str]:
         with _conn() as c:
             rows = c.execute(
                 "SELECT run_id FROM runs ORDER BY started_at DESC, run_id DESC"
             ).fetchall()
             return [r["run_id"] for r in rows]
 
-    def list(self) -> List[Dict[str, Any]]:
+    def list(self) -> list[dict[str, Any]]:
         with _conn() as c:
             rows = c.execute(
                 "SELECT * FROM runs ORDER BY started_at DESC, run_id DESC"
@@ -164,17 +164,17 @@ class RunRegistryDB:
         limit: int,
         sort: str = "started_at",
         order: str = "desc",
-        schema_version: Optional[str] = None,
-        config_id: Optional[int] = None,
-        scenario_id: Optional[int] = None,
+        schema_version: str | None = None,
+        config_id: int | None = None,
+        scenario_id: int | None = None,
         detail: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         sort_keys = {"started_at", "duration_ms", "schema_version"}
         if sort not in sort_keys:
             sort = "started_at"
         order = "DESC" if order.lower() != "asc" else "ASC"
         where = []
-        params: List[Any] = []
+        params: list[Any] = []
         if schema_version is not None:
             where.append("schema_version = ?")
             params.append(schema_version)
@@ -237,7 +237,7 @@ class RunRegistryDB:
         return {"runs": data, "total": total, "offset": offset, "limit": limit}
 
     @staticmethod
-    def _row_to_rec(row) -> Dict[str, Any]:
+    def _row_to_rec(row) -> dict[str, Any]:
         summary_obj = json.loads(row["summary"] or "{}")
         return {
             "run_id": row["run_id"],
