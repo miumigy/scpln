@@ -1,31 +1,30 @@
-import threading
-import queue
-import time
 import csv
 import json
-from uuid import uuid4
-from typing import Any, Dict, Optional, Tuple
-import os
-import sys
 import logging
+import os
+import queue
+import sys
+import threading
+import time
 from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
-from domain.models import SimulationInput
-from engine.simulator import SupplyChainSimulator
-from engine.simulation_stub import run_stub as run_stub_simulation
-from app.run_registry import REGISTRY, record_canonical_run
+from prometheus_client import Counter as _Counter
+from prometheus_client import Histogram as _Histogram
+
 from app import db
-from prometheus_client import Counter as _Counter, Histogram as _Histogram
 from app.metrics import (
-    PLAN_DB_WRITE_TOTAL,
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
     PLAN_DB_WRITE_ERROR_TOTAL,
     PLAN_DB_WRITE_LATENCY,
+    PLAN_DB_WRITE_TOTAL,
     PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
-    PLAN_DB_CAPACITY_TRIM_TOTAL,
-    PLAN_DB_LAST_TRIM_TIMESTAMP,
 )
-from engine.aggregation import aggregate_by_time, rollup_axis
+from app.plan_artifact_utils import apply_plan_final_receipts
+from app.run_registry import REGISTRY, record_canonical_run
 from core.config import CanonicalConfig, PlanningDataBundle, build_planning_inputs
 from core.config.storage import (
     CanonicalConfigNotFoundError,
@@ -36,12 +35,14 @@ from core.plan_repository_builders import (
     attach_inventory_to_detail_series,
     build_plan_kpis_from_aggregate,
     build_plan_series,
+    build_plan_series_from_mrp,
     build_plan_series_from_plan_final,
     build_plan_series_from_weekly_summary,
-    build_plan_series_from_mrp,
 )
-from app.plan_artifact_utils import apply_plan_final_receipts
-
+from domain.models import SimulationInput
+from engine.aggregation import aggregate_by_time, rollup_axis
+from engine.simulation_stub import run_stub as run_stub_simulation
+from engine.simulator import SupplyChainSimulator
 
 _STORAGE_CHOICES = {"db", "files", "both"}
 _PLAN_INPUT_SET_ARTIFACT = "planning_input_set.json"
@@ -64,7 +65,7 @@ JOBS_DURATION = _Histogram(
 )
 
 
-def _storage_mode(value: Optional[str] = None) -> str:
+def _storage_mode(value: str | None = None) -> str:
     if value:
         mode = str(value).lower()
         if mode in _STORAGE_CHOICES:
@@ -83,7 +84,7 @@ def _should_use_files(mode: str) -> bool:
     return mode in {"files", "both"}
 
 
-def _load_json(path: Path) -> Dict[str, Any] | None:
+def _load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -96,7 +97,7 @@ def _load_json(path: Path) -> Dict[str, Any] | None:
 class JobManager:
     def __init__(self, workers: int = 1, db_path: str | None = None):
         self.workers = max(1, workers)
-        self.q: "queue.Queue[Dict[str, Any]]" = queue.Queue()
+        self.q: queue.Queue[dict[str, Any]] = queue.Queue()
         self._threads: list[threading.Thread] = []
         self._stop = threading.Event()
         self.db_path = db_path
@@ -146,7 +147,7 @@ class JobManager:
             t.join(timeout)
         self._threads.clear()
 
-    def submit_simulation(self, payload: Dict[str, Any]) -> str:
+    def submit_simulation(self, payload: dict[str, Any]) -> str:
         self._ensure_db_ready()
         if not self._threads:
             self.start()
@@ -215,10 +216,10 @@ class JobManager:
             sim_input = SimulationInput(**payload)
             skip_simulation = os.getenv("SCPLN_SKIP_SIMULATION_API", "0") == "1"
             sim: SupplyChainSimulator | None = None
-            summary: Dict[str, Any] = {}
-            results: list[Dict[str, Any]] = []
-            daily_pl: list[Dict[str, Any]] = []
-            cost_trace: list[Dict[str, Any]] = []
+            summary: dict[str, Any] = {}
+            results: list[dict[str, Any]] = []
+            daily_pl: list[dict[str, Any]] = []
+            cost_trace: list[dict[str, Any]] = []
             if skip_simulation:
                 (
                     summary,
@@ -292,7 +293,7 @@ class JobManager:
             return
         self.q.put({"job_id": job_id, "type": row.get("type") or "simulation"})
 
-    def submit_aggregate(self, payload: Dict[str, Any]) -> str:
+    def submit_aggregate(self, payload: dict[str, Any]) -> str:
         self._ensure_db_ready()
         if not self._threads:
             self.start()
@@ -404,7 +405,7 @@ class JobManager:
             except Exception:
                 pass
 
-    def submit_planning(self, params: Dict[str, Any]) -> str:
+    def submit_planning(self, params: dict[str, Any]) -> str:
         self._ensure_db_ready()
         if not self._threads:
             self.start()
@@ -424,8 +425,8 @@ class JobManager:
         started = int(time.time() * 1000)
         db.update_job_status(job_id, status="running", started_at=started)
         t0 = time.monotonic()
-        plan_series_rows: list[Dict[str, Any]] = []
-        plan_kpi_rows: list[Dict[str, Any]] = []
+        plan_series_rows: list[dict[str, Any]] = []
+        plan_kpi_rows: list[dict[str, Any]] = []
         plan_repository = PlanRepository(
             db._conn,
             PLAN_DB_WRITE_LATENCY,
@@ -869,9 +870,9 @@ class JobManager:
                     extra={"job_id": job_id, "version_id": version_id},
                 )
 
-            recorded_run_id: Optional[str] = None
+            recorded_run_id: str | None = None
             if canonical_config is not None:
-                scenario_id: Optional[int] = None
+                scenario_id: int | None = None
                 scenario_raw = cfg.get("base_scenario_id")
                 try:
                     if scenario_raw not in (None, ""):
@@ -1037,7 +1038,7 @@ def _materialize_planning_inputs(bundle: PlanningDataBundle, dest: Path) -> None
         )
 
 
-def _write_csv(path: Path, rows: Optional[list], columns: list[str]) -> None:
+def _write_csv(path: Path, rows: list | None, columns: list[str]) -> None:
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1055,8 +1056,8 @@ def prepare_canonical_inputs(
     out_dir: Path,
     *,
     write_artifacts: bool = False,
-    input_set_label: Optional[str] = None,
-) -> Tuple[PlanningDataBundle, Path, Dict[str, Path], CanonicalConfig]:
+    input_set_label: str | None = None,
+) -> tuple[PlanningDataBundle, Path, dict[str, Path], CanonicalConfig]:
     logging.info(
         f"DEBUG: prepare_canonical_inputs called for config_version_id: {config_version_id}"
     )
@@ -1114,7 +1115,7 @@ def prepare_canonical_inputs(
         )
         raise RuntimeError(f"Failed to materialize planning inputs: {exc}") from exc
 
-    artifact_paths: Dict[str, Path] = {}
+    artifact_paths: dict[str, Path] = {}
     if write_artifacts:
         canonical_snapshot_path = out_dir / "canonical_snapshot.json"
         canonical_snapshot_path.write_text(
