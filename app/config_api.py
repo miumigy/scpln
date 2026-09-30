@@ -42,7 +42,7 @@ def legacy_configs_list():
 
 
 @app.get("/configs/{cfg_id}")
-def legacy_configs_get(cfg_id: int):  # noqa: ARG001 - 互換性保持のため引数は維持
+def legacy_configs_get(cfg_id: int):
     _gone()
 
 
@@ -52,10 +52,10 @@ def legacy_configs_create():
 
 
 @app.put("/configs/{cfg_id}")
-def legacy_configs_update(cfg_id: int):  # noqa: ARG001
+def legacy_configs_update(cfg_id: int):
     _gone()
 
 
 @app.delete("/configs/{cfg_id}")
-def legacy_configs_delete(cfg_id: int):  # noqa: ARG001
+def legacy_configs_delete(cfg_id: int):
     _gone()
