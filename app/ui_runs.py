@@ -1,26 +1,27 @@
-from app.api import app
-import logging
 import json
+import logging
 from pathlib import Path
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+
 from app import db
-from app.template_filters import register_format_filters
-from app.utils import ms_to_jst_str
+from app.api import app
 from app.metrics import (
+    PLAN_DB_CAPACITY_TRIM_TOTAL,
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
+    PLAN_DB_LAST_TRIM_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
     PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
-    PLAN_DB_CAPACITY_TRIM_TOTAL,
-    PLAN_DB_LAST_TRIM_TIMESTAMP,
+)
+from app.template_filters import register_format_filters
+from app.utils import ms_to_jst_str
+from core.config.storage import (
+    PlanningInputSetNotFoundError,
+    get_planning_input_set,
 )
 from core.plan_repository import PlanRepository
-from core.config.storage import (
-    get_planning_input_set,
-    PlanningInputSetNotFoundError,
-)
-
 
 _PLAN_REPOSITORY = PlanRepository(
     db._conn,
