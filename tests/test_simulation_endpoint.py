@@ -1,26 +1,25 @@
+import importlib
 import os
 import re
-import importlib
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api import app
-from domain.models import (
-    SimulationInput,
-    Product,
-    MaterialNode,
-    FactoryNode,
-    WarehouseNode,
-    StoreNode,
-    NetworkLink,
-    CustomerDemand,
-)
-
 from core.config import load_canonical_config, validate_canonical_config
 from core.config.storage import CanonicalConfigNotFoundError
 from core.config.validators import ValidationIssue, ValidationResult
+from domain.models import (
+    CustomerDemand,
+    FactoryNode,
+    MaterialNode,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
+)
 
 # 先に副作用 import で /simulation を登録
 importlib.import_module("app.simulation_api")
