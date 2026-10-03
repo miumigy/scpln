@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api import app
-from domain.models import SimulationInput, Product, StoreNode, CustomerDemand
+from domain.models import CustomerDemand, Product, SimulationInput, StoreNode
 
 importlib.import_module("app.jobs_api")
 importlib.import_module("app.simulation_api")

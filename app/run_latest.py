@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict, List
 import threading
 
 _lock = threading.Lock()
-_latest_by_scenario: Dict[int, List[str]] = {}
+_latest_by_scenario: dict[int, list[str]] = {}
 
 
 def record(scenario_id: int | None, run_id: str) -> None:
@@ -25,7 +24,7 @@ def record(scenario_id: int | None, run_id: str) -> None:
             del arr[5:]
 
 
-def latest(scenario_id: int, limit: int = 1) -> List[str]:
+def latest(scenario_id: int, limit: int = 1) -> list[str]:
     try:
         sid = int(scenario_id)
     except Exception:
