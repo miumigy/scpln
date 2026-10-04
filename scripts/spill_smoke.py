@@ -9,11 +9,11 @@ Spill分布スモークチェック
 使い方:
   PYTHONPATH=. python3 scripts/spill_smoke.py -i out/plan_final.json
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-from typing import Dict
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
         print("no weekly_summary")
         return
     # 集計
-    agg: Dict[str, Dict[str, float]] = {"pre": {}, "at": {}, "post": {}}
+    agg: dict[str, dict[str, float]] = {"pre": {}, "at": {}, "post": {}}
     for r in ws:
         z = str(r.get("zone") or "").lower()
         if z not in agg:
