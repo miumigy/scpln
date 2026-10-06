@@ -1,19 +1,20 @@
-import threading
-import os
-import time
+import builtins
 import logging
+import os
+import threading
+import time
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any, List, Optional
 
 
 class RunRegistry:
     def __init__(self, capacity: int = 50):
         self.capacity = capacity
-        self._runs: Dict[str, Dict[str, Any]] = {}
-        self._order: List[str] = []
+        self._runs: dict[str, dict[str, Any]] = {}
+        self._order: list[str] = []
         self._lock = threading.Lock()
 
-    def put(self, run_id: str, payload: Dict[str, Any]) -> None:
+    def put(self, run_id: str, payload: dict[str, Any]) -> None:
         with self._lock:
             if run_id in self._runs:
                 self._runs[run_id].update(payload)
@@ -24,15 +25,15 @@ class RunRegistry:
                 old = self._order.pop(0)
                 self._runs.pop(old, None)
 
-    def get(self, run_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, run_id: str) -> dict[str, Any] | None:
         with self._lock:
             return dict(self._runs.get(run_id, {}))
 
-    def list(self) -> List[Dict[str, Any]]:
+    def list(self) -> list[dict[str, Any]]:
         with self._lock:
             return [dict(self._runs[r]) for r in reversed(self._order)]
 
-    def list_ids(self) -> List[str]:
+    def list_ids(self) -> builtins.list[str]:
         with self._lock:
             return list(reversed(self._order))
 
@@ -75,13 +76,13 @@ else:
 def record_canonical_run(
     canonical_config,
     *,
-    config_version_id: Optional[int],
-    scenario_id: Optional[int],
-    plan_version_id: Optional[str] = None,
-    plan_job_id: Optional[str] = None,
-    input_set_label: Optional[str] = None,
-    registry: Optional[RunRegistry] = None,
-) -> Optional[str]:
+    config_version_id: int | None,
+    scenario_id: int | None,
+    plan_version_id: str | None = None,
+    plan_job_id: str | None = None,
+    input_set_label: str | None = None,
+    registry: RunRegistry | None = None,
+) -> str | None:
     """Canonical設定を用いたPSIランを実行し、RunRegistryに保存する。
 
     canonical_config が None または実行失敗時は None を返す。
