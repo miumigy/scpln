@@ -1,13 +1,13 @@
 # tests/test_schema_version.py
 from domain.models import (
-    SimulationInput,
-    Product,
-    MaterialNode,
-    FactoryNode,
-    WarehouseNode,
-    StoreNode,
-    NetworkLink,
     CustomerDemand,
+    FactoryNode,
+    MaterialNode,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
+    WarehouseNode,
 )
 
 
