@@ -3,49 +3,47 @@ from __future__ import annotations
 import csv
 import io
 import json
-import time
-import uuid
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
-import shutil
-from pathlib import Path
+import time
+import uuid
 from collections import defaultdict
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any
 
-from fastapi import Body, Query, Request, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse
+from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+
+from app import db
+from app.api import app
+from app.jobs import prepare_canonical_inputs
 from app.metrics import (
+    LEGACY_MODE_RUNS_TOTAL,
     PLAN_CARRYOVER_EXPORT_TOTAL,
     PLAN_COMPARE_EXPORT_TOTAL,
-    PLAN_DB_WRITE_TOTAL,
-    PLAN_DB_WRITE_ERROR_TOTAL,
     PLAN_DB_CAPACITY_TRIM_TOTAL,
-    PLAN_SCHEDULE_EXPORT_TOTAL,
-    PLANS_CREATED_TOTAL,
-    PLANS_RECONCILED_TOTAL,
-    LEGACY_MODE_RUNS_TOTAL,
-)
-
-from app.api import app
-from app import db
-from app.metrics import (
-    PLAN_DB_WRITE_LATENCY,
-    PLAN_SERIES_ROWS_TOTAL,
     PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     PLAN_DB_LAST_TRIM_TIMESTAMP,
+    PLAN_DB_WRITE_ERROR_TOTAL,
+    PLAN_DB_WRITE_LATENCY,
+    PLAN_DB_WRITE_TOTAL,
+    PLAN_SCHEDULE_EXPORT_TOTAL,
+    PLAN_SERIES_ROWS_TOTAL,
+    PLANS_CREATED_TOTAL,
+    PLANS_RECONCILED_TOTAL,
 )
+from app.plan_artifact_utils import apply_plan_final_receipts
+from app.run_registry import record_canonical_run
 from core.config.storage import (
     CanonicalConfigNotFoundError,
+    PlanningInputSetNotFoundError,
     get_planning_input_set,
     list_planning_input_set_events,
-    PlanningInputSetNotFoundError,
 )
-from app.jobs import prepare_canonical_inputs
-from app.run_registry import record_canonical_run
-from app.plan_artifact_utils import apply_plan_final_receipts
-from scripts.plan_pipeline_io import _calendar_cli_args
 from core.plan_repository import PlanRepository, PlanRepositoryError
 from core.plan_repository_builders import (
     build_plan_kpis_from_aggregate,
@@ -53,15 +51,22 @@ from core.plan_repository_builders import (
 )
 from core.plan_repository_views import (
     build_plan_summaries,
-    fetch_aggregate_rows as repo_fetch_aggregate_rows,
-    fetch_detail_rows as repo_fetch_detail_rows,
-    fetch_override_events as repo_fetch_override_events,
-    fetch_overrides_by_level as repo_fetch_overrides,
-    summarize_audit_events,
     latest_state_from_events,
+    summarize_audit_events,
 )
-import subprocess
-
+from core.plan_repository_views import (
+    fetch_aggregate_rows as repo_fetch_aggregate_rows,
+)
+from core.plan_repository_views import (
+    fetch_detail_rows as repo_fetch_detail_rows,
+)
+from core.plan_repository_views import (
+    fetch_override_events as repo_fetch_override_events,
+)
+from core.plan_repository_views import (
+    fetch_overrides_by_level as repo_fetch_overrides,
+)
+from scripts.plan_pipeline_io import _calendar_cli_args
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 _PLAN_REPOSITORY = PlanRepository(
@@ -83,7 +88,7 @@ _PLAN_ORDER_CHOICES = {
 }
 
 
-def _get_param(body: Dict[str, Any], key: str, default: Any = None) -> Any:
+def _get_param(body: dict[str, Any], key: str, default: Any = None) -> Any:
     val = body.get(key, default)
     if isinstance(val, str) and val == "":
         return None
@@ -117,7 +122,7 @@ def _run_py(args: list[str]) -> None:
         raise
 
 
-def _load_json(path: Path) -> Dict[str, Any] | None:
+def _load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -127,7 +132,7 @@ def _load_json(path: Path) -> Dict[str, Any] | None:
         return None
 
 
-def _storage_mode(value: Optional[str] = None) -> str:
+def _storage_mode(value: str | None = None) -> str:
     if value:
         mode = str(value).lower()
         if mode in _STORAGE_CHOICES:
@@ -173,7 +178,7 @@ def _overlay_level_from_key(key: str) -> str:
     return "aggregate"
 
 
-def _get_overlay(version_id: str) -> Dict[str, Any]:
+def _get_overlay(version_id: str) -> dict[str, Any]:
     agg_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "aggregate")
     det_overrides = repo_fetch_overrides(_PLAN_REPOSITORY, version_id, "det")
     if agg_overrides or det_overrides:
@@ -210,10 +215,10 @@ def _request_actor(req: Request | None = None) -> str:
 
 
 def _save_overlay(
-    version_id: str, data: Dict[str, Any], *, actor: str, note: str | None = None
+    version_id: str, data: dict[str, Any], *, actor: str, note: str | None = None
 ) -> None:
-    overrides: list[Dict[str, Any]] = []
-    events: list[Dict[str, Any]] = []
+    overrides: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     for level, entries in (
         ("aggregate", list(data.get("aggregate") or [])),
         ("det", list(data.get("det") or [])),
@@ -284,8 +289,8 @@ def _get_locks(version_id: str) -> set[str]:
 def _save_locks(
     version_id: str, locks: set[str], *, actor: str, note: str | None = None
 ) -> None:
-    overrides: list[Dict[str, Any]] = []
-    events: list[Dict[str, Any]] = []
+    overrides: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     lock_keys = set(locks)
     handled_new: set[str] = set()
     for level in ("aggregate", "det"):
@@ -371,7 +376,7 @@ def _record_audit_event(
     *,
     actor: str,
     note: str | None = None,
-    payload: Optional[Dict[str, Any]] = None,
+    payload: dict[str, Any] | None = None,
 ) -> None:
     key_hash = f"audit:{event_type}"
     overrides = [
@@ -430,8 +435,8 @@ def _get_weights(version_id: str) -> dict[str, float]:
 def _save_weights(
     version_id: str, weights: dict[str, float], *, actor: str, note: str | None = None
 ) -> None:
-    overrides: list[Dict[str, Any]] = []
-    events: list[Dict[str, Any]] = []
+    overrides: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     for key_hash, weight in weights.items():
         level = _overlay_level_from_key(key_hash)
         overrides.append(
@@ -471,12 +476,12 @@ def _save_weights(
 
 
 def _apply_overlay(
-    level: str, base_rows: list[Dict[str, Any]], overlay_rows: list[Dict[str, Any]]
+    level: str, base_rows: list[dict[str, Any]], overlay_rows: list[dict[str, Any]]
 ):
     """Return new list with overlay fields applied by key."""
-    out: list[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     if level == "aggregate":
-        omap: Dict[str, Dict[str, Any]] = {}
+        omap: dict[str, dict[str, Any]] = {}
         for r in overlay_rows:
             k = _psi_overlay_key_agg(r.get("period"), r.get("family"))
             omap[k] = r
@@ -489,7 +494,7 @@ def _apply_overlay(
                     nr[fn] = o.get(fn)
             out.append(nr)
     else:
-        omap: Dict[str, Dict[str, Any]] = {}
+        omap: dict[str, dict[str, Any]] = {}
         for r in overlay_rows:
             k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
             omap[k] = r
@@ -565,7 +570,7 @@ def _has_approve(req: Request) -> bool:
 
 
 @app.post("/plans/create_and_execute")
-def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
+def post_plans_create_and_execute(body: dict[str, Any] = Body(...)):
     import traceback
 
     logging.info("DEBUG: post_plans_integrated_run called.")
@@ -620,8 +625,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
         out_dir.mkdir(parents=True, exist_ok=True)
         config_version_id = _get_param(body, "config_version_id")
         canonical_config = None
-        canonical_snapshot_path: Optional[Path] = None
-        planning_inputs_path: Optional[Path] = None
+        canonical_snapshot_path: Path | None = None
+        planning_inputs_path: Path | None = None
 
         logging.info("Preparing canonical inputs...")
         if config_version_id in (None, ""):
@@ -952,7 +957,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
 
         logging.info("DB persistence complete.")
 
-        def _load(p: Path) -> Optional[str]:
+        def _load(p: Path) -> str | None:
             if p.exists():
                 return p.read_text(encoding="utf-8")
             return None
@@ -1045,8 +1050,8 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
             detail_obj, aggregate_obj = apply_plan_final_receipts(
                 detail_obj, aggregate_obj, plan_final_obj
             )
-        plan_series_rows: list[Dict[str, Any]] = []
-        plan_kpi_rows: list[Dict[str, Any]] = []
+        plan_series_rows: list[dict[str, Any]] = []
+        plan_kpi_rows: list[dict[str, Any]] = []
         if aggregate_obj or detail_obj:
             try:
                 plan_series_rows = build_plan_series(
@@ -1064,9 +1069,9 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
                 )
 
         repository_status = "skipped" if use_db else "disabled"
-        recorded_run_id: Optional[str] = None
+        recorded_run_id: str | None = None
         if canonical_config is not None:
-            scenario_id: Optional[int] = None
+            scenario_id: int | None = None
             scenario_raw = body.get("base_scenario_id")
             try:
                 if scenario_raw not in (None, ""):
@@ -1176,7 +1181,7 @@ def post_plans_create_and_execute(body: Dict[str, Any] = Body(...)):
 def get_plan_psi(
     version_id: str,
     level: str = Query("aggregate"),
-    q: Optional[str] = Query(None),
+    q: str | None = Query(None),
     limit: int = Query(200),
     offset: int = Query(0),
 ):
@@ -1235,8 +1240,8 @@ def get_plan_psi(
 
 @app.patch("/plans/{version_id}/psi")
 def patch_plan_psi(
-    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
-):  # noqa: C901
+    version_id: str, request: Request, body: dict[str, Any] = Body(default={})
+):
     if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     level = body.get("level") or "aggregate"
@@ -1257,7 +1262,7 @@ def patch_plan_psi(
         def mk(row):
             return _psi_overlay_key_det(row.get("week"), row.get("sku"))
 
-    omap: Dict[str, Dict[str, Any]] = {}
+    omap: dict[str, dict[str, Any]] = {}
     for r in overlay.get(level) or []:
         omap[mk(r)] = dict(r)
     updated = 0
@@ -1270,7 +1275,7 @@ def patch_plan_psi(
     round_map = distribute.get("round") or {}
     note = body.get("note") or body.get("notes") or body.get("reason")
 
-    def _round_value(val: float, cfg: Dict[str, Any] | None) -> float:
+    def _round_value(val: float, cfg: dict[str, Any] | None) -> float:
         if not cfg:
             return val
         try:
@@ -1308,7 +1313,7 @@ def patch_plan_psi(
         for k in ("period", "family", "week", "sku"):
             if k in (e.get("key") or {}):
                 row[k] = (e.get("key") or {}).get(k)
-        fields: Dict[str, Any] = dict(e.get("fields") or {})
+        fields: dict[str, Any] = dict(e.get("fields") or {})
         for fn, val in fields.items():
             if val is None:
                 # None指定でその上書きを削除
@@ -1322,7 +1327,7 @@ def patch_plan_psi(
         omap[key] = row
         updated += 1
     # rebuild overlay list
-    new_rows: list[Dict[str, Any]] = []
+    new_rows: list[dict[str, Any]] = []
     for v in omap.values():
         # キー以外が空なら除外
         payload = {k: v.get(k) for k in v.keys()}
@@ -1375,7 +1380,7 @@ def patch_plan_psi(
                             continue
                         agg_key_candidates.add((str(per), str(fam)))
                     if agg_key_candidates:
-                        det_to_agg: Dict[str, tuple[str, str]] = {}
+                        det_to_agg: dict[str, tuple[str, str]] = {}
                         for row in det_rows_applied:
                             fam = row.get("family")
                             if fam is None:
@@ -1415,7 +1420,7 @@ def patch_plan_psi(
                                 if det_key and det_key in det_to_agg:
                                     target_aggs.add(det_to_agg[det_key])
                             if target_aggs:
-                                agg_sums: Dict[tuple[str, str], Dict[str, float]] = (
+                                agg_sums: dict[tuple[str, str], dict[str, float]] = (
                                     defaultdict(dict)
                                 )
                                 rollup_map = {
@@ -1449,7 +1454,7 @@ def patch_plan_psi(
                                             continue
                                 if agg_sums:
                                     locks = _get_locks(version_id)
-                                    agg_overlay_map: Dict[str, Dict[str, Any]] = {}
+                                    agg_overlay_map: dict[str, dict[str, Any]] = {}
                                     for row in agg_overlay_rows:
                                         key = _psi_overlay_key_agg(
                                             row.get("period"), row.get("family")
@@ -1499,7 +1504,7 @@ def patch_plan_psi(
             det_rows = list(det.get("rows") or [])
             # current det overlay map
             det_overlay = _get_overlay(version_id).get("det") or []
-            det_map: Dict[str, Dict[str, Any]] = {}
+            det_map: dict[str, dict[str, Any]] = {}
             for r in det_overlay:
                 k = _psi_overlay_key_det(r.get("week"), r.get("sku"))
                 det_map[k] = dict(r)
@@ -1507,7 +1512,7 @@ def patch_plan_psi(
             locks = _get_locks(version_id)
             # rebuild aggregate overlay index
             agg_overlay = _get_overlay(version_id).get("aggregate") or []
-            agg_idx: Dict[tuple, Dict[str, Any]] = {}
+            agg_idx: dict[tuple, dict[str, Any]] = {}
             for r in agg_overlay:
                 agg_idx[(r.get("period"), r.get("family"))] = r
             # For each affected key, distribute edited fields
@@ -1518,7 +1523,7 @@ def patch_plan_psi(
                 if not per or not fam:
                     continue
                 # target values (only fields explicitly in request)
-                targets: Dict[str, float] = {}
+                targets: dict[str, float] = {}
                 for fn_a, fn_d in field_map.items():
                     if fn_a in (e.get("fields") or {}):
                         try:
@@ -1549,8 +1554,8 @@ def patch_plan_psi(
                 if not idxs:
                     continue
                 # current totals
-                cur_tot: Dict[str, float] = {}
-                for fn_d in targets.keys():
+                cur_tot: dict[str, float] = {}
+                for fn_d in targets:
                     s = 0.0
                     for r in idxs:
                         v = r.get(fn_d)
@@ -1639,7 +1644,7 @@ def patch_plan_psi(
 @app.get("/plans/{version_id}/psi/events")
 def get_plan_psi_events(
     version_id: str,
-    level: Optional[str] = Query(None),
+    level: str | None = Query(None),
     limit: int = Query(100),
     offset: int = Query(0),
 ):
@@ -1662,8 +1667,8 @@ def get_plan_psi_events(
 
 @app.post("/plans/{version_id}/psi/reconcile")
 def post_plan_psi_reconcile(
-    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
-):  # noqa: C901
+    version_id: str, request: Request, body: dict[str, Any] = Body(default={})
+):
     if not _has_edit(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     ver = db.get_plan_version(version_id)
@@ -1892,7 +1897,7 @@ def post_plan_psi_reconcile(
 def get_plan_psi_csv(
     version_id: str,
     level: str = Query("aggregate"),
-    q: Optional[str] = Query(None),
+    q: str | None = Query(None),
     limit: int = Query(10000),
     offset: int = Query(0),
 ):
@@ -1910,8 +1915,8 @@ def get_plan_psi_csv(
             "on_hand_start",
             "on_hand_end",
         ]
-    import io
     import csv
+    import io
 
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=header)
@@ -1926,13 +1931,13 @@ def get_plan_psi_csv(
 @app.get("/plans/{version_id}/psi/audit")
 def get_plan_psi_audit(
     version_id: str,
-    level: Optional[str] = Query(None),
-    q: Optional[str] = Query(None),
+    level: str | None = Query(None),
+    q: str | None = Query(None),
     limit: int = Query(200),
 ):
     """PSI編集/ロックの監査ログ（最新順）を返す。"""
     events = repo_fetch_override_events(_PLAN_REPOSITORY, version_id, level)
-    filter_text: Optional[str] = None
+    filter_text: str | None = None
     if isinstance(q, str) and q.strip():
         filter_text = q.lower().strip()
         events = [
@@ -1976,8 +1981,8 @@ def get_plan_psi_weights(version_id: str):
 
 @app.post("/plans/{version_id}/psi/weights")
 def post_plan_psi_weights(
-    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
-):  # noqa: E501
+    version_id: str, request: Request, body: dict[str, Any] = Body(default={})
+):
     if not _auth_ok(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     weights: dict[str, float] = {}
@@ -2019,8 +2024,8 @@ def post_plan_psi_weights(
 
 @app.post("/plans/{version_id}/psi/submit")
 def post_plan_psi_submit(
-    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
-):  # noqa: E501
+    version_id: str, request: Request, body: dict[str, Any] = Body(default={})
+):
     # だれでも提出可（APIキー設定時は推奨）
     actor = _request_actor(request)
     state = {
@@ -2054,8 +2059,8 @@ def post_plan_psi_submit(
 
 @app.post("/plans/{version_id}/psi/approve")
 def post_plan_psi_approve(
-    version_id: str, request: Request, body: Dict[str, Any] = Body(default={})
-):  # noqa: E501
+    version_id: str, request: Request, body: dict[str, Any] = Body(default={})
+):
     if not _auth_ok(request):
         return JSONResponse(status_code=401, content={"detail": "unauthorized"})
     actor = _request_actor(request)
@@ -2276,7 +2281,7 @@ def get_plans_by_base(
         cap_total = adj_total = util_pct = None
         try:
             pf = db.get_plan_artifact(str(ver), "plan_final.json") or {}
-            ws = list((pf.get("weekly_summary") or []))
+            ws = list(pf.get("weekly_summary") or [])
             cap = sum(float(x.get("capacity") or 0) for x in ws)
             adj = sum(float(x.get("adjusted_load") or 0) for x in ws)
             cap_total = cap
@@ -2316,7 +2321,7 @@ def get_plan_summary(version_id: str):
 @app.post("/plans/{version_id}/reconcile")
 def post_plan_reconcile(
     version_id: str,
-    body: Dict[str, Any] = Body(default={}),
+    body: dict[str, Any] = Body(default={}),
 ):
     ver = db.get_plan_version(version_id)
     if not ver:
@@ -2550,7 +2555,7 @@ def get_plan_compare(
         deltas = [r for r in deltas if not bool(r.get("ok"))]
 
     # sort by rel max
-    def _relmax(r: Dict[str, Any]) -> float:
+    def _relmax(r: dict[str, Any]) -> float:
         xs = [
             abs(float(r.get("rel_demand", 0) or 0)),
             abs(float(r.get("rel_supply", 0) or 0)),
@@ -2558,7 +2563,7 @@ def get_plan_compare(
         ]
         return max(xs)
 
-    def _absmax(r: Dict[str, Any]) -> float:
+    def _absmax(r: dict[str, Any]) -> float:
         xs = [
             abs(float(r.get("delta_demand", 0) or 0)),
             abs(float(r.get("delta_supply", 0) or 0)),
@@ -2606,8 +2611,8 @@ def get_plan_compare_csv(
         "ok_backlog",
         "ok",
     ]
-    import io
     import csv
+    import io
 
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=header)
@@ -2637,8 +2642,8 @@ def get_plan_schedule_csv(version_id: str):
         "on_hand_start",
         "on_hand_end",
     ]
-    import io
     import csv
+    import io
 
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=header)
@@ -2716,8 +2721,8 @@ def get_plan_carryover_csv(version_id: str):
         "cap_norm_prev",
         "cap_norm_next",
     ]
-    import io
     import csv
+    import io
 
     buf = io.StringIO()
     w = csv.DictWriter(buf, fieldnames=header)
