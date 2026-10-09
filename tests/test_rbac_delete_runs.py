@@ -5,11 +5,11 @@ from fastapi.testclient import TestClient
 
 from app.api import app
 from domain.models import (
-    SimulationInput,
-    Product,
-    StoreNode,
-    NetworkLink,
     CustomerDemand,
+    NetworkLink,
+    Product,
+    SimulationInput,
+    StoreNode,
 )
 
 importlib.import_module("app.simulation_api")
