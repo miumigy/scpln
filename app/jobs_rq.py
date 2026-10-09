@@ -1,15 +1,14 @@
-import os
 import json
+import logging
+import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 from app import db
 from app.run_registry import REGISTRY
 from domain.models import SimulationInput
-from engine.simulator import SupplyChainSimulator
 from engine.aggregation import aggregate_by_time, rollup_axis
-import logging
-
+from engine.simulator import SupplyChainSimulator
 
 _BACKEND = os.getenv("JOBS_BACKEND", "memory").lower()
 
@@ -19,8 +18,8 @@ def is_enabled() -> bool:
 
 
 def _rq_queue():
-    from rq import Queue
     from redis import Redis
+    from rq import Queue
 
     url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     conn = Redis.from_url(url)
@@ -28,7 +27,7 @@ def _rq_queue():
     return Queue(qname, connection=conn)
 
 
-def submit_simulation(payload: Dict[str, Any]) -> str:
+def submit_simulation(payload: dict[str, Any]) -> str:
     job_id = os.urandom(8).hex()
     now = int(time.time() * 1000)
     db.create_job(
@@ -39,7 +38,7 @@ def submit_simulation(payload: Dict[str, Any]) -> str:
     return job_id
 
 
-def run_simulation_task(job_id: str, payload: Dict[str, Any]):
+def run_simulation_task(job_id: str, payload: dict[str, Any]):
     started = int(time.time() * 1000)
     db.update_job_status(job_id, status="running", started_at=started)
     t0 = time.monotonic()
@@ -98,7 +97,7 @@ def run_simulation_task(job_id: str, payload: Dict[str, Any]):
         )
 
 
-def submit_aggregate(payload: Dict[str, Any]) -> str:
+def submit_aggregate(payload: dict[str, Any]) -> str:
     job_id = os.urandom(8).hex()
     now = int(time.time() * 1000)
     db.create_job(
@@ -109,7 +108,7 @@ def submit_aggregate(payload: Dict[str, Any]) -> str:
     return job_id
 
 
-def run_aggregate_task(job_id: str, cfg: Dict[str, Any]):
+def run_aggregate_task(job_id: str, cfg: dict[str, Any]):
     started = int(time.time() * 1000)
     db.update_job_status(job_id, status="running", started_at=started)
     time.monotonic()
