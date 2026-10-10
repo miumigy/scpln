@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional
 
 
-def round_quantity(value: float | int, *, mode: str = "int") -> float | int:
+def round_quantity(value: float, *, mode: str = "int") -> float | int:
     try:
         v = float(value)
     except Exception:
@@ -23,15 +22,15 @@ def round_quantity(value: float | int, *, mode: str = "int") -> float | int:
 
 
 def distribute_int(
-    values: List[float],
-    target: int | float,
-    caps: Optional[List[int | float]] = None,
-) -> List[int]:
+    values: list[float],
+    target: float,
+    caps: list[int | float] | None = None,
+) -> list[int]:
     if not values:
         return []
     n = len(values)
     target_int = max(0, int(round_quantity(target, mode="int")))
-    caps_norm: List[int]
+    caps_norm: list[int]
     if caps is None:
         caps_norm = [target_int] * n
     else:
@@ -42,8 +41,7 @@ def distribute_int(
         v = max(0.0, float(val))
         base = int(math.floor(v))
         cap = caps_norm[idx]
-        if base > cap:
-            base = cap
+        base = min(base, cap)
         ints.append(base)
         total += base
     diff = target_int - total
