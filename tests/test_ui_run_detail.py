@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.api import app
-from app import db
 import app.ui_runs as ui_runs_module
+from app import db
+from app.api import app
 from app.ui_runs import ui_run_detail
 from core.config.storage import create_planning_input_set
 
