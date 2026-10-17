@@ -3,9 +3,9 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
-import sys
 
 import pytest
 
@@ -80,8 +80,9 @@ def job_manager(tmp_path, monkeypatch):
     old_sys_argv = sys.argv
     try:
         sys.argv = ["alembic", "-c", str(temp_alembic_ini_path), "upgrade", "head"]
-        from alembic.config import main as alembic_main
         import sys
+
+        from alembic.config import main as alembic_main
 
         alembic_main()
     finally:
