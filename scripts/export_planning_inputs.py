@@ -8,15 +8,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from pathlib import Path
-from typing import Dict, Iterable, List, Optional
 import shutil
 import sys
+from collections.abc import Iterable
+from pathlib import Path
 
 from core.config.storage import (
+    PlanningInputSetNotFoundError,
     get_planning_input_set,
     list_planning_input_sets,
-    PlanningInputSetNotFoundError,
 )
 
 
@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def ensure_output_dir(base_dir: Optional[str], label: str) -> Path:
+def ensure_output_dir(base_dir: str | None, label: str) -> Path:
     if base_dir:
         out_dir = Path(base_dir).resolve()
     else:
@@ -71,7 +71,7 @@ def ensure_output_dir(base_dir: Optional[str], label: str) -> Path:
     return out_dir
 
 
-def write_csv(path: Path, rows: Iterable[Dict[str, object]], fieldnames: List[str]):
+def write_csv(path: Path, rows: Iterable[dict[str, object]], fieldnames: list[str]):
     with path.open("w", encoding="utf-8", newline="") as fp:
         writer = csv.DictWriter(fp, fieldnames=fieldnames)
         writer.writeheader()
@@ -79,7 +79,7 @@ def write_csv(path: Path, rows: Iterable[Dict[str, object]], fieldnames: List[st
             writer.writerow(row)
 
 
-def export_input_set(args: argparse.Namespace) -> Dict[str, object]:
+def export_input_set(args: argparse.Namespace) -> dict[str, object]:
     input_set = _resolve_input_set(args)
     label = args.label or input_set.label
     output_dir = ensure_output_dir(args.output_dir, label)
@@ -196,7 +196,7 @@ def export_input_set(args: argparse.Namespace) -> Dict[str, object]:
     return result
 
 
-def _build_diff_report(current, other_label: str) -> Dict[str, List[Dict[str, object]]]:
+def _build_diff_report(current, other_label: str) -> dict[str, list[dict[str, object]]]:
     try:
         other = get_planning_input_set(label=other_label, include_aggregates=True)
     except PlanningInputSetNotFoundError:
@@ -282,7 +282,7 @@ def _resolve_input_set(args: argparse.Namespace):
     raise SystemExit("--label or --version-id must be specified")
 
 
-def _emit_json(result: Dict[str, object], args: argparse.Namespace) -> None:
+def _emit_json(result: dict[str, object], args: argparse.Namespace) -> None:
     if args.json:
         print(json.dumps(result))
 
