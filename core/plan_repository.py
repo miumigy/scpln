@@ -9,16 +9,16 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
-import time
-from datetime import datetime, timedelta
-from collections.abc import Callable, Iterable, Sequence
 import sys
+import time
+from collections.abc import Callable, Iterable, Sequence
+from datetime import datetime, timedelta
 from typing import Any, TypedDict
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired
 else:
-    from typing_extensions import NotRequired
+    from typing import NotRequired
 
 from .sorting import natural_sort_key
 
