@@ -6,19 +6,19 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import db
-from main import app
 from app.metrics import (
+    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
     PLAN_DB_WRITE_LATENCY,
     PLAN_SERIES_ROWS_TOTAL,
-    PLAN_DB_LAST_SUCCESS_TIMESTAMP,
 )
+from core.config.storage import create_planning_input_set
 from core.plan_repository import PlanRepository
 from core.plan_repository_builders import (
     attach_inventory_to_detail_series,
     build_plan_series,
     build_plan_series_from_plan_final,
 )
-from core.config.storage import create_planning_input_set
+from main import app
 
 pytestmark = pytest.mark.slow
 
