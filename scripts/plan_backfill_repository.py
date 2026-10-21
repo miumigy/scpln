@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """plan_artifacts から PlanRepository テーブルへデータをバックフィルするスクリプト。"""
+
 from __future__ import annotations
 
 import argparse
@@ -9,15 +10,15 @@ import sqlite3
 import sys
 import time
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 from app import db
 from core.plan_repository import (
+    PlanKpiRow,
     PlanRepository,
     PlanRepositoryError,
-    PlanKpiRow,
     PlanSeriesRow,
 )
 from core.plan_repository_builders import (
@@ -95,7 +96,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
-def load_state(path: Path | None) -> Tuple[set[str], Dict[str, str]]:
+def load_state(path: Path | None) -> tuple[set[str], dict[str, str]]:
     if path is None or not path.exists():
         return set(), {}
     try:
@@ -108,7 +109,7 @@ def load_state(path: Path | None) -> Tuple[set[str], Dict[str, str]]:
 
 
 def save_state(
-    path: Path | None, completed: Iterable[str], failed: Dict[str, str]
+    path: Path | None, completed: Iterable[str], failed: dict[str, str]
 ) -> None:
     if path is None:
         return
@@ -122,7 +123,7 @@ def save_state(
 
 def iter_plan_versions(
     conn: sqlite3.Connection, resume_from: str | None
-) -> Iterable[Dict[str, object]]:
+) -> Iterable[dict[str, object]]:
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT * FROM plan_versions ORDER BY created_at, version_id"
@@ -146,7 +147,7 @@ def has_plan_repository_data(conn: sqlite3.Connection, version_id: str) -> bool:
     return cur.fetchone() is not None
 
 
-def load_artifact(version_id: str, name: str) -> Dict[str, object] | None:
+def load_artifact(version_id: str, name: str) -> dict[str, object] | None:
     try:
         return db.get_plan_artifact(version_id, name)
     except Exception:
@@ -154,8 +155,8 @@ def load_artifact(version_id: str, name: str) -> Dict[str, object] | None:
 
 
 def build_plan_payload(
-    version: Dict[str, object],
-) -> Tuple[List[PlanSeriesRow], List[PlanKpiRow]]:
+    version: dict[str, object],
+) -> tuple[list[PlanSeriesRow], list[PlanKpiRow]]:
     version_id = str(version["version_id"])
 
     aggregate = load_artifact(version_id, "aggregate.json")
@@ -169,8 +170,8 @@ def build_plan_payload(
             version_id, "バックフィル対象の成果物が見つかりませんでした"
         )
 
-    series: List[PlanSeriesRow] = []
-    kpis: List[PlanKpiRow] = []
+    series: list[PlanSeriesRow] = []
+    kpis: list[PlanKpiRow] = []
 
     if aggregate:
         series.extend(
@@ -244,8 +245,7 @@ def build_plan_payload(
 
 
 def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS plan_backfill_runs (
             run_id TEXT PRIMARY KEY,
             started_at INTEGER NOT NULL,
@@ -261,14 +261,11 @@ def _ensure_backfill_table(conn: sqlite3.Connection) -> None:
             state_file TEXT,
             message TEXT
         )
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_plan_backfill_runs_started
         ON plan_backfill_runs(started_at DESC)
-        """
-    )
+        """)
 
 
 def _insert_backfill_run(
