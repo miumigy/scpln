@@ -18,7 +18,7 @@ from typing import Any, TypedDict
 if sys.version_info >= (3, 11):
     from typing import NotRequired
 else:
-    from typing import NotRequired
+    from typing_extensions import NotRequired
 
 from .sorting import natural_sort_key
 
