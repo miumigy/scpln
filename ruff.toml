@@ -1,0 +1,8 @@
+# ruff 設定: CI（Python 3.10/3.11）互換を維持する
+# datetime.UTC は Python 3.11 以降のみのため、timezone.utc の置換を無効化する
+target-version = "py310"
+
+[lint]
+extend-ignore = [
+    "UP017",  # datetime.UTC への置換を抑止（3.10 互換）
+]

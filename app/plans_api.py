@@ -13,7 +13,7 @@ import time
 import uuid
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
@@ -2833,7 +2833,7 @@ def _json_response(file_name: str, payload: object):
 def export_planning_input_set(
     label: str,
     background_tasks: BackgroundTasks,
-    format: str = Query("zip", enum=["zip", "csv", "json"]),
+    format: Literal["zip", "csv", "json"] = "zip",
     file: str | None = Query(None),
 ):
     if format == "zip":

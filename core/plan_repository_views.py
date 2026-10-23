@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .plan_repository import PlanRepository
@@ -182,7 +182,7 @@ def _to_timestamp_fields(ts_raw: Any) -> tuple[int | None, str | None]:
     except Exception:
         return None, None
     try:
-        dt = datetime.fromtimestamp(ts_int / 1000, tz=UTC)
+        dt = datetime.fromtimestamp(ts_int / 1000, tz=timezone.utc)
         display = dt.isoformat().replace("+00:00", "Z")
     except Exception:
         display = None
