@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
@@ -18,7 +18,7 @@ def _coerce_datetime(value: Any) -> datetime | None:
         ts = float(value)
         if abs(ts) >= 1e12:  # treat as milliseconds
             ts /= 1000.0
-        dt = datetime.fromtimestamp(ts, tz=UTC)
+        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     elif isinstance(value, str):
         text = value.strip()
         if not text:
@@ -34,12 +34,12 @@ def _coerce_datetime(value: Any) -> datetime | None:
         else:
             if abs(ts) >= 1e12:
                 ts /= 1000.0
-            dt = datetime.fromtimestamp(ts, tz=UTC)
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     else:
         return None
 
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
+        dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(JST)
 
 

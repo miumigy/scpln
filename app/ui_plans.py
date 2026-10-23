@@ -6,7 +6,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import (
@@ -168,7 +168,7 @@ def _normalize_plan_state(raw: dict | None) -> dict | None:
             ts = int(timestamp)
             if ts < 1_000_000_000_000:
                 ts *= 1000
-            dt = datetime.fromtimestamp(ts / 1000, tz=UTC)
+            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
             state["display_time"] = dt.isoformat().replace("+00:00", "Z")
         except Exception:
             pass

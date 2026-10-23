@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -77,7 +77,7 @@ def load_canonical_config(
 
     calendars = _build_calendars(planning_payload)
 
-    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     meta = ConfigMeta(
         name=name,
         schema_version="canonical-1.0",
